@@ -19,5 +19,9 @@ Thumbs.db
 # Playwright MCP
 .playwright-mcp/
 
+# Markdown docs (root level)
+*.md
+
 # Misc
 nul
+*.csv
