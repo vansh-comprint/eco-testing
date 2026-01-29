@@ -366,10 +366,14 @@ export const useAuthStoreApi = create<AuthState>()(
       },
 
       /**
-       * Dev tool: switch role for testing
+       * Dev tool: switch role for testing (development only)
        * Note: This only changes the local state, not the actual user role
        */
       switchRole: (role: UserRole) => {
+        if (!import.meta.env.DEV) {
+          console.error('switchRole is only available in development');
+          return;
+        }
         set((state) => ({
           user: state.user ? { ...state.user, role } : null,
         }));

@@ -312,7 +312,7 @@ function App() {
           <Route
             path="/super"
             element={
-              <ProtectedRoute allowedRoles={['super_admin', 'main_admin']}>
+              <ProtectedRoute allowedRoles={['super_admin']}>
                 <DashboardLayout role="super_admin" title="Super Admin" navItems={superAdminNavItems} />
               </ProtectedRoute>
             }

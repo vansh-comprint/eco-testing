@@ -129,7 +129,8 @@ _cors_origins = settings.cors_origins_list
 if settings.debug:
     # In development, allow all common local/network origins
     _dev_origins = [
-        "http://localhost:3000", "http://localhost:3001", "http://localhost:5173",
+        "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
+        "http://localhost:5173",
         "http://172.20.0.25:3000", "http://172.20.0.25:3001",
         "http://172.27.32.1:3001", "http://172.19.224.1:3001",
     ]
