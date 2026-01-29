@@ -1,7 +1,7 @@
 """enhance audit_logs table with additional columns for state tracking
 
 Revision ID: 022_enhance_audit_logs
-Revises: 021_make_submission_id_nullable
+Revises: 021_submission_nullable
 Create Date: 2026-01-27
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '022_enhance_audit_logs'
-down_revision: Union[str, None] = '021_make_submission_id_nullable'
+down_revision: Union[str, None] = '021_submission_nullable'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
