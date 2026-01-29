@@ -5,8 +5,6 @@ from typing import Optional
 
 from app.core.storage import StorageBackend
 from app.storage.local import LocalStorageBackend
-from app.storage.s3 import S3StorageBackend
-from app.storage.gcs import GCSStorageBackend
 from app.core.config import settings
 
 
@@ -45,6 +43,7 @@ def get_storage_backend(
         )
     
     elif backend_type == StorageType.S3:
+        from app.storage.s3 import S3StorageBackend
         return S3StorageBackend(
             access_key_id=settings.AWS_ACCESS_KEY_ID,
             secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
@@ -53,6 +52,7 @@ def get_storage_backend(
     
     elif backend_type == StorageType.MINIO:
         # MinIO uses S3 backend with custom endpoint
+        from app.storage.s3 import S3StorageBackend
         return S3StorageBackend(
             access_key_id=settings.MINIO_ACCESS_KEY,
             secret_access_key=settings.MINIO_SECRET_KEY,
@@ -61,6 +61,7 @@ def get_storage_backend(
         )
     
     elif backend_type == StorageType.GCS:
+        from app.storage.gcs import GCSStorageBackend
         return GCSStorageBackend(
             project_id=settings.GCP_PROJECT_ID,
             credentials_path=settings.GOOGLE_APPLICATION_CREDENTIALS
