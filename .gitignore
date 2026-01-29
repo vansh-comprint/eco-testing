@@ -5,6 +5,14 @@
 .env
 .env.local
 .env.*.local
+.env.production
+
+# PID files
+.backend.pid
+.frontend.pid
+
+# Logs
+*.log
 
 # OS
 .DS_Store
