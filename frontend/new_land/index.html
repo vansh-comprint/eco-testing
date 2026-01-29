@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ECOTRIBE | Bio-Synthesis</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ecotribe: {
+                primary: '#84CC16',       /* Neon Lime */
+                'light-primary': '#4D7C0F', /* Deep */
+                secondary: '#365314',     /* Deep Moss */
+                tertiary: '#ECFCCB',      /* Pale Lime */
+                dark: '#050505',          /* Rich Black */
+                light: '#FAFAFA',         /* Pure White/Grey */
+                text: '#0F172A',          /* Slate 900 text */
+              },
+              comprint: {
+                primary: '#FFFFFF',
+                'light-primary': '#2563EB',
+                secondary: '#2563EB',
+                tertiary: '#93C5FD',
+              }
+            },
+            fontFamily: {
+              brand: ['Chakra Petch', 'sans-serif'],
+              display: ['Rajdhani', 'sans-serif'],
+              body: ['Inter', 'sans-serif'],
+              accent: ['Playfair Display', 'serif'],
+            },
+            backgroundImage: {
+              'grain': "url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')",
+            },
+            animation: {
+              'breathe': 'breathe 12s ease-in-out infinite',
+            },
+            keyframes: {
+              breathe: {
+                '0%, 100%': { opacity: '0.3', transform: 'scale(1)' },
+                '50%': { opacity: '0.7', transform: 'scale(1.1)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Premium Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      .dark ::-webkit-scrollbar-track {
+        background: #050505;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #000; 
+        border-radius: 3px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #333;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #84CC16;
+      }
+      
+      /* Selection Color */
+      ::selection {
+        background-color: #84CC16;
+        color: #000;
+      }
+
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+
+      .text-outline {
+        -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+        color: transparent;
+      }
+      .dark .text-outline {
+        -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+      }
+
+      /* Chamfered Button Style (Diagonal Cuts) */
+      .btn-chamfer {
+        clip-path: polygon(
+          15px 0, 
+          100% 0, 
+          100% calc(100% - 15px), 
+          calc(100% - 15px) 100%, 
+          0 100%, 
+          0 15px
+        );
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "simplex-noise": "https://aistudiocdn.com/simplex-noise@^4.0.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-white dark:bg-ecotribe-dark text-black dark:text-white overflow-x-hidden">
+    <!-- Subtle Film Grain Overlay -->
+    <div class="fixed inset-0 pointer-events-none opacity-[0.03] z-[9999] mix-blend-overlay" style="background-image: url('https://grainy-gradients.vercel.app/noise.svg');"></div>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

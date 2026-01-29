@@ -1,0 +1,342 @@
+"""Enterprise management endpoints"""
+
+from typing import Optional
+from fastapi import APIRouter, Depends, status, Query, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.middleware.auth import require_permission
+from app.core.permissions import Permission
+from app.models.user import User
+from app.models.enterprise import EnterpriseStatus, EnterpriseApplicationStatus
+from app.schemas.enterprise import (
+    EnterpriseCreate,
+    EnterpriseUpdate,
+    EnterpriseApplicationCreate,
+    EnterpriseApplicationReview,
+    EnterpriseApplicationReject,
+    EnterpriseApplicationRequestInfo,
+)
+from app.services.enterprise_service import EnterpriseService, EnterpriseApplicationService
+from app.utils.response import success_response, paginated_response
+from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
+from app.utils.scoping import get_scoped_filters
+
+router = APIRouter()
+
+
+@router.get("", response_model=dict)
+async def list_enterprises(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    status: Optional[EnterpriseStatus] = Query(None, description="Filter by status"),
+    search: Optional[str] = Query(None, description="Search by name, legal name, GST, or email"),
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_READ)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List enterprises.
+
+    Data is automatically scoped based on user's role:
+    - Super Admin / OPS Admin: All enterprises
+    - Org Admin / IT Admin: Only their enterprise
+
+    **Permissions:** ENTERPRISE_READ
+    """
+    scoped_filters = get_scoped_filters(current_user)
+
+    # If user is scoped to an enterprise, only return that enterprise
+    enterprise_id = scoped_filters.get("enterprise_id")
+
+    service = EnterpriseService(db)
+
+    if enterprise_id:
+        # Return only the user's enterprise
+        try:
+            enterprise = await service.get_enterprise(enterprise_id)
+            return paginated_response(
+                data=[enterprise.model_dump()],
+                total=1,
+                page=1,
+                page_size=limit,
+            )
+        except NotFoundError:
+            return paginated_response(data=[], total=0, page=1, page_size=limit)
+
+    # Platform admins can see all enterprises
+    enterprises, total = await service.list_enterprises(
+        skip=skip,
+        limit=limit,
+        status=status,
+        search=search,
+    )
+
+    return paginated_response(
+        data=[enterprise.model_dump() for enterprise in enterprises],
+        total=total,
+        page=(skip // limit) + 1,
+        page_size=limit,
+    )
+
+
+@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_enterprise(
+    enterprise_data: EnterpriseCreate,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a new enterprise.
+
+    Only platform admins can create enterprises.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    try:
+        service = EnterpriseService(db)
+        enterprise = await service.create_enterprise(enterprise_data, current_user.id)
+        return success_response(
+            data=enterprise.model_dump(), message="Enterprise created successfully"
+        )
+    except (ValidationError, ConflictError) as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ============================================================================
+# ENTERPRISE APPLICATIONS ENDPOINTS
+# Note: These routes MUST come before /{enterprise_id} to avoid path conflicts
+# ============================================================================
+
+
+@router.get("/applications", response_model=dict)
+async def list_enterprise_applications(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    status: Optional[EnterpriseApplicationStatus] = Query(None, description="Filter by status"),
+    search: Optional[str] = Query(None, description="Search by company name, email, or ref"),
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List enterprise applications.
+
+    Only platform admins (Super Admin / OPS Admin) can view applications.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    service = EnterpriseApplicationService(db)
+    applications, total = await service.list_applications(
+        skip=skip,
+        limit=limit,
+        status=status,
+        search=search,
+    )
+
+    return paginated_response(
+        data=[app.model_dump() for app in applications],
+        total=total,
+        page=(skip // limit) + 1,
+        page_size=limit,
+    )
+
+
+@router.post("/applications", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_enterprise_application(
+    application_data: EnterpriseApplicationCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a new enterprise application (registration).
+
+    This is a public endpoint - no authentication required.
+    The application will be reviewed by platform admins.
+    """
+    try:
+        service = EnterpriseApplicationService(db)
+        application = await service.create_application(application_data)
+        return success_response(
+            data=application.model_dump(),
+            message="Application submitted successfully. You will be notified once reviewed.",
+        )
+    except ConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/applications/{application_id}", response_model=dict)
+async def get_enterprise_application(
+    application_id: str,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get enterprise application by ID.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    try:
+        service = EnterpriseApplicationService(db)
+        application = await service.get_application(application_id)
+        return success_response(data=application.model_dump())
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/applications/{application_id}/approve", response_model=dict)
+async def approve_enterprise_application(
+    application_id: str,
+    review_data: EnterpriseApplicationReview,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Approve an enterprise application.
+
+    This creates the enterprise and org admin user.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    try:
+        service = EnterpriseApplicationService(db)
+        application = await service.approve_application(
+            application_id=application_id,
+            reviewed_by=current_user.id,
+            review_notes=review_data.review_notes,
+        )
+        return success_response(
+            data=application.model_dump(),
+            message="Application approved. Enterprise and Org Admin created.",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/applications/{application_id}/reject", response_model=dict)
+async def reject_enterprise_application(
+    application_id: str,
+    reject_data: EnterpriseApplicationReject,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reject an enterprise application.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    try:
+        service = EnterpriseApplicationService(db)
+        application = await service.reject_application(
+            application_id=application_id,
+            reviewed_by=current_user.id,
+            reason=reject_data.reason,
+            review_notes=reject_data.review_notes,
+        )
+        return success_response(
+            data=application.model_dump(),
+            message="Application rejected.",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/applications/{application_id}/request-info", response_model=dict)
+async def request_more_info_enterprise_application(
+    application_id: str,
+    info_data: EnterpriseApplicationRequestInfo,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Request more information for an enterprise application.
+
+    **Permissions:** ENTERPRISE_CREATE
+    """
+    try:
+        service = EnterpriseApplicationService(db)
+        application = await service.request_more_info(
+            application_id=application_id,
+            reviewed_by=current_user.id,
+            notes=info_data.notes,
+        )
+        return success_response(
+            data=application.model_dump(),
+            message="More information requested.",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ============================================================================
+# ENTERPRISE CRUD BY ID (must come after /applications routes)
+# ============================================================================
+
+
+@router.get("/{enterprise_id}", response_model=dict)
+async def get_enterprise(
+    enterprise_id: str,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_READ)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get enterprise by ID.
+
+    **Permissions:** ENTERPRISE_READ
+    """
+    try:
+        service = EnterpriseService(db)
+        enterprise = await service.get_enterprise(enterprise_id)
+        return success_response(data=enterprise.model_dump())
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.put("/{enterprise_id}", response_model=dict)
+async def update_enterprise(
+    enterprise_id: str,
+    enterprise_data: EnterpriseUpdate,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update enterprise by ID.
+
+    **Permissions:** ENTERPRISE_UPDATE
+    """
+    try:
+        service = EnterpriseService(db)
+        enterprise = await service.update_enterprise(
+            enterprise_id, enterprise_data, current_user.id
+        )
+        return success_response(
+            data=enterprise.model_dump(), message="Enterprise updated successfully"
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except (ValidationError, ConflictError) as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/{enterprise_id}", response_model=dict, status_code=status.HTTP_200_OK)
+async def delete_enterprise(
+    enterprise_id: str,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_DELETE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete enterprise by ID.
+
+    **Permissions:** ENTERPRISE_DELETE
+    """
+    try:
+        service = EnterpriseService(db)
+        await service.delete_enterprise(enterprise_id)
+        return success_response(message="Enterprise deleted successfully")
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

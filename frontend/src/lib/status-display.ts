@@ -1,0 +1,272 @@
+/**
+ * Centralized Status Display Labels
+ * User-friendly labels for asset and batch statuses
+ *
+ * Key changes from V2:
+ * - "In Progress" → "Awaiting Verification" (for submitted items)
+ * - "Accepted" → "Verified"
+ * - "Scheduled" → "Scheduled for Pickup"
+ * - "Picked Up" → "Pickup Completed"
+ * - CFO references → Org Admin
+ */
+
+import type { AssetStatus, BatchStatus } from '@/types';
+
+// ============================================
+// ASSET STATUS DISPLAY
+// ============================================
+
+export interface StatusDisplayConfig {
+  label: string;
+  variant: 'default' | 'success' | 'warning' | 'error' | 'info';
+  description?: string;
+}
+
+export const ASSET_STATUS_DISPLAY: Record<AssetStatus, StatusDisplayConfig> = {
+  pending_assignment: {
+    label: 'Pending Assignment',
+    variant: 'default',
+    description: 'Asset is waiting to be assigned to a sub-user'
+  },
+  assigned: {
+    label: 'Assigned',
+    variant: 'info',
+    description: 'Asset has been assigned to a sub-user for check-in'
+  },
+  check_in_started: {
+    label: 'Check-in Started',
+    variant: 'info',
+    description: 'Sub-user has started the check-in process'
+  },
+  submitted: {
+    label: 'Awaiting Verification',
+    variant: 'warning',
+    description: 'Submission complete, waiting for remote verification'
+  },
+  remote_review: {
+    label: 'Awaiting Verification',
+    variant: 'warning',
+    description: 'Under remote review by technician'
+  },
+  conditionally_accepted: {
+    label: 'Verified',
+    variant: 'success',
+    description: 'Conditionally verified, ready for pickup'
+  },
+  remote_rejected: {
+    label: 'Rejected',
+    variant: 'error',
+    description: 'Rejected during remote verification'
+  },
+  disputed: {
+    label: 'Disputed',
+    variant: 'warning',
+    description: 'Asset is under dispute review'
+  },
+  ready_for_pickup: {
+    label: 'Ready for Pickup',
+    variant: 'success',
+    description: 'Asset is ready to be picked up'
+  },
+  pickup_requested: {
+    label: 'Pickup Requested',
+    variant: 'info',
+    description: 'Pickup request has been submitted'
+  },
+  pickup_scheduled: {
+    label: 'Scheduled for Pickup',
+    variant: 'info',
+    description: 'Pickup has been scheduled'
+  },
+  picked_up: {
+    label: 'Pickup Completed',
+    variant: 'success',
+    description: 'Asset has been picked up'
+  },
+  in_transit: {
+    label: 'In Transit',
+    variant: 'info',
+    description: 'Asset is in transit to facility'
+  },
+  facility_qc: {
+    label: 'Quality Check',
+    variant: 'warning',
+    description: 'Asset is undergoing facility QC'
+  },
+  final_accepted: {
+    label: 'Verified (Final)',
+    variant: 'success',
+    description: 'Asset has passed final verification'
+  },
+  final_rejected: {
+    label: 'Rejected (Final)',
+    variant: 'error',
+    description: 'Asset was rejected during final QC'
+  },
+  payout_pending: {
+    label: 'Payout Pending',
+    variant: 'warning',
+    description: 'Waiting for payout processing'
+  },
+  completed: {
+    label: 'Completed',
+    variant: 'success',
+    description: 'Asset processing complete'
+  },
+};
+
+// Filter dropdown options for asset list
+export const ASSET_STATUS_FILTER_OPTIONS = [
+  { label: 'All Statuses', value: '' },
+  { label: 'Pending Assignment', value: 'pending_assignment' },
+  { label: 'Assigned', value: 'assigned' },
+  { label: 'Check-in Started', value: 'check_in_started' },
+  { label: 'Awaiting Verification', value: 'submitted' },
+  { label: 'Awaiting Verification (All)', value: 'in_review' },
+  { label: 'Verified (All)', value: 'accepted' },
+  { label: 'Rejected (All)', value: 'rejected' },
+  { label: 'Verified (Remote)', value: 'conditionally_accepted' },
+  { label: 'Rejected (Remote)', value: 'remote_rejected' },
+  { label: 'Disputed', value: 'disputed' },
+  { label: 'Ready for Pickup', value: 'ready_for_pickup' },
+  { label: 'Pickup Requested', value: 'pickup_requested' },
+  { label: 'Scheduled for Pickup', value: 'pickup_scheduled' },
+  { label: 'Pickup Completed', value: 'picked_up' },
+  { label: 'In Transit', value: 'in_transit' },
+  { label: 'Quality Check', value: 'facility_qc' },
+  { label: 'Verified (Final)', value: 'final_accepted' },
+  { label: 'Rejected (Final)', value: 'final_rejected' },
+  { label: 'Payout Pending', value: 'payout_pending' },
+  { label: 'Completed', value: 'completed' },
+];
+
+// Status groups for filtering
+export const ASSET_STATUS_GROUPS: Record<string, AssetStatus[]> = {
+  in_review: ['submitted', 'remote_review', 'facility_qc'],
+  accepted: ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'],
+  rejected: ['remote_rejected', 'final_rejected'],
+  awaiting_verification: ['submitted', 'remote_review'],
+  // V3.2: Ready for pickup includes conditionally_accepted and ready_for_pickup
+  ready_for_pickup: ['conditionally_accepted', 'ready_for_pickup'],
+  // V3.2: In progress excludes conditionally_accepted (those are ready for pickup)
+  in_progress: ['assigned', 'check_in_started', 'submitted', 'remote_review', 'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit', 'facility_qc'],
+};
+
+// Helper function to get display config
+export function getAssetStatusDisplay(status: AssetStatus): StatusDisplayConfig {
+  return ASSET_STATUS_DISPLAY[status] || { label: status, variant: 'default' };
+}
+
+// ============================================
+// BATCH STATUS DISPLAY
+// ============================================
+
+export const BATCH_STATUS_DISPLAY: Record<BatchStatus, StatusDisplayConfig> = {
+  draft: {
+    label: 'Draft',
+    variant: 'default',
+    description: 'Batch is being prepared'
+  },
+  pending_approval: {
+    label: 'Pending Approval',
+    variant: 'warning',
+    description: 'Waiting for Org Admin approval'
+  },
+  pending_cfo_approval: {
+    label: 'Pending Approval',
+    variant: 'warning',
+    description: 'Waiting for approval'
+  },
+  approved: {
+    label: 'Approved',
+    variant: 'success',
+    description: 'Batch has been approved'
+  },
+  cfo_approved: {
+    label: 'Approved',
+    variant: 'success',
+    description: 'Batch has been approved'
+  },
+  rejected: {
+    label: 'Rejected',
+    variant: 'error',
+    description: 'Batch was rejected'
+  },
+  cfo_rejected: {
+    label: 'Rejected',
+    variant: 'error',
+    description: 'Batch was rejected'
+  },
+  active: {
+    label: 'Active',
+    variant: 'info',
+    description: 'Batch is currently being processed'
+  },
+  in_progress: {
+    label: 'Processing',
+    variant: 'info',
+    description: 'Assets in batch are being processed'
+  },
+  completed: {
+    label: 'Completed',
+    variant: 'success',
+    description: 'All assets in batch have been processed'
+  },
+  cancelled: {
+    label: 'Cancelled',
+    variant: 'default',
+    description: 'Batch has been cancelled'
+  },
+};
+
+// Filter dropdown options for batch list
+export const BATCH_STATUS_FILTER_OPTIONS = [
+  { label: 'All Statuses', value: '' },
+  { label: 'Draft', value: 'draft' },
+  { label: 'Pending Approval', value: 'pending_approval' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+  { label: 'Active', value: 'active' },
+  { label: 'Processing', value: 'in_progress' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
+];
+
+// Helper function to get display config
+export function getBatchStatusDisplay(status: BatchStatus): StatusDisplayConfig {
+  return BATCH_STATUS_DISPLAY[status] || { label: status, variant: 'default' };
+}
+
+// ============================================
+// PICKUP STATUS DISPLAY
+// ============================================
+
+export const PICKUP_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
+  pending_assignment: { label: 'Pending Assignment', variant: 'default' },
+  assigned: { label: 'Assigned', variant: 'info' },
+  scheduled: { label: 'Scheduled', variant: 'info' },
+  in_progress: { label: 'In Progress', variant: 'warning' },
+  completed: { label: 'Completed', variant: 'success' },
+  cancelled: { label: 'Cancelled', variant: 'default' },
+};
+
+// ============================================
+// SUB-USER STATUS DISPLAY
+// ============================================
+
+export const SUB_USER_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
+  pending_invite: { label: 'Pending Invite', variant: 'default' },
+  invited: { label: 'Invited', variant: 'info' },
+  active: { label: 'Active', variant: 'success' },
+  inactive: { label: 'Inactive', variant: 'default' },
+};
+
+// ============================================
+// USER/IT ADMIN STATUS DISPLAY
+// ============================================
+
+export const USER_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
+  active: { label: 'Active', variant: 'success' },
+  inactive: { label: 'Inactive', variant: 'default' },
+  suspended: { label: 'Suspended', variant: 'error' },
+};

@@ -1,0 +1,361 @@
+"""Service layer for Pickup business logic"""
+
+import uuid
+from datetime import datetime, timezone
+from typing import Optional, List, Tuple
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import PickupRequest, PickupStatus, Asset, AssetStatus, User, UserRole
+from app.repositories.pickup_repository import PickupRepository
+from app.repositories.asset_repository import AssetRepository
+from app.schemas.pickup import (
+    PickupRequestCreate,
+    PickupRequestUpdate,
+    PickupAssignToLogisticsAdmin,
+    PickupAssignToLogisticsUser,
+    PickupComplete,
+)
+from app.services.audit_service import AuditService
+
+
+class PickupService:
+    """Service for handling pickup request business logic"""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self.repo = PickupRepository(session)
+        self.asset_repo = AssetRepository(session)
+
+    async def create_pickup(self, data: PickupRequestCreate, user: User) -> PickupRequest:
+        """Create a pickup request"""
+        # Auto-fill enterprise_id for scoped users
+        enterprise_id = data.enterprise_id
+        if user.role in [UserRole.ORG_ADMIN.value, UserRole.IT_ADMIN.value]:
+            enterprise_id = user.enterprise_id
+
+        if not enterprise_id:
+            raise ValueError("Enterprise ID is required")
+
+        # Build assets summary
+        assets_summary = []
+        for asset_id in data.asset_ids:
+            asset = await self.asset_repo.get_by_id(asset_id)
+            if asset:
+                assets_summary.append(
+                    {
+                        "id": asset.id,
+                        "serial_number": asset.serial_number,
+                        "device_type": asset.device_type,
+                        "brand": asset.brand,
+                        "model": asset.model,
+                    }
+                )
+
+        pickup = PickupRequest(
+            id=f"pr-{uuid.uuid4()}",
+            enterprise_id=enterprise_id,
+            location_id=data.location_id,
+            batch_id=data.batch_id,
+            asset_ids=data.asset_ids,
+            assets=assets_summary,
+            preferred_date=data.preferred_date,
+            preferred_time_slot=data.preferred_time_slot,
+            special_instructions=data.special_instructions,
+            status=PickupStatus.PENDING.value,
+        )
+
+        await self.repo.create(pickup)
+
+        # Update asset statuses to pickup_requested
+        for asset_id in data.asset_ids:
+            asset = await self.asset_repo.get_by_id(asset_id)
+            if asset:
+                asset.status = AssetStatus.PICKUP_REQUESTED.value
+
+        await self.session.flush()
+        return pickup
+
+    async def get_pickup(self, pickup_id: str) -> Optional[PickupRequest]:
+        """Get a pickup request by ID"""
+        return await self.repo.get_by_id(pickup_id)
+
+    async def update_pickup(
+        self, pickup_id: str, data: PickupRequestUpdate, user: User
+    ) -> Optional[PickupRequest]:
+        """Update a pickup request"""
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            return None
+
+        # Only pending pickups can be updated by IT Admin
+        if user.role == UserRole.IT_ADMIN.value:
+            if pickup.status != PickupStatus.PENDING.value:
+                raise ValueError("Can only update pending pickup requests")
+
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(pickup, key, value)
+
+        await self.session.flush()
+        return pickup
+
+    async def assign_to_logistics_admin(
+        self, pickup_id: str, data: PickupAssignToLogisticsAdmin, user: User
+    ) -> PickupRequest:
+        """Assign pickup to logistics admin (OPS Admin action) with audit logging"""
+        if user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
+            raise ValueError("Only OPS Admin can assign to logistics admin")
+
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        if pickup.status != PickupStatus.PENDING.value:
+            raise ValueError("Can only assign pending pickup requests")
+
+        old_status = pickup.status
+        pickup.logistics_admin_id = data.logistics_admin_id
+        pickup.status = PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value
+        pickup.assigned_at = datetime.now(timezone.utc)
+        pickup.assigned_by_id = user.id
+
+        await self.session.flush()
+
+        # Log to audit trail
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Assigned to logistics admin {data.logistics_admin_id}",
+            metadata={"logistics_admin_id": data.logistics_admin_id}
+        )
+
+        return pickup
+
+    async def assign_to_logistics_user(
+        self, pickup_id: str, data: PickupAssignToLogisticsUser, user: User
+    ) -> PickupRequest:
+        """Assign pickup to logistics user (Logistics Admin action) with audit logging"""
+        if user.role not in [
+            UserRole.SUPER_ADMIN.value,
+            UserRole.OPS_ADMIN.value,
+            UserRole.LOGISTICS_ADMIN.value,
+        ]:
+            raise ValueError("Only Logistics Admin can assign to logistics user")
+
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        # Logistics admin can only assign their own pickups
+        if user.role == UserRole.LOGISTICS_ADMIN.value:
+            if pickup.logistics_admin_id != user.id:
+                raise ValueError("Can only assign pickups assigned to you")
+
+        if pickup.status != PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value:
+            raise ValueError("Pickup must be assigned to logistics admin first")
+
+        old_status = pickup.status
+        pickup.logistics_user_id = data.logistics_user_id
+        pickup.status = PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value
+        if data.scheduled_date:
+            pickup.scheduled_date = data.scheduled_date
+            pickup.status = PickupStatus.SCHEDULED.value
+
+        await self.session.flush()
+
+        # Log to audit trail
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Assigned to logistics user {data.logistics_user_id}",
+            metadata={
+                "logistics_user_id": data.logistics_user_id,
+                "scheduled_date": str(data.scheduled_date) if data.scheduled_date else None
+            }
+        )
+
+        return pickup
+
+    async def start_pickup(self, pickup_id: str, user: User) -> PickupRequest:
+        """Start a pickup (Logistics User action) with audit logging"""
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        if user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("This pickup is not assigned to you")
+
+        valid_statuses = [
+            PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            PickupStatus.SCHEDULED.value,
+        ]
+        if pickup.status not in valid_statuses:
+            raise ValueError("Pickup must be assigned or scheduled to start")
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.IN_PROGRESS.value
+        await self.session.flush()
+
+        # Log to audit trail
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details="Pickup started by logistics user"
+        )
+
+        return pickup
+
+    async def complete_pickup(
+        self, pickup_id: str, data: PickupComplete, user: User
+    ) -> PickupRequest:
+        """Complete a pickup (Logistics User action) with audit logging"""
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        if user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("This pickup is not assigned to you")
+
+        if pickup.status != PickupStatus.IN_PROGRESS.value:
+            raise ValueError("Pickup must be in progress to complete")
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.COMPLETED.value
+        pickup.completed_at = datetime.now(timezone.utc)
+        pickup.proof_of_pickup = data.proof_of_pickup
+        if data.logistics_notes:
+            pickup.logistics_notes = data.logistics_notes
+
+        # Update asset statuses to picked_up
+        for asset_id in pickup.asset_ids:
+            asset = await self.asset_repo.get_by_id(asset_id)
+            if asset:
+                asset.status = AssetStatus.PICKED_UP.value
+
+        await self.session.flush()
+
+        # Log to audit trail
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details="Pickup completed",
+            metadata={
+                "asset_count": len(pickup.asset_ids),
+                "has_proof": bool(data.proof_of_pickup)
+            }
+        )
+
+        return pickup
+
+    async def cancel_pickup(self, pickup_id: str, reason: str, user: User) -> PickupRequest:
+        """Cancel a pickup request with audit logging"""
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        # Check permissions
+        if user.role == UserRole.IT_ADMIN.value:
+            if pickup.status != PickupStatus.PENDING.value:
+                raise ValueError("Can only cancel pending pickup requests")
+        elif user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("This pickup is not assigned to you")
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.CANCELLED.value
+        pickup.logistics_notes = f"Cancelled: {reason}"
+
+        await self.session.flush()
+
+        # Log to audit trail
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Pickup cancelled: {reason}",
+            metadata={"cancellation_reason": reason}
+        )
+
+        return pickup
+
+    async def list_pickups(
+        self,
+        user: User,
+        enterprise_id: Optional[str] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[PickupRequest], int]:
+        """List pickups with role-based filtering"""
+        logistics_admin_id = None
+        logistics_user_id = None
+
+        if user.role == UserRole.LOGISTICS_USER.value:
+            logistics_user_id = user.id
+        elif user.role == UserRole.LOGISTICS_ADMIN.value:
+            logistics_admin_id = user.id
+        elif user.role in [UserRole.ORG_ADMIN.value, UserRole.IT_ADMIN.value]:
+            enterprise_id = user.enterprise_id
+        # Super/OPS admins see all
+
+        return await self.repo.list_with_filters(
+            enterprise_id=enterprise_id,
+            logistics_admin_id=logistics_admin_id,
+            logistics_user_id=logistics_user_id,
+            status=status,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_pending_assignment(
+        self,
+        user: User,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[PickupRequest], int]:
+        """Get pickups pending OPS admin assignment"""
+        if user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
+            raise ValueError("Only OPS Admin can view pending assignments")
+
+        return await self.repo.get_pending_assignment(skip=skip, limit=limit)
+
+    async def get_my_assignments(
+        self,
+        user: User,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[PickupRequest], int]:
+        """Get pickups assigned to current user"""
+        if user.role == UserRole.LOGISTICS_ADMIN.value:
+            return await self.repo.get_assigned_to_admin(user.id, skip=skip, limit=limit)
+        elif user.role == UserRole.LOGISTICS_USER.value:
+            return await self.repo.get_assigned_to_user(user.id, skip=skip, limit=limit)
+        else:
+            raise ValueError("Only logistics users can view their assignments")

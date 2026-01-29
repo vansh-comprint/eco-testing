@@ -1,0 +1,14 @@
+export { default as Navbar } from './Navbar';
+export { default as Hero } from './Hero';
+export { default as WhatWeSolve } from './WhatWeSolve';
+export { default as CorePillars } from './CorePillars';
+export { default as ServicesGrid } from './ServicesGrid';
+export { default as HowItWorks } from './HowItWorks';
+export { default as Compliance } from './Compliance';
+export { default as ESGReporting } from './ESGReporting';
+export { default as Industries } from './Industries';
+export { default as CaseStudies } from './CaseStudies';
+export { default as LeadCapture } from './LeadCapture';
+export { default as FAQ } from './FAQ';
+export { default as FinalCTA } from './FinalCTA';
+export { default as Footer } from './Footer';

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#050505"/>
+
+  <!-- Stylized leaf/E shape representing Eco -->
+  <path d="M8 6 L24 6 L24 10 L12 10 L12 14 L22 14 L22 18 L12 18 L12 22 L24 22 L24 26 L8 26 Z" fill="#84CC16"/>
+
+  <!-- Small leaf accent in top right -->
+  <path d="M22 4 Q28 4 28 10 Q25 8 22 8 Q22 6 22 4 Z" fill="#84CC16" opacity="0.6"/>
+</svg>

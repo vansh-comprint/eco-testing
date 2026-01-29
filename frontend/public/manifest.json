@@ -1,0 +1,16 @@
+{
+  "name": "ECOTRIBE",
+  "short_name": "EcoTribe",
+  "description": "Your IT Sustainability Partner. End-to-end asset lifecycle management with compliance, security, and measurable ESG impact.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#84CC16",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

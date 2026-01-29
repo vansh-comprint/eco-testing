@@ -1,0 +1,93 @@
+/**
+ * useEnterprises - React Query hook for enterprises
+ * Used by OPS Admin to view and manage all enterprises
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchEnterprises,
+  fetchEnterpriseById,
+} from '@/lib/db/api-queries';
+import { enterprisesApi } from '@/lib/api';
+
+// Query keys for cache management
+export const enterpriseKeys = {
+  all: ['enterprises'] as const,
+  lists: () => [...enterpriseKeys.all, 'list'] as const,
+  details: () => [...enterpriseKeys.all, 'detail'] as const,
+  detail: (id: string) => [...enterpriseKeys.details(), id] as const,
+};
+
+// ============================================
+// QUERIES
+// ============================================
+
+/**
+ * Fetch all enterprises (for OPS Admin)
+ */
+export function useEnterprises() {
+  return useQuery({
+    queryKey: enterpriseKeys.lists(),
+    queryFn: () => fetchEnterprises(),
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Fetch single enterprise by ID
+ */
+export function useEnterprise(enterpriseId: string) {
+  return useQuery({
+    queryKey: enterpriseKeys.detail(enterpriseId),
+    queryFn: () => fetchEnterpriseById(enterpriseId),
+    enabled: !!enterpriseId,
+  });
+}
+
+// ============================================
+// MUTATIONS
+// ============================================
+
+export interface UpdateEnterpriseInput {
+  name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  address?: string;
+  status?: 'active' | 'inactive' | 'suspended';
+}
+
+/**
+ * Update an enterprise
+ */
+export function useUpdateEnterprise() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ enterpriseId, updates }: { enterpriseId: string; updates: UpdateEnterpriseInput }) => {
+      const response = await enterprisesApi.update(enterpriseId, updates);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(enterpriseKeys.detail(variables.enterpriseId), data);
+      queryClient.invalidateQueries({ queryKey: enterpriseKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Update enterprise status
+ */
+export function useUpdateEnterpriseStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ enterpriseId, status }: { enterpriseId: string; status: string }) => {
+      const response = await enterprisesApi.update(enterpriseId, { status: status as any });
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(enterpriseKeys.detail(variables.enterpriseId), data);
+      queryClient.invalidateQueries({ queryKey: enterpriseKeys.lists() });
+    },
+  });
+}

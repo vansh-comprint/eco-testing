@@ -1,0 +1,447 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+-- Last updated: Dec 2024 (includes V3 migrations 007-012)
+
+-- ============================================================================
+-- V3 TABLES (Added in migrations 007-012)
+-- ============================================================================
+
+CREATE TABLE public.branches (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  it_admin_id text,                   -- V3.2: Links to IT Admin (1 IT Admin → Many Branches)
+  branch_name text NOT NULL,
+  branch_code text NOT NULL,          -- 1-10 alphanumeric uppercase, unique per enterprise
+  address_line1 text NOT NULL,
+  address_line2 text,
+  city text NOT NULL,
+  state text NOT NULL,
+  pin_code text NOT NULL,
+  pickup_point_description text,
+  site_contact_person text,
+  site_contact_phone text,
+  operating_hours text,
+  special_instructions text,
+  status text NOT NULL DEFAULT 'needs_admin'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text, 'needs_admin'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT branches_pkey PRIMARY KEY (id),
+  CONSTRAINT branches_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id) ON DELETE CASCADE,
+  CONSTRAINT branches_it_admin_id_fkey FOREIGN KEY (it_admin_id) REFERENCES public.users(id) ON DELETE SET NULL,
+  CONSTRAINT branches_enterprise_code_unique UNIQUE (enterprise_id, branch_code)
+);
+
+CREATE TABLE public.enterprise_applications (
+  id text NOT NULL,
+  company_name text NOT NULL,
+  gst_number text NOT NULL,
+  pan_number text NOT NULL,
+  registered_address text NOT NULL,
+  industry_type text,
+  company_size text,
+  org_admin_name text NOT NULL,
+  org_admin_email text NOT NULL,
+  org_admin_phone text NOT NULL,
+  org_admin_designation text,
+  password_hash text NOT NULL,
+  doc_gst_certificate text,
+  doc_pan_card text,
+  doc_incorporation_cert text,
+  doc_signatory_id text,
+  doc_address_proof text,
+  doc_company_logo text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'info_requested'::text])),
+  application_ref text UNIQUE,
+  reviewed_by text,
+  reviewed_at timestamp with time zone,
+  review_notes text,
+  rejection_reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT enterprise_applications_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.logistics_admins (
+  id text NOT NULL,
+  name text NOT NULL,
+  company_name text NOT NULL,
+  phone text,
+  email text,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT logistics_admins_pkey PRIMARY KEY (id)
+);
+
+-- ============================================================================
+-- ORIGINAL TABLES (with V3 column additions noted)
+-- ============================================================================
+
+CREATE TABLE public.assets (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  batch_id text,
+  branch_id text,                    -- V3: Added for branch hierarchy
+  it_admin_id text,                  -- V3: Added for IT admin assignment
+  serial_number text NOT NULL UNIQUE,
+  brand text NOT NULL,
+  model text NOT NULL,
+  asset_tag text,
+  specs jsonb,
+  purchase_date date,
+  assigned_sub_user_id text,
+  assigned_user_id text,             -- V3: For admin self-evaluation
+  is_self_assigned boolean DEFAULT false, -- V3: Flag for self-evaluation
+  assigned_at timestamp with time zone,
+  status USER-DEFINED NOT NULL DEFAULT 'pending_assignment'::asset_status,
+  grade USER-DEFINED,
+  base_price numeric,
+  final_price numeric,
+  treatment_outcome USER-DEFINED,
+  treatment_date timestamp with time zone,
+  recycler_partner_id text,
+  weight_kg numeric,
+  epr_certificate_id text,
+  qc_report jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT assets_pkey PRIMARY KEY (id),
+  CONSTRAINT assets_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT assets_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id),
+  CONSTRAINT assets_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
+  CONSTRAINT assets_it_admin_id_fkey FOREIGN KEY (it_admin_id) REFERENCES public.users(id),
+  CONSTRAINT assets_assigned_sub_user_id_fkey FOREIGN KEY (assigned_sub_user_id) REFERENCES public.sub_users(id)
+);
+CREATE TABLE public.audit_logs (
+  id text NOT NULL,
+  entity_type text NOT NULL CHECK (entity_type = ANY (ARRAY['asset'::text, 'batch'::text, 'pickup'::text, 'user'::text, 'enterprise'::text, 'payout'::text])),
+  entity_id text NOT NULL,
+  action text NOT NULL,
+  from_status text,
+  to_status text,
+  actor_id text,
+  actor_type text DEFAULT 'user'::text CHECK (actor_type = ANY (ARRAY['user'::text, 'system'::text])),
+  metadata jsonb,
+  ip_address text,
+  user_agent text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.batches (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  branch_id text,                         -- V3: Added for branch hierarchy
+  name text NOT NULL,
+  description text,
+  status USER-DEFINED NOT NULL DEFAULT 'draft'::batch_status,
+  asset_count integer NOT NULL DEFAULT 0,
+  accepted_count integer NOT NULL DEFAULT 0,
+  rejected_count integer NOT NULL DEFAULT 0,
+  pending_count integer NOT NULL DEFAULT 0,
+  estimated_value numeric NOT NULL DEFAULT 0,
+  total_payout numeric NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  requires_cfo_approval boolean NOT NULL DEFAULT false,
+  created_by text,
+  submitted_at timestamp with time zone,
+  approved_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  -- V3: Pickup approval fields
+  pickup_location_override text,
+  preferred_pickup_date date,
+  preferred_pickup_slot text CHECK (preferred_pickup_slot IN ('morning', 'afternoon', 'evening')),
+  pickup_priority text DEFAULT 'normal' CHECK (pickup_priority IN ('normal', 'urgent')),
+  it_admin_notes text,
+  logistics_instructions text,
+  submitted_for_approval_at timestamp with time zone,
+  org_admin_notes text,
+  rejected_by text,
+  rejected_at timestamp with time zone,
+  rejection_reason text,
+  CONSTRAINT batches_pkey PRIMARY KEY (id),
+  CONSTRAINT batches_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT batches_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
+  CONSTRAINT batches_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.credit_transactions (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  wallet_id text NOT NULL,
+  type USER-DEFINED NOT NULL,
+  amount numeric NOT NULL,
+  reference_ids ARRAY,
+  description text,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::transaction_status,
+  processed_at timestamp with time zone,
+  created_by text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT credit_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT credit_transactions_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT credit_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.enterprise_wallets(id),
+  CONSTRAINT credit_transactions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.disputes (
+  id text NOT NULL,
+  asset_id text NOT NULL,
+  raised_by text NOT NULL,
+  reason text NOT NULL,
+  description text,
+  evidence ARRAY,
+  resolution text CHECK (resolution = ANY (ARRAY['upheld'::text, 'overturned'::text, 'partial'::text])),
+  resolved_by text,
+  resolver_notes text,
+  resolved_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT disputes_pkey PRIMARY KEY (id),
+  CONSTRAINT disputes_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.assets(id)
+);
+CREATE TABLE public.enterprise_wallets (
+  id text NOT NULL,
+  enterprise_id text NOT NULL UNIQUE,
+  available_balance numeric NOT NULL DEFAULT 0,
+  pending_balance numeric NOT NULL DEFAULT 0,
+  total_earned numeric NOT NULL DEFAULT 0,
+  total_redeemed numeric NOT NULL DEFAULT 0,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT enterprise_wallets_pkey PRIMARY KEY (id),
+  CONSTRAINT enterprise_wallets_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id)
+);
+CREATE TABLE public.enterprises (
+  id text NOT NULL,
+  name text NOT NULL,
+  legal_name text,
+  gst_number text UNIQUE,
+  pan_number text,
+  address jsonb,
+  industry text,
+  employee_count integer,
+  contact_person text,
+  contact_email text,
+  contact_phone text,
+  -- V3: Added pending_verification for legacy signup flow
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text, 'pending_verification'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT enterprises_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.epr_certificates (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  certificate_number text NOT NULL UNIQUE,
+  asset_ids ARRAY NOT NULL,
+  issue_date date NOT NULL,
+  expiry_date date,
+  total_weight_kg numeric NOT NULL,
+  treatment_summary jsonb NOT NULL,
+  recycler_partner text,
+  pdf_url text,
+  qr_code_url text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT epr_certificates_pkey PRIMARY KEY (id),
+  CONSTRAINT epr_certificates_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id)
+);
+CREATE TABLE public.facility_qc (
+  id text NOT NULL,
+  asset_id text NOT NULL UNIQUE,
+  technician_id text NOT NULL,
+  checklist_data jsonb NOT NULL,
+  decision text NOT NULL CHECK (decision = ANY (ARRAY['final_accept'::text, 'final_reject'::text])),
+  grade USER-DEFINED,
+  discrepancies ARRAY,
+  notes text,
+  completed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT facility_qc_pkey PRIMARY KEY (id),
+  CONSTRAINT facility_qc_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.assets(id),
+  CONSTRAINT facility_qc_technician_id_fkey FOREIGN KEY (technician_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.logistics_users (
+  id text NOT NULL,
+  name text NOT NULL,
+  phone text,
+  email text,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text])),
+  company_id text,
+  logistics_admin_id text,           -- V3: Links field users to their admin
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT logistics_users_pkey PRIMARY KEY (id),
+  CONSTRAINT logistics_users_admin_fkey FOREIGN KEY (logistics_admin_id) REFERENCES public.logistics_admins(id) ON DELETE SET NULL
+);
+CREATE TABLE public.notifications (
+  id text NOT NULL,
+  recipient_type text NOT NULL CHECK (recipient_type = ANY (ARRAY['user'::text, 'enterprise'::text, 'role'::text])),
+  recipient_id text NOT NULL,
+  channel USER-DEFINED NOT NULL DEFAULT 'in_app'::notification_channel,
+  type USER-DEFINED NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  action_url text,
+  status USER-DEFINED NOT NULL DEFAULT 'sent'::notification_status,
+  read_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.on_site_qc (
+  id text NOT NULL,
+  pickup_request_id text NOT NULL,
+  asset_id text NOT NULL,
+  logistics_user_id text NOT NULL,
+  serial_match boolean NOT NULL,
+  powers_on boolean NOT NULL,
+  condition text NOT NULL CHECK (condition = ANY (ARRAY['good'::text, 'worse'::text, 'failed'::text])),
+  notes text,
+  photos jsonb,
+  signature text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT on_site_qc_pkey PRIMARY KEY (id),
+  CONSTRAINT on_site_qc_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.assets(id)
+);
+CREATE TABLE public.payouts (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  asset_ids ARRAY NOT NULL,
+  amount numeric NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'processing'::text, 'processed'::text, 'completed'::text, 'failed'::text])),
+  transaction_id text,
+  processed_by text,
+  processed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  batch_id text,
+  reference_id text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  CONSTRAINT payouts_pkey PRIMARY KEY (id),
+  CONSTRAINT payouts_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT payouts_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.users(id),
+  CONSTRAINT payouts_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id)
+);
+CREATE TABLE public.pickup_locations (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  name text NOT NULL,
+  address text NOT NULL,
+  city text,
+  state text,
+  pin_code text,
+  country text DEFAULT 'India'::text,
+  contact_person text,
+  contact_phone text,
+  operating_hours text,
+  special_instructions text,
+  is_default boolean NOT NULL DEFAULT false,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT pickup_locations_pkey PRIMARY KEY (id),
+  CONSTRAINT pickup_locations_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id)
+);
+CREATE TABLE public.pickup_requests (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  location_id text NOT NULL,
+  batch_id text,                     -- V3: Links pickup to batch
+  logistics_admin_id text,           -- V3: First-level assignment to logistics admin
+  asset_ids ARRAY NOT NULL,
+  assets jsonb NOT NULL DEFAULT '[]'::jsonb,
+  preferred_date date,
+  preferred_time_slot USER-DEFINED NOT NULL,
+  scheduled_date timestamp with time zone,
+  logistics_user_id text,
+  assigned_at timestamp with time zone,
+  assigned_by text,
+  status USER-DEFINED NOT NULL DEFAULT 'pending_assignment'::pickup_request_status,
+  priority text NOT NULL DEFAULT 'normal'::text CHECK (priority = ANY (ARRAY['normal'::text, 'urgent'::text])),
+  picked_asset_ids ARRAY NOT NULL DEFAULT '{}'::text[],
+  failed_asset_ids ARRAY NOT NULL DEFAULT '{}'::text[],
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  cancelled_at timestamp with time zone,
+  cancelled_by text,
+  cancellation_reason text,
+  it_admin_notes text,
+  logistics_notes text,
+  created_by text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT pickup_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT pickup_requests_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT pickup_requests_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.pickup_locations(id),
+  CONSTRAINT pickup_requests_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id),
+  CONSTRAINT pickup_requests_logistics_admin_id_fkey FOREIGN KEY (logistics_admin_id) REFERENCES public.logistics_admins(id),
+  CONSTRAINT pickup_requests_logistics_user_id_fkey FOREIGN KEY (logistics_user_id) REFERENCES public.logistics_users(id),
+  CONSTRAINT pickup_requests_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id),
+  CONSTRAINT pickup_requests_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.product_orders (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  products jsonb NOT NULL,
+  credits_used numeric NOT NULL,
+  cash_value numeric NOT NULL,
+  redemption_type text NOT NULL CHECK (redemption_type = ANY (ARRAY['asus'::text, 'comprint'::text])),
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'shipped'::text, 'delivered'::text, 'cancelled'::text])),
+  tracking_number text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT product_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT product_orders_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id)
+);
+CREATE TABLE public.remote_reviews (
+  id text NOT NULL,
+  asset_id text NOT NULL UNIQUE,
+  technician_id text NOT NULL,
+  decision text NOT NULL CHECK (decision = ANY (ARRAY['conditionally_accepted'::text, 'rejected'::text])),
+  notes text,
+  reason text,
+  reviewed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT remote_reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT remote_reviews_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.assets(id),
+  CONSTRAINT remote_reviews_technician_id_fkey FOREIGN KEY (technician_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.sub_users (
+  id text NOT NULL,
+  enterprise_id text NOT NULL,
+  name text,
+  email text NOT NULL,
+  phone text,
+  department text,
+  status text NOT NULL DEFAULT 'pending_invite'::text CHECK (status = ANY (ARRAY['pending_invite'::text, 'active'::text, 'inactive'::text])),
+  token text,
+  token_expires_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT sub_users_pkey PRIMARY KEY (id),
+  CONSTRAINT sub_users_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id)
+);
+CREATE TABLE public.submissions (
+  id text NOT NULL,
+  asset_id text NOT NULL UNIQUE,
+  sub_user_id text NOT NULL,
+  device_confirmed boolean NOT NULL,
+  photos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  functional_checks jsonb NOT NULL DEFAULT '{}'::jsonb,
+  cosmetic_checklist jsonb,
+  accessories jsonb,
+  location jsonb,
+  declaration jsonb NOT NULL,
+  submitted_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT submissions_pkey PRIMARY KEY (id),
+  CONSTRAINT submissions_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.assets(id),
+  CONSTRAINT submissions_sub_user_id_fkey FOREIGN KEY (sub_user_id) REFERENCES public.sub_users(id)
+);
+CREATE TABLE public.users (
+  id text NOT NULL,
+  enterprise_id text,
+  branch_id text,                    -- V3: For IT Admin branch assignment
+  email text NOT NULL UNIQUE,
+  name text NOT NULL,
+  phone text,
+  role USER-DEFINED NOT NULL,        -- Roles: super_admin, main_admin, org_admin, it_admin, logistics_admin
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text, 'pending'::text])),
+  password_hash text,
+  last_login_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_enterprise_id_fkey FOREIGN KEY (enterprise_id) REFERENCES public.enterprises(id),
+  CONSTRAINT users_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id)
+);

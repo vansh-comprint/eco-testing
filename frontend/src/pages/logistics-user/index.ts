@@ -1,0 +1,1 @@
+export { LogisticsAssignments } from './Assignments';

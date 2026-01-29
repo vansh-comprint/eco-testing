@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check Auth State</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #84cc16;
+      padding: 40px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      border: 2px solid #84cc16;
+      padding: 30px;
+      background: #111;
+    }
+    h1 {
+      color: #84cc16;
+      border-bottom: 2px solid #84cc16;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .section {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .success { color: #84cc16; }
+    .error { color: #dc2626; }
+    .warning { color: #f59e0b; }
+    .info { color: #60a5fa; }
+    pre {
+      background: #0a0a0a;
+      padding: 10px;
+      border: 1px solid #333;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+    button {
+      background: #84cc16;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 10px 5px 10px 0;
+      font-family: 'Courier New', monospace;
+    }
+    button:hover {
+      background: #a3e635;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Auth State Checker</h1>
+
+    <div class="section">
+      <h3 class="info">Current Auth State</h3>
+      <div id="authState"></div>
+    </div>
+
+    <div class="section">
+      <h3 class="info">Database Batch Info</h3>
+      <div id="batchInfo"></div>
+    </div>
+
+    <div class="section">
+      <h3 class="warning">Actions</h3>
+      <button onclick="clearAndReload()">Clear Storage & Reload</button>
+      <button onclick="window.location.href='/login'">Go to Login</button>
+    </div>
+  </div>
+
+  <script>
+    // Check auth state
+    const authState = JSON.parse(localStorage.getItem('ecotribe-auth') || '{}');
+    const authDiv = document.getElementById('authState');
+
+    if (authState.state && authState.state.user) {
+      const user = authState.state.user;
+      const enterprise = authState.state.enterprise;
+
+      authDiv.innerHTML = `
+        <p class="success">✅ User is logged in</p>
+        <pre class="info">
+User ID: ${user.id}
+Name: ${user.name}
+Email: ${user.email}
+Role: ${user.role}
+Enterprise ID: ${user.enterpriseId || 'NONE - THIS IS THE PROBLEM!'}
+        </pre>
+
+        ${enterprise ? `
+        <p class="success">✅ Enterprise loaded</p>
+        <pre class="info">
+Enterprise ID: ${enterprise.id}
+Name: ${enterprise.name}
+        </pre>
+        ` : `
+        <p class="error">❌ NO ENTERPRISE LOADED - THIS IS THE PROBLEM!</p>
+        <p class="warning">⚠️ You need to logout and login again as IT Admin (it@test.com)</p>
+        `}
+      `;
+    } else {
+      authDiv.innerHTML = `
+        <p class="error">❌ No user logged in</p>
+        <p class="warning">⚠️ Please login as IT Admin: it@test.com</p>
+      `;
+    }
+
+    // Show batch info
+    const batchDiv = document.getElementById('batchInfo');
+    batchDiv.innerHTML = `
+      <p class="info">Database has 1 batch:</p>
+      <pre class="info">
+Batch Name: Batch1
+Batch ID: bat-4qb6xuk
+Enterprise ID: ent-1764714686771-he6qwh9l0
+Status: draft
+Created By: usr-1764716366590-it-howdppq1s
+
+This batch belongs to enterprise "Test Company"
+IT Admin user (it@test.com) should be able to see it.
+      </pre>
+
+      ${authState.state?.user?.enterpriseId === 'ent-1764714686771-he6qwh9l0' ? `
+        <p class="success">✅ Your enterprise ID matches! The batch should appear.</p>
+      ` : `
+        <p class="error">❌ Your enterprise ID doesn't match the batch's enterprise!</p>
+        <p class="warning">Expected: ent-1764714686771-he6qwh9l0</p>
+        <p class="warning">Got: ${authState.state?.user?.enterpriseId || 'NONE'}</p>
+      `}
+    `;
+
+    function clearAndReload() {
+      if (confirm('This will clear all localStorage and reload the page. Continue?')) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+  </script>
+</body>
+</html>

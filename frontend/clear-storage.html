@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clear EcoTribe Storage</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #84cc16;
+      padding: 40px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      border: 2px solid #84cc16;
+      padding: 30px;
+      background: #111;
+    }
+    h1 {
+      color: #84cc16;
+      border-bottom: 2px solid #84cc16;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #84cc16;
+      color: #000;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 10px 5px;
+      font-family: 'Courier New', monospace;
+    }
+    button:hover {
+      background: #a3e635;
+    }
+    .warning {
+      background: #dc2626;
+    }
+    .warning:hover {
+      background: #ef4444;
+    }
+    .output {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 15px;
+      margin: 20px 0;
+      min-height: 100px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success {
+      color: #84cc16;
+    }
+    .error {
+      color: #dc2626;
+    }
+    .info {
+      color: #60a5fa;
+    }
+    pre {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗑️ EcoTribe Storage Manager</h1>
+
+    <p>This tool helps you clear all local storage data and start fresh with the database.</p>
+
+    <div>
+      <button onclick="showCurrentStorage()">📋 Show Current Storage</button>
+      <button onclick="clearAllStorage()" class="warning">🗑️ Clear All Storage</button>
+      <button onclick="clearAuthOnly()">🔐 Clear Auth Only</button>
+      <button onclick="clearStoresOnly()">📦 Clear Stores Only</button>
+    </div>
+
+    <div class="output" id="output">
+      <pre class="info">Click a button above to get started...</pre>
+    </div>
+
+    <p style="margin-top: 20px; color: #666;">
+      <strong>Note:</strong> After clearing storage, go back to your app and login fresh with database credentials.
+    </p>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+
+    function log(message, type = 'info') {
+      const pre = document.createElement('pre');
+      pre.className = type;
+      pre.textContent = message;
+      output.appendChild(pre);
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+    }
+
+    function showCurrentStorage() {
+      clearOutput();
+      log('📋 Current localStorage items:\n', 'info');
+
+      if (localStorage.length === 0) {
+        log('✅ localStorage is empty!', 'success');
+        return;
+      }
+
+      const items = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        items[key] = value;
+      }
+
+      Object.keys(items).forEach(key => {
+        log(`\n🔑 ${key}`, 'info');
+        try {
+          const parsed = JSON.parse(items[key]);
+          log(JSON.stringify(parsed, null, 2).substring(0, 200) + '...', 'info');
+        } catch (e) {
+          log(items[key].substring(0, 100) + '...', 'info');
+        }
+      });
+
+      log(`\n📊 Total items: ${localStorage.length}`, 'info');
+    }
+
+    function clearAllStorage() {
+      if (!confirm('⚠️ This will clear ALL localStorage data. Are you sure?')) {
+        return;
+      }
+
+      clearOutput();
+      log('🗑️ Clearing all localStorage...', 'info');
+
+      const count = localStorage.length;
+      localStorage.clear();
+
+      log(`✅ Cleared ${count} items from localStorage`, 'success');
+      log('\n🔄 Now refresh your app and login fresh!', 'success');
+    }
+
+    function clearAuthOnly() {
+      clearOutput();
+      log('🔐 Clearing auth storage...', 'info');
+
+      const authKeys = Object.keys(localStorage).filter(key =>
+        key.includes('auth') || key.includes('supabase')
+      );
+
+      authKeys.forEach(key => {
+        localStorage.removeItem(key);
+        log(`✅ Removed: ${key}`, 'success');
+      });
+
+      if (authKeys.length === 0) {
+        log('ℹ️ No auth items found', 'info');
+      } else {
+        log(`\n✅ Cleared ${authKeys.length} auth items`, 'success');
+        log('🔄 Refresh your app and login again!', 'success');
+      }
+    }
+
+    function clearStoresOnly() {
+      clearOutput();
+      log('📦 Clearing store data (keeping auth)...', 'info');
+
+      const storeKeys = Object.keys(localStorage).filter(key =>
+        !key.includes('auth') && !key.includes('supabase')
+      );
+
+      storeKeys.forEach(key => {
+        localStorage.removeItem(key);
+        log(`✅ Removed: ${key}`, 'success');
+      });
+
+      if (storeKeys.length === 0) {
+        log('ℹ️ No store items found', 'info');
+      } else {
+        log(`\n✅ Cleared ${storeKeys.length} store items`, 'success');
+        log('🔄 Refresh your app to reload from database!', 'success');
+      }
+    }
+  </script>
+</body>
+</html>

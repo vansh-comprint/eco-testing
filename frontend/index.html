@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ECOTRIBE | Bio-Synthesis</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ecotribe: {
+                primary: '#84CC16',       /* Neon Lime */
+                'light-primary': '#4D7C0F', /* Deep Green */
+                secondary: '#365314',     /* Deep Moss */
+                tertiary: '#ECFCCB',      /* Pale Lime */
+                dark: '#050505',          /* Rich Black */
+                light: '#FAFAFA',         /* Pure White */
+                text: '#0F172A',          /* Slate 900 */
+              },
+              comprint: {
+                primary: '#FFFFFF',
+                'light-primary': '#2563EB',
+                secondary: '#2563EB',
+                tertiary: '#93C5FD',
+              }
+            },
+            fontFamily: {
+              brand: ['Chakra Petch', 'sans-serif'],
+              display: ['Rajdhani', 'sans-serif'],
+              body: ['Inter', 'sans-serif'],
+              mono: ['Inter', 'monospace'],
+              accent: ['Playfair Display', 'serif'],
+            },
+            backgroundImage: {
+              'grain': "url('https://grainy-gradients.vercel.app/noise.svg')",
+            },
+            animation: {
+              'glow-pulse': 'glow-pulse 3s infinite alternate',
+              'aurora': 'aurora 15s ease-in-out infinite',
+              'breathe': 'breathe 12s ease-in-out infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+              'spin-slow': 'spin 2s linear infinite',
+            },
+            keyframes: {
+              'glow-pulse': {
+                '0%': { boxShadow: '0 0 5px #84CC16, 0 0 10px #84CC16' },
+                '100%': { boxShadow: '0 0 20px #84CC16, 0 0 30px #84CC16' },
+              },
+              'aurora': {
+                '0%, 100%': { transform: 'scale(1) translateX(0)', opacity: '0.3' },
+                '50%': { transform: 'scale(1.2) translateX(50px)', opacity: '0.5' },
+              },
+              'breathe': {
+                '0%, 100%': { opacity: '0.3', transform: 'scale(1)' },
+                '50%': { opacity: '0.7', transform: 'scale(1.1)' },
+              },
+              'shimmer': {
+                '0%': { backgroundPosition: '-200% 0' },
+                '100%': { backgroundPosition: '200% 0' },
+              }
+            },
+            zIndex: {
+              'dropdown': '10',
+              'sticky': '20',
+              'fixed': '30',
+              'sidebar': '40',
+              'header': '50',
+              'overlay': '60',
+              'modal': '70',
+              'popover': '80',
+              'tooltip': '90',
+              'toast': '100',
+              'cursor': '9000',
+              'grain': '9999',
+            },
+            transitionDuration: {
+              'fastest': '100ms',
+              'fast': '150ms',
+              'normal': '200ms',
+              'slow': '300ms',
+              'slower': '500ms',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Premium Scrollbar - Dark Mode */
+      .dark ::-webkit-scrollbar {
+        width: 6px;
+      }
+      .dark ::-webkit-scrollbar-track {
+        background: #050505;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #84CC16;
+      }
+
+      /* Premium Scrollbar - Light Mode */
+      .light ::-webkit-scrollbar {
+        width: 6px;
+      }
+      .light ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      .light ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      .light ::-webkit-scrollbar-thumb:hover {
+        background: #4D7C0F;
+      }
+
+      /* Selection Color */
+      ::selection {
+        background-color: #84CC16;
+        color: #000;
+      }
+
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+
+      .text-outline {
+        -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+        color: transparent;
+      }
+
+      /* Light mode text outline */
+      .light .text-outline {
+        -webkit-text-stroke: 1px rgba(0,0,0,0.1);
+      }
+
+      /* Grain overlay adjustments */
+      .grain-overlay {
+        transition: opacity 0.3s ease;
+      }
+      .light .grain-overlay {
+        opacity: 0.02;
+        mix-blend-mode: multiply;
+      }
+      .dark .grain-overlay {
+        opacity: 0.03;
+        mix-blend-mode: overlay;
+      }
+
+      /* Chamfered button style */
+      .btn-chamfer {
+        clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      }
+
+      /* ============================================
+         GLASSMORPHISM v2.0 - Premium with brand-tinted borders
+         ============================================ */
+
+      /* Default glass - cards, panels (INCREASED OPACITY) */
+      .glass {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(132, 204, 22, 0.12); /* Brand-tinted */
+      }
+      .dark .glass {
+        background: rgba(24, 24, 27, 0.85); /* zinc-900 */
+        border: 1px solid rgba(163, 230, 53, 0.08); /* lime-400 tint */
+      }
+
+      /* Elevated glass - modals, popovers (HIGHER OPACITY) */
+      .glass-elevated {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(132, 204, 22, 0.15);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+      }
+      .dark .glass-elevated {
+        background: rgba(24, 24, 27, 0.9);
+        border: 1px solid rgba(163, 230, 53, 0.1);
+        box-shadow: none;
+      }
+
+      /* Subtle glass - tables, secondary surfaces */
+      .glass-subtle {
+        background: rgba(248, 250, 252, 0.8);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+      }
+      .dark .glass-subtle {
+        background: rgba(24, 24, 27, 0.6);
+        border: 1px solid rgba(39, 39, 42, 0.8); /* zinc-800 */
+      }
+
+      /* Overlay glass - modal content, dropdown panels (SOLID) */
+      .glass-overlay {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(132, 204, 22, 0.1);
+      }
+      .dark .glass-overlay {
+        background: rgba(24, 24, 27, 0.95);
+        border: 1px solid rgba(163, 230, 53, 0.08);
+      }
+
+      /* Highlight glass - brand accent, selected states */
+      .glass-highlight {
+        background: rgba(247, 254, 231, 0.8); /* lime-50 */
+        border: 1px solid rgba(132, 204, 22, 0.25);
+      }
+      .dark .glass-highlight {
+        background: rgba(132, 204, 22, 0.08);
+        border: 1px solid rgba(163, 230, 53, 0.2);
+      }
+
+      /* ============================================
+         STAT BOX ACCENT PATTERNS
+         Left-border accent with glass background
+         ============================================ */
+      .stat-brand {
+        border-left: 4px solid #84CC16;
+      }
+      .stat-success {
+        border-left: 4px solid #10B981;
+      }
+      .stat-warning {
+        border-left: 4px solid #F59E0B;
+      }
+      .stat-danger {
+        border-left: 4px solid #EF4444;
+      }
+      .stat-info {
+        border-left: 4px solid #3B82F6;
+      }
+
+      /* ============================================
+         HOVER EFFECTS - Brand glow
+         ============================================ */
+      .hover-glow:hover {
+        border-color: rgba(132, 204, 22, 0.3);
+        box-shadow: 0 0 0 1px rgba(132, 204, 22, 0.1),
+                    0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      .dark .hover-glow:hover {
+        border-color: rgba(163, 230, 53, 0.25);
+        box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.08);
+      }
+
+      .button-glow:hover {
+        box-shadow: 0 0 20px rgba(132, 204, 22, 0.25);
+      }
+
+      /* ============================================
+         SHIMMER EFFECT FOR SKELETONS
+         ============================================ */
+      .shimmer {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.3) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 2s linear infinite;
+      }
+      .dark .shimmer {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.1) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+        background-size: 200% 100%;
+      }
+
+      /* ============================================
+         FOCUS RING UTILITIES
+         ============================================ */
+      .focus-ring {
+        outline: none;
+      }
+      .focus-ring:focus-visible {
+        box-shadow: 0 0 0 2px rgba(132, 204, 22, 0.5);
+      }
+
+      /* ============================================
+         HIGH CONTRAST TEXT COLORS v2.0
+         Ensures excellent readability in both modes
+         ============================================ */
+      .text-primary-safe {
+        color: rgb(15, 23, 42); /* slate-900 */
+      }
+      .dark .text-primary-safe {
+        color: rgb(250, 250, 250); /* zinc-50 */
+      }
+
+      .text-secondary-safe {
+        color: rgb(71, 85, 105); /* slate-600 - darker for better contrast */
+      }
+      .dark .text-secondary-safe {
+        color: rgb(161, 161, 170); /* zinc-400 */
+      }
+
+      .text-muted-safe {
+        color: rgb(100, 116, 139); /* slate-500 */
+      }
+      .dark .text-muted-safe {
+        color: rgb(113, 113, 122); /* zinc-500 */
+      }
+
+      .text-brand-safe {
+        color: rgb(77, 124, 15); /* lime-700 */
+      }
+      .dark .text-brand-safe {
+        color: rgb(163, 230, 53); /* lime-400 */
+      }
+
+      /* ============================================
+         BORDER UTILITIES v2.0
+         ============================================ */
+      .border-default {
+        border-color: rgba(226, 232, 240, 0.8); /* slate-200 with opacity */
+      }
+      .dark .border-default {
+        border-color: rgb(39, 39, 42); /* zinc-800 - solid for visibility */
+      }
+
+      .border-subtle {
+        border-color: rgb(241, 245, 249); /* slate-100 */
+      }
+      .dark .border-subtle {
+        border-color: rgba(39, 39, 42, 0.5); /* zinc-800/50 */
+      }
+
+      .border-brand {
+        border-color: rgba(132, 204, 22, 0.2);
+      }
+      .dark .border-brand {
+        border-color: rgba(163, 230, 53, 0.15);
+      }
+
+      .border-brand-strong {
+        border-color: rgb(132, 204, 22); /* lime-500 */
+      }
+      .dark .border-brand-strong {
+        border-color: rgb(163, 230, 53); /* lime-400 */
+      }
+
+      /* ============================================
+         SELECT & OPTION DARK MODE FIX
+         Fixes dropdown styling in dark mode
+         ============================================ */
+      /* Light mode selects */
+      select {
+        background-color: #ffffff;
+        color: #1e293b; /* slate-800 */
+        border: 1px solid rgba(226, 232, 240, 0.8); /* slate-200 */
+      }
+
+      select option {
+        background-color: #ffffff;
+        color: #1e293b; /* slate-800 */
+        padding: 8px 12px;
+      }
+
+      select option:hover,
+      select option:focus,
+      select option:checked {
+        background-color: #f1f5f9; /* slate-100 */
+        color: #0f172a; /* slate-900 */
+      }
+
+      /* Dark mode selects */
+      .dark select {
+        background-color: #18181b; /* zinc-900 */
+        color: #f4f4f5; /* zinc-100 */
+        border: 1px solid #3f3f46; /* zinc-700 */
+      }
+
+      .dark select option {
+        background-color: #18181b; /* zinc-900 */
+        color: #f4f4f5; /* zinc-100 */
+        padding: 8px 12px;
+      }
+
+      .dark select option:hover,
+      .dark select option:focus,
+      .dark select option:checked {
+        background-color: #27272a; /* zinc-800 */
+        color: #ffffff;
+      }
+
+      /* Disabled selects */
+      select:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .dark select:disabled {
+        background-color: #27272a; /* zinc-800 */
+        color: #71717a; /* zinc-500 */
+      }
+    </style>
+</head>
+  <body class="bg-slate-50 dark:bg-ecotribe-dark text-slate-900 dark:text-white overflow-x-hidden selection:bg-ecotribe-primary selection:text-black transition-colors duration-300">
+    <!-- Subtle Film Grain Overlay -->
+    <div class="grain-overlay fixed inset-0 pointer-events-none z-[9999]" style="background-image: url('https://grainy-gradients.vercel.app/noise.svg');"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Apply saved theme immediately to prevent flash
+      (function() {
+        try {
+          const stored = localStorage.getItem('ecotribe-theme');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const theme = parsed?.state?.theme || 'dark';
+            document.documentElement.classList.remove('dark', 'light');
+            document.documentElement.classList.add(theme);
+            // Update body classes based on theme
+            if (theme === 'light') {
+              document.body.classList.remove('bg-ecotribe-dark', 'text-white');
+              document.body.classList.add('bg-slate-50', 'text-slate-900');
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </body>
+</html>

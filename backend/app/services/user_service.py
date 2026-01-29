@@ -1,0 +1,377 @@
+"""User service for unified user model"""
+
+from typing import Optional, List, Tuple
+from uuid import uuid4
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import User, UserRole, UserStatus
+from app.repositories.user_repository import UserRepository
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
+from app.utils.exceptions import NotFoundError, ValidationError, ConflictError, AuthorizationError
+from app.utils.security import validate_user_modification, can_modify_user
+from app.core.security import get_password_hash
+
+
+class UserService:
+    """
+    Service for unified User business logic.
+
+    Handles all user types through role-based differentiation:
+    - Platform users (Super Admin, OPS Admin, Technician) - password-based
+    - Enterprise users (Org Admin, IT Admin) - password-based
+    - Employees - OTP-based (no password)
+    - Logistics users (Logistics Admin, Logistics User) - password-based
+    """
+
+    def __init__(self, db: AsyncSession):
+        self.repository = UserRepository(db)
+        self.db = db
+
+    # ==================== CRUD Operations ====================
+
+    async def get_user(self, user_id: str) -> UserResponse:
+        """Get user by ID"""
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", user_id)
+        return UserResponse.model_validate(user)
+
+    async def get_user_by_email(self, email: str) -> Optional[UserResponse]:
+        """Get user by email"""
+        user = await self.repository.get_by_email(email)
+        if not user:
+            return None
+        return UserResponse.model_validate(user)
+
+    async def list_users(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        role: Optional[UserRole] = None,
+        roles: Optional[List[UserRole]] = None,
+        enterprise_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        parent_user_id: Optional[str] = None,
+        status: Optional[UserStatus] = None,
+        search: Optional[str] = None,
+    ) -> Tuple[List[UserResponse], int]:
+        """
+        List users with filters and pagination.
+
+        Use role filter to get specific user types:
+        - role=employee for employees
+        - role=it_admin for IT admins
+        - role=logistics_admin for logistics admins
+        """
+        users, total = await self.repository.get_all(
+            skip=skip,
+            limit=limit,
+            role=role,
+            roles=roles,
+            enterprise_id=enterprise_id,
+            branch_id=branch_id,
+            parent_user_id=parent_user_id,
+            status=status,
+            search=search,
+        )
+
+        # Build responses with enterprise and branch names
+        responses = []
+        for user in users:
+            response = UserResponse.model_validate(user)
+            # Add enterprise name if user has enterprise relationship
+            if user.enterprise:
+                response.enterprise_name = user.enterprise.name
+            # Add branch name if user has branch relationship
+            if user.branch:
+                response.branch_name = user.branch.branch_name
+            responses.append(response)
+
+        return responses, total
+
+    async def create_user(self, user_data: UserCreate, created_by: str) -> UserResponse:
+        """
+        Create a new user.
+
+        - For employees (role=EMPLOYEE): no password required, OTP-based auth
+        - For all other roles: password required
+        """
+        # Check if email already exists
+        existing = await self.repository.get_by_email(user_data.email)
+        if existing:
+            raise ConflictError(f"User with email {user_data.email} already exists")
+
+        # Validate role-specific requirements
+        await self._validate_user_creation(user_data)
+
+        # Determine password handling based on role
+        is_employee = user_data.role == UserRole.EMPLOYEE
+
+        if is_employee:
+            # Employees use OTP - no password
+            password_hash = None
+            initial_status = UserStatus.PENDING.value  # Pending until first OTP login
+        else:
+            # All other roles require password
+            if not user_data.password:
+                raise ValidationError(f"Password is required for {user_data.role.value} role")
+            password_hash = get_password_hash(user_data.password)
+            initial_status = UserStatus.ACTIVE.value
+
+        # Check employee_id uniqueness for employees
+        if is_employee and user_data.employee_id and user_data.enterprise_id:
+            exists = await self.repository.exists_by_employee_id(
+                user_data.employee_id, user_data.enterprise_id
+            )
+            if exists:
+                raise ConflictError(
+                    f"Employee ID {user_data.employee_id} already exists in this enterprise"
+                )
+
+        # Create user model
+        user = User(
+            id=str(uuid4()),
+            email=user_data.email,
+            name=user_data.name,
+            phone=user_data.phone,
+            role=user_data.role.value,
+            enterprise_id=user_data.enterprise_id,
+            branch_id=user_data.branch_id,
+            parent_user_id=user_data.parent_user_id,
+            password_hash=password_hash,
+            status=initial_status,
+            # Employee-specific fields
+            employee_id=user_data.employee_id,
+            department=user_data.department,
+            designation=user_data.designation,
+            # Logistics-specific fields
+            company_name=user_data.company_name,
+            contact_person=user_data.contact_person,
+            address=user_data.address,
+            city=user_data.city,
+            state=user_data.state,
+            service_areas=user_data.service_areas,
+            vehicle_type=user_data.vehicle_type,
+            vehicle_number=user_data.vehicle_number,
+            is_active=True,
+            created_by=created_by,
+            updated_by=created_by,
+        )
+
+        user = await self.repository.create(user)
+        return UserResponse.model_validate(user)
+
+    async def create_users_bulk(
+        self, bulk_data: UserBulkCreate, created_by: str
+    ) -> Tuple[List[UserResponse], List[str]]:
+        """
+        Create multiple users in bulk.
+
+        Typically used for bulk employee imports.
+        """
+        created_users = []
+        errors = []
+        role = bulk_data.role
+        is_employee = role == UserRole.EMPLOYEE
+
+        for idx, user_item in enumerate(bulk_data.users):
+            try:
+                # Check if email already exists
+                existing = await self.repository.get_by_email(user_item.email)
+                if existing:
+                    errors.append(
+                        f"Row {idx + 1}: User with email {user_item.email} already exists"
+                    )
+                    continue
+
+                # Check if employee_id already exists (for employees)
+                if is_employee and user_item.employee_id:
+                    exists = await self.repository.exists_by_employee_id(
+                        user_item.employee_id, bulk_data.enterprise_id
+                    )
+                    if exists:
+                        errors.append(
+                            f"Row {idx + 1}: Employee ID {user_item.employee_id} already exists"
+                        )
+                        continue
+
+                # Create user model
+                user = User(
+                    id=str(uuid4()),
+                    email=user_item.email,
+                    name=user_item.name,
+                    phone=user_item.phone,
+                    role=role.value,
+                    enterprise_id=bulk_data.enterprise_id,
+                    branch_id=bulk_data.branch_id or user_item.branch_id,
+                    employee_id=user_item.employee_id,
+                    department=user_item.department,
+                    designation=user_item.designation,
+                    status=UserStatus.PENDING.value if is_employee else UserStatus.ACTIVE.value,
+                    created_by=created_by,
+                    updated_by=created_by,
+                )
+                created_users.append(user)
+
+            except Exception as e:
+                errors.append(f"Row {idx + 1}: {str(e)}")
+
+        # Bulk insert if we have any valid users
+        if created_users:
+            created_users = await self.repository.create_bulk(created_users)
+
+        return [UserResponse.model_validate(u) for u in created_users], errors
+
+    async def update_user(
+        self, user_id: str, user_data: UserUpdate, updated_by: str,
+        actor: Optional[User] = None
+    ) -> UserResponse:
+        """
+        Update an existing user with IDOR protection.
+
+        Args:
+            user_id: ID of user to update
+            user_data: Update data
+            updated_by: ID of user making the update
+            actor: User object of the actor (for IDOR validation)
+        """
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", user_id)
+
+        # IDOR Protection: Validate actor can modify this user
+        if actor:
+            update_data_dict = user_data.model_dump(exclude_unset=True)
+            new_status = update_data_dict.get("status")
+            if new_status:
+                new_status = new_status.value if hasattr(new_status, "value") else new_status
+
+            validate_user_modification(
+                actor=actor,
+                target_user_id=user_id,
+                target_role=user.role,
+                target_enterprise_id=user.enterprise_id,
+                target_status=new_status,
+            )
+
+        # Update only provided fields
+        update_data = user_data.model_dump(exclude_unset=True)
+
+        # Handle status enum conversion
+        if "status" in update_data and update_data["status"]:
+            update_data["status"] = update_data["status"].value
+
+        for key, value in update_data.items():
+            setattr(user, key, value)
+
+        user.updated_by = updated_by
+        user = await self.repository.update(user)
+        return UserResponse.model_validate(user)
+
+    async def delete_user(self, user_id: str, actor: Optional[User] = None) -> bool:
+        """
+        Delete a user with IDOR protection.
+
+        Args:
+            user_id: ID of user to delete
+            actor: User object of the actor (for IDOR validation)
+        """
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", user_id)
+
+        # IDOR Protection: Validate actor can delete this user
+        if actor:
+            validate_user_modification(
+                actor=actor,
+                target_user_id=user_id,
+                target_role=user.role,
+                target_enterprise_id=user.enterprise_id,
+                target_status="deleted",  # Deletion is like setting status to deleted
+            )
+
+        success = await self.repository.delete(user_id)
+        return success
+
+    async def update_last_login(self, user_id: str) -> Optional[UserResponse]:
+        """Update user's last login timestamp"""
+        user = await self.repository.update_last_login(user_id)
+        if not user:
+            return None
+        return UserResponse.model_validate(user)
+
+    # ==================== Validation ====================
+
+    async def _validate_user_creation(self, user_data: UserCreate) -> None:
+        """Validate user creation based on role"""
+        role = user_data.role
+
+        # Employee must have enterprise_id
+        if role == UserRole.EMPLOYEE:
+            if not user_data.enterprise_id:
+                raise ValidationError("Employee must be assigned to an enterprise")
+
+        # IT Admin must have branch_id and enterprise_id
+        elif role == UserRole.IT_ADMIN:
+            if not user_data.branch_id:
+                raise ValidationError("IT Admin must be assigned to a branch")
+            if not user_data.enterprise_id:
+                raise ValidationError("IT Admin must be assigned to an enterprise")
+
+        # Org Admin must have enterprise_id
+        elif role == UserRole.ORG_ADMIN:
+            if not user_data.enterprise_id:
+                raise ValidationError("Org Admin must be assigned to an enterprise")
+
+        # Platform users should not have enterprise_id
+        elif role in [UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN, UserRole.TECHNICIAN]:
+            if user_data.enterprise_id:
+                raise ValidationError(f"{role.value} should not be assigned to an enterprise")
+
+        # Logistics User must have parent_user_id (Logistics Admin)
+        elif role == UserRole.LOGISTICS_USER:
+            if not user_data.parent_user_id:
+                raise ValidationError("Logistics User must be assigned to a Logistics Admin")
+
+    # ==================== Password Management ====================
+
+    async def reset_password(
+        self, user_id: str, new_password: str, actor: Optional[User] = None
+    ) -> UserResponse:
+        """
+        Reset a user's password (admin-initiated).
+
+        Args:
+            user_id: ID of user whose password to reset
+            new_password: New password (min 8 characters)
+            actor: User object of the actor (for IDOR validation)
+        """
+        from app.core.security import session_limiter
+
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", user_id)
+
+        # Employees don't have passwords (they use OTP)
+        if user.role == UserRole.EMPLOYEE.value:
+            raise ValidationError("Cannot reset password for employees (they use OTP-based auth)")
+
+        # IDOR Protection: Validate actor can modify this user
+        if actor:
+            validate_user_modification(
+                actor=actor,
+                target_user_id=user_id,
+                target_role=user.role,
+                target_enterprise_id=user.enterprise_id,
+            )
+
+        # Hash the new password
+        password_hash = get_password_hash(new_password)
+        user.password_hash = password_hash
+        user.updated_by = actor.id if actor else user_id
+
+        # Invalidate all existing sessions for security
+        session_limiter.clear_all_sessions(user_id)
+
+        user = await self.repository.update(user)
+        return UserResponse.model_validate(user)
