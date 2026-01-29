@@ -69,7 +69,7 @@ cd ..
 echo ""
 echo "[4/4] Starting frontend on port 1228..."
 cd frontend
-nohup npx serve dist -l 1228 --no-clipboard > ../frontend.log 2>&1 &
+nohup npx serve dist -s -l 1228 --no-clipboard > ../frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "  Frontend PID: $FRONTEND_PID"
 cd ..
