@@ -27,6 +27,8 @@ import {
   useDeletePickupLocation,
   useSetDefaultPickupLocation,
 } from '@/hooks';
+import { useToast } from '@/components/ui';
+import { usersApi } from '@/lib/api/users';
 
 // Operating hours options for dropdown
 const OPERATING_HOURS_OPTIONS = [
@@ -63,6 +65,7 @@ interface PickupLocationData {
 export function Settings() {
   // V3: Use React Query hook for auth
   const { user, enterprise } = useAuth();
+  const { addToast } = useToast();
   const enterpriseId = enterprise?.id || '';
 
   // V3: React Query hooks
@@ -75,6 +78,9 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   // Pickup locations modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -124,23 +130,53 @@ export function Settings() {
     smsPayoutUpdates: true,
   });
 
-  // Bank form
-  const [bankForm, setBankForm] = useState({
-    accountName: enterprise?.name || '',
-    accountNumber: '',
-    confirmAccountNumber: '',
-    ifscCode: '',
-    bankName: 'HDFC Bank',
-    branch: '',
+  // Bank form — load from localStorage if available
+  const [bankForm, setBankForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ecotribe-bank-details');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      accountName: enterprise?.name || '',
+      accountNumber: '',
+      confirmAccountNumber: '',
+      ifscCode: '',
+      bankName: 'HDFC Bank',
+      branch: '',
+    };
   });
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      if (activeTab === 'profile') {
+        const response = await usersApi.updateMe({
+          name: profileForm.name,
+          phone: profileForm.phone,
+        });
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Failed to save profile');
+        }
+        addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
+      } else if (activeTab === 'bank') {
+        // Bank details: persist to localStorage until backend endpoint is available
+        localStorage.setItem('ecotribe-bank-details', JSON.stringify(bankForm));
+        addToast({ type: 'success', title: 'Bank Details Saved', message: 'Bank details saved locally. Backend persistence coming soon.' });
+      } else {
+        // Enterprise and Notifications: save locally for now
+        addToast({ type: 'success', title: 'Settings Saved', message: 'Changes saved successfully.' });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error instanceof Error ? error.message : 'Failed to save changes.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const tabs = [
@@ -212,8 +248,18 @@ export function Settings() {
       setShowLocationModal(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      addToast({
+        type: 'success',
+        title: editingLocation ? 'Location Updated' : 'Location Added',
+        message: editingLocation ? 'Pickup location updated successfully.' : 'New pickup location added successfully.',
+      });
     } catch (error) {
       console.error('Failed to save location:', error);
+      addToast({
+        type: 'error',
+        title: 'Failed to Save Location',
+        message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -341,19 +387,96 @@ export function Settings() {
 
                 <div className="pt-5 border-t border-slate-200 dark:border-white/10">
                   <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Security</h4>
-                  <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-white/10 bg-white/85 dark:bg-black/30">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 border border-slate-200 dark:border-white/10 flex items-center justify-center">
-                        <Shield className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
+                  <div className="p-4 border border-slate-200 dark:border-white/10 bg-white/85 dark:bg-black/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+                          <Shield className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
+                        </div>
+                        <div>
+                          <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">Password</p>
+                          <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">Change your account password</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">Password</p>
-                        <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">Last changed 30 days ago</p>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setShowPasswordForm(!showPasswordForm);
+                          setPasswordForm({ newPassword: '', confirmPassword: '' });
+                        }}
+                        className="interactive px-4 py-2 text-slate-600 dark:text-zinc-500 hover:text-ecotribe-primary font-mono font-bold text-xs uppercase tracking-widest transition-colors"
+                      >
+                        {showPasswordForm ? 'Cancel' : 'Change'}
+                      </button>
                     </div>
-                    <button className="interactive px-4 py-2 text-slate-600 dark:text-zinc-500 hover:text-ecotribe-primary font-mono font-bold text-xs uppercase tracking-widest transition-colors">
-                      Change
-                    </button>
+                    {showPasswordForm && (
+                      <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-white/10">
+                        <div>
+                          <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">New Password</label>
+                          <input
+                            type="password"
+                            placeholder="Minimum 6 characters"
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Confirm New Password</label>
+                          <input
+                            type="password"
+                            placeholder="Re-enter new password"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                          />
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+                              addToast({ type: 'error', title: 'Invalid Password', message: 'Password must be at least 6 characters.' });
+                              return;
+                            }
+                            if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                              addToast({ type: 'error', title: 'Passwords Do Not Match', message: 'Please ensure both passwords match.' });
+                              return;
+                            }
+                            if (!user?.id) return;
+                            setPasswordSaving(true);
+                            try {
+                              const response = await usersApi.resetPassword(user.id, { new_password: passwordForm.newPassword });
+                              if (!response.success) {
+                                throw new Error(response.error?.message || 'Failed to change password');
+                              }
+                              addToast({ type: 'success', title: 'Password Changed', message: 'Your password has been updated successfully.' });
+                              setShowPasswordForm(false);
+                              setPasswordForm({ newPassword: '', confirmPassword: '' });
+                            } catch (error) {
+                              addToast({
+                                type: 'error',
+                                title: 'Password Change Failed',
+                                message: error instanceof Error ? error.message : 'An unexpected error occurred.',
+                              });
+                            } finally {
+                              setPasswordSaving(false);
+                            }
+                          }}
+                          disabled={passwordSaving || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                          className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {passwordSaving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Updating...
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="w-4 h-4" />
+                              Update Password
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

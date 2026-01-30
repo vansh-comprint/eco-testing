@@ -3,9 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Input, Dropdown } from '@/components/ui';
 import type { IndustryType } from '@/types';
-import { db } from '@/lib/database';
-import { supabaseAdmin } from '@/lib/supabase';
-import { triggerNotification } from '@/stores/notificationStore';
+import { enterpriseApplicationsApi } from '@/lib/api/applications';
 
 const industryOptions: { label: string; value: IndustryType }[] = [
   { label: 'Technology', value: 'technology' },
@@ -109,128 +107,40 @@ export function SignupPage() {
 
     setIsLoading(true);
     try {
-      // Step 1: Generate unique IDs
-      const enterpriseId = `ent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const walletId = `wal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const locationId = `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Build the address string from form fields
+      const addressParts = [formData.street, formData.city, formData.state, formData.zipCode, formData.country]
+        .filter(Boolean);
+      const registeredAddress = addressParts.join(', ');
 
-      // Step 2: Create IT Admin in Supabase Auth (if not skipping)
-      let userId: string | null = null;
-      if (!skipAdminCreation) {
-        console.log('🔐 Creating IT Admin with Supabase Auth');
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: formData.email,
-          password: formData.password,
-          email_confirm: true, // Auto-confirm email
-          user_metadata: {
-            name: formData.name,
-            phone: formData.phone,
-          },
-        });
+      // Submit enterprise application via backend API
+      const result = await enterpriseApplicationsApi.create({
+        company_name: formData.companyName,
+        industry_type: formData.industry || undefined,
+        company_size: formData.companySize || undefined,
+        registered_address: registeredAddress || undefined,
+        // Org admin details (only if not skipping)
+        org_admin_name: skipAdminCreation ? formData.companyName : formData.name,
+        org_admin_email: skipAdminCreation ? `pending-${Date.now()}@placeholder.com` : formData.email,
+        org_admin_phone: formData.phone || undefined,
+        password: skipAdminCreation ? undefined : formData.password,
+      });
 
-        if (authError) {
-          throw new Error(`Auth error: ${authError.message}`);
+      if (!result.success) {
+        // Extract validation details from backend response
+        const details = result.error?.details;
+        if (details?.detail && Array.isArray(details.detail)) {
+          const fieldErrors = details.detail
+            .map((d: any) => {
+              const field = d.loc?.[d.loc.length - 1] || 'unknown';
+              return `${field}: ${d.msg}`;
+            })
+            .join('; ');
+          throw new Error(fieldErrors || result.error?.message || 'Validation failed');
         }
-
-        if (!authData.user) {
-          throw new Error('Failed to create user in Auth');
-        }
-
-        userId = authData.user.id;
-        console.log('✅ Supabase Auth user created:', userId);
+        throw new Error(result.error?.message || 'Failed to submit application');
       }
 
-      // Step 3: Create enterprise with pending_verification status
-      await db.insert('enterprises', {
-        id: enterpriseId,
-        name: formData.companyName,
-        legal_name: formData.companyName,
-        gst_number: '', // Will be filled later
-        pan_number: '', // Will be filled later
-        address: {
-          line1: formData.street,
-          line2: '',
-          city: formData.city,
-          state: formData.state,
-          pinCode: formData.zipCode,
-          country: formData.country,
-        },
-        contact_person: skipAdminCreation ? '' : formData.name,
-        contact_email: skipAdminCreation ? formData.phone : formData.email, // Use phone as temp contact if no admin
-        contact_phone: formData.phone,
-        industry: formData.industry || 'other',
-        company_size: formData.companySize,
-        status: 'pending_verification',
-        logo_url: '',
-        bank_details: {},
-        created_at: new Date().toISOString(),
-      });
-
-      // Step 4: Create enterprise wallet
-      await db.insert('enterprise_wallets', {
-        id: walletId,
-        enterprise_id: enterpriseId,
-        balance: 0,
-        currency: 'INR',
-        created_at: new Date().toISOString(),
-      });
-
-      // Step 5: Create pickup location
-      await db.insert('pickup_locations', {
-        id: locationId,
-        enterprise_id: enterpriseId,
-        name: 'Head Office',
-        address: {
-          line1: formData.street,
-          line2: '',
-          city: formData.city,
-          state: formData.state,
-          pinCode: formData.zipCode,
-          country: formData.country,
-        },
-        contact_person: skipAdminCreation ? '' : formData.name,
-        contact_phone: formData.phone || '',
-        is_default: true,
-        status: 'active',
-        created_at: new Date().toISOString(),
-      });
-
-      // Step 6: Create IT Admin user record in database (only if not skipping admin creation)
-      if (!skipAdminCreation && userId) {
-        await db.insert('users', {
-          id: userId,
-          enterprise_id: enterpriseId,
-          email: formData.email,
-          name: formData.name,
-          phone: formData.phone || '',
-          role: 'it_admin',
-          status: 'pending', // Pending until enterprise is approved
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-      }
-
-      // Step 7: Query for all super_admin and main_admin users to notify them
-      const adminUsers = await db.query('users', {
-        filters: [
-          { field: 'role', operator: 'in', value: ['super_admin', 'main_admin'] }
-        ],
-      });
-
-      // Step 8: Send notifications to all admins
-      if (adminUsers.data && adminUsers.data.length > 0) {
-        adminUsers.data.forEach((admin: any) => {
-          triggerNotification(
-            'system',
-            admin.id,
-            'New Enterprise Registration',
-            `${formData.companyName} has registered and is awaiting approval.`,
-            'in_app'
-          );
-        });
-      }
-
-      // Step 9: Navigate to pending approval page
+      // Navigate to pending approval page
       navigate('/signup/pending-approval', {
         state: {
           companyName: formData.companyName,
@@ -238,8 +148,8 @@ export function SignupPage() {
         }
       });
     } catch (error) {
-      console.error('Error creating enterprise:', error);
-      setErrors({ submit: 'Failed to create account. Please try again.' });
+      console.error('Error submitting application:', error);
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to create account. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -502,6 +412,11 @@ export function SignupPage() {
             </div>
 
             <div className="flex flex-col gap-4">
+              {errors.submit && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                  <p className="font-mono text-xs text-red-700 dark:text-red-300">{errors.submit}</p>
+                </div>
+              )}
               <div className="flex gap-3 w-full">
                 {step > 1 && (
                   <Button

@@ -13,3 +13,4 @@ export { PayoutProcessing } from './PayoutProcessing';
 export { PickupQueue } from './PickupQueue';
 export { RemoteReviewQueue } from './RemoteReviewQueue';
 export { OpsLogistics } from './OpsLogistics';
+export { OpsBranches } from './OpsBranches';

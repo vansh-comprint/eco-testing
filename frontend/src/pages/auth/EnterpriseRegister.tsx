@@ -282,13 +282,22 @@ export function EnterpriseRegister() {
       }
     }
 
-    // Step 3: Document Upload - Require essential documents
+    // Step 3: Document Upload - Require all 5 essential documents
     if (step === 3) {
       if (!formData.docGstCertificate) {
         newErrors.docGstCertificate = 'GST Certificate is required';
       }
       if (!formData.docPanCard) {
         newErrors.docPanCard = 'PAN Card is required';
+      }
+      if (!formData.docIncorporationCert) {
+        newErrors.docIncorporationCert = 'Certificate of Incorporation is required';
+      }
+      if (!formData.docSignatoryId) {
+        newErrors.docSignatoryId = 'Authorized Signatory ID Proof is required';
+      }
+      if (!formData.docAddressProof) {
+        newErrors.docAddressProof = 'Company Address Proof is required';
       }
     }
 
@@ -329,29 +338,68 @@ export function EnterpriseRegister() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  // Handle file upload (mock - in production would upload to Supabase Storage)
+  // Map form field names to backend document types
+  const fieldToDocType: Record<string, string> = {
+    docGstCertificate: 'gst',
+    docPanCard: 'pan',
+    docIncorporationCert: 'incorporation',
+    docSignatoryId: 'signatory_id',
+    docAddressProof: 'address_proof',
+    docCompanyLogo: 'logo',
+  };
+
+  // Handle file upload via API
   const handleFileUpload = async (field: keyof FormData, file: File) => {
-    // Simulate upload progress
     setUploadProgress(prev => ({ ...prev, [field]: 0 }));
 
+    // Show incremental progress while uploading
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         const current = prev[field] || 0;
-        if (current >= 100) {
+        if (current >= 90) {
           clearInterval(interval);
           return prev;
         }
-        return { ...prev, [field]: Math.min(current + 20, 100) };
+        return { ...prev, [field]: Math.min(current + 15, 90) };
       });
-    }, 200);
+    }, 300);
 
-    // Simulate upload delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      const docType = fieldToDocType[field] || 'gst';
+      const formDataUpload = new window.FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('document_type', docType);
 
-    // In production, this would upload to Supabase Storage and return the URL
-    const mockUrl = `https://storage.example.com/${Date.now()}_${file.name}`;
-    updateField(field, mockUrl);
-    setUploadProgress(prev => ({ ...prev, [field]: 100 }));
+      const response = await fetch(`${apiBaseUrl}/enterprises/applications/upload-document`, {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      clearInterval(interval);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.message || 'Upload failed');
+      }
+
+      const data = await response.json();
+      const fileUrl = data.data?.file_url;
+
+      if (!fileUrl) {
+        throw new Error('No file URL returned from server');
+      }
+
+      updateField(field, fileUrl);
+      setUploadProgress(prev => ({ ...prev, [field]: 100 }));
+    } catch (error) {
+      clearInterval(interval);
+      setUploadProgress(prev => ({ ...prev, [field]: 0 }));
+      setErrors(prev => ({
+        ...prev,
+        [field]: error instanceof Error ? error.message : 'Upload failed. Please try again.',
+      }));
+    }
   };
 
   // Handle form submission
@@ -388,8 +436,13 @@ export function EnterpriseRegister() {
         doc_company_logo: formData.docCompanyLogo,
       });
 
-      // Navigate to pending approval page
-      navigate('/signup/pending-approval');
+      // Navigate to pending approval page with company name
+      navigate('/signup/pending-approval', {
+        state: {
+          companyName: formData.companyName,
+          email: formData.orgAdminEmail,
+        },
+      });
     } catch (error) {
       console.error('Registration error:', error);
       setErrors({ submit: 'Failed to submit application. Please try again.' });
@@ -812,7 +865,10 @@ export function EnterpriseRegister() {
                     <input
                       type="text"
                       value={formData.orgAdminName}
-                      onChange={(e) => updateField('orgAdminName', e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                        updateField('orgAdminName', val);
+                      }}
                       placeholder="Enter full name"
                       className={`w-full bg-white/40 dark:bg-black/40 border ${
                         errors.orgAdminName ? 'border-red-500' : 'border-black/10 dark:border-white/10'
@@ -929,26 +985,29 @@ export function EnterpriseRegister() {
                       onRemove={() => updateField('docPanCard', '')}
                     />
                     <DocumentUpload
-                      label="Certificate of Incorporation"
+                      label="Certificate of Incorporation *"
                       field="docIncorporationCert"
                       value={formData.docIncorporationCert}
                       progress={uploadProgress.docIncorporationCert}
+                      error={errors.docIncorporationCert}
                       onUpload={(file) => handleFileUpload('docIncorporationCert', file)}
                       onRemove={() => updateField('docIncorporationCert', '')}
                     />
                     <DocumentUpload
-                      label="Signatory ID Proof"
+                      label="Signatory ID Proof *"
                       field="docSignatoryId"
                       value={formData.docSignatoryId}
                       progress={uploadProgress.docSignatoryId}
+                      error={errors.docSignatoryId}
                       onUpload={(file) => handleFileUpload('docSignatoryId', file)}
                       onRemove={() => updateField('docSignatoryId', '')}
                     />
                     <DocumentUpload
-                      label="Address Proof"
+                      label="Address Proof *"
                       field="docAddressProof"
                       value={formData.docAddressProof}
                       progress={uploadProgress.docAddressProof}
+                      error={errors.docAddressProof}
                       onUpload={(file) => handleFileUpload('docAddressProof', file)}
                       onRemove={() => updateField('docAddressProof', '')}
                     />
@@ -1146,9 +1205,16 @@ function DocumentUpload({
   onUpload: (file: File) => void;
   onRemove: () => void;
 }) {
+  const [sizeError, setSizeError] = useState('');
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setSizeError('File size exceeds 5MB limit');
+        e.target.value = '';
+        return;
+      }
+      setSizeError('');
       onUpload(file);
     }
   };
@@ -1202,9 +1268,9 @@ function DocumentUpload({
           </label>
         )}
       </div>
-      {error && (
+      {(error || sizeError) && (
         <p className="text-red-400 text-xs font-mono flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" /> {error}
+          <AlertCircle className="w-3 h-3" /> {error || sizeError}
         </p>
       )}
     </div>

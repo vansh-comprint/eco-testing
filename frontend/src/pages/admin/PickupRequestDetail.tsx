@@ -83,17 +83,17 @@ function TimelineStep({
               ? 'bg-ecotribe-primary border-ecotribe-primary'
               : isCurrent
               ? 'bg-transparent border-ecotribe-primary'
-              : 'bg-transparent border-white/20'
+              : 'bg-transparent border-slate-300 dark:border-white/20'
           }`}
         >
           {isCompleted && <CheckCircle className="w-4 h-4 text-black" />}
         </div>
         {!isLast && (
-          <div className={`w-0.5 flex-1 min-h-[40px] ${isCompleted ? 'bg-ecotribe-primary' : 'bg-white/10'}`} />
+          <div className={`w-0.5 flex-1 min-h-[40px] ${isCompleted ? 'bg-ecotribe-primary' : 'bg-slate-200 dark:bg-white/10'}`} />
         )}
       </div>
       <div className="pb-6">
-        <h4 className={`font-display font-bold text-sm uppercase tracking-wide ${isCompleted || isCurrent ? 'text-white' : 'text-slate-500 dark:text-white/50'}`}>
+        <h4 className={`font-display font-bold text-sm uppercase tracking-wide ${isCompleted || isCurrent ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-white/50'}`}>
           {title}
         </h4>
         {description && (
@@ -159,7 +159,7 @@ export function PickupRequestDetail() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center p-8">
           <AlertTriangle className="w-16 h-16 text-slate-500 dark:text-white/50 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Request Not Found</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Request Not Found</h2>
           <p className="text-slate-500 dark:text-white/50 mb-6">This pickup request may have been deleted.</p>
           <button
             onClick={() => navigate(isLogisticsAdminRole ? '/logistics-admin' : `${basePath}/pickups`)}
@@ -273,7 +273,7 @@ export function PickupRequestDetail() {
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
+                <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                   {branch?.branch_name || 'Unknown Branch'}
                 </h1>
                 {branch?.branch_code && (
@@ -354,7 +354,7 @@ export function PickupRequestDetail() {
           >
             <div className="p-5 border-r border-slate-200 dark:border-white/10">
               <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Total Devices</p>
-              <p className="font-brand font-bold text-3xl text-white">{request.asset_ids?.length || 0}</p>
+              <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{request.asset_ids?.length || 0}</p>
             </div>
             <div className="p-5 border-r border-slate-200 dark:border-white/10">
               <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Picked Up</p>
@@ -362,7 +362,7 @@ export function PickupRequestDetail() {
             </div>
             <div className="p-5">
               <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Exceptions</p>
-              <p className={`font-brand font-bold text-3xl ${exceptionsCount > 0 ? 'text-red-400' : 'text-white'}`}>{exceptionsCount}</p>
+              <p className={`font-brand font-bold text-3xl ${exceptionsCount > 0 ? 'text-red-400' : 'text-slate-900 dark:text-white'}`}>{exceptionsCount}</p>
             </div>
           </motion.div>
 
@@ -376,12 +376,12 @@ export function PickupRequestDetail() {
             <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Package className="w-5 h-5 text-slate-500 dark:text-white/50" />
-                <h2 className="font-display font-bold text-sm text-white uppercase tracking-wide">Devices in Pickup</h2>
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Devices in Pickup</h2>
               </div>
               <span className="font-mono text-xs text-slate-500 dark:text-white/50">{request.asset_ids?.length || 0} devices</span>
             </div>
 
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-200 dark:divide-white/5">
               {(request.assets || []).map((assetRecord) => {
                 const asset = assets.find(a => a.id === assetRecord.asset_id);
                 const assetStatusConfig = getAssetStatusConfig(assetRecord.status);
@@ -397,7 +397,7 @@ export function PickupRequestDetail() {
                         <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
                       </div>
                       <div>
-                        <p className="font-display font-bold text-sm text-white">
+                        <p className="font-display font-bold text-sm text-slate-900 dark:text-white">
                           {asset?.brand} {asset?.model}
                         </p>
                         <p className="font-mono text-[10px] text-slate-500 dark:text-white/50">
@@ -432,7 +432,7 @@ export function PickupRequestDetail() {
             >
               <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
                 <FileText className="w-5 h-5 text-slate-500 dark:text-white/50" />
-                <h2 className="font-display font-bold text-sm text-white uppercase tracking-wide">Notes</h2>
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Notes</h2>
               </div>
               <div className="p-5 space-y-4">
                 {request.it_admin_notes && (
@@ -461,7 +461,7 @@ export function PickupRequestDetail() {
             transition={{ delay: 0.1 }}
             className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
           >
-            <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide mb-5">Status Timeline</h3>
+            <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-5">Status Timeline</h3>
             <div>
               <TimelineStep
                 title="Request Created"
@@ -513,13 +513,13 @@ export function PickupRequestDetail() {
             transition={{ delay: 0.15 }}
             className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
           >
-            <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide mb-4">Branch Details</h3>
+            <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Branch Details</h3>
             {branch ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <Building className="w-4 h-4 text-slate-500 dark:text-white/50 mt-0.5" />
                   <div>
-                    <p className="font-mono text-sm text-white">{branch.branch_name}</p>
+                    <p className="font-mono text-sm text-slate-900 dark:text-white">{branch.branch_name}</p>
                     <p className="font-mono text-xs text-ecotribe-primary">{branch.branch_code}</p>
                   </div>
                 </div>
@@ -564,19 +564,19 @@ export function PickupRequestDetail() {
             transition={{ delay: 0.2 }}
             className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
           >
-            <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide mb-4">Schedule</h3>
+            <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Schedule</h3>
             <div className="space-y-3">
               <div>
                 <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">
                   {request.confirmed_date ? 'Confirmed Date' : 'Preferred Date'}
                 </p>
-                <p className="font-mono text-sm text-white">
+                <p className="font-mono text-sm text-slate-900 dark:text-white">
                   {format(new Date(request.confirmed_date || request.preferred_date), 'EEEE, dd MMMM yyyy')}
                 </p>
               </div>
               <div>
                 <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Time Slot</p>
-                <p className="font-mono text-sm text-white">
+                <p className="font-mono text-sm text-slate-900 dark:text-white">
                   {pickupTimeSlotLabels[request.confirmed_time_slot || request.preferred_time_slot]}
                 </p>
               </div>

@@ -77,6 +77,7 @@ class UserBulkItem(BaseModel):
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=255)
     phone: Optional[str] = Field(None, max_length=20)
+    password: Optional[str] = Field(None, min_length=6, max_length=128)
     employee_id: Optional[str] = Field(None, max_length=50)
     department: Optional[str] = Field(None, max_length=100)
     designation: Optional[str] = Field(None, max_length=100)

@@ -65,7 +65,7 @@ export function QCQueue() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-white/10 pb-6">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-6">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -73,7 +73,7 @@ export function QCQueue() {
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             Facility QC
           </span>
-          <h1 className="font-brand font-bold text-3xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
             QC Queue
           </h1>
           <p className="font-display text-zinc-500 text-sm mt-2 uppercase tracking-wide">
@@ -95,7 +95,7 @@ export function QCQueue() {
             placeholder="Search by brand, model, or serial..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
+            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
         <div className="flex gap-2">
@@ -104,7 +104,7 @@ export function QCQueue() {
             className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
               sortBy === 'newest'
                 ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-white/20'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
             }`}
           >
             Newest
@@ -114,7 +114,7 @@ export function QCQueue() {
             className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
               sortBy === 'oldest'
                 ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-white/20'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
             }`}
           >
             Oldest
@@ -128,9 +128,9 @@ export function QCQueue() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
         >
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-slate-200 dark:divide-white/5">
             {filteredAssets.map((asset, idx) => (
               <motion.div
                 key={asset.id}
@@ -139,11 +139,11 @@ export function QCQueue() {
                 transition={{ delay: idx * 0.03 }}
                 className="p-5 flex items-center gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
               >
-                <div className="w-16 h-16 border border-white/10 bg-white/5 flex items-center justify-center">
+                <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                   <Laptop className="w-8 h-8 text-zinc-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-bold text-lg text-white uppercase truncate">
+                  <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white uppercase truncate">
                     {asset.brand} {asset.model}
                   </h3>
                   <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
@@ -202,9 +202,9 @@ export function QCQueue() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
         >
-          <div className="w-20 h-20 border border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
             <ClipboardCheck className="w-10 h-10 text-zinc-600" />
           </div>
           <h3 className="font-brand font-bold text-xl text-zinc-500 uppercase tracking-tight mb-2">
@@ -225,13 +225,13 @@ export function QCQueue() {
         transition={{ delay: 0.2 }}
         className="grid grid-cols-2 gap-4"
       >
-        <div className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
           <p className="font-brand font-bold text-3xl text-amber-400">
             {pendingAssets.filter(a => a.status === 'in_transit').length}
           </p>
         </div>
-        <div className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
           <p className="font-brand font-bold text-3xl text-emerald-400">
             {pendingAssets.filter(a => a.status === 'facility_qc').length}

@@ -47,12 +47,17 @@ def get_scoped_filters(current_user: User) -> Dict[str, Any]:
     # Enterprise users are scoped to their enterprise
     if current_user.enterprise_id:
         filters["enterprise_id"] = current_user.enterprise_id
-    
-    # IT Admin and Employee are further scoped to their branch
-    if current_user.role in [UserRole.IT_ADMIN.value, UserRole.EMPLOYEE.value]:
+
+    # Employee: only see assets assigned to them (not all branch/enterprise assets)
+    if current_user.role == UserRole.EMPLOYEE.value:
+        filters["assigned_to_user_id"] = current_user.id
+        return filters
+
+    # IT Admin is further scoped to their branch
+    if current_user.role == UserRole.IT_ADMIN.value:
         if current_user.branch_id:
             filters["branch_id"] = current_user.branch_id
-    
+
     return filters
 
 

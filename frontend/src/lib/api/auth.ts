@@ -57,15 +57,15 @@ export const authApi = {
     return Promise.resolve({ success: true });
   },
 
-  // Employee OTP flow
+  // Employee OTP flow — uses fetchPublic since user is not yet authenticated
   requestOTP: (email: string) =>
-    fetchWithAuth<{ email: string }>('/auth/employee/request-otp', {
+    fetchPublic<{ email: string }>('/auth/employee/request-otp', {
       method: 'POST',
       body: JSON.stringify({ email }),
     }),
 
   verifyOTP: (email: string, otp: string) =>
-    fetchWithAuth<LoginResponse>('/auth/employee/verify-otp', {
+    fetchPublic<LoginResponse>('/auth/employee/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ email, otp }),
     }),

@@ -108,9 +108,9 @@ class UserService:
         is_employee = user_data.role == UserRole.EMPLOYEE
 
         if is_employee:
-            # Employees use OTP - no password
-            password_hash = None
-            initial_status = UserStatus.PENDING.value  # Pending until first OTP login
+            # Employees get a default password for login
+            password_hash = get_password_hash("password123")
+            initial_status = UserStatus.ACTIVE.value
         else:
             # All other roles require password
             if not user_data.password:
@@ -207,7 +207,8 @@ class UserService:
                     employee_id=user_item.employee_id,
                     department=user_item.department,
                     designation=user_item.designation,
-                    status=UserStatus.PENDING.value if is_employee else UserStatus.ACTIVE.value,
+                    password_hash=get_password_hash(user_item.password) if user_item.password else (get_password_hash("password123") if is_employee else None),
+                    status=UserStatus.ACTIVE.value,
                     created_by=created_by,
                     updated_by=created_by,
                 )

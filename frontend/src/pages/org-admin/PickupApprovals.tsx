@@ -740,7 +740,7 @@ export function PickupApprovals() {
                       </span>
                     </div>
                     {selectedBatchData.rejection_reason && (
-                      <p className="font-display text-sm text-zinc-300 mt-2">
+                      <p className="font-display text-sm text-slate-600 dark:text-zinc-300 mt-2">
                         {selectedBatchData.rejection_reason}
                       </p>
                     )}

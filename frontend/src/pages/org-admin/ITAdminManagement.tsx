@@ -21,7 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { useAuth, useITAdmins, useITAdminBranches, useCreateITAdmin, useUpdateITAdminStatus } from '@/hooks';
+import { useAuth, useITAdmins, useITAdminBranches, useBranches, useCreateITAdmin, useUpdateITAdminStatus } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { USER_STATUS_DISPLAY } from '@/lib/status-display';
 import { ConfirmationModal } from '@/components/ui';
@@ -458,7 +458,7 @@ function StatBox({
   );
 }
 
-// Add IT Admin Modal - V3.2: No branch assignment (done via BranchManagement)
+// Add IT Admin Modal - with branch selector
 function AddITAdminModal({
   isOpen,
   onClose,
@@ -472,20 +472,44 @@ function AddITAdminModal({
   onSubmit: (data: any) => Promise<void>;
   isLoading: boolean;
 }) {
+  const { data: branches = [] } = useBranches(enterpriseId);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
+    branch_id: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters';
+    }
+    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Valid email address is required';
+    }
+    if (!formData.password || formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    }
+    if (!formData.branch_id) {
+      errors.branch_id = 'Branch assignment is required';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     await onSubmit({
       enterprise_id: enterpriseId,
       ...formData,
+      branch_id: formData.branch_id || undefined,
     });
-    setFormData({ name: '', email: '', phone: '', password: '' });
+    setFormData({ name: '', email: '', phone: '', password: '', branch_id: '' });
+    setFormErrors({});
   };
 
   if (!isOpen) return null;
@@ -511,11 +535,11 @@ function AddITAdminModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              required
+              onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value })); setFormErrors(prev => ({ ...prev, name: '' })); }}
               placeholder="John Doe"
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
+            {formErrors.name && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.name}</p>}
           </div>
 
           <div>
@@ -523,11 +547,11 @@ function AddITAdminModal({
             <input
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              required
+              onChange={(e) => { setFormData(prev => ({ ...prev, email: e.target.value })); setFormErrors(prev => ({ ...prev, email: '' })); }}
               placeholder="john@company.com"
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
+            {formErrors.email && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.email}</p>}
           </div>
 
           <div>
@@ -535,12 +559,11 @@ function AddITAdminModal({
             <input
               type="password"
               value={formData.password}
-              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              required
+              onChange={(e) => { setFormData(prev => ({ ...prev, password: e.target.value })); setFormErrors(prev => ({ ...prev, password: '' })); }}
               placeholder="Min. 8 characters"
-              minLength={8}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.password ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
+            {formErrors.password && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.password}</p>}
           </div>
 
           <div>
@@ -554,9 +577,32 @@ function AddITAdminModal({
             />
           </div>
 
-          {/* V3.2 Note: Branches are assigned via Branch Management */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">
+              Assign to Branch *
+            </label>
+            <select
+              value={formData.branch_id}
+              onChange={(e) => { setFormData(prev => ({ ...prev, branch_id: e.target.value })); setFormErrors(prev => ({ ...prev, branch_id: '' })); }}
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 appearance-none cursor-pointer ${formErrors.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
+            >
+              <option value="">Select a branch...</option>
+              {branches.map((branch: any) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name} {branch.code ? `(${branch.code})` : ''}
+                </option>
+              ))}
+            </select>
+            {formErrors.branch_id && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.branch_id}</p>}
+            {branches.length === 0 && (
+              <p className="mt-1 text-xs text-amber-500 font-mono">
+                No branches found. Create a branch first in Branch Management.
+              </p>
+            )}
+          </div>
+
           <p className="text-xs text-slate-500 dark:text-white/50 font-mono">
-            To assign branches, go to Branch Management after creating the IT Admin.
+            Additional branches can be assigned via Branch Management after creation.
           </p>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
@@ -569,7 +615,7 @@ function AddITAdminModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !formData.branch_id}
               className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}

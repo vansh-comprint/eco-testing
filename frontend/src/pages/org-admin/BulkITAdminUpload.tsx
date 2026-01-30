@@ -582,7 +582,7 @@ export function BulkITAdminUpload() {
   if (!enterprise) {
     return (
       <div className="flex items-center justify-center min-h-[400px] border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-        <p className="font-display text-zinc-500 uppercase tracking-wide">Enterprise not found</p>
+        <p className="font-display text-slate-500 dark:text-zinc-500 uppercase tracking-wide">Enterprise not found</p>
       </div>
     );
   }
@@ -613,17 +613,17 @@ export function BulkITAdminUpload() {
             <div className="flex justify-center gap-8 mb-6">
               <div className="text-center">
                 <p className="font-brand font-bold text-3xl text-ecotribe-primary">{uploadResult.results.length}</p>
-                <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest">Created</p>
+                <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Created</p>
               </div>
               {uploadResult.errors.length > 0 && (
                 <div className="text-center">
                   <p className="font-brand font-bold text-3xl text-red-400">{uploadResult.errors.length}</p>
-                  <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest">Failed</p>
+                  <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Failed</p>
                 </div>
               )}
             </div>
 
-            <p className="font-mono text-xs text-zinc-500 mb-8">
+            <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 mb-8">
               IT Admins can now log in using their email address
             </p>
 
@@ -663,14 +663,14 @@ export function BulkITAdminUpload() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <button
             onClick={() => navigate(-1)}
-            className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
+            className="interactive flex items-center gap-2 text-slate-500 dark:text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
@@ -685,7 +685,7 @@ export function BulkITAdminUpload() {
               <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                 Import IT Admins
               </h1>
-              <p className="font-display text-zinc-500 text-sm mt-1 uppercase tracking-wide">
+              <p className="font-display text-slate-500 dark:text-zinc-500 text-sm mt-1 uppercase tracking-wide">
                 Upload multiple IT Admins via CSV
               </p>
             </div>
@@ -706,7 +706,7 @@ export function BulkITAdminUpload() {
           </div>
           <div>
             <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-2">Upload Tips</p>
-            <ul className="font-mono text-xs text-zinc-500 space-y-1">
+            <ul className="font-mono text-xs text-slate-500 dark:text-zinc-500 space-y-1">
               <li>- <strong>Download the Excel template</strong> - it has a branch dropdown!</li>
               <li>- Required column: email</li>
               <li>- Optional: name, phone, branch_name</li>
@@ -819,7 +819,7 @@ export function BulkITAdminUpload() {
       {uploadStatus === 'parsing' && (
         <div className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 py-16 text-center">
           <div className="w-12 h-12 border-2 border-ecotribe-primary border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="font-mono text-sm text-zinc-500 uppercase tracking-widest">Parsing CSV file...</p>
+          <p className="font-mono text-sm text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Parsing CSV file...</p>
         </div>
       )}
 
@@ -839,7 +839,7 @@ export function BulkITAdminUpload() {
                 </div>
                 <div>
                   <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{file.name}</p>
-                  <p className="font-mono text-xs text-zinc-600">
+                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
                     {(file.size / 1024).toFixed(1)} KB - {parsedData.length} rows
                   </p>
                 </div>
@@ -848,7 +848,7 @@ export function BulkITAdminUpload() {
                 onClick={handleReset}
                 className="interactive p-2.5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
               >
-                <Trash2 className="w-4 h-4 text-zinc-600 hover:text-red-400 transition-colors" />
+                <Trash2 className="w-4 h-4 text-slate-500 dark:text-zinc-600 hover:text-red-400 transition-colors" />
               </button>
             </div>
           </div>
@@ -864,28 +864,28 @@ export function BulkITAdminUpload() {
                   <Users className="w-4 h-4 text-emerald-400" />
                 </div>
                 <p className="font-brand font-bold text-2xl text-emerald-400">{validRows.length}</p>
-                <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Valid</p>
+                <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Valid</p>
               </div>
               <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${invalidRows.length > 0 ? 'bg-red-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <AlertTriangle className={`w-4 h-4 ${invalidRows.length > 0 ? 'text-red-400' : 'text-zinc-600'}`} />
+                  <AlertTriangle className={`w-4 h-4 ${invalidRows.length > 0 ? 'text-red-400' : 'text-slate-500 dark:text-zinc-600'}`} />
                 </div>
-                <p className={`font-brand font-bold text-2xl ${invalidRows.length > 0 ? 'text-red-400' : 'text-zinc-600'}`}>{invalidRows.length}</p>
-                <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Errors</p>
+                <p className={`font-brand font-bold text-2xl ${invalidRows.length > 0 ? 'text-red-400' : 'text-slate-500 dark:text-zinc-600'}`}>{invalidRows.length}</p>
+                <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Errors</p>
               </div>
               <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${warningRows.length > 0 ? 'bg-amber-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <AlertTriangle className={`w-4 h-4 ${warningRows.length > 0 ? 'text-amber-400' : 'text-zinc-600'}`} />
+                  <AlertTriangle className={`w-4 h-4 ${warningRows.length > 0 ? 'text-amber-400' : 'text-slate-500 dark:text-zinc-600'}`} />
                 </div>
-                <p className={`font-brand font-bold text-2xl ${warningRows.length > 0 ? 'text-amber-400' : 'text-zinc-600'}`}>{warningRows.length}</p>
-                <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Warnings</p>
+                <p className={`font-brand font-bold text-2xl ${warningRows.length > 0 ? 'text-amber-400' : 'text-slate-500 dark:text-zinc-600'}`}>{warningRows.length}</p>
+                <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Warnings</p>
               </div>
               <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${rowsWithBranch.length > 0 ? 'bg-blue-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <Building2 className={`w-4 h-4 ${rowsWithBranch.length > 0 ? 'text-blue-400' : 'text-zinc-600'}`} />
+                  <Building2 className={`w-4 h-4 ${rowsWithBranch.length > 0 ? 'text-blue-400' : 'text-slate-500 dark:text-zinc-600'}`} />
                 </div>
-                <p className={`font-brand font-bold text-2xl ${rowsWithBranch.length > 0 ? 'text-blue-400' : 'text-zinc-600'}`}>{rowsWithBranch.length}</p>
-                <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">With Branch</p>
+                <p className={`font-brand font-bold text-2xl ${rowsWithBranch.length > 0 ? 'text-blue-400' : 'text-slate-500 dark:text-zinc-600'}`}>{rowsWithBranch.length}</p>
+                <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">With Branch</p>
               </div>
             </div>
           </div>
@@ -894,14 +894,14 @@ export function BulkITAdminUpload() {
           <div className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10">
             <div className="p-5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Eye className="w-5 h-5 text-zinc-600" />
+                <Eye className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
                 <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Data Preview</h2>
               </div>
               <button
                 onClick={() => setShowPreview(!showPreview)}
                 className="interactive p-2 hover:bg-white/5 transition-colors"
               >
-                {showPreview ? <ChevronUp className="w-4 h-4 text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-zinc-600" />}
+                {showPreview ? <ChevronUp className="w-4 h-4 text-slate-500 dark:text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-slate-500 dark:text-zinc-600" />}
               </button>
             </div>
             <AnimatePresence>
@@ -915,10 +915,10 @@ export function BulkITAdminUpload() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-white/10">
-                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Status</th>
-                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Name</th>
-                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Email</th>
-                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Branch</th>
+                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Status</th>
+                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Name</th>
+                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Email</th>
+                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Branch</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -937,9 +937,9 @@ export function BulkITAdminUpload() {
                               )}
                             </td>
                             <td className="py-3 px-5 font-display text-sm text-slate-900 dark:text-white">
-                              {row.name || <span className="text-zinc-600">-</span>}
+                              {row.name || <span className="text-slate-400 dark:text-zinc-600">-</span>}
                             </td>
-                            <td className="py-3 px-5 font-mono text-xs text-zinc-400">
+                            <td className="py-3 px-5 font-mono text-xs text-slate-400 dark:text-zinc-400">
                               {row.email || '-'}
                             </td>
                             <td className="py-3 px-5">
@@ -952,7 +952,7 @@ export function BulkITAdminUpload() {
                                   {row.branch_name} ⚠️
                                 </span>
                               ) : (
-                                <span className="font-mono text-xs text-zinc-700">-</span>
+                                <span className="font-mono text-xs text-slate-500 dark:text-zinc-700">-</span>
                               )}
                             </td>
                           </tr>
@@ -961,7 +961,7 @@ export function BulkITAdminUpload() {
                     </table>
                   </div>
                   {parsedData.length > 10 && (
-                    <p className="p-4 text-center font-mono text-xs text-zinc-600">
+                    <p className="p-4 text-center font-mono text-xs text-slate-500 dark:text-zinc-600">
                       Showing 10 of {parsedData.length} rows
                     </p>
                   )}
@@ -980,7 +980,7 @@ export function BulkITAdminUpload() {
               <div className="p-5 space-y-3 max-h-48 overflow-y-auto">
                 {invalidRows.slice(0, 5).map((row, index) => (
                   <div key={index} className="p-3 border border-red-500/10 bg-red-500/5">
-                    <p className="font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
+                    <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest mb-2">
                       Row: {row.email || '(empty email)'}
                     </p>
                     <ul className="font-mono text-xs text-red-400 space-y-1">
@@ -991,7 +991,7 @@ export function BulkITAdminUpload() {
                   </div>
                 ))}
                 {invalidRows.length > 5 && (
-                  <p className="text-center font-mono text-xs text-zinc-600">
+                  <p className="text-center font-mono text-xs text-slate-500 dark:text-zinc-600">
                     And {invalidRows.length - 5} more errors...
                   </p>
                 )}
@@ -1004,7 +1004,7 @@ export function BulkITAdminUpload() {
             <button
               onClick={() => navigate('/org-admin/it-admins')}
               disabled={uploadStatus === 'uploading'}
-              className="interactive px-6 py-3 text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+              className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

@@ -195,3 +195,7 @@ export type {
 // Files
 export { filesApi } from './files';
 export type { FileUploadResponse } from './files';
+
+// Dashboard
+export { dashboardApi } from './dashboard';
+export type { BadgeCounts } from './dashboard';

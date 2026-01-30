@@ -10,9 +10,10 @@ import {
   Laptop,
   ArrowRight,
   Eye,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
-import { useAuth, useAllAssets } from '@/hooks';
+import { useAuth, useAllAssets, useAllDisputes, useResolveDispute, useApiError } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 
 type DisputeFilter = 'all' | 'pending' | 'resolved';
@@ -20,19 +21,22 @@ type DisputeFilter = 'all' | 'pending' | 'resolved';
 export function OpsDisputes() {
   const { user } = useAuth();
   const { data: assets = [] } = useAllAssets();
-  // TODO: Add useDisputes hook when disputes table is available
-  const disputes: Array<{
-    id: string;
-    assetId: string;
-    type: string;
-    itAdminNotes: string;
-    resolution?: string;
-    resolverNotes?: string;
-    resolvedAt?: string;
-    createdAt: string;
-  }> = [];
-  const isLoading = false;
+  const { data: rawDisputes = [], isLoading } = useAllDisputes();
+  const resolveDisputeMutation = useResolveDispute();
+  const { handleError, showSuccess } = useApiError();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
+
+  // Map API disputes to the format used in this page
+  const disputes = rawDisputes.map(d => ({
+    id: d.id,
+    assetId: d.asset_id,
+    type: d.reason || 'unknown',
+    itAdminNotes: d.description || d.reason || '',
+    resolution: d.resolution,
+    resolverNotes: d.resolver_notes,
+    resolvedAt: d.resolved_at,
+    createdAt: d.created_at,
+  }));
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DisputeFilter>('pending');
@@ -72,21 +76,37 @@ export function OpsDisputes() {
   const handleResolve = async () => {
     if (!selectedDispute || !resolution || !user) return;
 
-    // TODO: Implement dispute resolution when disputes hook is available
-    console.log('Resolving dispute:', {
-      disputeId: selectedDispute,
-      resolution,
-      resolvedBy: user.id,
-      resolverNotes: resolverNotes || undefined,
-    });
-
-    setSelectedDispute(null);
-    setResolution(null);
-    setResolverNotes('');
+    try {
+      await resolveDisputeMutation.mutateAsync({
+        disputeId: selectedDispute,
+        resolution,
+        resolved_by: user.id,
+        resolver_notes: resolverNotes || undefined,
+      });
+      showSuccess('Dispute Resolved', `Dispute has been ${resolution} successfully`);
+      setSelectedDispute(null);
+      setResolution(null);
+      setResolverNotes('');
+    } catch (error) {
+      handleError(error, 'Resolving dispute');
+    }
   };
 
   const selectedDisputeData = selectedDispute ? disputes.find(d => d.id === selectedDispute) : null;
   const selectedAsset = selectedDisputeData ? getAsset(selectedDisputeData.assetId) : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-ecotribe-primary animate-spin mx-auto mb-4" />
+          <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
+            Loading disputes...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -99,21 +119,13 @@ export function OpsDisputes() {
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             Dispute Management
           </span>
-          <h1 className="font-brand font-bold text-3xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
             Disputes
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
             {isAllEnterprises ? 'Review and resolve asset disputes' : `Disputes for ${selectedEnterprise?.name || 'selected enterprise'}`}
           </p>
         </motion.div>
-      </div>
-
-      {/* Development Notice */}
-      <div className="flex items-center gap-3 p-4 border border-amber-500/30 bg-amber-500/10">
-        <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-        <p className="font-mono text-xs text-amber-400">
-          Dispute management is under development. The disputes table and hooks will be added in a future migration.
-        </p>
       </div>
 
       {/* Stats - respects enterprise filter */}
@@ -177,7 +189,7 @@ export function OpsDisputes() {
             placeholder="Search disputes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
         <div className="flex gap-2">
@@ -188,7 +200,7 @@ export function OpsDisputes() {
               className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                 statusFilter === filter
                   ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                  : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-white/20'
+                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
               }`}
             >
               {filter}
@@ -220,7 +232,7 @@ export function OpsDisputes() {
                   className={`border cursor-pointer transition-all ${
                     isSelected
                       ? 'border-ecotribe-primary bg-ecotribe-primary/5'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
                   }`}
                 >
                   <div className="p-4">
@@ -243,7 +255,7 @@ export function OpsDisputes() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="font-display font-bold text-white uppercase">
+                            <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
                               {asset ? `${asset.brand} ${asset.model}` : 'Unknown Asset'}
                             </p>
                             <p className="font-mono text-xs text-slate-500 dark:text-white/50">
@@ -275,7 +287,7 @@ export function OpsDisputes() {
             })
           ) : (
             <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
-              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-slate-500 dark:text-white/50" />
               </div>
               <h3 className="font-brand font-bold text-lg text-slate-500 dark:text-white/50 uppercase mb-2">
@@ -298,7 +310,7 @@ export function OpsDisputes() {
           {selectedDisputeData ? (
             <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
               <div className="p-5 border-b border-slate-200 dark:border-white/10">
-                <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Dispute Details
                 </h3>
               </div>
@@ -307,11 +319,11 @@ export function OpsDisputes() {
                 {/* Asset Info */}
                 {selectedAsset && (
                   <div className="flex items-center gap-4 p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
+                    <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                       <Laptop className="w-7 h-7 text-slate-500 dark:text-white/50" />
                     </div>
                     <div>
-                      <p className="font-display font-bold text-white uppercase">
+                      <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
                         {selectedAsset.brand} {selectedAsset.model}
                       </p>
                       <p className="font-mono text-xs text-slate-500 dark:text-white/50">S/N: {selectedAsset.serial_number}</p>
@@ -328,14 +340,14 @@ export function OpsDisputes() {
                     IT Admin's Notes
                   </p>
                   <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <p className="font-display text-white">{selectedDisputeData.itAdminNotes}</p>
+                    <p className="font-display text-slate-900 dark:text-white">{selectedDisputeData.itAdminNotes}</p>
                   </div>
                 </div>
 
                 {/* Dispute Type */}
                 <div className="flex items-center gap-4">
                   <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Type:</span>
-                  <span className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-white/5 font-mono font-bold text-xs text-white uppercase">
+                  <span className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-mono font-bold text-xs text-slate-900 dark:text-white uppercase">
                     {selectedDisputeData.type} Review
                   </span>
                 </div>
@@ -360,7 +372,7 @@ export function OpsDisputes() {
                       </span>
                     </div>
                     {selectedDisputeData.resolverNotes && (
-                      <p className="font-display text-sm text-zinc-300 mt-2">
+                      <p className="font-display text-sm text-slate-600 dark:text-zinc-300 mt-2">
                         {selectedDisputeData.resolverNotes}
                       </p>
                     )}
@@ -381,7 +393,7 @@ export function OpsDisputes() {
                           className={`interactive p-4 border transition-all ${
                             resolution === 'overturned'
                               ? 'border-emerald-400 bg-emerald-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
+                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
                           }`}
                         >
                           <CheckCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -401,7 +413,7 @@ export function OpsDisputes() {
                           className={`interactive p-4 border transition-all ${
                             resolution === 'upheld'
                               ? 'border-red-400 bg-red-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
+                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
                           }`}
                         >
                           <XCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -429,24 +441,24 @@ export function OpsDisputes() {
                           onChange={(e) => setResolverNotes(e.target.value)}
                           placeholder="Add notes about your decision..."
                           rows={3}
-                          className="mt-2 w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
+                          className="mt-2 w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
                         />
                       </label>
                     </div>
 
                     <button
                       onClick={handleResolve}
-                      disabled={!resolution || isLoading}
+                      disabled={!resolution || resolveDisputeMutation.isPending}
                       className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                         resolution
                           ? resolution === 'overturned'
                             ? 'bg-emerald-500 text-white hover:bg-emerald-400'
                             : 'bg-red-500 text-white hover:bg-red-400'
-                          : 'bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
+                          : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
                       }`}
                     >
-                      {isLoading ? (
-                        <Clock className="w-4 h-4 animate-spin" />
+                      {resolveDisputeMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
                           <Send className="w-4 h-4" />

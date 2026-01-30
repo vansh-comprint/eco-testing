@@ -47,7 +47,7 @@ export function FacilityQC() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-          <h2 className="font-brand font-bold text-xl text-white uppercase mb-2">Asset Not Found</h2>
+          <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase mb-2">Asset Not Found</h2>
           <p className="font-display text-zinc-500 mb-6">The asset you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/tech/qc')}
@@ -157,15 +157,15 @@ export function FacilityQC() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="interactive w-10 h-10 border border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-white/[0.05] transition-all"
+          className="interactive w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <ArrowLeft className="w-5 h-5 text-slate-900 dark:text-white" />
         </button>
         <div className="flex-1">
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">
             Facility QC
           </span>
-          <h1 className="font-brand font-bold text-2xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-2xl text-slate-900 dark:text-white uppercase tracking-tight">
             {asset.brand} {asset.model}
           </h1>
         </div>
@@ -181,7 +181,7 @@ export function FacilityQC() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4"
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4"
       >
         <div className="flex items-center justify-between mb-2">
           <span className="font-mono font-bold text-xs text-zinc-400 uppercase tracking-widest">
@@ -191,7 +191,7 @@ export function FacilityQC() {
             {Math.round(progressPercentage)}%
           </span>
         </div>
-        <div className="h-2 bg-white/10">
+        <div className="h-2 bg-slate-200 dark:bg-white/10">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${progressPercentage}%` }}
@@ -216,17 +216,17 @@ export function FacilityQC() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: sectionIdx * 0.05 }}
-                className={`border ${isComplete ? 'border-emerald-400/30' : 'border-white/10'} bg-slate-50 dark:bg-white/[0.02]`}
+                className={`border ${isComplete ? 'border-emerald-400/30' : 'border-slate-200 dark:border-white/10'} bg-slate-50 dark:bg-white/[0.02]`}
               >
                 <button
                   onClick={() => toggleSection(sectionKey)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
+                  className="w-full p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 border flex items-center justify-center ${
                       isComplete
                         ? 'border-emerald-400/30 bg-emerald-400/10'
-                        : 'border-white/10 bg-white/5'
+                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                     }`}>
                       {isComplete ? (
                         <CheckCircle className="w-5 h-5 text-emerald-400" />
@@ -235,7 +235,7 @@ export function FacilityQC() {
                       )}
                     </div>
                     <div className="text-left">
-                      <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                      <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                         {section.name}
                       </h3>
                       <p className="font-mono text-xs text-zinc-500">
@@ -255,7 +255,7 @@ export function FacilityQC() {
                     {section.items.map((item, itemIdx) => (
                       <div
                         key={itemIdx}
-                        className="p-4 border-b border-white/5 last:border-0"
+                        className="p-4 border-b border-slate-200 dark:border-white/5 last:border-0"
                       >
                         <div className="flex items-start gap-4">
                           <button
@@ -263,13 +263,13 @@ export function FacilityQC() {
                             className={`flex-shrink-0 w-8 h-8 border flex items-center justify-center transition-all ${
                               item.passed
                                 ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-                                : 'border-white/20 bg-white/5 text-zinc-500 hover:border-white/30'
+                                : 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5 text-zinc-500 hover:border-slate-400 dark:hover:border-white/30'
                             }`}
                           >
                             {item.passed && <CheckCircle className="w-4 h-4" />}
                           </button>
                           <div className="flex-1">
-                            <p className={`font-display text-sm ${item.passed ? 'text-white' : 'text-zinc-400'}`}>
+                            <p className={`font-display text-sm ${item.passed ? 'text-slate-900 dark:text-white' : 'text-zinc-400'}`}>
                               {item.question}
                             </p>
                             <input
@@ -277,7 +277,7 @@ export function FacilityQC() {
                               placeholder="Add notes (optional)..."
                               value={item.notes || ''}
                               onChange={(e) => updateItemNotes(sectionKey, itemIdx, e.target.value)}
-                              className="mt-2 w-full px-3 py-2 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white text-sm font-mono placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
+                              className="mt-2 w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white text-sm font-mono placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
                             />
                           </div>
                         </div>
@@ -294,15 +294,15 @@ export function FacilityQC() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Photo Evidence (Optional)
               </h3>
             </div>
             <div className="p-4">
-              <div className="border-2 border-dashed border-white/10 hover:border-white/20 transition-colors p-8 text-center cursor-pointer">
+              <div className="border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-colors p-8 text-center cursor-pointer">
                 <Camera className="w-10 h-10 text-zinc-500 mx-auto mb-3" />
                 <p className="font-display text-sm text-zinc-400">
                   Click to capture or upload photos
@@ -322,37 +322,37 @@ export function FacilityQC() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Device Info
               </h3>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 border border-white/10 bg-white/5 flex items-center justify-center">
+                <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                   <Laptop className="w-8 h-8 text-zinc-400" />
                 </div>
                 <div>
-                  <p className="font-display font-bold text-white uppercase">
+                  <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
                     {asset.brand} {asset.model}
                   </p>
                   <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
                 </div>
               </div>
-              <div className="border-t border-white/10 pt-3 space-y-2">
+              <div className="border-t border-slate-200 dark:border-white/10 pt-3 space-y-2">
                 <div className="flex justify-between">
                   <span className="font-mono text-xs text-zinc-500">Processor</span>
-                  <span className="font-mono text-xs text-white">{asset.processor || 'N/A'}</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.processor || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-mono text-xs text-zinc-500">RAM</span>
-                  <span className="font-mono text-xs text-white">{asset.ram || 'N/A'}</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.ram || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-mono text-xs text-zinc-500">Storage</span>
-                  <span className="font-mono text-xs text-white">{asset.storage || 'N/A'}</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.storage || 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -363,10 +363,10 @@ export function FacilityQC() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Assign Grade
               </h3>
             </div>
@@ -378,7 +378,7 @@ export function FacilityQC() {
                   className={`w-full p-3 border flex items-center gap-3 transition-all ${
                     grade === g.value
                       ? `border-${g.color}-400 bg-${g.color}-400/10`
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
                   }`}
                 >
                   <div className={`w-8 h-8 border flex items-center justify-center font-brand font-bold ${
@@ -389,7 +389,7 @@ export function FacilityQC() {
                     {g.value}
                   </div>
                   <span className={`font-display text-sm ${
-                    grade === g.value ? 'text-white' : 'text-zinc-400'
+                    grade === g.value ? 'text-slate-900 dark:text-white' : 'text-zinc-400'
                   }`}>
                     {g.label}
                   </span>
@@ -403,10 +403,10 @@ export function FacilityQC() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] sticky top-4"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] sticky top-4"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Final Decision
               </h3>
             </div>
@@ -419,7 +419,7 @@ export function FacilityQC() {
                   className={`interactive p-4 border ${
                     decision === 'final_accept'
                       ? 'border-emerald-400 bg-emerald-400/10'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
                   } transition-all`}
                 >
                   <CheckCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -436,7 +436,7 @@ export function FacilityQC() {
                   className={`interactive p-4 border ${
                     decision === 'final_reject'
                       ? 'border-red-400 bg-red-400/10'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
                   } transition-all`}
                 >
                   <XCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -461,7 +461,7 @@ export function FacilityQC() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Add inspection notes..."
                     rows={3}
-                    className="mt-2 w-full px-4 py-3 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
+                    className="mt-2 w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
                   />
                 </label>
               </div>
@@ -475,7 +475,7 @@ export function FacilityQC() {
                     ? decision === 'final_accept'
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400'
                       : 'bg-red-500 text-white hover:bg-red-400'
-                    : 'bg-white/10 text-zinc-500 cursor-not-allowed'
+                    : 'bg-slate-100 dark:bg-white/10 text-zinc-500 cursor-not-allowed'
                 }`}
               >
                 {isLoading ? (
@@ -491,7 +491,7 @@ export function FacilityQC() {
               {/* Back Button */}
               <button
                 onClick={() => navigate('/tech/qc')}
-                className="w-full interactive py-2.5 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all"
+                className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
               >
                 Back to Queue
               </button>

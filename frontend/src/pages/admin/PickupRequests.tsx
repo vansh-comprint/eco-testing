@@ -215,7 +215,7 @@ export function PickupRequests() {
             className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer min-w-[160px]"
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">
+              <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
                 {opt.label}
               </option>
             ))}
@@ -231,7 +231,7 @@ export function PickupRequests() {
         className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer"
       >
         {filteredRequests.length > 0 ? (
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-slate-200 dark:divide-white/5">
             {filteredRequests.map((request, index) => {
               const statusConfig = getStatusConfig(request.status);
               // V3: Use snake_case from database

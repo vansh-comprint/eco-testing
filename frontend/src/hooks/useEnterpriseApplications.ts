@@ -123,6 +123,7 @@ export function useCreateEnterpriseApplication() {
         doc_company_logo: application.doc_company_logo,
       };
       const response = await enterpriseApplicationsApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to submit application');
       return response.data;
     },
     onSuccess: () => {
@@ -145,6 +146,7 @@ export function useApproveEnterpriseApplication() {
       notes?: string;
     }) => {
       const response = await enterpriseApplicationsApi.approve(applicationId, notes);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to approve application');
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -169,6 +171,7 @@ export function useRejectEnterpriseApplication() {
       reason: string;
     }) => {
       const response = await enterpriseApplicationsApi.reject(applicationId, reason);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to reject application');
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -191,6 +194,7 @@ export function useRequestMoreInfo() {
       notes: string;
     }) => {
       const response = await enterpriseApplicationsApi.requestMoreInfo(applicationId, notes);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to request more info');
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -212,6 +216,7 @@ export function useUpdateApplicationDocuments() {
       documents: EnterpriseApplicationUpdateDocsRequest;
     }) => {
       const response = await enterpriseApplicationsApi.updateDocuments(applicationId, documents);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update documents');
       return response.data;
     },
     onSuccess: (_, variables) => {

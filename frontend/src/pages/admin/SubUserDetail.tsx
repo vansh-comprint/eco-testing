@@ -435,9 +435,9 @@ export function SubUserDetail() {
                         }}
                         className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                       >
-                        <option value="" className="bg-[#0a0a0a]">Select department...</option>
+                        <option value="" className="bg-white dark:bg-[#0a0a0a]">Select department...</option>
                         {DEPARTMENT_OPTIONS.map(dept => (
-                          <option key={dept} value={dept} className="bg-[#0a0a0a]">{dept}</option>
+                          <option key={dept} value={dept} className="bg-white dark:bg-[#0a0a0a]">{dept}</option>
                         ))}
                       </select>
                     </div>
@@ -463,9 +463,9 @@ export function SubUserDetail() {
                         onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value as 'active' | 'pending_invite' | 'inactive' }))}
                         className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                       >
-                        <option value="active" className="bg-[#0a0a0a]">Active</option>
-                        <option value="pending_invite" className="bg-[#0a0a0a]">Pending Invite</option>
-                        <option value="inactive" className="bg-[#0a0a0a]">Inactive</option>
+                        <option value="active" className="bg-white dark:bg-[#0a0a0a]">Active</option>
+                        <option value="pending_invite" className="bg-white dark:bg-[#0a0a0a]">Pending Invite</option>
+                        <option value="inactive" className="bg-white dark:bg-[#0a0a0a]">Inactive</option>
                       </select>
                     </div>
                   </div>
@@ -595,7 +595,7 @@ export function SubUserDetail() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-red-500/30 bg-[#0a0a0a]"
+            className="w-full max-w-md border border-red-500/30 bg-white dark:bg-[#0a0a0a]"
           >
             <div className="p-6 border-b border-red-500/20">
               <div className="flex items-center gap-3">

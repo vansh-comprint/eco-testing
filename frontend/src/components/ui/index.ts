@@ -87,3 +87,7 @@ export { EmployeeSelector } from './EmployeeSelector';
 
 // BranchSelector (Smart selector with inline creation)
 export { BranchSelector } from './BranchSelector';
+
+// BulkImportModal (CSV-based bulk import)
+export { BulkImportModal } from './BulkImportModal';
+export type { BulkImportColumn, BulkImportResult } from './BulkImportModal';

@@ -3,7 +3,7 @@
  * Core utilities for REST API communication with the FastAPI backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
 
 // Token storage
 const TOKEN_KEY = 'ecotribe_access_token';
@@ -24,8 +24,9 @@ export const clearTokens = () => {
   // The auth store uses 'ecotribe-auth-api' as its persist key
   localStorage.removeItem('ecotribe-auth-api');
 
-  // Clear session storage as well (belt and suspenders)
-  sessionStorage.clear();
+  // Note: Do NOT call sessionStorage.clear() here.
+  // OPS enterprise selection (ops_selected_enterprise) is stored in sessionStorage
+  // and must survive auth token cleanup to avoid breaking the enterprise selector.
 };
 
 // Force logout and redirect to login page

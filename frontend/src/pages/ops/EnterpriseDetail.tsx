@@ -7,22 +7,21 @@ import {
   Mail,
   Phone,
   MapPin,
-  FileText,
   Users,
-  Laptop,
-  Package,
-  IndianRupee,
   CheckCircle,
   Clock,
   AlertCircle,
   UserPlus,
   Briefcase,
-  Shield
+  Shield,
+  Upload
 } from 'lucide-react';
-import { PageHeader, Badge, Card, Spinner } from '@/components/ui';
+import { PageHeader, Card, Spinner, BulkImportModal } from '@/components/ui';
+import type { BulkImportColumn, BulkImportResult } from '@/components/ui';
 import { CreateEnterpriseUserModal } from '@/pages/super';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
+import { subUsersApi } from '@/lib/api/sub-users';
 import { branchesApi } from '@/lib/api/branches';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 
@@ -72,6 +71,7 @@ export function EnterpriseDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'sub_user'>('sub_user');
+  const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'sub_user' | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -163,6 +163,54 @@ export function EnterpriseDetail() {
     fetchEnterpriseDetails(); // Refresh the user list
   };
 
+  const itAdminBulkColumns: BulkImportColumn[] = [
+    { key: 'name', label: 'Name', required: true },
+    { key: 'email', label: 'Email', required: true },
+    { key: 'phone', label: 'Phone', required: false },
+    { key: 'password', label: 'Password', required: true },
+  ];
+
+  const subUserBulkColumns: BulkImportColumn[] = [
+    { key: 'name', label: 'Name', required: true },
+    { key: 'email', label: 'Email', required: true },
+    { key: 'phone', label: 'Phone', required: false },
+    { key: 'department', label: 'Department', required: false },
+    { key: 'employee_id', label: 'Employee ID', required: false },
+  ];
+
+  const handleBulkImport = async (rows: Record<string, string>[]): Promise<BulkImportResult> => {
+    if (!id) throw new Error('No enterprise ID');
+
+    if (bulkImportType === 'it_admin') {
+      const response = await usersApi.bulkCreate({
+        users: rows.map(row => ({
+          name: row.name,
+          email: row.email,
+          phone: row.phone || undefined,
+          password: row.password || undefined,
+          role: 'it_admin',
+          enterprise_id: id,
+        })),
+      });
+      if (!response.success) throw new Error(response.error?.message || 'Bulk import failed');
+      return response.data as BulkImportResult;
+    } else {
+      const response = await subUsersApi.bulkCreate({
+        enterprise_id: id,
+        role: 'employee',
+        users: rows.map(row => ({
+          name: row.name,
+          email: row.email,
+          phone: row.phone || undefined,
+          department: row.department || undefined,
+          employee_id: row.employee_id || undefined,
+        })),
+      });
+      if (!response.success) throw new Error(response.error?.message || 'Bulk import failed');
+      return response.data as BulkImportResult;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -225,7 +273,7 @@ export function EnterpriseDetail() {
         actions={
           <button
             onClick={() => navigate('/ops/enterprises')}
-            className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all flex items-center gap-2"
+            className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
           >
             <ArrowLeft className={iconSize.sm} />
             Back
@@ -438,13 +486,22 @@ export function EnterpriseDetail() {
                   IT Admins ({itAdmins.length})
                 </h2>
               </div>
-              <button
-                onClick={() => handleAddUser('it_admin')}
-                className="px-3 py-2 border border-blue-400/30 bg-blue-400/10 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
-              >
-                <UserPlus className={iconSize.sm} />
-                Add IT Admin
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setBulkImportType('it_admin')}
+                  className="px-3 py-2 border border-blue-400/30 bg-blue-400/5 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
+                >
+                  <Upload className={iconSize.sm} />
+                  Bulk Import
+                </button>
+                <button
+                  onClick={() => handleAddUser('it_admin')}
+                  className="px-3 py-2 border border-blue-400/30 bg-blue-400/10 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
+                >
+                  <UserPlus className={iconSize.sm} />
+                  Add IT Admin
+                </button>
+              </div>
             </div>
           </div>
           {itAdmins.length > 0 ? (
@@ -510,13 +567,22 @@ export function EnterpriseDetail() {
                   Sub Users ({subUsers.length})
                 </h2>
               </div>
-              <button
-                onClick={() => handleAddUser('sub_user')}
-                className="px-3 py-2 border border-purple-400/30 bg-purple-400/10 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
-              >
-                <UserPlus className={iconSize.sm} />
-                Add Sub User
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setBulkImportType('sub_user')}
+                  className="px-3 py-2 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
+                >
+                  <Upload className={iconSize.sm} />
+                  Bulk Import
+                </button>
+                <button
+                  onClick={() => handleAddUser('sub_user')}
+                  className="px-3 py-2 border border-purple-400/30 bg-purple-400/10 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
+                >
+                  <UserPlus className={iconSize.sm} />
+                  Add Sub User
+                </button>
+              </div>
             </div>
           </div>
           {subUsers.length > 0 ? (
@@ -578,6 +644,23 @@ export function EnterpriseDetail() {
           defaultRole={selectedRole}
         />
       )}
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        isOpen={bulkImportType !== null}
+        onClose={() => setBulkImportType(null)}
+        title={bulkImportType === 'it_admin' ? 'Bulk Import IT Admins' : 'Bulk Import Sub Users'}
+        description={
+          bulkImportType === 'it_admin'
+            ? 'Upload a CSV file to create multiple IT Admin accounts at once.'
+            : 'Upload a CSV file to create multiple employee (sub-user) accounts at once.'
+        }
+        columns={bulkImportType === 'it_admin' ? itAdminBulkColumns : subUserBulkColumns}
+        onImport={handleBulkImport}
+        onSuccess={() => {
+          fetchEnterpriseDetails();
+        }}
+      />
     </div>
   );
 }

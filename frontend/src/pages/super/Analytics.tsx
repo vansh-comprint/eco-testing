@@ -1,82 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart3, ArrowLeft, Download, TrendingUp, TrendingDown, Building2, Users, Laptop, IndianRupee } from 'lucide-react';
 import { Button, Card, Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
-import { enterprisesApi } from '@/lib/api/enterprises';
+import { useEnterprises, useAllAssets } from '@/hooks';
 import { usersApi } from '@/lib/api/users';
-import { assetsApi } from '@/lib/api/assets';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
-
-interface AnalyticsData {
-  totalEnterprises: number;
-  totalUsers: number;
-  totalAssets: number;
-  totalRevenue: number;
-  activeEnterprises: number;
-  pendingApprovals: number;
-  monthlyGrowth: {
-    enterprises: number;
-    users: number;
-    revenue: number;
-  };
-}
 
 export function Analytics() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
-    totalEnterprises: 0,
-    totalUsers: 0,
-    totalAssets: 0,
-    totalRevenue: 0,
-    activeEnterprises: 0,
-    pendingApprovals: 0,
-    monthlyGrowth: {
-      enterprises: 0,
-      users: 0,
-      revenue: 0,
+  const queryClient = useQueryClient();
+
+  // Use React Query hooks for reliable data fetching
+  const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
+  const { data: assets = [], isLoading: assetsLoading } = useAllAssets();
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users', 'all'],
+    queryFn: async () => {
+      const response = await usersApi.list({ limit: 1000 });
+      return response.data || [];
     },
+    staleTime: 30000,
   });
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, []);
+  const isLoading = enterprisesLoading || assetsLoading || usersLoading;
 
-  const fetchAnalytics = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch all data from REST APIs
-      const [enterprisesResult, usersResult, assetsResult] = await Promise.all([
-        enterprisesApi.list({ limit: 1000 }),
-        usersApi.list({ limit: 1000 }),
-        assetsApi.list({ limit: 1000 }),
-      ]);
-
-      const enterprises = enterprisesResult.success && enterprisesResult.data ? enterprisesResult.data : [];
-      const users = usersResult.success && usersResult.data ? usersResult.data : [];
-      const assets = assetsResult.success && assetsResult.data ? assetsResult.data : [];
-
-      setAnalyticsData({
-        totalEnterprises: enterprises.length,
-        totalUsers: users.length,
-        totalAssets: assets.length,
-        totalRevenue: 0,
-        activeEnterprises: enterprises.filter((e) => e.status === 'active').length,
-        pendingApprovals: enterprises.filter((e) => e.status === 'pending_verification').length,
-        monthlyGrowth: {
-          enterprises: 0,
-          users: 0,
-          revenue: 0,
-        },
-      });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const analyticsData = useMemo(() => {
+    const totalRevenue = assets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+    return {
+      totalEnterprises: enterprises.length,
+      totalUsers: users.length,
+      totalAssets: assets.length,
+      totalRevenue,
+      activeEnterprises: enterprises.filter((e) => e.status === 'active').length,
+      pendingApprovals: enterprises.filter((e) => e.status === 'pending_verification').length,
+      monthlyGrowth: {
+        enterprises: 0,
+        users: 0,
+        revenue: 0,
+      },
+    };
+  }, [enterprises, users, assets]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -135,7 +101,11 @@ export function Analytics() {
             </Button>
             <Button
               variant="secondary"
-              onClick={() => fetchAnalytics()}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['enterprises'] });
+                queryClient.invalidateQueries({ queryKey: ['assets'] });
+                queryClient.invalidateQueries({ queryKey: ['users'] });
+              }}
               disabled={isLoading}
             >
               {isLoading ? 'Loading...' : 'Refresh'}

@@ -180,6 +180,10 @@ export {
   payoutKeys,
 } from './usePayouts';
 
+// Sidebar Badges
+export { useSidebarBadges, getBadgeForPath } from './useSidebarBadges';
+export type { SidebarBadges } from './useSidebarBadges';
+
 // Types
 export type { CreateAssetInput } from './useAssets';
 export type { CreateBatchInput, SubmitForApprovalInput, ApproveBatchInput, ApproveBatchWithPricesInput, RejectBatchInput } from './useBatches';

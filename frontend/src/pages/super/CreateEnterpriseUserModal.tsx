@@ -6,6 +6,7 @@ import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
 import { enterprisesApi } from '@/lib/api/enterprises';
+import { branchesApi } from '@/lib/api/branches';
 import { text } from '@/lib/design-tokens';
 
 interface Enterprise {
@@ -14,14 +15,38 @@ interface Enterprise {
   status: string;
 }
 
-// Validation schema
+interface Branch {
+  id: string;
+  branch_name: string;
+  branch_code: string;
+}
+
+// Validation schema — password required only for it_admin/org_admin, branch required for it_admin
 const createEnterpriseUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().optional(),
   enterpriseId: z.string().min(1, 'Enterprise is required'),
   role: z.enum(['it_admin', 'org_admin', 'sub_user']),
+  branchId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // Password required for it_admin and org_admin
+  if (data.role !== 'sub_user' && (!data.password || data.password.length < 8)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Password must be at least 8 characters',
+      path: ['password'],
+    });
+  }
+  // Branch required for it_admin
+  if (data.role === 'it_admin' && !data.branchId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Branch is required for IT Admin',
+      path: ['branchId'],
+    });
+  }
 });
 
 type CreateEnterpriseUserForm = z.infer<typeof createEnterpriseUserSchema>;
@@ -45,6 +70,7 @@ export function CreateEnterpriseUserModal({
 }: CreateEnterpriseUserModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const { addToast } = useToast();
 
   const {
@@ -54,15 +80,18 @@ export function CreateEnterpriseUserModal({
     reset,
     watch,
     setValue,
+    setError,
   } = useForm<CreateEnterpriseUserForm>({
     resolver: zodResolver(createEnterpriseUserSchema),
     defaultValues: {
       role: defaultRole,
       enterpriseId: enterpriseId || '',
+      branchId: '',
     },
   });
 
   const selectedRole = watch('role');
+  const selectedEnterpriseId = watch('enterpriseId');
 
   // Fetch active enterprises (only if not pre-filled)
   useEffect(() => {
@@ -82,6 +111,27 @@ export function CreateEnterpriseUserModal({
     }
   }, [isOpen, enterpriseId]);
 
+  // Fetch branches when enterprise is selected and role is it_admin
+  useEffect(() => {
+    const fetchBranches = async (entId: string) => {
+      const result = await branchesApi.list({ enterprise_id: entId, limit: 1000 });
+      if (result.success && result.data) {
+        setBranches(result.data.map(b => ({
+          id: b.id,
+          branch_name: b.branch_name,
+          branch_code: b.branch_code,
+        })));
+      }
+    };
+
+    const entId = enterpriseId || selectedEnterpriseId;
+    if (isOpen && entId && selectedRole === 'it_admin') {
+      fetchBranches(entId);
+    } else {
+      setBranches([]);
+    }
+  }, [isOpen, enterpriseId, selectedEnterpriseId, selectedRole]);
+
   // Set default values when modal opens with pre-filled data
   useEffect(() => {
     if (isOpen && enterpriseId) {
@@ -95,14 +145,18 @@ export function CreateEnterpriseUserModal({
     try {
       const roleLabel = data.role === 'it_admin' ? 'IT Admin' : data.role === 'org_admin' ? 'Org Admin' : 'Sub User';
 
+      // Map frontend role to backend role: sub_user → employee
+      const backendRole = data.role === 'sub_user' ? 'employee' : data.role;
+
       // Create user via REST API
       const result = await usersApi.create({
         enterprise_id: data.enterpriseId,
         email: data.email,
         name: data.name,
         phone: data.phone || '',
-        password: data.password,
-        role: data.role,
+        password: data.role === 'sub_user' ? undefined : data.password,
+        role: backendRole,
+        branch_id: data.role === 'it_admin' ? data.branchId : undefined,
       });
 
       if (!result.success) {
@@ -115,7 +169,9 @@ export function CreateEnterpriseUserModal({
       addToast({
         type: 'success',
         title: `${roleLabel} Created Successfully`,
-        message: `${data.name} (${data.email}) at ${displayEnterpriseName} can now log in with their password`,
+        message: data.role === 'sub_user'
+          ? `${data.name} (${data.email}) at ${displayEnterpriseName} can now log in via OTP`
+          : `${data.name} (${data.email}) at ${displayEnterpriseName} can now log in with their password`,
         duration: 5000,
       });
 
@@ -126,12 +182,20 @@ export function CreateEnterpriseUserModal({
       const roleLabel = selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User';
       console.error(`Error creating ${roleLabel}:`, error);
 
-      addToast({
-        type: 'error',
-        title: 'Failed to Create User',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-        duration: 6000,
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const lowerMsg = errorMessage.toLowerCase();
+
+      // Show inline form error for email conflicts
+      if (lowerMsg.includes('email') && (lowerMsg.includes('already exists') || lowerMsg.includes('duplicate') || lowerMsg.includes('conflict'))) {
+        setError('email', { type: 'manual', message: errorMessage });
+      } else {
+        addToast({
+          type: 'error',
+          title: 'Failed to Create User',
+          message: errorMessage,
+          duration: 6000,
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -140,6 +204,7 @@ export function CreateEnterpriseUserModal({
   const handleClose = () => {
     if (!isSubmitting) {
       reset();
+      setBranches([]);
       onClose();
     }
   };
@@ -201,17 +266,40 @@ export function CreateEnterpriseUserModal({
             >
               <option value="it_admin">IT Admin</option>
               <option value="org_admin">Org Admin</option>
-              <option value="sub_user">Sub User</option>
+              <option value="sub_user">Sub User (Employee)</option>
             </select>
             {errors.role && (
               <p className="mt-1 text-xs text-red-500">{errors.role.message}</p>
             )}
-            {enterpriseId && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-zinc-500">
-                Role is pre-selected for this user type
-              </p>
-            )}
           </div>
+
+          {/* Branch Selection — required for IT Admin */}
+          {selectedRole === 'it_admin' && (
+            <div>
+              <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                Branch *
+              </label>
+              <select
+                {...register('branchId')}
+                className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+              >
+                <option value="">Select Branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.branch_name} ({branch.branch_code})
+                  </option>
+                ))}
+              </select>
+              {errors.branchId && (
+                <p className="mt-1 text-xs text-red-500">{errors.branchId.message}</p>
+              )}
+              {branches.length === 0 && (
+                <p className="mt-1 text-xs text-amber-500">
+                  No branches found. Create a branch first before adding an IT Admin.
+                </p>
+              )}
+            </div>
+          )}
 
           <Input
             label="Full Name"
@@ -231,14 +319,17 @@ export function CreateEnterpriseUserModal({
             required
           />
 
-          <Input
-            label="Password"
-            type="password"
-            {...register('password')}
-            error={errors.password?.message}
-            placeholder="Min. 8 characters"
-            required
-          />
+          {/* Password — hidden for sub_user (employees use OTP) */}
+          {selectedRole !== 'sub_user' && (
+            <Input
+              label="Password"
+              type="password"
+              {...register('password')}
+              error={errors.password?.message}
+              placeholder="Min. 8 characters"
+              required
+            />
+          )}
 
           <Input
             label="Phone Number"
@@ -250,23 +341,14 @@ export function CreateEnterpriseUserModal({
           <div className="pt-2 p-4 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded">
             <p className={`font-mono text-xs ${text.muted}`}>
               <span className="font-bold">Creating:</span>{' '}
-              {selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User'}
+              {selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User (Employee)'}
             </p>
             <p className={`font-mono text-xs ${text.muted} mt-1`}>
               {selectedRole === 'it_admin'
                 ? 'IT Admins can manage assets, batches, and employees for their enterprise.'
                 : selectedRole === 'org_admin'
                 ? 'Org Admins can approve pickups, manage branches, and view financial reports for their enterprise.'
-                : 'Sub Users can submit device information and track their asset submissions.'}
-            </p>
-          </div>
-
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
-            <p className="font-mono text-xs text-amber-800 dark:text-amber-200 font-bold mb-1">
-              Multiple Users Supported
-            </p>
-            <p className="font-mono text-xs text-amber-700 dark:text-amber-300">
-              You can add multiple users of the same role to an enterprise. Each will have their own login credentials.
+                : 'Sub Users can submit device information and track their asset submissions. They will use OTP-based login.'}
             </p>
           </div>
         </div>

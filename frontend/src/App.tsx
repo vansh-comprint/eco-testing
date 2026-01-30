@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@/components/ui';
 import { ProtectedRoute } from '@/components/auth';
 import { DashboardLayout, OpsLayout } from '@/layouts';
 import { AuthProviderApi } from '@/contexts/AuthContextApi';
+import { useSidebarBadges, getBadgeForPath } from '@/hooks';
 
 // Create a client for React Query - database-first architecture
 const queryClient = new QueryClient({
@@ -22,12 +24,11 @@ import { LoginPage, PendingApproval, EnterpriseRegister, ForgotPassword } from '
 import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, SubUserList, SubUserDetail, SubUserInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
 import { TechnicianDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/tech';
-import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics } from '@/pages/ops';
-// V3: OPS Admin pages for enterprise registration review
-import { EnterpriseApplications } from '@/pages/ops/EnterpriseApplications';
+import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications } from '@/pages/ops';
 // V3: Org Admin pages (some still aliased from CFO during migration)
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite } from '@/pages/org-admin';
 import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Enterprises, Admins, Logistics, Pickups as SuperPickups, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
+import { PrivacyPolicy, TermsOfService, CookiePolicy } from '@/pages/legal/LegalPage';
 import { LogisticsAdminDashboard, LogisticsAssignmentQueue, LogisticsUserManagement } from '@/pages/logistics-admin';
 import { LogisticsAssignments } from '@/pages/logistics-user';
 
@@ -44,7 +45,7 @@ const itAdminNavItems = [
 ];
 
 const subUserNavItems = [
-  { label: 'My Submissions', path: '/check-in', icon: <DashboardIcon /> },
+  { label: 'My Submissions', path: '/check-in/submissions', icon: <DashboardIcon /> },
   { label: 'Submit Device', path: '/check-in/submit', icon: <SubmitIcon /> },
   { label: 'Help', path: '/check-in/help', icon: <HelpIcon /> },
 ];
@@ -67,6 +68,7 @@ const opsAdminNavItems = [
 
 // OPS Admin - Enterprise Section (filtered when enterprise is selected)
 const opsEnterpriseNavItems = [
+  { label: 'Branches', path: '/ops/branches', icon: <EnterpriseIcon /> },
   { label: 'Assets', path: '/ops/assets', icon: <AssetIcon /> },
   { label: 'QC Queue', path: '/ops/qc', icon: <QCIcon /> },
   { label: 'Reviews', path: '/ops/reviews', icon: <ReviewIcon /> },
@@ -120,28 +122,59 @@ const logisticsUserNavItems = [
 ];
 
 function App() {
-  // V3: Auth initialization is handled by AuthProviderApi
-  // Enterprise data is auto-loaded during auth initialization
-
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProviderApi>
         <ToastProvider>
           <BrowserRouter>
-            <Routes>
+            <AppRoutes />
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProviderApi>
+    </QueryClientProvider>
+  );
+}
+
+/** Apply badge counts to a static nav items array */
+function withBadges(items: typeof itAdminNavItems, badges: ReturnType<typeof useSidebarBadges>) {
+  return items.map(item => {
+    const badge = getBadgeForPath(badges, item.path);
+    return badge ? { ...item, badge } : item;
+  });
+}
+
+function AppRoutes() {
+  const badges = useSidebarBadges();
+
+  // Memoize badged nav arrays so layout components don't re-render on every tick
+  const badgedItAdmin = useMemo(() => withBadges(itAdminNavItems, badges), [badges]);
+  const badgedTechnician = useMemo(() => withBadges(technicianNavItems, badges), [badges]);
+  const badgedOpsAdmin = useMemo(() => withBadges(opsAdminNavItems, badges), [badges]);
+  const badgedOpsEnterprise = useMemo(() => withBadges(opsEnterpriseNavItems, badges), [badges]);
+  const badgedOrgAdmin = useMemo(() => withBadges(orgAdminNavItems, badges), [badges]);
+  const badgedOrgAdminIT = useMemo(() => withBadges(orgAdminITViewNavItems, badges), [badges]);
+  const badgedSuperAdmin = useMemo(() => withBadges(superAdminNavItems, badges), [badges]);
+  const badgedLogisticsAdmin = useMemo(() => withBadges(logisticsAdminNavItems, badges), [badges]);
+  const badgedLogisticsUser = useMemo(() => withBadges(logisticsUserNavItems, badges), [badges]);
+
+  return (
+    <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/signup" element={<EnterpriseRegister />} />
           <Route path="/signup/pending-approval" element={<PendingApproval />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
 
           {/* IT Admin Routes */}
           <Route
             path="/admin"
             element={
               <ProtectedRoute allowedRoles={['it_admin']}>
-                <DashboardLayout role="it_admin" title="IT Admin Portal" navItems={itAdminNavItems} />
+                <DashboardLayout role="it_admin" title="IT Admin Portal" navItems={badgedItAdmin} />
               </ProtectedRoute>
             }
           >
@@ -179,11 +212,12 @@ function App() {
             path="/check-in"
             element={
               <ProtectedRoute allowedRoles={['sub_user']}>
-                <DashboardLayout role="sub_user" title="Device Check-In" navItems={subUserNavItems} />
+                <DashboardLayout role="sub_user" title="Device Check-In" navItems={subUserNavItems} /> {/* sub-users don't need badges */}
               </ProtectedRoute>
             }
           >
             <Route index element={<SubUserDashboard />} />
+            <Route path="submissions" element={<SubUserDashboard />} />
             <Route path="submit/:assetId" element={<DeviceSubmit />} />
             <Route path="success" element={<SubmissionSuccess />} />
             <Route path="help" element={<PlaceholderPage title="Help" />} />
@@ -194,7 +228,7 @@ function App() {
             path="/tech"
             element={
               <ProtectedRoute allowedRoles={['main_admin']}>
-                <DashboardLayout role="main_admin" title="Technician Portal" navItems={technicianNavItems} />
+                <DashboardLayout role="main_admin" title="Technician Portal" navItems={badgedTechnician} />
               </ProtectedRoute>
             }
           >
@@ -212,7 +246,7 @@ function App() {
             path="/ops"
             element={
               <ProtectedRoute allowedRoles={['main_admin']}>
-                <OpsLayout title="Operations Portal" adminNavItems={opsAdminNavItems} enterpriseNavItems={opsEnterpriseNavItems} />
+                <OpsLayout title="Operations Portal" adminNavItems={badgedOpsAdmin} enterpriseNavItems={badgedOpsEnterprise} />
               </ProtectedRoute>
             }
           >
@@ -222,7 +256,9 @@ function App() {
             <Route path="pickups" element={<PickupQueue />} />
             <Route path="submissions/:assetId" element={<SubmissionDetail />} />
             <Route path="enterprises" element={<EnterpriseList />} />
+            <Route path="enterprises/create" element={<CreateEnterprise />} />
             <Route path="enterprises/:id" element={<EnterpriseDetail />} />
+            <Route path="branches" element={<OpsBranches />} />
             <Route path="assets" element={<OpsAssets />} />
             <Route path="assets/:assetId" element={<AssetDetail />} />
             <Route path="payouts" element={<PayoutProcessing />} />
@@ -237,7 +273,7 @@ function App() {
             path="/org-admin"
             element={
               <ProtectedRoute allowedRoles={['org_admin']}>
-                <DashboardLayout role="org_admin" title="Organization Admin" navItems={orgAdminNavItems} itViewNavItems={orgAdminITViewNavItems} />
+                <DashboardLayout role="org_admin" title="Organization Admin" navItems={badgedOrgAdmin} itViewNavItems={badgedOrgAdminIT} />
               </ProtectedRoute>
             }
           >
@@ -275,6 +311,7 @@ function App() {
             <Route path="disputes" element={<DisputeList />} />
             <Route path="disputes/:disputeId" element={<DisputeDetail />} />
             <Route path="payouts" element={<PayoutView />} />
+            <Route path="reviews" element={<PlaceholderPage title="Asset Reviews" />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
@@ -283,7 +320,7 @@ function App() {
             path="/logistics-admin"
             element={
               <ProtectedRoute allowedRoles={['logistics_admin', 'main_admin']}>
-                <DashboardLayout role="logistics_admin" title="Logistics Admin" navItems={logisticsAdminNavItems} />
+                <DashboardLayout role="logistics_admin" title="Logistics Admin" navItems={badgedLogisticsAdmin} />
               </ProtectedRoute>
             }
           >
@@ -299,7 +336,7 @@ function App() {
             path="/logistics"
             element={
               <ProtectedRoute allowedRoles={['logistics_user']}>
-                <DashboardLayout role="logistics_user" title="Logistics User" navItems={logisticsUserNavItems} />
+                <DashboardLayout role="logistics_user" title="Logistics User" navItems={badgedLogisticsUser} />
               </ProtectedRoute>
             }
           >
@@ -313,7 +350,7 @@ function App() {
             path="/super"
             element={
               <ProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout role="super_admin" title="Super Admin" navItems={superAdminNavItems} />
+                <DashboardLayout role="super_admin" title="Super Admin" navItems={badgedSuperAdmin} />
               </ProtectedRoute>
             }
           >
@@ -330,15 +367,16 @@ function App() {
             <Route path="pricing" element={<Pricing />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<SuperSettings />} />
+            <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
+            <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
+            <Route path="disputes" element={<PlaceholderPage title="Platform Disputes" />} />
+            <Route path="payouts" element={<PlaceholderPage title="Platform Payouts" />} />
+            <Route path="reviews" element={<PlaceholderPage title="Platform Reviews" />} />
           </Route>
 
           {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </ToastProvider>
-      </AuthProviderApi>
-    </QueryClientProvider>
+    </Routes>
   );
 }
 
@@ -347,8 +385,8 @@ function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
-        <p className="text-white/60">This page is coming soon</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{title}</h2>
+        <p className="text-slate-500 dark:text-white/60">This page is coming soon</p>
       </div>
     </div>
   );

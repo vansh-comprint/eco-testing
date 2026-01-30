@@ -553,7 +553,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={handleReset}
-              className="interactive px-6 py-3 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              className="interactive px-6 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload More
@@ -589,7 +589,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                 className={`border-2 border-dashed p-12 text-center transition-all ${
                   dragActive
                     ? 'border-ecotribe-primary bg-ecotribe-primary/5'
-                    : 'border-white/10 hover:border-white/20'
+                    : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
                 }`}
               >
                 <input
@@ -602,7 +602,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                 />
 
                 <div className={`w-16 h-16 border flex items-center justify-center mx-auto mb-6 ${
-                  dragActive ? 'border-ecotribe-primary/30 bg-ecotribe-primary/10' : 'border-white/10 bg-white/[0.02]'
+                  dragActive ? 'border-ecotribe-primary/30 bg-ecotribe-primary/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]'
                 }`}>
                   <Users className={`w-8 h-8 ${dragActive ? 'text-ecotribe-primary' : 'text-zinc-600'}`} />
                 </div>
@@ -624,7 +624,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                   <button
                     type="button"
                     onClick={downloadTemplate}
-                    className="interactive px-5 py-2.5 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                    className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
                     Download Excel Template
@@ -642,11 +642,11 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                     </span>
                   </div>
                 </div>
-                <div className="p-4 border border-white/5 bg-white/[0.02]">
+                <div className="p-4 border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
                   <p className="font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">Optional Columns</p>
                   <div className="flex flex-wrap gap-2">
                     {OPTIONAL_COLUMNS.map(col => (
-                      <span key={col} className="px-2 py-1 border border-white/10 bg-white/[0.02] text-zinc-500 text-xs font-mono">
+                      <span key={col} className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-500 text-xs font-mono">
                         {col}
                       </span>
                     ))}
@@ -701,7 +701,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
               </div>
               <button
                 onClick={handleReset}
-                className="interactive p-2.5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
+                className="interactive p-2.5 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
               >
                 <Trash2 className="w-4 h-4 text-zinc-600 hover:text-red-400 transition-colors" />
               </button>
@@ -713,29 +713,29 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
             <div className="p-5 border-b border-black/10 dark:border-white/10">
               <h2 className="font-display font-bold text-sm text-black dark:text-white uppercase tracking-wide">Validation Summary</h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 border-l border-t border-white/10">
-              <div className="p-5 border-r border-b border-white/10 bg-emerald-500/5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 border-l border-t border-slate-200 dark:border-white/10">
+              <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-emerald-500/5">
                 <div className="flex items-center justify-between mb-2">
                   <Users className="w-4 h-4 text-emerald-400" />
                 </div>
                 <p className="font-brand font-bold text-2xl text-emerald-400">{validRows.length}</p>
                 <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Valid Users</p>
               </div>
-              <div className={`p-5 border-r border-b border-white/10 ${invalidRows.length > 0 ? 'bg-red-500/5' : ''}`}>
+              <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${invalidRows.length > 0 ? 'bg-red-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className={`w-4 h-4 ${invalidRows.length > 0 ? 'text-red-400' : 'text-zinc-600'}`} />
                 </div>
                 <p className={`font-brand font-bold text-2xl ${invalidRows.length > 0 ? 'text-red-400' : 'text-zinc-600'}`}>{invalidRows.length}</p>
                 <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Errors</p>
               </div>
-              <div className={`p-5 border-r border-b border-white/10 ${warningRows.length > 0 ? 'bg-amber-500/5' : ''}`}>
+              <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${warningRows.length > 0 ? 'bg-amber-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className={`w-4 h-4 ${warningRows.length > 0 ? 'text-amber-400' : 'text-zinc-600'}`} />
                 </div>
                 <p className={`font-brand font-bold text-2xl ${warningRows.length > 0 ? 'text-amber-400' : 'text-zinc-600'}`}>{warningRows.length}</p>
                 <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Warnings</p>
               </div>
-              <div className={`p-5 border-r border-b border-white/10 ${uniqueDepartments.size > 0 ? 'bg-blue-500/5' : ''}`}>
+              <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 ${uniqueDepartments.size > 0 ? 'bg-blue-500/5' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <Building className={`w-4 h-4 ${uniqueDepartments.size > 0 ? 'text-blue-400' : 'text-zinc-600'}`} />
                 </div>
@@ -745,11 +745,11 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
             </div>
 
             {/* Column Mapping */}
-            <div className="p-5 border-t border-white/10">
+            <div className="p-5 border-t border-slate-200 dark:border-white/10">
               <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mb-3">Detected Columns</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(columnMapping).map(([field, original]) => (
-                  <span key={field} className="px-2 py-1 border border-white/10 bg-white/[0.02] text-xs font-mono">
+                  <span key={field} className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-xs font-mono">
                     <span className="text-zinc-600">{original}</span>
                     <span className="text-zinc-700 mx-1">→</span>
                     <span className={field === 'email' ? 'text-red-400' : 'text-ecotribe-primary'}>{field}</span>
@@ -791,7 +791,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
               </div>
               <button
                 onClick={() => setShowPreview(!showPreview)}
-                className="interactive p-2 hover:bg-white/5 transition-colors"
+                className="interactive p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 {showPreview ? <ChevronUp className="w-4 h-4 text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-zinc-600" />}
               </button>
@@ -806,7 +806,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-white/10">
+                        <tr className="border-b border-slate-200 dark:border-white/10">
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Status</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Name</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Email</th>
@@ -818,7 +818,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                         {parsedData.slice(0, 10).map((row, index) => (
                           <tr
                             key={index}
-                            className={`border-b border-white/5 ${row.errors.length > 0 ? 'bg-red-500/5' : ''}`}
+                            className={`border-b border-slate-200 dark:border-white/5 ${row.errors.length > 0 ? 'bg-red-500/5' : ''}`}
                           >
                             <td className="py-3 px-5">
                               {row.errors.length > 0 ? (
@@ -914,7 +914,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
               <button
                 onClick={onCancel}
                 disabled={uploadStatus === 'uploading'}
-                className="interactive px-6 py-3 text-zinc-500 hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                className="interactive px-6 py-3 text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

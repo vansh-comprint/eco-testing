@@ -106,6 +106,7 @@ export function useCreateSubUser() {
         employee_id: subUser.employee_id,
       };
       const response = await subUsersApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create sub-user');
       return response.data;
     },
     onSuccess: (data) => {
@@ -130,6 +131,7 @@ export function useUpdateSubUser() {
         employee_id: updates.employee_id,
         branch_id: updates.branch_id,
       });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update sub-user');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -216,6 +218,7 @@ export function useAssignAsset() {
         assigned_to_user_id: subUserId,
         status: 'assigned',
       });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to assign asset');
       return response.data;
     },
     onSuccess: (_, variables) => {

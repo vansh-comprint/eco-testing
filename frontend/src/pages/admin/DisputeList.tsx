@@ -40,6 +40,25 @@ export function DisputeList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Enrich disputes with asset data from the already-fetched assets list
+  const enrichedDisputes = useMemo(() => {
+    const assetMap = new Map(assets.map(a => [a.id, a]));
+    return disputes.map(d => {
+      const asset = assetMap.get(d.asset_id);
+      return {
+        ...d,
+        assets: {
+          id: asset?.id || d.asset_id,
+          brand: asset?.brand || 'Unknown',
+          model: asset?.model || 'Device',
+          serial_number: asset?.serial_number || d.asset_id || '',
+          status: asset?.status || '',
+          enterprise_id: asset?.enterprise_id || '',
+        },
+      };
+    });
+  }, [disputes, assets]);
+
   // Get rejected assets that can be disputed
   // V3: Use snake_case field names from database
   const rejectedAssets = assets.filter(
@@ -49,7 +68,7 @@ export function DisputeList() {
 
   // Filter disputes
   const filteredDisputes = useMemo(() => {
-    let result = [...disputes];
+    let result = [...enrichedDisputes];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -71,18 +90,18 @@ export function DisputeList() {
     }
 
     return result;
-  }, [disputes, searchQuery, statusFilter]);
+  }, [enrichedDisputes, searchQuery, statusFilter]);
 
   // Stats
   const stats = {
-    total: disputes.length,
-    pending: disputes.filter(d => !d.resolved_at).length,
-    upheld: disputes.filter(d => d.resolution === 'upheld').length,
-    overturned: disputes.filter(d => d.resolution === 'overturned').length,
+    total: enrichedDisputes.length,
+    pending: enrichedDisputes.filter(d => !d.resolved_at).length,
+    upheld: enrichedDisputes.filter(d => d.resolution === 'upheld').length,
+    overturned: enrichedDisputes.filter(d => d.resolution === 'overturned').length,
     canDispute: rejectedAssets.length,
   };
 
-  const getStatusConfig = (dispute: typeof disputes[0]) => {
+  const getStatusConfig = (dispute: typeof enrichedDisputes[0]) => {
     if (!dispute.resolved_at) {
       return { label: 'Pending', color: 'text-amber-400', icon: <Clock className="w-4 h-4" /> };
     }
@@ -97,13 +116,13 @@ export function DisputeList() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-white/10 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">Appeals</span>
-          <h1 className="font-brand font-bold text-3xl md:text-4xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl md:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
             Disputes
           </h1>
           <p className="font-display text-zinc-500 text-sm mt-2 uppercase tracking-wide">Challenge rejection decisions on your assets</p>
@@ -145,7 +164,7 @@ export function DisputeList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
       >
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
@@ -156,7 +175,7 @@ export function DisputeList() {
                 placeholder="Search by serial, brand, model, or reason..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
               />
             </div>
           </div>
@@ -165,10 +184,10 @@ export function DisputeList() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[160px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[160px]"
             >
               {STATUS_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
               ))}
             </select>
           </div>
@@ -183,7 +202,7 @@ export function DisputeList() {
         className="space-y-4"
       >
         {isLoading ? (
-          <div className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
+          <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
             <div className="w-12 h-12 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin mx-auto mb-4" />
             <p className="font-mono text-sm text-zinc-600">Loading disputes...</p>
           </div>
@@ -198,7 +217,7 @@ export function DisputeList() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * Math.min(index, 10) }}
-                className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20 transition-colors"
+                className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20 transition-colors"
               >
                 <div className="p-5">
                   <div className="flex items-start gap-5">
@@ -214,7 +233,7 @@ export function DisputeList() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                        <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                           {dispute.assets?.brand} {dispute.assets?.model}
                         </h3>
                         <span className={`flex items-center gap-1 font-mono font-bold text-[10px] uppercase tracking-widest ${statusConfig.color}`}>
@@ -225,13 +244,13 @@ export function DisputeList() {
 
                       <p className="font-mono text-xs text-zinc-600 mb-3">{dispute.assets?.serial_number}</p>
 
-                      <div className="p-3 border border-white/5 bg-slate-50 dark:bg-white/[0.02]">
+                      <div className="p-3 border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
                         <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest mb-1">Dispute Reason</p>
                         <p className="font-display text-sm text-zinc-400">{dispute.reason}</p>
                       </div>
 
                       {!isPending && dispute.resolver_notes && (
-                        <div className="mt-3 p-3 border border-white/5 bg-slate-50 dark:bg-white/[0.02]">
+                        <div className="mt-3 p-3 border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
                           <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest mb-1">Resolution Notes</p>
                           <p className="font-display text-sm text-zinc-400">{dispute.resolver_notes}</p>
                         </div>
@@ -245,7 +264,7 @@ export function DisputeList() {
                       </p>
                       <button
                         onClick={() => navigate(`${basePath}/disputes/${dispute.id}`)}
-                        className="interactive p-2.5 border border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5 transition-all"
+                        className="interactive p-2.5 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5 transition-all"
                         title="View dispute details"
                       >
                         <Eye className="w-4 h-4 text-zinc-600 hover:text-ecotribe-primary transition-colors" />
@@ -257,11 +276,11 @@ export function DisputeList() {
             );
           })
         ) : (
-          <div className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
-            <div className="w-16 h-16 border border-white/10 flex items-center justify-center mx-auto mb-4">
+          <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
+            <div className="w-16 h-16 border border-slate-200 dark:border-white/10 flex items-center justify-center mx-auto mb-4">
               <MessageSquare className="w-8 h-8 text-zinc-600" />
             </div>
-            <p className="font-display font-bold text-white uppercase tracking-wide mb-1">No disputes found</p>
+            <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">No disputes found</p>
             <p className="font-mono text-xs text-zinc-600 mb-6">
               {searchQuery || statusFilter
                 ? 'Try adjusting your filters'
@@ -294,7 +313,7 @@ export function DisputeList() {
                 <Laptop className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <p className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   {stats.canDispute} rejected asset{stats.canDispute > 1 ? 's' : ''} can be disputed
                 </p>
                 <p className="font-mono text-xs text-zinc-500">
@@ -304,7 +323,7 @@ export function DisputeList() {
             </div>
             <button
               onClick={() => navigate(`${basePath}/assets`)}
-              className="interactive px-5 py-2.5 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+              className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
             >
               View Assets
               <ArrowRight className="w-4 h-4" />
@@ -328,12 +347,12 @@ function StatBox({
   highlight?: boolean;
 }) {
   return (
-    <div className={`p-6 border-r border-b border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors group ${highlight ? 'bg-amber-500/5' : ''}`}>
+    <div className={`p-6 border-r border-b border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors group ${highlight ? 'bg-amber-500/5' : ''}`}>
       <div className="flex items-center justify-between mb-3">
         <h4 className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest group-hover:text-ecotribe-primary transition-colors">{label}</h4>
         <span className={`${highlight ? 'text-amber-400' : 'text-zinc-600'} group-hover:text-ecotribe-primary transition-colors`}>{icon}</span>
       </div>
-      <div className="font-brand font-bold text-3xl text-white">{value}</div>
+      <div className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{value}</div>
     </div>
   );
 }

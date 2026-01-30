@@ -91,6 +91,15 @@ class Settings(BaseSettings):
         default="", description="Path to GCP service account JSON"
     )
 
+    # Email Configuration (SMTP)
+    smtp_host: str = Field(default="", description="SMTP server host")
+    smtp_port: int = Field(default=587, description="SMTP server port")
+    smtp_username: str = Field(default="", description="SMTP username")
+    smtp_password: str = Field(default="", description="SMTP password")
+    smtp_from_email: str = Field(default="noreply@ecotribe.io", description="From email address")
+    smtp_from_name: str = Field(default="EcoTribe", description="From display name")
+    smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP")
+
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins from comma-separated string"""

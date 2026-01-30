@@ -59,6 +59,9 @@ export interface ITAdminWithBranches extends UserResponse {
 
 export interface BulkUserCreateRequest {
   users: UserCreateRequest[];
+  role?: string;
+  enterprise_id?: string;
+  branch_id?: string;
 }
 
 export interface BulkUserResult {

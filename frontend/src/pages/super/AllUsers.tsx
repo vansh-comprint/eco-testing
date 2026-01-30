@@ -102,6 +102,7 @@ export function AllUsers() {
     mainAdmins: users.filter(u => u.role === 'main_admin').length,
     itAdmins: users.filter(u => u.role === 'it_admin').length,
     orgAdmins: users.filter(u => u.role === 'org_admin').length,
+    cfos: users.filter(u => u.role === 'org_admin').length, // CFO = Org Admin role
     logistics: users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
   };
 

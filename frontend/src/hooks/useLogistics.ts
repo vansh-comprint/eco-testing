@@ -146,6 +146,7 @@ export function useCreateLogisticsAdmin() {
         address: admin.address,
       };
       const response = await logisticsApi.createAdmin(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create logistics admin');
       return response.data;
     },
     onSuccess: () => {
@@ -170,6 +171,7 @@ export function useUpdateLogisticsAdmin() {
         address: updates.address,
       };
       const response = await logisticsApi.updateAdmin(adminId, apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update logistics admin');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -231,6 +233,7 @@ export function useCreateLogisticsUser() {
         vehicle_type: user.vehicle_type,
       };
       const response = await logisticsApi.createUser(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create logistics user');
       return response.data;
     },
     onSuccess: (data) => {
@@ -257,6 +260,7 @@ export function useUpdateLogisticsUser() {
         vehicle_type: updates.vehicle_type,
       };
       const response = await logisticsApi.updateUser(userId, apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update logistics user');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -294,6 +298,7 @@ export function useUpdateLogisticsUserStatus() {
   return useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: 'active' | 'inactive' }) => {
       const response = await logisticsApi.updateUser(userId, { status });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update logistics user status');
       return response.data;
     },
     onSuccess: (data, variables) => {

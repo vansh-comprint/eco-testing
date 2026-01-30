@@ -217,6 +217,117 @@ class AssetService:
 
         return AssetResponse.model_validate(asset)
 
+    async def assign_asset(
+        self, asset_id: str, assigned_to_user_id: str, updated_by: str
+    ) -> AssetResponse:
+        """
+        Assign an asset to an employee.
+
+        Validates:
+        - Asset exists
+        - Asset is in pending_assignment or assigned status
+        - Transitions status to 'assigned' if currently pending_assignment
+        """
+        asset = await self.repository.get_by_id(asset_id)
+        if not asset:
+            raise NotFoundError("Asset", asset_id)
+
+        old_status = asset.status
+        new_status = "assigned"
+
+        # Only transition if currently pending_assignment
+        if old_status == "pending_assignment":
+            try:
+                validate_asset_transition(
+                    current_status=old_status,
+                    target_status=new_status,
+                    asset_data={"assigned_to_user_id": assigned_to_user_id},
+                )
+            except StateTransitionError as e:
+                raise ValidationError(str(e))
+            asset.status = new_status
+        elif old_status != "assigned":
+            raise ValidationError(
+                f"Cannot assign asset in '{old_status}' status. "
+                f"Asset must be in 'pending_assignment' or 'assigned' status."
+            )
+
+        asset.assigned_to_user_id = assigned_to_user_id
+        asset.assigned_at = datetime.now(timezone.utc)
+        asset.updated_by = updated_by
+        asset = await self.repository.update(asset)
+
+        # Log assignment to audit trail
+        if old_status != new_status:
+            audit = AuditService(self.db)
+            await audit.log_status_change(
+                entity_type="asset",
+                entity_id=asset_id,
+                old_status=old_status,
+                new_status=new_status,
+                user_id=updated_by,
+                enterprise_id=asset.enterprise_id,
+                branch_id=asset.branch_id,
+                metadata={
+                    "serial_number": asset.serial_number,
+                    "assigned_to_user_id": assigned_to_user_id,
+                    "action": "assign",
+                },
+            )
+
+        return AssetResponse.model_validate(asset)
+
+    async def unassign_asset(self, asset_id: str, updated_by: str) -> AssetResponse:
+        """
+        Unassign an asset from its current employee.
+
+        Transitions status back to 'pending_assignment' if currently 'assigned'.
+        """
+        asset = await self.repository.get_by_id(asset_id)
+        if not asset:
+            raise NotFoundError("Asset", asset_id)
+
+        old_status = asset.status
+        if old_status != "assigned":
+            raise ValidationError(
+                f"Cannot unassign asset in '{old_status}' status. "
+                f"Asset must be in 'assigned' status."
+            )
+
+        new_status = "pending_assignment"
+        try:
+            validate_asset_transition(
+                current_status=old_status,
+                target_status=new_status,
+                asset_data={},
+            )
+        except StateTransitionError as e:
+            raise ValidationError(str(e))
+
+        asset.status = new_status
+        asset.assigned_to_user_id = None
+        asset.assigned_at = None
+        asset.updated_by = updated_by
+        asset = await self.repository.update(asset)
+
+        # Log unassignment
+        audit = AuditService(self.db)
+        await audit.log_status_change(
+            entity_type="asset",
+            entity_id=asset_id,
+            old_status=old_status,
+            new_status=new_status,
+            user_id=updated_by,
+            enterprise_id=asset.enterprise_id,
+            branch_id=asset.branch_id,
+            metadata={
+                "serial_number": asset.serial_number,
+                "action": "unassign",
+            },
+        )
+
+        return AssetResponse.model_validate(asset)
+
     async def delete_asset(self, asset_id: str) -> bool:
         """Delete an asset"""
         return await self.repository.delete(asset_id)

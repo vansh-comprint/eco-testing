@@ -65,6 +65,7 @@ export function useUpdateEnterprise() {
   return useMutation({
     mutationFn: async ({ enterpriseId, updates }: { enterpriseId: string; updates: UpdateEnterpriseInput }) => {
       const response = await enterprisesApi.update(enterpriseId, updates);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update enterprise');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -83,6 +84,7 @@ export function useUpdateEnterpriseStatus() {
   return useMutation({
     mutationFn: async ({ enterpriseId, status }: { enterpriseId: string; status: string }) => {
       const response = await enterprisesApi.update(enterpriseId, { status: status as any });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update enterprise status');
       return response.data;
     },
     onSuccess: (data, variables) => {

@@ -243,7 +243,7 @@ export function SubUserList() {
               className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[140px]"
             >
               {STATUS_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
               ))}
             </select>
             <select
@@ -252,7 +252,7 @@ export function SubUserList() {
               className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[160px]"
             >
               {DEPARTMENT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
               ))}
             </select>
           </div>

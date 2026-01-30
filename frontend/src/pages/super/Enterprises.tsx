@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink } from 'lucide-react';
+import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search } from 'lucide-react';
 import { PageHeader, StatBox, Modal, Button, Spinner } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
 import type { Enterprise } from '@/types';
@@ -14,6 +14,7 @@ export function Enterprises() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchEnterprises = async () => {
     setIsLoading(true);
@@ -61,6 +62,30 @@ export function Enterprises() {
     setIsModalOpen(true);
   };
 
+  const filteredActive = useMemo(() => {
+    if (!searchQuery.trim()) return activeEnterprises;
+    const q = searchQuery.toLowerCase();
+    return activeEnterprises.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.contactEmail?.toLowerCase().includes(q) ||
+      e.gstNumber?.toLowerCase().includes(q) ||
+      e.contactPerson?.toLowerCase().includes(q) ||
+      e.industry?.toLowerCase().includes(q)
+    );
+  }, [activeEnterprises, searchQuery]);
+
+  const filteredInactive = useMemo(() => {
+    if (!searchQuery.trim()) return inactiveEnterprises;
+    const q = searchQuery.toLowerCase();
+    return inactiveEnterprises.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.contactEmail?.toLowerCase().includes(q) ||
+      e.gstNumber?.toLowerCase().includes(q) ||
+      e.contactPerson?.toLowerCase().includes(q) ||
+      e.industry?.toLowerCase().includes(q)
+    );
+  }, [inactiveEnterprises, searchQuery]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -88,6 +113,18 @@ export function Enterprises() {
             Applications <ExternalLink className="w-3 h-3" />
           </button>
         </p>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-zinc-500" />
+        <input
+          type="text"
+          placeholder="Search by name, email, GST, contact person, or industry..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 font-mono text-xs focus:outline-none focus:border-ecotribe-primary pl-12 pr-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-zinc-600"
+        />
       </div>
 
       {/* Stats */}
@@ -145,12 +182,12 @@ export function Enterprises() {
               exit={{ opacity: 0, y: -10 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             >
-              {activeEnterprises.length === 0 ? (
+              {filteredActive.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm">
-                  No active enterprises
+                  {searchQuery ? 'No matching active enterprises' : 'No active enterprises'}
                 </div>
               ) : (
-                activeEnterprises.map((enterprise) => (
+                filteredActive.map((enterprise) => (
                   <EnterpriseCard key={enterprise.id} enterprise={enterprise} onView={handleViewDetails} />
                 ))
               )}
@@ -163,12 +200,12 @@ export function Enterprises() {
               exit={{ opacity: 0, y: -10 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             >
-              {inactiveEnterprises.length === 0 ? (
+              {filteredInactive.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm">
-                  No inactive enterprises
+                  {searchQuery ? 'No matching inactive enterprises' : 'No inactive enterprises'}
                 </div>
               ) : (
-                inactiveEnterprises.map((enterprise) => (
+                filteredInactive.map((enterprise) => (
                   <InactiveEnterpriseCard key={enterprise.id} enterprise={enterprise} onView={handleViewDetails} />
                 ))
               )}

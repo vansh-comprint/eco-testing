@@ -115,8 +115,17 @@ export const assetsApi = {
     fetchWithAuth<void>(`/assets/${id}`, { method: 'DELETE' }),
 
   assign: (id: string, userId: string) =>
-    fetchWithAuth<AssetResponse>(`/assets/${id}/assign`, {
+    fetchWithAuth<AssetResponse>(`/assets/${id}/assign?assigned_to_user_id=${encodeURIComponent(userId)}`, {
       method: 'POST',
-      body: JSON.stringify({ user_id: userId }),
+    }),
+
+  unassign: (id: string) =>
+    fetchWithAuth<AssetResponse>(`/assets/${id}/unassign`, {
+      method: 'POST',
+    }),
+
+  transitionStatus: (id: string, newStatus: string) =>
+    fetchWithAuth<AssetResponse>(`/assets/${id}/status?new_status=${encodeURIComponent(newStatus)}`, {
+      method: 'PATCH',
     }),
 };

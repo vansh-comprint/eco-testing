@@ -52,7 +52,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
   if (isLoading) {
     return (
       <div className="px-3 py-2 animate-pulse">
-        <div className="h-10 bg-white/5 rounded" />
+        <div className="h-10 bg-slate-50 dark:bg-white/5 rounded" />
       </div>
     );
   }
@@ -65,7 +65,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
         className={`interactive w-full flex items-center gap-3 px-3 py-2.5 border transition-all ${
           isOpen
             ? 'border-ecotribe-primary/50 bg-ecotribe-primary/10'
-            : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]'
+            : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
         }`}
       >
         <div className={`w-8 h-8 flex items-center justify-center flex-shrink-0 ${
@@ -84,7 +84,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
             <p className="font-mono font-bold text-[9px] uppercase tracking-widest text-zinc-500">
               {isAllBranches ? 'Viewing' : 'Branch'}
             </p>
-            <p className="font-display font-bold text-sm text-white truncate">
+            <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">
               {isAllBranches ? 'All Branches' : selectedBranch?.branch_name || 'Select...'}
             </p>
           </div>
@@ -100,10 +100,10 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 right-0 mt-2 z-50 border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl max-h-[400px] overflow-hidden flex flex-col"
+            className="absolute top-full left-0 right-0 mt-2 z-50 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl max-h-[400px] overflow-hidden flex flex-col"
           >
             {/* Search */}
-            <div className="p-3 border-b border-white/10">
+            <div className="p-3 border-b border-slate-200 dark:border-white/10">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
@@ -111,7 +111,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
                   placeholder="Search branches..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/[0.02] border border-white/10 text-white font-display text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50"
                   autoFocus
                 />
               </div>
@@ -127,14 +127,14 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
               className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
                 isAllBranches
                   ? 'bg-blue-500/10 border-l-2 border-l-blue-500'
-                  : 'hover:bg-white/[0.05] border-l-2 border-l-transparent'
+                  : 'hover:bg-slate-100 dark:hover:bg-white/[0.05] border-l-2 border-l-transparent'
               }`}
             >
               <div className="w-8 h-8 border border-blue-500/30 bg-blue-500/10 flex items-center justify-center">
                 <Layers className="w-4 h-4 text-blue-400" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm text-white">All Branches</p>
+                <p className="font-display font-bold text-sm text-slate-900 dark:text-white">All Branches</p>
                 <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
                   {activeBranches.length} active / {branches.length} total
                 </p>
@@ -145,7 +145,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
             </button>
 
             {/* Divider */}
-            <div className="border-t border-white/10" />
+            <div className="border-t border-slate-200 dark:border-white/10" />
 
             {/* Branch List */}
             <div className="overflow-y-auto max-h-[280px]">
@@ -163,13 +163,13 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
                       className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
                         isSelected
                           ? 'bg-ecotribe-primary/10 border-l-2 border-l-ecotribe-primary'
-                          : 'hover:bg-white/[0.05] border-l-2 border-l-transparent'
+                          : 'hover:bg-slate-100 dark:hover:bg-white/[0.05] border-l-2 border-l-transparent'
                       }`}
                     >
                       <div className={`w-8 h-8 flex items-center justify-center ${
                         isSelected
                           ? 'border border-ecotribe-primary/30 bg-ecotribe-primary/10'
-                          : 'border border-white/10 bg-white/5'
+                          : 'border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                       }`}>
                         <span className={`font-brand font-bold text-xs ${
                           isSelected ? 'text-ecotribe-primary' : 'text-zinc-400'
@@ -179,7 +179,7 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
                       </div>
                       <div className="flex-1 text-left min-w-0">
                         <p className={`font-display font-bold text-sm truncate ${
-                          isSelected ? 'text-ecotribe-primary' : 'text-white'
+                          isSelected ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'
                         }`}>
                           {branch.branch_name}
                         </p>
@@ -226,14 +226,14 @@ export function BranchSelector({ compact = false }: BranchSelectorProps) {
 
             {/* Clear Selection (if selected) */}
             {selectedBranchId && (
-              <div className="border-t border-white/10 p-3">
+              <div className="border-t border-slate-200 dark:border-white/10 p-3">
                 <button
                   onClick={() => {
                     setSelectedBranchId(null);
                     setIsOpen(false);
                     setSearchQuery('');
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-white/10 bg-white/[0.02] text-zinc-400 font-mono text-xs uppercase tracking-widest hover:bg-white/[0.05] hover:text-white transition-all"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white transition-all"
                 >
                   <X className="w-3 h-3" />
                   Clear Selection

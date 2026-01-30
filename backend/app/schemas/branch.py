@@ -81,7 +81,11 @@ class BranchResponse(BaseModel):
     
     # Status
     status: str
-    
+
+    # Computed counts (populated by service layer)
+    asset_count: int = 0
+    user_count: int = 0
+
     # Timestamps
     created_at: datetime
     updated_at: Optional[datetime] = None

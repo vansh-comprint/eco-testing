@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Input, Dropdown, useToast } from '@/components/ui';
 import { useAuditStore, useSubmissionStore, useReviewStore, useNotificationStore } from '@/stores';
-import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute } from '@/hooks';
+import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { AssetStatus, QCImage } from '@/types';
 import { getAssetStatusDisplay } from '@/lib/status-display';
@@ -60,14 +60,18 @@ export function AssetDetail() {
   const enterpriseId = enterprise?.id || '';
   const userId = user?.id || '';
 
-  // Determine if org admin context
+  // Determine context
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
+  const isOpsAdmin = user?.role === 'main_admin' || location.pathname.startsWith('/ops');
+
+  // Fetch single asset by ID (works for all portal contexts including OPS Admin)
+  const { data: directAsset } = useAsset(assetId || '');
 
   // V3.2: React Query hooks - use different hooks based on role
   const { data: orgAssets = [] } = useAssets(isOrgAdmin ? enterpriseId : '');
-  const { data: itAssets = [] } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
+  const { data: itAssets = [] } = useAssetsByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
   const { data: orgBatches = [] } = useBatches(isOrgAdmin ? enterpriseId : '');
-  const { data: itBatches = [] } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
+  const { data: itBatches = [] } = useBatchesByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
   const { data: subUsers = [] } = useSubUsers(enterpriseId);
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
@@ -119,8 +123,144 @@ export function AssetDetail() {
   const enterpriseSubUsers = subUsers;
 
   // Find asset from React Query data (using snake_case from database)
-  const asset = assets.find(a => a.id === assetId);
+  // Use direct fetch as primary for OPS Admin, fallback to list-based lookup for IT/Org Admin
+  const asset = assets.find(a => a.id === assetId) || directAsset || null;
   const batch = asset?.batch_id ? batches.find(b => b.id === asset.batch_id) : null;
+
+  // Build comprehensive timeline from all sources
+  // IMPORTANT: This useMemo must be called before any early return to maintain
+  // consistent hook ordering across renders (React Rules of Hooks)
+  const timeline = useMemo(() => {
+    if (!asset) return [];
+
+    const events: Array<{
+      type: string;
+      status: string;
+      date: Date;
+      description: string;
+      icon?: any;
+      metadata?: any;
+    }> = [];
+
+    // Add creation event (use snake_case from database)
+    events.push({
+      type: 'created',
+      status: 'Asset Created',
+      date: new Date(asset.created_at || Date.now()),
+      description: 'Asset added to inventory',
+      icon: Package,
+    });
+
+    // Add audit events
+    const auditEvents = getByEntity('asset', asset.id);
+    auditEvents.forEach(event => {
+      events.push({
+        type: event.action,
+        status: event.toStatus ? `Status: ${event.toStatus}` : event.action,
+        date: event.createdAt,
+        description: event.metadata?.reason || `${event.action} - ${event.fromStatus || ''} → ${event.toStatus || ''}`,
+        metadata: event.metadata,
+      });
+    });
+
+    // Add assignment event (use snake_case from database)
+    if (asset.assigned_sub_user_id && asset.assigned_at) {
+      const assignedUser = subUsers.find(u => u.id === asset.assigned_sub_user_id);
+      events.push({
+        type: 'assigned',
+        status: 'Assigned to User',
+        date: new Date(asset.assigned_at),
+        description: `Assigned to ${assignedUser?.name || assignedUser?.email || 'sub-user'}`,
+        icon: UserPlus,
+      });
+    }
+
+    // Add submission event
+    const submission = submissions.find(s => s.assetId === asset.id);
+    if (submission) {
+      events.push({
+        type: 'submitted',
+        status: 'Device Submitted',
+        date: submission.submittedAt,
+        description: 'Sub-user completed device evaluation and submitted details',
+        icon: FileText,
+        metadata: { submissionId: submission.id },
+      });
+    }
+
+    // Add remote review event
+    const review = remoteReviews.find(r => r.assetId === asset.id);
+    if (review) {
+      events.push({
+        type: 'remote_review',
+        status: review.decision === 'conditionally_accepted' ? 'Remote Review: Accepted' : 'Remote Review: Rejected',
+        date: review.reviewedAt,
+        description: review.notes || review.reason || `Reviewed by technician - ${review.decision}`,
+        icon: ClipboardCheck,
+        metadata: review,
+      });
+    }
+
+    // Add pickup events (V3: Use snake_case field names from database)
+    const assetPickups = pickupRequests.filter(pr =>
+      pr.asset_ids?.includes(asset.id)
+    );
+    assetPickups.forEach(pickup => {
+      events.push({
+        type: 'pickup_requested',
+        status: 'Pickup Requested',
+        date: new Date(pickup.created_at || Date.now()),
+        description: `Pickup request created for ${pickup.asset_ids?.length || 0} asset(s)`,
+        icon: Truck,
+        metadata: { pickupId: pickup.id },
+      });
+
+      if (pickup.scheduled_date) {
+        events.push({
+          type: 'pickup_scheduled',
+          status: 'Pickup Scheduled',
+          date: new Date(pickup.assigned_at || pickup.created_at || Date.now()),
+          description: `Scheduled for ${format(new Date(pickup.scheduled_date), 'MMM d, yyyy')} - ${pickup.preferred_time_slot || 'TBD'}`,
+          icon: Calendar,
+          metadata: { pickupId: pickup.id },
+        });
+      }
+
+      if (pickup.completed_at) {
+        // V3: Access location via joined relation
+        const locationName = pickup.pickup_locations?.name || 'location';
+        events.push({
+          type: 'picked_up',
+          status: 'Picked Up',
+          date: new Date(pickup.completed_at),
+          description: `Collected from ${locationName}`,
+          icon: CheckSquare,
+          metadata: { pickupId: pickup.id },
+        });
+      }
+    });
+
+    // Add facility QC event
+    const facilityQC = facilityQCs.find(qc => qc.assetId === asset.id);
+    if (facilityQC) {
+      events.push({
+        type: 'facility_qc',
+        status: facilityQC.decision === 'final_accept' ? 'QC: Accepted' : 'QC: Rejected',
+        date: facilityQC.completedAt,
+        description: `Physical QC completed - Grade: ${facilityQC.grade || 'N/A'}`,
+        icon: ClipboardCheck,
+        metadata: facilityQC,
+      });
+    }
+
+    // Sort by date descending (newest first)
+    // Handle both Date objects and string timestamps from database
+    return events.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [asset, getByEntity, subUsers, submissions, remoteReviews, pickupRequests, facilityQCs]);
 
   if (!asset) {
     return (
@@ -372,139 +512,6 @@ export function AssetDetail() {
       });
     }
   };
-
-  // Build comprehensive timeline from all sources
-  const timeline = useMemo(() => {
-    if (!asset) return [];
-
-    const events: Array<{
-      type: string;
-      status: string;
-      date: Date;
-      description: string;
-      icon?: any;
-      metadata?: any;
-    }> = [];
-
-    // Add creation event (use snake_case from database)
-    events.push({
-      type: 'created',
-      status: 'Asset Created',
-      date: new Date(asset.created_at || Date.now()),
-      description: 'Asset added to inventory',
-      icon: Package,
-    });
-
-    // Add audit events
-    const auditEvents = getByEntity('asset', asset.id);
-    auditEvents.forEach(event => {
-      events.push({
-        type: event.action,
-        status: event.toStatus ? `Status: ${event.toStatus}` : event.action,
-        date: event.createdAt,
-        description: event.metadata?.reason || `${event.action} - ${event.fromStatus || ''} → ${event.toStatus || ''}`,
-        metadata: event.metadata,
-      });
-    });
-
-    // Add assignment event (use snake_case from database)
-    if (asset.assigned_sub_user_id && asset.assigned_at) {
-      const assignedUser = subUsers.find(u => u.id === asset.assigned_sub_user_id);
-      events.push({
-        type: 'assigned',
-        status: 'Assigned to User',
-        date: new Date(asset.assigned_at),
-        description: `Assigned to ${assignedUser?.name || assignedUser?.email || 'sub-user'}`,
-        icon: UserPlus,
-      });
-    }
-
-    // Add submission event
-    const submission = submissions.find(s => s.assetId === asset.id);
-    if (submission) {
-      events.push({
-        type: 'submitted',
-        status: 'Device Submitted',
-        date: submission.submittedAt,
-        description: 'Sub-user completed device evaluation and submitted details',
-        icon: FileText,
-        metadata: { submissionId: submission.id },
-      });
-    }
-
-    // Add remote review event
-    const review = remoteReviews.find(r => r.assetId === asset.id);
-    if (review) {
-      events.push({
-        type: 'remote_review',
-        status: review.decision === 'conditionally_accepted' ? 'Remote Review: Accepted' : 'Remote Review: Rejected',
-        date: review.reviewedAt,
-        description: review.notes || review.reason || `Reviewed by technician - ${review.decision}`,
-        icon: ClipboardCheck,
-        metadata: review,
-      });
-    }
-
-    // Add pickup events (V3: Use snake_case field names from database)
-    const assetPickups = pickupRequests.filter(pr =>
-      pr.asset_ids?.includes(asset.id)
-    );
-    assetPickups.forEach(pickup => {
-      events.push({
-        type: 'pickup_requested',
-        status: 'Pickup Requested',
-        date: new Date(pickup.created_at || Date.now()),
-        description: `Pickup request created for ${pickup.asset_ids?.length || 0} asset(s)`,
-        icon: Truck,
-        metadata: { pickupId: pickup.id },
-      });
-
-      if (pickup.scheduled_date) {
-        events.push({
-          type: 'pickup_scheduled',
-          status: 'Pickup Scheduled',
-          date: new Date(pickup.assigned_at || pickup.created_at || Date.now()),
-          description: `Scheduled for ${format(new Date(pickup.scheduled_date), 'MMM d, yyyy')} - ${pickup.preferred_time_slot || 'TBD'}`,
-          icon: Calendar,
-          metadata: { pickupId: pickup.id },
-        });
-      }
-
-      if (pickup.completed_at) {
-        // V3: Access location via joined relation
-        const locationName = pickup.pickup_locations?.name || 'location';
-        events.push({
-          type: 'picked_up',
-          status: 'Picked Up',
-          date: new Date(pickup.completed_at),
-          description: `Collected from ${locationName}`,
-          icon: CheckSquare,
-          metadata: { pickupId: pickup.id },
-        });
-      }
-    });
-
-    // Add facility QC event
-    const facilityQC = facilityQCs.find(qc => qc.assetId === asset.id);
-    if (facilityQC) {
-      events.push({
-        type: 'facility_qc',
-        status: facilityQC.decision === 'final_accept' ? 'QC: Accepted' : 'QC: Rejected',
-        date: facilityQC.completedAt,
-        description: `Physical QC completed - Grade: ${facilityQC.grade || 'N/A'}`,
-        icon: ClipboardCheck,
-        metadata: facilityQC,
-      });
-    }
-
-    // Sort by date descending (newest first)
-    // Handle both Date objects and string timestamps from database
-    return events.sort((a, b) => {
-      const dateA = a.date instanceof Date ? a.date : new Date(a.date);
-      const dateB = b.date instanceof Date ? b.date : new Date(b.date);
-      return dateB.getTime() - dateA.getTime();
-    });
-  }, [asset, getByEntity, subUsers, submissions, remoteReviews, pickupRequests, facilityQCs]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -773,7 +780,7 @@ export function AssetDetail() {
               className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
             >
               <div className="p-6 border-b border-slate-200 dark:border-white/10">
-                <h2 className="font-brand font-bold text-lg text-white uppercase tracking-wide">Valuation</h2>
+                <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Valuation</h2>
               </div>
               <div className="p-6 grid grid-cols-2 gap-6">
                 {asset.remoteQuote && (
@@ -813,7 +820,7 @@ export function AssetDetail() {
               <div className="p-6 border-b border-emerald-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <ClipboardCheck className="w-5 h-5 text-emerald-400" />
-                  <h2 className="font-brand font-bold text-lg text-white uppercase tracking-wide">QC Report</h2>
+                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">QC Report</h2>
                 </div>
                 {asset.qcReport.grade && (
                   <div className="px-4 py-2 border border-emerald-400/30 bg-emerald-400/10">
@@ -844,7 +851,7 @@ export function AssetDetail() {
                           <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
                         )}
                         <div>
-                          <p className={`font-display text-sm ${item.passed ? 'text-emerald-300' : 'text-red-300'}`}>
+                          <p className={`font-display text-sm ${item.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                             {item.label}
                           </p>
                           {item.notes && (
@@ -1059,17 +1066,17 @@ export function AssetDetail() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-white/10 bg-[#0a0a0a]"
+            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
           >
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
-              <h3 className="font-brand font-bold text-lg text-white uppercase tracking-wide">Assign Asset</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Assign Asset</h3>
               <button
                 onClick={() => {
                   setShowAssignModal(false);
                   setAssignMode('self');
                   setNewUserForm({ name: '', email: '', phone: '', department: '' });
                 }}
-                className="p-2 hover:bg-white/5 transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 <X className="w-5 h-5 text-zinc-500" />
               </button>
@@ -1077,13 +1084,13 @@ export function AssetDetail() {
 
             {/* Mode Toggle */}
             <div className="p-6 pb-0">
-              <div className="flex gap-1 border border-white/10 bg-white/[0.02] p-1">
+              <div className="flex gap-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-1">
                 <button
                   onClick={() => setAssignMode('self')}
                   className={`flex-1 px-3 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                     assignMode === 'self'
                       ? 'bg-ecotribe-primary text-black'
-                      : 'text-zinc-500 hover:text-white'
+                      : 'text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Self
@@ -1093,7 +1100,7 @@ export function AssetDetail() {
                   className={`flex-1 px-3 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                     assignMode === 'select'
                       ? 'bg-ecotribe-primary text-black'
-                      : 'text-zinc-500 hover:text-white'
+                      : 'text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Sub-User
@@ -1103,7 +1110,7 @@ export function AssetDetail() {
                   className={`flex-1 px-3 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                     assignMode === 'create'
                       ? 'bg-ecotribe-primary text-black'
-                      : 'text-zinc-500 hover:text-white'
+                      : 'text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   New User
@@ -1119,11 +1126,11 @@ export function AssetDetail() {
                       <User className="w-5 h-5 text-ecotribe-primary" />
                     </div>
                     <div>
-                      <p className="font-display font-bold text-sm text-white uppercase">Assign to Myself</p>
-                      <p className="font-mono text-xs text-white/50">{user?.email}</p>
+                      <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">Assign to Myself</p>
+                      <p className="font-mono text-xs text-slate-500 dark:text-white/50">{user?.email}</p>
                     </div>
                   </div>
-                  <p className="font-mono text-xs text-white/60">
+                  <p className="font-mono text-xs text-slate-500 dark:text-white/60">
                     This asset will be assigned to you and appear in your "My Evaluations" section where you can complete the device check-in.
                   </p>
                 </div>
@@ -1139,9 +1146,9 @@ export function AssetDetail() {
                         onChange={(e) => setSelectedSubUserId(e.target.value)}
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                       >
-                        <option value="" className="bg-[#0a0a0a]">Select a sub-user...</option>
+                        <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a sub-user...</option>
                         {enterpriseSubUsers.map(user => (
-                          <option key={user.id} value={user.id} className="bg-[#0a0a0a]">
+                          <option key={user.id} value={user.id} className="bg-white dark:bg-[#0a0a0a]">
                             {user.name || user.email} {user.department ? `(${user.department})` : ''}
                           </option>
                         ))}
@@ -1215,22 +1222,22 @@ export function AssetDetail() {
                       onChange={(e) => setNewUserForm(prev => ({ ...prev, department: e.target.value }))}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                     >
-                      <option value="" className="bg-[#0a0a0a]">Select department</option>
-                      <option value="Engineering" className="bg-[#0a0a0a]">Engineering</option>
-                      <option value="Marketing" className="bg-[#0a0a0a]">Marketing</option>
-                      <option value="HR" className="bg-[#0a0a0a]">HR</option>
-                      <option value="Finance" className="bg-[#0a0a0a]">Finance</option>
-                      <option value="Operations" className="bg-[#0a0a0a]">Operations</option>
-                      <option value="Sales" className="bg-[#0a0a0a]">Sales</option>
-                      <option value="IT" className="bg-[#0a0a0a]">IT</option>
-                      <option value="Legal" className="bg-[#0a0a0a]">Legal</option>
-                      <option value="Other" className="bg-[#0a0a0a]">Other</option>
+                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select department</option>
+                      <option value="Engineering" className="bg-white dark:bg-[#0a0a0a]">Engineering</option>
+                      <option value="Marketing" className="bg-white dark:bg-[#0a0a0a]">Marketing</option>
+                      <option value="HR" className="bg-white dark:bg-[#0a0a0a]">HR</option>
+                      <option value="Finance" className="bg-white dark:bg-[#0a0a0a]">Finance</option>
+                      <option value="Operations" className="bg-white dark:bg-[#0a0a0a]">Operations</option>
+                      <option value="Sales" className="bg-white dark:bg-[#0a0a0a]">Sales</option>
+                      <option value="IT" className="bg-white dark:bg-[#0a0a0a]">IT</option>
+                      <option value="Legal" className="bg-white dark:bg-[#0a0a0a]">Legal</option>
+                      <option value="Other" className="bg-white dark:bg-[#0a0a0a]">Other</option>
                     </select>
                   </div>
                 </>
               )}
             </div>
-            <div className="p-6 border-t border-white/10 flex gap-3 justify-end">
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
               <button
                 onClick={() => {
                   setShowAssignModal(false);
@@ -1273,16 +1280,16 @@ export function AssetDetail() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-white/10 bg-[#0a0a0a]"
+            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
           >
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
-                <h3 className="font-brand font-bold text-lg text-white uppercase tracking-wide">Dispute Decision</h3>
+                <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Dispute Decision</h3>
               </div>
               <button
                 onClick={() => setShowDisputeModal(false)}
-                className="p-2 hover:bg-white/5 transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 <X className="w-5 h-5 text-zinc-500" />
               </button>
@@ -1312,7 +1319,7 @@ export function AssetDetail() {
                 Your dispute will be reviewed by our QC team. You will be notified of the outcome.
               </p>
             </div>
-            <div className="p-6 border-t border-white/10 flex gap-3 justify-end">
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
               <button
                 onClick={() => setShowDisputeModal(false)}
                 className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"

@@ -223,7 +223,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           {/* Brand & Model Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">
                 Brand <span className="text-red-400">*</span>
               </label>
               <Dropdown
@@ -241,7 +241,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">
                 Model <span className="text-red-400">*</span>
               </label>
               {!useCustomModel && suggestedModels.length > 0 ? (
@@ -295,18 +295,18 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           <CardTitle className="flex items-center gap-2">
             <User className="w-4 h-4 text-ecotribe-primary" />
             Employee Assignment
-            <span className="text-xs font-normal text-white/40 ml-2">(Optional)</span>
+            <span className="text-xs font-normal text-slate-400 dark:text-white/40 ml-2">(Optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Self-Assign Option */}
           {showSelfAssign && userId && (
-            <label className="flex items-center gap-3 cursor-pointer group p-3 border border-white/10 hover:border-white/20 transition-colors">
+            <label className="flex items-center gap-3 cursor-pointer group p-3 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
               <div className={cn(
                 "w-5 h-5 border-2 flex items-center justify-center transition-all",
                 selfAssign
                   ? "bg-ecotribe-primary border-ecotribe-primary"
-                  : "border-white/30 group-hover:border-white/50"
+                  : "border-slate-300 dark:border-white/30 group-hover:border-slate-400 dark:group-hover:border-white/50"
               )}>
                 {selfAssign && <UserCheck className="w-3 h-3 text-black" />}
               </div>
@@ -322,8 +322,8 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
                 className="sr-only"
               />
               <div>
-                <span className="text-sm font-medium text-white">Assign to myself</span>
-                <p className="text-xs text-white/50">This asset will appear in your "My Evaluations" section</p>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">Assign to myself</span>
+                <p className="text-xs text-slate-500 dark:text-white/50">This asset will appear in your "My Evaluations" section</p>
               </div>
             </label>
           )}
@@ -331,7 +331,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           {/* Employee Selection (when not self-assigning) */}
           {!selfAssign && (
             <div className="space-y-2">
-              <p className="text-xs text-white/50 mb-3">
+              <p className="text-xs text-slate-500 dark:text-white/50 mb-3">
                 Assign this asset to an employee for evaluation. They will receive an email with evaluation instructions.
               </p>
               <EmployeeSelector
@@ -350,10 +350,10 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
       {/* Processor & GPU Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white/70">
+          <CardTitle className="flex items-center gap-2 text-slate-600 dark:text-white/70">
             <Cpu className="w-4 h-4 text-ecotribe-primary" />
             Processor & Graphics
-            <span className="text-xs font-normal text-white/40 ml-2">(Optional)</span>
+            <span className="text-xs font-normal text-slate-400 dark:text-white/40 ml-2">(Optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -367,7 +367,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-white/70 mb-1.5">Processor Brand</label>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">Processor Brand</label>
                     <Dropdown
                       options={[
                         ...PROCESSOR_BRANDS.map(b => ({ label: b, value: b })),
@@ -385,7 +385,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
                   </div>
                   {formData.processorBrand && formData.processorBrand !== 'Other' && processorSeriesOptions.length > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-white/70 mb-1.5">Series</label>
+                      <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">Series</label>
                       <Dropdown
                         options={processorSeriesOptions.map(s => ({ label: s, value: s }))}
                         value={formData.processorSeries}
@@ -431,7 +431,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           </div>
 
           {/* Divider */}
-          <div className="border-t border-white/10" />
+          <div className="border-t border-slate-200 dark:border-white/10" />
 
           {/* GPU */}
           <div>
@@ -443,7 +443,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-white/70 mb-1.5">GPU Type</label>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">GPU Type</label>
                     <Dropdown
                       options={GPU_BRANDS.map(b => ({ label: b, value: b }))}
                       value={formData.gpuBrand}
@@ -459,7 +459,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
                   </div>
                   {formData.gpuBrand && formData.gpuBrand !== 'Other' && gpuModelOptions.length > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-white/70 mb-1.5">GPU Model</label>
+                      <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">GPU Model</label>
                       <Dropdown
                         options={[
                           ...gpuModelOptions.map(m => ({ label: m, value: m })),
@@ -509,16 +509,16 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
       {/* Specifications (Optional) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-white/70">
+          <CardTitle className="text-slate-600 dark:text-white/70">
             Specifications
-            <span className="text-xs font-normal text-white/40 ml-2">(Optional)</span>
+            <span className="text-xs font-normal text-slate-400 dark:text-white/40 ml-2">(Optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* RAM */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">RAM</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">RAM</label>
               {!useCustomRam ? (
                 <div className="space-y-2">
                   <Dropdown
@@ -565,7 +565,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
 
             {/* Storage */}
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">Storage</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">Storage</label>
               {!useCustomStorage ? (
                 <Dropdown
                   options={[
@@ -614,7 +614,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           {/* Screen Size & OS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">Screen Size</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">Screen Size</label>
               {!useCustomScreenSize ? (
                 <Dropdown
                   options={[
@@ -658,7 +658,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-1.5">Operating System</label>
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">Operating System</label>
               {!useCustomOs ? (
                 <Dropdown
                   options={[

@@ -169,6 +169,7 @@ export function useCreateBatch() {
         branch_id: batch.branch_id,
       };
       const response = await batchesApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create batch');
       return response.data;
     },
     onSuccess: () => {
@@ -190,6 +191,7 @@ export function useUpdateBatch() {
         description: updates.description,
       };
       const response = await batchesApi.update(batchId, apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update batch');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -240,6 +242,7 @@ export function useSubmitBatchForApproval() {
         pickup_date: pickupDetails.preferred_pickup_date,
         pickup_time_slot: pickupDetails.preferred_pickup_slot,
       });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to submit batch for approval');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -265,6 +268,7 @@ export function useApproveBatch() {
   return useMutation({
     mutationFn: async ({ batchId, notes }: ApproveBatchInput) => {
       const response = await batchesApi.approve(batchId, notes);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to approve batch');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -301,6 +305,7 @@ export function useApproveBatchWithPrices() {
       }
       // Then approve the batch
       const response = await batchesApi.approve(batchId, notes);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to approve batch with prices');
       return { batch: response.data, pickupRequest: null };
     },
     onSuccess: (result, variables) => {
@@ -328,6 +333,7 @@ export function useRejectBatch() {
   return useMutation({
     mutationFn: async ({ batchId, reason }: RejectBatchInput) => {
       const response = await batchesApi.reject(batchId, reason);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to reject batch');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -347,6 +353,7 @@ export function useAddAssetToBatch() {
   return useMutation({
     mutationFn: async ({ assetId, batchId }: { assetId: string; batchId: string }) => {
       const response = await batchesApi.addAssets(batchId, [assetId]);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to add asset to batch');
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -365,6 +372,7 @@ export function useRemoveAssetFromBatch() {
   return useMutation({
     mutationFn: async ({ assetId, batchId }: { assetId: string; batchId: string }) => {
       const response = await batchesApi.removeAssets(batchId, [assetId]);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to remove asset from batch');
       return response.data;
     },
     onSuccess: (_, variables) => {

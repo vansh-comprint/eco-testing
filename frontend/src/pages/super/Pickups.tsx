@@ -254,7 +254,7 @@ export function Pickups() {
                 placeholder="Search by location, enterprise, or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+                className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
               />
             </div>
             <div className="flex gap-2">
@@ -270,7 +270,7 @@ export function Pickups() {
                   className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                     statusFilter === filter.key
                       ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-white/20'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
                   }`}
                 >
                   {filter.label}
@@ -309,7 +309,7 @@ export function Pickups() {
                     className={`cursor-pointer transition-all ${
                       isSelected
                         ? 'border-ecotribe-primary bg-ecotribe-primary/5'
-                        : 'hover:border-white/20'
+                        : 'hover:border-slate-200 dark:hover:border-white/20'
                     }`}
                   >
                     <div className="p-4">
@@ -369,7 +369,7 @@ export function Pickups() {
             })
           ) : (
             <Card className="py-16 text-center">
-              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
                 <Truck className={`w-8 h-8 ${text.muted}`} />
               </div>
               <h3 className={`font-brand font-bold text-lg uppercase mb-2 ${text.muted}`}>
@@ -400,7 +400,7 @@ export function Pickups() {
               <div className="p-5 space-y-6">
                 {/* Location Info */}
                 <div className="flex items-center gap-4 p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                  <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
+                  <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                     <MapPin className={`w-7 h-7 ${text.muted}`} />
                   </div>
                   <div>
@@ -477,7 +477,7 @@ export function Pickups() {
                         Reassign
                       </button>
                     </div>
-                    <p className="font-display text-zinc-300">
+                    <p className="font-display text-slate-700 dark:text-zinc-300">
                       {getLogisticsAdminName(selectedRequestData.logistics_admin_id)}
                     </p>
                     <p className={`font-mono text-xs mt-2 ${text.muted}`}>
@@ -500,7 +500,7 @@ export function Pickups() {
                             setShowReassignMode(false);
                             setSelectedLogisticsAdmin('');
                           }}
-                          className="text-white/50 hover:text-white transition-colors"
+                          className="text-slate-400 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -524,14 +524,14 @@ export function Pickups() {
                               className={`w-full interactive p-4 border text-left transition-all ${
                                 selectedLogisticsAdmin === admin.id
                                   ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                  : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20'
+                                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
                               }`}
                             >
                               <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 border flex items-center justify-center ${
                                   selectedLogisticsAdmin === admin.id
                                     ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                    : 'border-white/10 bg-white/5'
+                                    : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                                 }`}>
                                   <User className={`w-5 h-5 ${
                                     selectedLogisticsAdmin === admin.id
@@ -555,7 +555,7 @@ export function Pickups() {
                             </button>
                           ))}
                         {activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id).length === 0 && (
-                          <div className="p-4 border border-white/10 bg-white/[0.02] text-center">
+                          <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-center">
                             <p className={`font-mono text-xs ${text.muted}`}>
                               No other partners available
                             </p>
@@ -571,7 +571,7 @@ export function Pickups() {
                       className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                         selectedLogisticsAdmin
                           ? 'bg-amber-500 text-white hover:bg-amber-400'
-                          : 'bg-white/10 text-white/50 cursor-not-allowed'
+                          : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
                       }`}
                     >
                       {assignMutation.isPending ? (
@@ -614,7 +614,7 @@ export function Pickups() {
                             <button
                               type="button"
                               onClick={() => setShowAddAdmin(false)}
-                              className="text-white/50 hover:text-white transition-colors"
+                              className="text-slate-400 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -627,14 +627,14 @@ export function Pickups() {
                                 placeholder="Contact Name *"
                                 value={newAdminName}
                                 onChange={(e) => setNewAdminName(e.target.value)}
-                                className="px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                               />
                               <input
                                 type="text"
                                 placeholder="Company Name *"
                                 value={newAdminCompany}
                                 onChange={(e) => setNewAdminCompany(e.target.value)}
-                                className="px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -643,14 +643,14 @@ export function Pickups() {
                                 placeholder="Email *"
                                 value={newAdminEmail}
                                 onChange={(e) => setNewAdminEmail(e.target.value)}
-                                className="px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                               />
                               <input
                                 type="password"
                                 placeholder="Password * (min 8 chars)"
                                 value={newAdminPassword}
                                 onChange={(e) => setNewAdminPassword(e.target.value)}
-                                className="px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                               />
                             </div>
                             <input
@@ -658,7 +658,7 @@ export function Pickups() {
                               placeholder="Phone"
                               value={newAdminPhone}
                               onChange={(e) => setNewAdminPhone(e.target.value)}
-                              className="w-full px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                             />
                           </div>
 
@@ -669,7 +669,7 @@ export function Pickups() {
                             className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                               newAdminName && newAdminCompany && newAdminEmail && newAdminPassword && newAdminPassword.length >= 8
                                 ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
-                                : 'bg-white/10 text-white/50 cursor-not-allowed'
+                                : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
                             }`}
                           >
                             {isCreatingAdmin ? (
@@ -693,14 +693,14 @@ export function Pickups() {
                                 className={`w-full interactive p-4 border text-left transition-all ${
                                   selectedLogisticsAdmin === admin.id
                                     ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                    : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20'
+                                    : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className={`w-10 h-10 border flex items-center justify-center ${
                                     selectedLogisticsAdmin === admin.id
                                       ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                      : 'border-white/10 bg-white/5'
+                                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                                   }`}>
                                     <User className={`w-5 h-5 ${
                                       selectedLogisticsAdmin === admin.id
@@ -751,7 +751,7 @@ export function Pickups() {
                         className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                           selectedLogisticsAdmin
                             ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
-                            : 'bg-white/10 text-white/50 cursor-not-allowed'
+                            : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
                         }`}
                       >
                         {isLoading ? (

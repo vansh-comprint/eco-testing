@@ -5,7 +5,6 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Search,
@@ -25,9 +24,15 @@ import {
   AlertTriangle,
   Shield
 } from 'lucide-react';
-import { useAuth, useApiError } from '@/hooks';
+import {
+  useAuth,
+  useApiError,
+  useEnterpriseApplications,
+  useApproveEnterpriseApplication,
+  useRejectEnterpriseApplication,
+  useRequestMoreInfo,
+} from '@/hooks';
 import { ConfirmationModal } from '@/components/ui';
-import { enterpriseApplicationsApi } from '@/lib/api/applications';
 import { formatDistanceToNow } from 'date-fns';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'more_info_requested' | 'all';
@@ -60,54 +65,16 @@ interface EnterpriseApplication {
   updated_at: string;
 }
 
-// V3: Fetch enterprise applications via REST API
-async function fetchApplications(): Promise<EnterpriseApplication[]> {
-  const response = await enterpriseApplicationsApi.list({ limit: 100 });
-  if (!response.success) throw new Error(response.error?.message || 'Failed to load applications');
-  // response.data is the unwrapped array from the API
-  const data = response.data;
-  return Array.isArray(data) ? data : [];
-}
-
-// V3: Process application decision via REST API
-async function processApplication(data: {
-  application_id: string;
-  approved: boolean;
-  rejection_reason?: string;
-  review_notes?: string;
-  reviewed_by: string;
-}) {
-  if (data.approved) {
-    await enterpriseApplicationsApi.approve(data.application_id, data.review_notes);
-    return { success: true };
-  } else {
-    await enterpriseApplicationsApi.reject(
-      data.application_id,
-      data.rejection_reason || 'Application rejected'
-    );
-    return { success: true };
-  }
-}
-
 export function EnterpriseApplications() {
-  const queryClient = useQueryClient();
-  // V3: Use React Query hook for auth
+  // V3: Use React Query hooks for auth and data
   const { user } = useAuth();
   const { handleError, showSuccess } = useApiError();
 
-  // V3: React Query for data fetching
-  const { data: applications = [], isLoading } = useQuery({
-    queryKey: ['enterprise-applications'],
-    queryFn: fetchApplications,
-  });
-
-  // V3: Decision mutation
-  const decisionMutation = useMutation({
-    mutationFn: processApplication,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['enterprise-applications'] });
-    },
-  });
+  // V3: React Query hooks for data fetching and mutations
+  const { data: applications = [], isLoading } = useEnterpriseApplications();
+  const approveMutation = useApproveEnterpriseApplication();
+  const rejectMutation = useRejectEnterpriseApplication();
+  const requestInfoMutation = useRequestMoreInfo();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>('pending');
@@ -144,16 +111,22 @@ export function EnterpriseApplications() {
     setIsSubmitting(true);
     try {
       if (decision === 'request_info') {
-        // Request more info via REST API
-        await enterpriseApplicationsApi.requestMoreInfo(selectedApp, infoRequestMessage);
-        queryClient.invalidateQueries({ queryKey: ['enterprise-applications'] });
+        await requestInfoMutation.mutateAsync({
+          applicationId: selectedApp,
+          reviewedBy: user.id,
+          notes: infoRequestMessage,
+        });
+      } else if (decision === 'approve') {
+        await approveMutation.mutateAsync({
+          applicationId: selectedApp,
+          reviewedBy: user.id,
+          notes: reviewNotes || undefined,
+        });
       } else {
-        await decisionMutation.mutateAsync({
-          application_id: selectedApp,
-          approved: decision === 'approve',
-          rejection_reason: decision === 'reject' ? rejectionReason : undefined,
-          review_notes: reviewNotes || undefined,
-          reviewed_by: user.id,
+        await rejectMutation.mutateAsync({
+          applicationId: selectedApp,
+          reviewedBy: user.id,
+          reason: rejectionReason || 'Application rejected',
         });
       }
 
@@ -202,7 +175,7 @@ export function EnterpriseApplications() {
           animate={{ opacity: 1, y: 0 }}
         >
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
-            OPS Admin
+            Operations
           </span>
           <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
             Enterprise Applications
@@ -292,7 +265,7 @@ export function EnterpriseApplications() {
           className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
             statusFilter === 'all'
               ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-white/20'
+              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
           }`}
         >
           Show All
@@ -324,7 +297,7 @@ export function EnterpriseApplications() {
                       ? 'border-ecotribe-primary bg-ecotribe-primary/5'
                       : isPending
                       ? 'border-amber-400/30 bg-amber-400/5 hover:border-amber-400/50'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-white/20'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
                   }`}
                 >
                   <div className="p-5">
@@ -410,7 +383,7 @@ export function EnterpriseApplications() {
             })
           ) : (
             <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
-              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
                 <Building2 className="w-8 h-8 text-slate-500 dark:text-white/50" />
               </div>
               <h3 className="font-brand font-bold text-lg text-slate-500 dark:text-white/50 uppercase mb-2">
@@ -526,9 +499,9 @@ export function EnterpriseApplications() {
                     const docs = [
                       { key: 'doc_gst_certificate', label: 'GST Certificate', required: true },
                       { key: 'doc_pan_card', label: 'PAN Card', required: true },
-                      { key: 'doc_incorporation_cert', label: 'Incorporation Certificate', required: false },
+                      { key: 'doc_incorporation_cert', label: 'Incorporation Certificate', required: true },
                       { key: 'doc_signatory_id', label: 'Signatory ID', required: true },
-                      { key: 'doc_address_proof', label: 'Address Proof', required: false },
+                      { key: 'doc_address_proof', label: 'Address Proof', required: true },
                     ];
                     const uploadedCount = docs.filter(d => selectedApplication[d.key as keyof EnterpriseApplication]).length;
                     const requiredMissing = docs.filter(d => d.required && !selectedApplication[d.key as keyof EnterpriseApplication]);
@@ -616,7 +589,7 @@ export function EnterpriseApplications() {
                           className={`interactive p-4 border transition-all ${
                             decision === 'approve'
                               ? 'border-emerald-400 bg-emerald-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
+                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
                           }`}
                         >
                           <CheckCircle className={`w-6 h-6 mx-auto mb-2 ${
@@ -633,7 +606,7 @@ export function EnterpriseApplications() {
                           className={`interactive p-4 border transition-all ${
                             decision === 'request_info'
                               ? 'border-amber-400 bg-amber-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-amber-400/50'
+                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-amber-400/50'
                           }`}
                         >
                           <AlertTriangle className={`w-6 h-6 mx-auto mb-2 ${
@@ -650,7 +623,7 @@ export function EnterpriseApplications() {
                           className={`interactive p-4 border transition-all ${
                             decision === 'reject'
                               ? 'border-red-400 bg-red-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
+                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
                           }`}
                         >
                           <XCircle className={`w-6 h-6 mx-auto mb-2 ${
@@ -736,7 +709,7 @@ export function EnterpriseApplications() {
                             : decision === 'request_info'
                             ? 'bg-amber-500 text-white hover:bg-amber-400'
                             : 'bg-red-500 text-white hover:bg-red-400'
-                          : 'bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
+                          : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
                       }`}
                     >
                       {isSubmitting ? (
@@ -771,7 +744,7 @@ export function EnterpriseApplications() {
                       </span>
                     </div>
                     {selectedApplication.rejection_reason && (
-                      <p className="font-display text-sm text-zinc-300 mt-2">
+                      <p className="font-display text-sm text-slate-600 dark:text-zinc-300 mt-2">
                         {selectedApplication.rejection_reason}
                       </p>
                     )}

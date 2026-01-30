@@ -185,6 +185,81 @@ async def delete_asset(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+@router.post("/{asset_id}/assign", response_model=dict)
+async def assign_asset(
+    asset_id: str,
+    assigned_to_user_id: str = Query(..., description="User ID to assign the asset to"),
+    current_user: User = Depends(require_permission(Permission.ASSET_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Assign an asset to an employee (sub-user).
+
+    Sets the assigned_to_user_id and transitions status to 'assigned'
+    if the asset is currently in 'pending_assignment' status.
+
+    **Permissions:** ASSET_UPDATE
+    """
+    try:
+        service = AssetService(db)
+        asset = await service.assign_asset(asset_id, assigned_to_user_id, current_user.id)
+        return success_response(data=asset.model_dump(), message="Asset assigned successfully")
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/{asset_id}/unassign", response_model=dict)
+async def unassign_asset(
+    asset_id: str,
+    current_user: User = Depends(require_permission(Permission.ASSET_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Unassign an asset from its current employee.
+
+    Clears assigned_to_user_id and transitions status back to 'pending_assignment'
+    if the asset is currently in 'assigned' status.
+
+    **Permissions:** ASSET_UPDATE
+    """
+    try:
+        service = AssetService(db)
+        asset = await service.unassign_asset(asset_id, current_user.id)
+        return success_response(data=asset.model_dump(), message="Asset unassigned successfully")
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.patch("/{asset_id}/status", response_model=dict)
+async def transition_asset_status(
+    asset_id: str,
+    new_status: AssetStatus = Query(..., description="Target status"),
+    current_user: User = Depends(require_permission(Permission.ASSET_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Transition an asset to a new status.
+
+    The transition is validated against the asset state machine.
+    Only valid transitions are allowed (e.g., pending_assignment → assigned).
+
+    **Permissions:** ASSET_UPDATE
+    """
+    try:
+        service = AssetService(db)
+        asset_data = AssetUpdate(status=new_status)
+        asset = await service.update_asset(asset_id, asset_data, current_user.id)
+        return success_response(data=asset.model_dump(), message=f"Asset status changed to {new_status.value}")
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @router.get("/{asset_id}/allowed-transitions", response_model=dict)
 async def get_asset_allowed_transitions(
     asset_id: str,

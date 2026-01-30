@@ -182,7 +182,7 @@ export function FinancialReports() {
                 className={`px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                   timeRange === range
                     ? 'bg-ecotribe-primary text-black'
-                    : 'bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:text-white'
+                    : 'bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {range}
@@ -314,7 +314,7 @@ export function FinancialReports() {
                     <Building2 className="w-5 h-5 text-slate-500 dark:text-white/50" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-display font-bold text-white">{enterprise.name}</p>
+                    <p className="font-display font-bold text-slate-900 dark:text-white">{enterprise.name}</p>
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                       {enterprise.completedAssets} completed • {enterprise.pendingAssets} pending
                     </p>
@@ -373,13 +373,13 @@ export function FinancialReports() {
                       } border`}>
                         {grade}
                       </span>
-                      <span className="font-display text-white">Grade {grade}</span>
+                      <span className="font-display text-slate-900 dark:text-white">Grade {grade}</span>
                     </div>
                     <span className="font-mono text-sm text-slate-500 dark:text-white/50">
                       {count} assets ({percentage.toFixed(0)}%)
                     </span>
                   </div>
-                  <div className="h-3 bg-white/10">
+                  <div className="h-3 bg-slate-200 dark:bg-white/10">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}

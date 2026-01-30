@@ -328,7 +328,7 @@ export function LogisticsAssignmentQueue() {
                         <button
                           type="button"
                           onClick={() => setShowAddUser(false)}
-                          className="text-white/50 hover:text-white transition-colors"
+                          className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -340,28 +340,28 @@ export function LogisticsAssignmentQueue() {
                           placeholder="Name *"
                           value={newUserName}
                           onChange={(e) => setNewUserName(e.target.value)}
-                          className="w-full px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                         <input
                           type="email"
                           placeholder="Email *"
                           value={newUserEmail}
                           onChange={(e) => setNewUserEmail(e.target.value)}
-                          className="w-full px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                         <input
                           type="password"
                           placeholder="Password * (min 8 chars)"
                           value={newUserPassword}
                           onChange={(e) => setNewUserPassword(e.target.value)}
-                          className="w-full px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                         <input
                           type="tel"
                           placeholder="Phone"
                           value={newUserPhone}
                           onChange={(e) => setNewUserPhone(e.target.value)}
-                          className="w-full px-3 py-2 border border-white/10 bg-white/[0.02] text-white font-display text-sm placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                       </div>
 
@@ -372,7 +372,7 @@ export function LogisticsAssignmentQueue() {
                         className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                           newUserName && newUserEmail && newUserPassword && newUserPassword.length >= 8
                             ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
-                            : 'bg-white/10 text-white/50 cursor-not-allowed'
+                            : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
                         }`}
                       >
                         {isCreatingUser ? (
@@ -489,7 +489,7 @@ export function LogisticsAssignmentQueue() {
                 <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
                   <button
                     onClick={() => setShowAssignModal(false)}
-                    className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                    className="px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
                   >
                     Cancel
                   </button>

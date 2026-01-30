@@ -84,6 +84,11 @@ export function ITAdminInvite() {
         isValid = false;
       }
 
+      if (!invite.branch_id) {
+        fieldErrors.branch_id = 'Branch assignment is required for IT Admins';
+        isValid = false;
+      }
+
       if (Object.keys(fieldErrors).length > 0) {
         newErrors[index] = fieldErrors;
       }
@@ -422,26 +427,33 @@ export function ITAdminInvite() {
               {/* Branch Assignment */}
               <div>
                 <label className="block font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">
-                  Assign to Branch
+                  Assign to Branch *
                 </label>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-white/30" />
                   <select
                     value={invite.branch_id}
                     onChange={(e) => handleChange(index, 'branch_id', e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer"
+                    className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer ${
+                      errors[index]?.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-white/10'
+                    }`}
                   >
-                    <option value="" className="bg-[#0a0a0a]">No branch (assign later)</option>
+                    <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a branch...</option>
                     {branches.map((branch: any) => (
-                      <option key={branch.id} value={branch.id} className="bg-[#0a0a0a]">
+                      <option key={branch.id} value={branch.id} className="bg-white dark:bg-[#0a0a0a]">
                         {branch.branch_name} ({branch.branch_code})
                       </option>
                     ))}
                   </select>
                 </div>
-                <p className="mt-2 font-mono text-[10px] text-slate-400 dark:text-white/40">
-                  Optional. You can assign a branch later from the IT Admin list.
-                </p>
+                {errors[index]?.branch_id && (
+                  <p className="mt-2 font-mono text-xs text-red-400">{errors[index].branch_id}</p>
+                )}
+                {branches.length === 0 && (
+                  <p className="mt-2 font-mono text-[10px] text-amber-500">
+                    No branches found. Create a branch first in Branch Management.
+                  </p>
+                )}
               </div>
             </div>
           </motion.div>

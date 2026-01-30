@@ -116,31 +116,33 @@ Authorization: Bearer <your_token>
     lifespan=lifespan,
 )
 
-# Add Security Headers middleware (must be first to add headers to all responses)
-app.add_middleware(SecurityHeadersMiddleware)
+# ============================================================================
+# MIDDLEWARE STACK (order matters: last added = outermost = processes first)
+# ============================================================================
 
-# Add Rate Limiting middleware
+# Inner middleware (closest to application routes)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
-# Add CORS middleware with secure configuration
+# Custom function-based middleware
+app.middleware("http")(logging_middleware)
+app.middleware("http")(error_handler_middleware)
+
+# CORS middleware — MUST be outermost to handle OPTIONS preflight before
+# any other middleware (rate limiter, error handler, etc.) can interfere.
 # SECURITY: When allow_credentials=True, allow_origins must be explicit (not "*")
-# This prevents credential leakage to unauthorized domains
 _cors_origins = settings.cors_origins_list
 if settings.debug:
-    # In development, allow all common local/network origins
     _dev_origins = [
         "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
         "http://localhost:5173",
-        "http://172.20.0.25:3000", "http://172.20.0.25:3001",
+        "http://172.20.0.25:3000", "http://172.20.0.25:3001", "http://172.20.0.25:3002",
         "http://172.27.32.1:3001", "http://172.19.224.1:3001",
     ]
     _cors_origins = list(set(_cors_origins + _dev_origins))
 if settings.cors_allow_credentials:
-    # When credentials are allowed, we must NOT use "*" for origins
-    # Filter out any wildcards
     _cors_origins = [o for o in _cors_origins if o != "*"]
     if not _cors_origins:
-        # Default to localhost if no explicit origins configured
         _cors_origins = ["http://localhost:3000", "http://localhost:5173"]
 
 app.add_middleware(
@@ -150,12 +152,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
     expose_headers=["X-Total-Count", "X-Page", "X-Per-Page"],
-    max_age=600,  # Cache preflight requests for 10 minutes
+    max_age=600,
 )
-
-# Add custom middleware
-app.middleware("http")(logging_middleware)
-app.middleware("http")(error_handler_middleware)
 
 
 # ============================================================================
@@ -241,6 +239,7 @@ from app.api.v1 import (
     disputes,
     pricing,
     analytics,
+    dashboard,
 )
 
 app.include_router(auth.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["Authentication"])
@@ -265,6 +264,9 @@ app.include_router(disputes.router, prefix=f"{settings.api_v1_prefix}/disputes",
 app.include_router(pricing.router, prefix=f"{settings.api_v1_prefix}/pricing", tags=["Pricing"])
 app.include_router(
     analytics.router, prefix=f"{settings.api_v1_prefix}/analytics", tags=["Analytics"]
+)
+app.include_router(
+    dashboard.router, prefix=f"{settings.api_v1_prefix}/dashboard", tags=["Dashboard"]
 )
 
 # Mount static files for local storage (development only)

@@ -1,8 +1,9 @@
 """Enterprise schemas for unified enterprise model"""
 
+import re
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 from app.models.enterprise import EnterpriseStatus, EnterpriseApplicationStatus
 
@@ -27,6 +28,40 @@ class EnterpriseCreate(BaseModel):
     contact_email: Optional[str] = Field(None, max_length=200)
     contact_phone: Optional[str] = Field(None, max_length=20)
 
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v.strip()):
+                raise ValueError("Invalid email format")
+        return v
+
+    @field_validator("contact_phone")
+    @classmethod
+    def validate_contact_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            digits = re.sub(r"[\s\-\(\)\+]", "", v.strip())
+            if len(digits) < 7 or not digits.isdigit():
+                raise ValueError("Phone number must have at least 7 digits")
+        return v
+
+    @field_validator("gst_number")
+    @classmethod
+    def validate_gst_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            # Indian GST format: 2 digit state code + 10 char PAN + 1 char + Z + 1 check digit
+            if not re.match(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid GST number format (expected: 22AAAAA0000A1Z5)")
+        return v
+
+    @field_validator("pan_number")
+    @classmethod
+    def validate_pan_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid PAN number format (expected: AAAAA0000A)")
+        return v
+
 
 class EnterpriseUpdate(BaseModel):
     """Schema for updating an enterprise"""
@@ -50,6 +85,39 @@ class EnterpriseUpdate(BaseModel):
 
     # Status
     status: Optional[EnterpriseStatus] = None
+
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v.strip()):
+                raise ValueError("Invalid email format")
+        return v
+
+    @field_validator("contact_phone")
+    @classmethod
+    def validate_contact_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            digits = re.sub(r"[\s\-\(\)\+]", "", v.strip())
+            if len(digits) < 7 or not digits.isdigit():
+                raise ValueError("Phone number must have at least 7 digits")
+        return v
+
+    @field_validator("gst_number")
+    @classmethod
+    def validate_gst_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid GST number format (expected: 22AAAAA0000A1Z5)")
+        return v
+
+    @field_validator("pan_number")
+    @classmethod
+    def validate_pan_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid PAN number format (expected: AAAAA0000A)")
+        return v
 
 
 class EnterpriseResponse(BaseModel):
@@ -121,6 +189,31 @@ class EnterpriseApplicationCreate(BaseModel):
     doc_signatory_id: Optional[str] = None
     doc_address_proof: Optional[str] = None
     doc_company_logo: Optional[str] = None
+
+    @field_validator("org_admin_phone")
+    @classmethod
+    def validate_org_admin_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            digits = re.sub(r"[\s\-\(\)\+]", "", v.strip())
+            if len(digits) < 7 or not digits.isdigit():
+                raise ValueError("Phone number must have at least 7 digits")
+        return v
+
+    @field_validator("gst_number")
+    @classmethod
+    def validate_gst_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid GST number format (expected: 22AAAAA0000A1Z5)")
+        return v
+
+    @field_validator("pan_number")
+    @classmethod
+    def validate_pan_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", v.strip().upper()):
+                raise ValueError("Invalid PAN number format (expected: AAAAA0000A)")
+        return v
 
 
 class EnterpriseApplicationUpdate(BaseModel):

@@ -88,7 +88,7 @@ export function BulkUploadDetail() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -107,7 +107,7 @@ export function BulkUploadDetail() {
             </div>
             <div className="flex-1">
               <span className="font-mono font-bold text-xs text-emerald-400 tracking-[0.3em] uppercase block mb-1">Bulk Upload</span>
-              <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
+              <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                 {bulkUpload.fileName}
               </h1>
               <p className="font-display text-zinc-500 text-sm mt-1 uppercase tracking-wide">
@@ -125,28 +125,28 @@ export function BulkUploadDetail() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-2 md:grid-cols-4 border-l border-t border-slate-200 dark:border-white/10"
       >
-        <div className="p-6 border-r border-b border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+        <div className="p-6 border-r border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
           <div className="flex items-center gap-2 mb-2">
             <Laptop className="w-4 h-4 text-ecotribe-primary" />
           </div>
-          <p className="font-brand font-bold text-3xl text-white">{bulkUpload.totalAssets}</p>
+          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{bulkUpload.totalAssets}</p>
           <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mt-1">Total Assets</p>
         </div>
-        <div className="p-6 border-r border-b border-white/10 bg-blue-500/5">
+        <div className="p-6 border-r border-b border-slate-200 dark:border-white/10 bg-blue-500/5">
           <div className="flex items-center gap-2 mb-2">
             <UserPlus className="w-4 h-4 text-blue-400" />
           </div>
           <p className="font-brand font-bold text-3xl text-blue-400">{bulkUpload.assignedAssets}</p>
           <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mt-1">Pre-Assigned</p>
         </div>
-        <div className="p-6 border-r border-b border-white/10 bg-amber-500/5">
+        <div className="p-6 border-r border-b border-slate-200 dark:border-white/10 bg-amber-500/5">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <p className="font-brand font-bold text-3xl text-amber-400">{bulkUpload.unassignedAssets}</p>
           <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mt-1">Unassigned</p>
         </div>
-        <div className="p-6 border-r border-b border-white/10 bg-emerald-500/5">
+        <div className="p-6 border-r border-b border-slate-200 dark:border-white/10 bg-emerald-500/5">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-4 h-4 text-emerald-400" />
           </div>
@@ -163,7 +163,7 @@ export function BulkUploadDetail() {
         className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
       >
         <div className="p-6 border-b border-slate-200 dark:border-white/10">
-          <h2 className="font-brand font-bold text-lg text-white uppercase tracking-wide">Status Summary</h2>
+          <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Status Summary</h2>
         </div>
         <div className="p-6">
           <div className="flex flex-wrap gap-3">
@@ -172,10 +172,10 @@ export function BulkUploadDetail() {
               return (
                 <div
                   key={status}
-                  className="px-4 py-3 border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+                  className="px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
                 >
                   <Badge variant={config.variant} size="sm">{config.label}</Badge>
-                  <p className="font-brand font-bold text-xl text-white mt-2">{statusAssets.length}</p>
+                  <p className="font-brand font-bold text-xl text-slate-900 dark:text-white mt-2">{statusAssets.length}</p>
                 </div>
               );
             })}
@@ -190,8 +190,8 @@ export function BulkUploadDetail() {
         transition={{ delay: 0.3 }}
         className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
       >
-        <div className="p-6 border-b border-white/10 flex items-center justify-between">
-          <h2 className="font-brand font-bold text-lg text-white uppercase tracking-wide">Uploaded Assets</h2>
+        <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+          <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Uploaded Assets</h2>
           <span className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest">
             {uploadedAssets.length} assets
           </span>
@@ -217,7 +217,7 @@ export function BulkUploadDetail() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-200 dark:divide-white/5">
               {uploadedAssets.map((asset, index) => {
                 const statusConfig = getStatusConfig(asset.status);
                 // V3: Use snake_case field names
@@ -233,11 +233,11 @@ export function BulkUploadDetail() {
                   >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white/5 border border-white/10 flex items-center justify-center">
+                        <div className="w-10 h-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
                           <Laptop className="w-5 h-5 text-zinc-500" />
                         </div>
                         <div>
-                          <p className="font-display font-bold text-sm text-white uppercase">{asset.brand}</p>
+                          <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{asset.brand}</p>
                           <p className="font-mono text-xs text-zinc-600">{asset.model}</p>
                         </div>
                       </div>
@@ -248,7 +248,7 @@ export function BulkUploadDetail() {
                     <td className="py-4 px-6">
                       {subUser ? (
                         <div>
-                          <p className="font-display text-sm text-white">{subUser.name || subUser.email}</p>
+                          <p className="font-display text-sm text-slate-900 dark:text-white">{subUser.name || subUser.email}</p>
                           {subUser.department && (
                             <p className="font-mono text-xs text-zinc-600">{subUser.department}</p>
                           )}

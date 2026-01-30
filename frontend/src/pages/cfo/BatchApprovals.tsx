@@ -317,7 +317,7 @@ export function BatchApprovals() {
                         <Building2 className="w-6 h-6 text-slate-500 dark:text-white/50" />
                       </div>
                       <div>
-                        <p className="font-display font-bold text-white">{selectedEnterprise.name}</p>
+                        <p className="font-display font-bold text-slate-900 dark:text-white">{selectedEnterprise.name}</p>
                         <p className="font-mono text-xs text-slate-500 dark:text-white/50">{selectedEnterprise.contact_email}</p>
                       </div>
                     </div>
@@ -487,7 +487,7 @@ export function BatchApprovals() {
                       </span>
                     </div>
                     {selectedBatchData.rejection_reason && (
-                      <p className="font-display text-sm text-zinc-300 mt-2">
+                      <p className="font-display text-sm text-slate-600 dark:text-zinc-300 mt-2">
                         {selectedBatchData.rejection_reason}
                       </p>
                     )}

@@ -148,7 +148,7 @@ export function BatchCreate() {
               <CheckCircle className="w-8 h-8 text-emerald-400" />
             </motion.div>
 
-            <h2 className="font-brand font-bold text-2xl text-white uppercase tracking-tight mb-3">
+            <h2 className="font-brand font-bold text-2xl text-slate-900 dark:text-white uppercase tracking-tight mb-3">
               Batch Created
             </h2>
             <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mb-2">
@@ -165,7 +165,7 @@ export function BatchCreate() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/assets/new?batchId=${createdBatch.id}`)}
-                className="interactive px-6 py-3 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="interactive px-6 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 Add Manually
@@ -195,7 +195,7 @@ export function BatchCreate() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -214,7 +214,7 @@ export function BatchCreate() {
             </div>
             <div>
               <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">New</span>
-              <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
+              <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                 Create Batch
               </h1>
               <p className="font-display text-zinc-500 text-sm mt-1 uppercase tracking-wide">
@@ -233,7 +233,7 @@ export function BatchCreate() {
           transition={{ delay: 0.1 }}
           className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer"
         >
-          <div className="p-5 border-b border-black/10 dark:border-slate-200 dark:border-white/10">
+          <div className="p-5 border-b border-black/10 dark:border-white/10">
             <h2 className="font-display font-bold text-sm text-black dark:text-white uppercase tracking-wide">Batch Details</h2>
           </div>
           <div className="p-5 space-y-5">
@@ -254,11 +254,11 @@ export function BatchCreate() {
 
             {/* Show single branch info if IT Admin has only one */}
             {activeBranches.length === 1 && (
-              <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                 <Building2 className="w-4 h-4 text-ecotribe-primary" />
                 <div>
                   <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Branch</p>
-                  <p className="font-display text-sm text-white">
+                  <p className="font-display text-sm text-slate-900 dark:text-white">
                     {activeBranches[0].branch_name} ({activeBranches[0].branch_code})
                   </p>
                 </div>
@@ -275,7 +275,7 @@ export function BatchCreate() {
                 placeholder="e.g., Q4 2024 IT Refresh"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
               />
               {errors.name && (
                 <p className="mt-2 font-mono text-xs text-red-400">{errors.name}</p>
@@ -292,7 +292,7 @@ export function BatchCreate() {
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors resize-none"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors resize-none"
               />
             </div>
 
@@ -308,7 +308,7 @@ export function BatchCreate() {
                   value={formData.estimatedAssets}
                   onChange={(e) => handleChange('estimatedAssets', e.target.value)}
                   min={0}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                 />
               </div>
               <div>
@@ -321,7 +321,7 @@ export function BatchCreate() {
                   value={formData.estimatedValue}
                   onChange={(e) => handleChange('estimatedValue', e.target.value)}
                   min={0}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-white/10 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                 />
               </div>
             </div>
@@ -340,7 +340,7 @@ export function BatchCreate() {
               <Info className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-2">What's Next</p>
+              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-2">What's Next</p>
               <ul className="font-mono text-xs text-zinc-500 space-y-1">
                 <li>• Add assets manually one at a time</li>
                 <li>• Upload a CSV file for bulk import</li>
@@ -382,7 +382,7 @@ export function BatchCreate() {
             type="button"
             onClick={() => navigate(`${basePath}/batches`)}
             disabled={isLoading}
-            className="interactive px-6 py-3 text-zinc-500 hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+            className="interactive px-6 py-3 text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
           >
             Cancel
           </button>

@@ -62,7 +62,7 @@ export function TechnicianDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -70,7 +70,7 @@ export function TechnicianDashboard() {
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             Technician Portal
           </span>
-          <h1 className="font-brand font-bold text-3xl md:text-4xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl md:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
             Welcome, {user?.name?.split(' ')[0]}
           </h1>
           <p className="font-display text-zinc-500 text-sm mt-2 uppercase tracking-wide">
@@ -89,14 +89,14 @@ export function TechnicianDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
+              className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className={`w-10 h-10 ${colors.border} ${colors.bg} flex items-center justify-center`}>
                   <stat.icon className={`w-5 h-5 ${colors.text}`} />
                 </div>
               </div>
-              <p className="font-brand font-bold text-2xl text-white">{stat.value}</p>
+              <p className="font-brand font-bold text-2xl text-slate-900 dark:text-white">{stat.value}</p>
               <p className="font-mono text-xs text-zinc-500 uppercase tracking-wide mt-1">{stat.label}</p>
             </motion.div>
           );
@@ -110,15 +110,15 @@ export function TechnicianDashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
         >
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 border border-blue-400/30 bg-blue-400/10 flex items-center justify-center">
                 <Eye className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <h2 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Remote Review Queue
                 </h2>
                 <p className="font-mono text-xs text-zinc-500">Photo-based assessment</p>
@@ -130,14 +130,14 @@ export function TechnicianDashboard() {
           </div>
 
           {pendingRemoteReview.length > 0 ? (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-200 dark:divide-white/5">
               {pendingRemoteReview.slice(0, 3).map((asset) => (
                 <div key={asset.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors">
-                  <div className="w-12 h-12 border border-white/10 bg-white/5 flex items-center justify-center">
+                  <div className="w-12 h-12 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                     <Laptop className="w-6 h-6 text-zinc-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-display font-bold text-sm text-white uppercase truncate">
+                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase truncate">
                       {asset.brand} {asset.model}
                     </p>
                     <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
@@ -162,7 +162,7 @@ export function TechnicianDashboard() {
             <div className="p-4 border-t border-slate-200 dark:border-white/10">
               <button
                 onClick={() => navigate('/tech/review')}
-                className="w-full interactive py-2.5 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
+                className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
               >
                 View All ({pendingRemoteReview.length})
                 <ArrowRight className="w-4 h-4" />
@@ -176,15 +176,15 @@ export function TechnicianDashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
         >
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 border border-emerald-400/30 bg-emerald-400/10 flex items-center justify-center">
                 <ClipboardCheck className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <h2 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Facility QC Queue
                 </h2>
                 <p className="font-mono text-xs text-zinc-500">In-person inspection</p>
@@ -196,14 +196,14 @@ export function TechnicianDashboard() {
           </div>
 
           {pendingFacilityQC.length > 0 ? (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-200 dark:divide-white/5">
               {pendingFacilityQC.slice(0, 3).map((asset) => (
                 <div key={asset.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors">
-                  <div className="w-12 h-12 border border-white/10 bg-white/5 flex items-center justify-center">
+                  <div className="w-12 h-12 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                     <Laptop className="w-6 h-6 text-zinc-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-display font-bold text-sm text-white uppercase truncate">
+                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase truncate">
                       {asset.brand} {asset.model}
                     </p>
                     <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
@@ -228,7 +228,7 @@ export function TechnicianDashboard() {
             <div className="p-4 border-t border-slate-200 dark:border-white/10">
               <button
                 onClick={() => navigate('/tech/qc')}
-                className="w-full interactive py-2.5 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
+                className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
               >
                 View All ({pendingFacilityQC.length})
                 <ArrowRight className="w-4 h-4" />
@@ -252,7 +252,7 @@ export function TechnicianDashboard() {
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <h2 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Pending Disputes
                 </h2>
                 <p className="font-mono text-xs text-zinc-500">Requires resolution</p>
@@ -267,7 +267,7 @@ export function TechnicianDashboard() {
             {pendingDisputes.slice(0, 2).map((dispute) => (
               <div key={dispute.id} className="p-4 flex items-center gap-4">
                 <div className="flex-1">
-                  <p className="font-display font-bold text-sm text-white uppercase">
+                  <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
                     Asset: {dispute.assetId}
                   </p>
                   <p className="font-mono text-xs text-zinc-500 mt-1 line-clamp-1">
@@ -309,10 +309,10 @@ export function TechnicianDashboard() {
       >
         <button
           onClick={() => navigate('/tech/review')}
-          className="interactive border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-blue-400/30 hover:bg-blue-400/5 transition-all group"
+          className="interactive border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-blue-400/30 hover:bg-blue-400/5 transition-all group"
         >
           <Eye className="w-8 h-8 text-blue-400 mb-3" />
-          <h3 className="font-display font-bold text-white uppercase group-hover:text-blue-400 transition-colors">
+          <h3 className="font-display font-bold text-slate-900 dark:text-white uppercase group-hover:text-blue-400 transition-colors">
             Start Reviewing
           </h3>
           <p className="font-mono text-xs text-zinc-500 mt-1">
@@ -322,10 +322,10 @@ export function TechnicianDashboard() {
 
         <button
           onClick={() => navigate('/tech/qc')}
-          className="interactive border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-emerald-400/30 hover:bg-emerald-400/5 transition-all group"
+          className="interactive border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-emerald-400/30 hover:bg-emerald-400/5 transition-all group"
         >
           <ClipboardCheck className="w-8 h-8 text-emerald-400 mb-3" />
-          <h3 className="font-display font-bold text-white uppercase group-hover:text-emerald-400 transition-colors">
+          <h3 className="font-display font-bold text-slate-900 dark:text-white uppercase group-hover:text-emerald-400 transition-colors">
             Start QC
           </h3>
           <p className="font-mono text-xs text-zinc-500 mt-1">
@@ -335,10 +335,10 @@ export function TechnicianDashboard() {
 
         <button
           onClick={() => navigate('/tech/history')}
-          className="interactive border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-purple-400/30 hover:bg-purple-400/5 transition-all group"
+          className="interactive border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-purple-400/30 hover:bg-purple-400/5 transition-all group"
         >
           <TrendingUp className="w-8 h-8 text-purple-400 mb-3" />
-          <h3 className="font-display font-bold text-white uppercase group-hover:text-purple-400 transition-colors">
+          <h3 className="font-display font-bold text-slate-900 dark:text-white uppercase group-hover:text-purple-400 transition-colors">
             View History
           </h3>
           <p className="font-mono text-xs text-zinc-500 mt-1">

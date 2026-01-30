@@ -89,7 +89,7 @@ export function Admins() {
   const stats = {
     total: admins.length,
     superAdmins: admins.filter(a => a.role === 'super_admin').length,
-    mainAdmins: admins.filter(a => a.role === 'main_admin').length,
+    mainAdmins: admins.filter(a => a.role === 'main_admin' || a.role === 'ops_admin').length,
     active: admins.filter(a => a.status === 'active').length,
   };
 

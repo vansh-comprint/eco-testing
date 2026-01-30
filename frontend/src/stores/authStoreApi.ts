@@ -100,7 +100,13 @@ export const useAuthStoreApi = create<AuthState>()(
       initialize: async () => {
         const token = getAccessToken();
         if (!token) {
-          set({ isInitialized: true, isLoading: false });
+          set({
+            user: null,
+            enterprise: null,
+            isAuthenticated: false,
+            isInitialized: true,
+            isLoading: false,
+          });
           return;
         }
 
@@ -391,9 +397,12 @@ export const useAuthStoreApi = create<AuthState>()(
         // On page load, we always need to re-validate tokens via initialize()
       }),
       onRehydrateStorage: () => (state) => {
-        // After rehydration, force isInitialized to false so initialize() must run
+        // After rehydration, force isInitialized to false so initialize() must run.
+        // Also clear auth state — initialize() will re-establish it from the token.
+        // This prevents stale persisted state from granting unauthorized access.
         if (state) {
           state.isInitialized = false;
+          state.isAuthenticated = false;
         }
       },
     }

@@ -26,6 +26,7 @@ from app.schemas.enterprise import (
 )
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.core.security import get_password_hash
+from app.services.email_service import EmailService
 
 
 class EnterpriseService:
@@ -269,6 +270,17 @@ class EnterpriseApplicationService:
         await self.db.commit()
         await self.db.refresh(application)
 
+        # Send approval email notification to the org admin
+        try:
+            EmailService.send_approval_notification(
+                to_email=application.org_admin_email,
+                company_name=application.company_name,
+                org_admin_name=application.org_admin_name,
+            )
+        except Exception:
+            # Don't fail the approval if email fails
+            pass
+
         return EnterpriseApplicationResponse.model_validate(application)
 
     async def reject_application(
@@ -289,6 +301,19 @@ class EnterpriseApplicationService:
         application.rejection_reason = reason
 
         application = await self.repository.update(application)
+
+        # Send rejection email notification
+        try:
+            EmailService.send_rejection_notification(
+                to_email=application.org_admin_email,
+                company_name=application.company_name,
+                org_admin_name=application.org_admin_name,
+                reason=reason,
+            )
+        except Exception:
+            # Don't fail the rejection if email fails
+            pass
+
         return EnterpriseApplicationResponse.model_validate(application)
 
     async def request_more_info(

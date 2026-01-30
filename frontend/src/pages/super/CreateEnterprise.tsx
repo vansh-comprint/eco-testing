@@ -71,14 +71,14 @@ export function CreateEnterprise() {
         legal_name: data.legalName,
         gst_number: data.gstNumber,
         pan_number: data.panNumber,
-        address: JSON.stringify({
+        address: {
           line1: data.addressLine1,
           line2: data.addressLine2,
           city: data.city,
           state: data.state,
           pinCode: data.pinCode,
           country: data.country,
-        }),
+        },
         industry: data.industry,
         employee_count: data.employeeCount,
         contact_person: data.contactPerson,
@@ -87,6 +87,17 @@ export function CreateEnterprise() {
       });
 
       if (!enterpriseResult.success || !enterpriseResult.data) {
+        // Extract field-level validation details from 422 responses
+        const details = enterpriseResult.error?.details;
+        if (details?.detail && Array.isArray(details.detail)) {
+          const fieldErrors = details.detail
+            .map((d: any) => {
+              const field = d.loc?.[d.loc.length - 1] || 'unknown';
+              return `${field}: ${d.msg}`;
+            })
+            .join('; ');
+          throw new Error(fieldErrors || enterpriseResult.error?.message || 'Validation failed');
+        }
         throw new Error(enterpriseResult.error?.message || 'Failed to create enterprise');
       }
 
@@ -139,13 +150,13 @@ export function CreateEnterprise() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        label="Super Admin"
+        label={currentUser?.role === 'main_admin' ? 'Operations' : 'Super Admin'}
         title="Create Enterprise"
         subtitle="Add a new enterprise (All fields optional for testing)"
         actions={
           <Button
             variant="secondary"
-            onClick={() => navigate('/super')}
+            onClick={() => navigate(currentUser?.role === 'main_admin' ? '/ops' : '/super')}
             leftIcon={<ArrowLeft className={iconSize.sm} />}
           >
             Back to Dashboard
@@ -338,7 +349,7 @@ export function CreateEnterprise() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate('/super')}
+              onClick={() => navigate(currentUser?.role === 'main_admin' ? '/ops/enterprises' : '/super')}
               disabled={isSubmitting}
             >
               Cancel

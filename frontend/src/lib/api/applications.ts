@@ -3,7 +3,7 @@
  * Enterprise registration and approval workflow endpoints
  */
 
-import { fetchWithAuth, DEFAULT_PAGE_SIZE } from './client';
+import { fetchWithAuth, fetchPublic, DEFAULT_PAGE_SIZE } from './client';
 
 // ============================================================================
 // Types
@@ -49,16 +49,17 @@ export interface EnterpriseApplicationListParams {
 
 export interface EnterpriseApplicationCreateRequest {
   company_name: string;
-  gst_number: string;
-  pan_number: string;
-  registered_address: string;
+  legal_name?: string;
+  gst_number?: string;
+  pan_number?: string;
+  registered_address?: string;
   industry_type?: string;
   company_size?: string;
   org_admin_name: string;
   org_admin_email: string;
-  org_admin_phone: string;
+  org_admin_phone?: string;
   org_admin_designation?: string;
-  password: string;
+  password?: string;
   doc_gst_certificate?: string;
   doc_pan_card?: string;
   doc_incorporation_cert?: string;
@@ -93,7 +94,7 @@ export const enterpriseApplicationsApi = {
     fetchWithAuth<EnterpriseApplicationResponse>(`/enterprises/applications/${id}`),
 
   create: (data: EnterpriseApplicationCreateRequest) =>
-    fetchWithAuth<EnterpriseApplicationResponse>('/enterprises/applications', {
+    fetchPublic<EnterpriseApplicationResponse>('/enterprises/applications', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

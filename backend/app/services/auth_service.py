@@ -104,7 +104,7 @@ class AuthService:
         if not user:
             raise AuthenticationError("Invalid email or password")
 
-        # Employees should use OTP login
+        # Employees must use OTP login, not password
         if user.role == UserRole.EMPLOYEE.value:
             raise AuthenticationError("Employees must use OTP login")
 

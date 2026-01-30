@@ -159,6 +159,7 @@ export function useCreatePickupRequest() {
         special_instructions: request.notes,
       };
       const response = await pickupsApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create pickup request');
       return response.data;
     },
     onSuccess: async (data) => {
@@ -187,6 +188,7 @@ export function useUpdatePickupRequest() {
         special_instructions: updates.notes,
       };
       const response = await pickupsApi.update(requestId, apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update pickup request');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -206,6 +208,7 @@ export function useAssignToLogisticsAdmin() {
   return useMutation({
     mutationFn: async ({ requestId, logisticsAdminId }: { requestId: string; logisticsAdminId: string }) => {
       const response = await pickupsApi.assignToLogisticsAdmin(requestId, logisticsAdminId);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to assign to logistics admin');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -229,6 +232,7 @@ export function useAssignToLogisticsUser() {
       scheduledDate?: string;
     }) => {
       const response = await pickupsApi.assignToLogisticsUser(requestId, logisticsUserId, scheduledDate);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to assign to logistics user');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -248,6 +252,7 @@ export function useStartPickup() {
   return useMutation({
     mutationFn: async (requestId: string) => {
       const response = await pickupsApi.start(requestId);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to start pickup');
       return response.data;
     },
     onSuccess: async (data, requestId) => {
@@ -270,6 +275,7 @@ export function useCompletePickup() {
   return useMutation({
     mutationFn: async ({ requestId, notes }: { requestId: string; notes?: string }) => {
       const response = await pickupsApi.complete(requestId, { notes });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to complete pickup');
       return response.data;
     },
     onSuccess: async (_, variables) => {
@@ -293,6 +299,7 @@ export function useCancelPickup() {
   return useMutation({
     mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
       const response = await pickupsApi.cancel(requestId, reason);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to cancel pickup');
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -318,18 +325,22 @@ export function useUpdatePickupStatus() {
       // Map status to appropriate API call
       if (status === 'completed') {
         const response = await pickupsApi.complete(requestId, { notes });
+        if (!response.success) throw new Error(response.error?.message || 'Failed to complete pickup');
         return response.data;
       }
       if (status === 'cancelled') {
         const response = await pickupsApi.cancel(requestId, notes || 'Cancelled');
+        if (!response.success) throw new Error(response.error?.message || 'Failed to cancel pickup');
         return response.data;
       }
       if (status === 'in_progress') {
         const response = await pickupsApi.start(requestId);
+        if (!response.success) throw new Error(response.error?.message || 'Failed to start pickup');
         return response.data;
       }
       // For other statuses, use update
       const response = await pickupsApi.update(requestId, {});
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update pickup status');
       return response.data;
     },
     onSuccess: async (data, variables) => {
@@ -384,6 +395,7 @@ export function useCreatePickupLocation() {
       is_default?: boolean;
     }) => {
       const response = await pickupLocationsApi.create(location);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create pickup location');
       return response.data;
     },
     onSuccess: (data) => {
@@ -403,6 +415,7 @@ export function useUpdatePickupLocation() {
   return useMutation({
     mutationFn: async ({ locationId, updates }: { locationId: string; updates: PickupLocationUpdateRequest }) => {
       const response = await pickupLocationsApi.update(locationId, updates);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update pickup location');
       return response.data;
     },
     onSuccess: (data) => {

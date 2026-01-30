@@ -213,6 +213,7 @@ export function useCreateBranch() {
         special_instructions: branch.special_instructions,
       };
       const response = await branchesApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create branch');
 
       // If IT admin specified, assign them to the branch
       if (branch.it_admin_id && response.data) {
@@ -243,6 +244,7 @@ export function useUpdateBranch() {
   return useMutation({
     mutationFn: async ({ branchId, updates }: { branchId: string; updates: BranchUpdateRequest }) => {
       const response = await branchesApi.update(branchId, updates);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update branch');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -288,6 +290,7 @@ export function useUpdateBranchStatus() {
   return useMutation({
     mutationFn: async ({ branchId, status }: { branchId: string; status: 'active' | 'inactive' | 'needs_admin' }) => {
       const response = await branchesApi.update(branchId, { status });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update branch status');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -382,6 +385,7 @@ export function useCreateITAdmin() {
       email: string;
       phone?: string;
       password: string;
+      branch_id?: string;
     }) => {
       const apiData: UserCreateRequest = {
         email: input.email,
@@ -390,8 +394,10 @@ export function useCreateITAdmin() {
         role: 'it_admin',
         password: input.password,
         enterprise_id: input.enterprise_id,
+        branch_id: input.branch_id,
       };
       const response = await usersApi.create(apiData);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to create IT admin');
       return response.data;
     },
     onSuccess: (data) => {
@@ -426,7 +432,7 @@ export function useBulkCreateITAdmins() {
         enterprise_id: input.enterprise_id,
       }));
 
-      const response = await usersApi.bulkCreate({ users });
+      const response = await usersApi.bulkCreate({ users, role: 'it_admin' });
 
       if (response.error_count > 0 && response.created_count === 0) {
         const errorMsg = response.errors.map(e => `${e.email}: ${e.error}`).join(', ');
@@ -453,6 +459,7 @@ export function useUpdateITAdminStatus() {
   return useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: 'active' | 'inactive' }) => {
       const response = await usersApi.update(userId, { status });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin status');
       return response.data;
     },
     onSuccess: (data) => {

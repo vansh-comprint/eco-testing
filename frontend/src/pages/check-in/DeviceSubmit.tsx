@@ -389,7 +389,7 @@ export function DeviceSubmit() {
 
               <div className="bg-blue-500/10 border border-blue-500/20 p-4 flex gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-300">
+                <p className="text-sm text-blue-600 dark:text-blue-300">
                   Make sure you have the laptop with you before proceeding. You'll need to take photos and answer questions about its condition.
                 </p>
               </div>

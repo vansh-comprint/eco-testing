@@ -397,9 +397,9 @@ export function SubUserInvite() {
                   }}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer"
                 >
-                  <option value="" className="bg-[#0a0a0a]">Select department</option>
+                  <option value="" className="bg-white dark:bg-[#0a0a0a]">Select department</option>
                   {DEPARTMENTS.map(dept => (
-                    <option key={dept.value} value={dept.value} className="bg-[#0a0a0a]">{dept.label}</option>
+                    <option key={dept.value} value={dept.value} className="bg-white dark:bg-[#0a0a0a]">{dept.label}</option>
                   ))}
                 </select>
                 {errors[index]?.department && (
@@ -435,7 +435,7 @@ export function SubUserInvite() {
           onClick={addInvite}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          className="interactive w-full p-5 border-2 border-dashed border-white/10 hover:border-ecotribe-primary/30 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-all flex items-center justify-center gap-2 font-mono font-bold text-xs uppercase tracking-widest"
+          className="interactive w-full p-5 border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-all flex items-center justify-center gap-2 font-mono font-bold text-xs uppercase tracking-widest"
         >
           <Plus className="w-4 h-4" />
           Add Another Invite
@@ -452,7 +452,7 @@ export function SubUserInvite() {
             type="button"
             onClick={() => navigate(`${basePath}/sub-users`)}
             disabled={isLoading}
-            className="interactive px-6 py-3 text-slate-500 dark:text-white/50 hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+            className="interactive px-6 py-3 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
           >
             Cancel
           </button>

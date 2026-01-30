@@ -144,7 +144,7 @@ export function BranchSelector({
   return (
     <div className={cn('relative', className)}>
       {label && (
-        <label className="block text-sm font-medium text-white/70 mb-1.5">
+        <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">
           {label} {required && <span className="text-red-400">*</span>}
         </label>
       )}
@@ -170,7 +170,7 @@ export function BranchSelector({
               ? 'border-red-500/50'
               : isOpen
               ? 'border-ecotribe-primary/50'
-              : 'border-white/10 hover:border-white/20',
+              : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20',
           )}
         >
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -180,7 +180,7 @@ export function BranchSelector({
             )} />
             {selectedBranch ? (
               <div className="flex-1 min-w-0">
-                <p className="text-white truncate">{selectedBranch.branch_name}</p>
+                <p className="text-slate-900 dark:text-white truncate">{selectedBranch.branch_name}</p>
                 <p className="text-[10px] text-zinc-500 truncate">
                   {selectedBranch.branch_code} · {selectedBranch.city}
                 </p>
@@ -214,10 +214,10 @@ export function BranchSelector({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="absolute z-50 w-full mt-1 bg-zinc-900 border border-white/10 shadow-xl max-h-80 overflow-hidden"
+              className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl max-h-80 overflow-hidden"
             >
               {/* Search */}
-              <div className="p-2 border-b border-white/10">
+              <div className="p-2 border-b border-slate-200 dark:border-white/10">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                   <input
@@ -226,7 +226,7 @@ export function BranchSelector({
                     placeholder="Search branches..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
                   />
                 </div>
               </div>
@@ -249,15 +249,15 @@ export function BranchSelector({
                       onClick={() => handleSelect(branch)}
                       className={cn(
                         'w-full px-4 py-3 flex items-center gap-3 text-left',
-                        'hover:bg-white/5 transition-colors',
+                        'hover:bg-slate-100 dark:hover:bg-white/5 transition-colors',
                         value === branch.id && 'bg-ecotribe-primary/10'
                       )}
                     >
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
                         <Building2 className="w-4 h-4 text-zinc-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white font-medium truncate">
+                        <p className="text-sm text-slate-900 dark:text-white font-medium truncate">
                           {branch.branch_name}
                         </p>
                         <div className="flex items-center gap-2 text-[10px] text-zinc-500">
@@ -276,7 +276,7 @@ export function BranchSelector({
 
               {/* Add New Button */}
               {showAddNew && (
-                <div className="border-t border-white/10">
+                <div className="border-t border-slate-200 dark:border-white/10">
                   <button
                     type="button"
                     onClick={handleAddNewClick}

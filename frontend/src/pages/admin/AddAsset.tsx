@@ -96,7 +96,7 @@ export function AddAsset() {
               <CheckCircle className="w-8 h-8 text-emerald-400" />
             </motion.div>
 
-            <h2 className="font-brand font-bold text-2xl text-white uppercase tracking-tight mb-3">
+            <h2 className="font-brand font-bold text-2xl text-slate-900 dark:text-white uppercase tracking-tight mb-3">
               Asset Added
             </h2>
             <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest mb-2">
@@ -109,7 +109,7 @@ export function AddAsset() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={handleAddAnother}
-                className="interactive px-6 py-3 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="interactive px-6 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 Add Another
@@ -131,7 +131,7 @@ export function AddAsset() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -150,7 +150,7 @@ export function AddAsset() {
             </div>
             <div>
               <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">New</span>
-              <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
+              <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                 Add Asset
               </h1>
               <p className="font-display text-zinc-500 text-sm mt-1 uppercase tracking-wide">
@@ -173,7 +173,7 @@ export function AddAsset() {
             <Info className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-2">Quick Tips</p>
+            <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-2">Quick Tips</p>
             <ul className="font-mono text-xs text-zinc-500 space-y-1">
               <li>• Serial numbers are case-insensitive and will be stored in uppercase</li>
               <li>• Brand and model are required for accurate valuation</li>
@@ -203,13 +203,13 @@ export function AddAsset() {
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-white font-mono text-sm focus:outline-none transition-colors appearance-none cursor-pointer ${
-                needsBranchSelection ? 'border-amber-500/50' : 'border-white/10 focus:border-ecotribe-primary/50'
+              className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors appearance-none cursor-pointer ${
+                needsBranchSelection ? 'border-amber-500/50' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
               }`}
             >
-              <option value="" className="bg-zinc-900">Select a branch...</option>
+              <option value="" className="bg-white dark:bg-zinc-900">Select a branch...</option>
               {activeBranches.map((branch: { id: string; branch_name: string; branch_code: string }) => (
-                <option key={branch.id} value={branch.id} className="bg-zinc-900">
+                <option key={branch.id} value={branch.id} className="bg-white dark:bg-zinc-900">
                   {branch.branch_name} ({branch.branch_code})
                 </option>
               ))}
@@ -229,12 +229,12 @@ export function AddAsset() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="flex items-center gap-3 p-4 bg-white/5 border border-white/10"
+          className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10"
         >
           <Building2 className="w-4 h-4 text-ecotribe-primary" />
           <div>
             <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Branch</p>
-            <p className="font-display text-sm text-white">
+            <p className="font-display text-sm text-slate-900 dark:text-white">
               {batch?.branch_id
                 ? activeBranches.find((b: { id: string }) => b.id === batch.branch_id)?.branch_name || 'Linked to batch'
                 : `${activeBranches[0]?.branch_name} (${activeBranches[0]?.branch_code})`}

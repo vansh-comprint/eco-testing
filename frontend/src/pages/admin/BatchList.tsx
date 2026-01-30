@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Badge, Dropdown, useToast } from '@/components/ui';
 import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
+import { safeNumber } from '@/utils/formatters';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BatchStatus } from '@/types';
 import { getBatchStatusDisplay } from '@/lib/status-display';
@@ -98,7 +99,7 @@ export function BatchList() {
         case 'oldest':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'value_desc':
-          return (b.estimated_value || 0) - (a.estimated_value || 0);
+          return safeNumber(b.estimated_value) - safeNumber(a.estimated_value);
         case 'assets_desc':
           return (b.asset_count || 0) - (a.asset_count || 0);
         case 'newest':
@@ -115,7 +116,7 @@ export function BatchList() {
     draft: batches.filter(b => b.status === 'draft').length,
     pendingApproval: batches.filter(b => b.status === 'pending_approval' || b.status === 'pending_cfo_approval').length,
     active: batches.filter(b => ['active', 'in_progress', 'approved'].includes(b.status)).length,
-    totalValue: batches.reduce((sum, b) => sum + (b.estimated_value || 0), 0),
+    totalValue: batches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
   };
 
   // V3: Use centralized status display helper
@@ -302,7 +303,7 @@ export function BatchList() {
                   {/* Value */}
                   <div className="hidden sm:block text-right">
                     <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-                      ₹{((batch.estimated_value || 0) / 1000).toFixed(0)}K
+                      ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
                     </p>
                     <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
                   </div>

@@ -119,7 +119,7 @@ export function CFODashboard() {
                     <p className="font-display font-bold text-sm text-slate-900 dark:text-white group-hover:text-ecotribe-primary transition-colors uppercase">
                       {batch.name}
                     </p>
-                    <p className="font-mono text-xs text-zinc-600">
+                    <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
                       {batch.asset_count || 0} assets • Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
                     </p>
                   </div>
@@ -128,17 +128,17 @@ export function CFODashboard() {
                       <p className="font-brand font-bold text-lg text-ecotribe-primary">
                         ₹{((batch.estimated_value || 0) / 1000).toFixed(0)}K
                       </p>
-                      <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Est. Value</p>
+                      <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest">Est. Value</p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
+                    <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
                   </div>
                 </motion.div>
               ))
             ) : (
               <div className="py-12 text-center">
                 <CheckCircle className="w-10 h-10 mx-auto mb-3 text-emerald-400/50" />
-                <p className="font-display font-bold text-zinc-500 uppercase tracking-wide">All caught up</p>
-                <p className="font-mono text-xs text-zinc-600 mt-1">No pending approvals</p>
+                <p className="font-display font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wide">All caught up</p>
+                <p className="font-mono text-xs text-slate-500 dark:text-zinc-600 mt-1">No pending approvals</p>
               </div>
             )}
           </div>
@@ -153,10 +153,10 @@ export function CFODashboard() {
         >
           <div className="p-6 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-zinc-500" />
+              <FileText className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
               <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Recent Decisions</h2>
             </div>
-            <button className="interactive font-mono font-bold text-xs text-zinc-500 hover:text-ecotribe-primary uppercase tracking-widest transition-colors">
+            <button className="interactive font-mono font-bold text-xs text-slate-500 dark:text-zinc-500 hover:text-ecotribe-primary uppercase tracking-widest transition-colors">
               View all
             </button>
           </div>
@@ -180,7 +180,7 @@ export function CFODashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-display font-bold text-sm text-slate-900 dark:text-white">{decision.batch}</p>
-                  <p className="font-mono text-xs text-zinc-600">
+                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
                     ₹{(decision.value / 1000).toFixed(0)}K • {formatDistanceToNow(decision.date, { addSuffix: true })}
                   </p>
                 </div>

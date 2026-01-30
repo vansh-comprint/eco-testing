@@ -373,7 +373,7 @@ export function EPRCertificates() {
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Enterprise</p>
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-slate-500 dark:text-white/50" />
-                      <p className="font-display text-white">
+                      <p className="font-display text-slate-900 dark:text-white">
                         {getEnterpriseName(selectedCert.enterpriseId)}
                       </p>
                     </div>
@@ -381,21 +381,21 @@ export function EPRCertificates() {
 
                   <div>
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Batch</p>
-                    <p className="font-display text-white">{getBatchName(selectedCert.batchId)}</p>
+                    <p className="font-display text-slate-900 dark:text-white">{getBatchName(selectedCert.batchId)}</p>
                   </div>
 
                   {selectedCert.issuedAt && (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Issued Date</p>
-                        <p className="font-mono text-white">
+                        <p className="font-mono text-slate-900 dark:text-white">
                           {new Date(selectedCert.issuedAt).toLocaleDateString()}
                         </p>
                       </div>
                       {selectedCert.expiresAt && (
                         <div>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Expires</p>
-                          <p className="font-mono text-white">
+                          <p className="font-mono text-slate-900 dark:text-white">
                             {new Date(selectedCert.expiresAt).toLocaleDateString()}
                           </p>
                         </div>

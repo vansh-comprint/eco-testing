@@ -1,7 +1,7 @@
 """Enterprise management endpoints"""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query, HTTPException
+from fastapi import APIRouter, Depends, status, Query, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -137,6 +137,87 @@ async def list_enterprise_applications(
         total=total,
         page=(skip // limit) + 1,
         page_size=limit,
+    )
+
+
+@router.post("/applications/upload-document", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def upload_application_document(
+    file: UploadFile = File(..., description="Document file (PDF, JPG, PNG)"),
+    document_type: str = Form(..., description="Document type (gst, pan, incorporation, signatory_id, address_proof, logo)"),
+):
+    """
+    Upload a document for enterprise registration.
+
+    This is a public endpoint - no authentication required.
+    Used during the enterprise registration flow before an account exists.
+
+    **Allowed formats**: PDF, JPG, JPEG, PNG
+    **Max size**: 5 MB
+    """
+    from app.services.file_service import FileService, validate_content_type
+    from app.storage.storage_factory import StorageBucket
+    from app.core.storage import generate_file_key
+
+    ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
+    MAX_SIZE = 5 * 1024 * 1024  # 5 MB
+
+    # Validate document type
+    valid_types = ['gst', 'pan', 'incorporation', 'signatory_id', 'address_proof', 'logo']
+    if document_type not in valid_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid document type. Must be one of: {', '.join(valid_types)}",
+        )
+
+    # Validate file extension
+    import os
+    ext = os.path.splitext(file.filename or '')[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    # Read and validate content
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Maximum size: {MAX_SIZE / (1024 * 1024):.0f} MB",
+        )
+
+    try:
+        content_type = validate_content_type(content, file.filename, file.content_type)
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Upload to storage
+    from io import BytesIO
+    from datetime import datetime
+    import uuid
+
+    file_service = FileService()
+    prefix = f"applications/{datetime.utcnow().strftime('%Y/%m')}/{document_type}"
+    file_key = generate_file_key(file.filename, prefix=prefix)
+
+    metadata = {
+        "original_filename": file.filename,
+        "uploaded_by": "public_registration",
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "document_type": document_type,
+    }
+
+    url = await file_service.storage.upload(
+        file=BytesIO(content),
+        bucket=StorageBucket.DOCUMENTS,
+        key=file_key,
+        content_type=content_type,
+        metadata=metadata,
+    )
+
+    return success_response(
+        data={"file_url": url, "file_name": file.filename, "document_type": document_type},
+        message="Document uploaded successfully",
     )
 
 

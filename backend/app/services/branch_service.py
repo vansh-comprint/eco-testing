@@ -21,12 +21,30 @@ class BranchService:
         self.repository = BranchRepository(db)
         self.db = db
 
+    async def _enrich_branch_response(self, branch) -> BranchResponse:
+        """Convert branch model to response with computed counts."""
+        response = BranchResponse.model_validate(branch)
+
+        # Count assets in this branch
+        result = await self.db.execute(
+            select(func.count(Asset.id)).where(Asset.branch_id == branch.id)
+        )
+        response.asset_count = result.scalar() or 0
+
+        # Count users in this branch
+        result = await self.db.execute(
+            select(func.count(User.id)).where(User.branch_id == branch.id)
+        )
+        response.user_count = result.scalar() or 0
+
+        return response
+
     async def get_branch(self, branch_id: str) -> BranchResponse:
         """Get branch by ID"""
         branch = await self.repository.get_by_id(branch_id)
         if not branch:
             raise NotFoundError("Branch", branch_id)
-        return BranchResponse.model_validate(branch)
+        return await self._enrich_branch_response(branch)
 
     async def list_branches(
         self,
@@ -44,7 +62,8 @@ class BranchService:
             status=status,
             search=search,
         )
-        return [BranchResponse.model_validate(b) for b in branches], total
+        enriched = [await self._enrich_branch_response(b) for b in branches]
+        return enriched, total
 
     async def create_branch(
         self, branch_data: BranchCreate, created_by: str

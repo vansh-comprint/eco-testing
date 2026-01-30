@@ -7,21 +7,18 @@ import {
   CheckCircle,
   Clock,
   Laptop,
-  ArrowRight,
   Download,
   Send,
-  AlertCircle,
-  Package,
   FileText,
   X,
   Printer
 } from 'lucide-react';
-import { useAllAssets, useAllBatches } from '@/hooks';
+import { useAllAssets, useAllBatches, useCreatePayout } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { assetsApi } from '@/lib/api/assets';
 import { useQueryClient } from '@tanstack/react-query';
 import { LOGISTICS_CHARGE } from '@/types/payout';
-import { ConfirmationModal } from '@/components/ui';
+import { ConfirmationModal, useToast } from '@/components/ui';
 
 type PayoutFilter = 'all' | 'pending' | 'processing' | 'completed';
 
@@ -30,6 +27,8 @@ export function PayoutProcessing() {
   const { data: assets = [] } = useAllAssets();
   const { data: batches = [] } = useAllBatches();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
+  const createPayoutMutation = useCreatePayout();
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PayoutFilter>('pending');
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
@@ -90,8 +89,15 @@ export function PayoutProcessing() {
     const gradeModifier = asset.grade
       ? { A: 0, B: -500, C: -1500, D: -3000, F: -5000 }[asset.grade] || 0
       : 0;
-    const finalAmount = basePrice + gradeModifier - LOGISTICS_CHARGE;
+    const finalAmount = Math.max(0, basePrice + gradeModifier - LOGISTICS_CHARGE);
     return { basePrice, gradeModifier, logistics: LOGISTICS_CHARGE, finalAmount };
+  };
+
+  // Helper to safely get payout value, ensuring non-negative
+  const getPayoutValue = (asset: typeof assets[0]) => {
+    const storedPrice = asset.final_price;
+    if (storedPrice != null && storedPrice > 0) return storedPrice;
+    return calculatePayout(asset).finalAmount;
   };
 
   const toggleAssetSelection = (assetId: string) => {
@@ -112,36 +118,63 @@ export function PayoutProcessing() {
   const processSelectedPayouts = async () => {
     setIsProcessing(true);
     try {
-      // Process each selected asset via REST API - update status to completed and set final_price
-      const updatePromises = selectedAssets.map(async (assetId) => {
+      // Group selected assets by enterprise for batch payout creation
+      const selectedByEnterprise = selectedAssets.reduce((acc, assetId) => {
         const asset = assets.find(a => a.id === assetId);
-        if (!asset) return null;
+        if (!asset) return acc;
+        const key = asset.enterprise_id || 'unknown';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(asset);
+        return acc;
+      }, {} as Record<string, typeof assets>);
 
-        const payoutInfo = calculatePayout(asset);
+      // Create payout records per enterprise via payouts API
+      for (const [enterpriseId, enterpriseAssets] of Object.entries(selectedByEnterprise)) {
+        const totalAmount = enterpriseAssets.reduce(
+          (sum, a) => sum + calculatePayout(a).finalAmount, 0
+        );
 
-        const response = await assetsApi.update(assetId, {
-          status: 'completed',
-          final_value: payoutInfo.finalAmount,
+        // Create a payout record through the proper payouts API
+        await createPayoutMutation.mutateAsync({
+          enterprise_id: enterpriseId,
+          asset_ids: enterpriseAssets.map(a => a.id),
+          amount: totalAmount,
+          items: enterpriseAssets.map(a => ({
+            asset_id: a.id,
+            amount: calculatePayout(a).finalAmount,
+            description: `${a.brand} ${a.model} (${a.serial_number || 'N/A'})`,
+          })),
         });
 
-        if (!response.success) {
-          console.error(`Failed to process payout for asset ${assetId}:`, response.error);
-          throw new Error(response.error?.message || `Failed to process payout for asset ${assetId}`);
-        }
+        // Update each asset status to completed with final value
+        await Promise.all(
+          enterpriseAssets.map(async (asset) => {
+            const payoutInfo = calculatePayout(asset);
+            const response = await assetsApi.update(asset.id, {
+              status: 'completed',
+              final_value: payoutInfo.finalAmount,
+            });
+            if (!response.success) {
+              console.error(`Failed to update asset ${asset.id}:`, response.error);
+            }
+          })
+        );
+      }
 
-        return assetId;
-      });
-
-      await Promise.all(updatePromises);
-
-      // Refetch assets to update the UI
+      // Refetch assets and payouts to update the UI
       await queryClient.refetchQueries({ queryKey: ['assets'] });
+      await queryClient.refetchQueries({ queryKey: ['payouts'] });
 
       setSelectedAssets([]);
       setShowConfirmModal(false);
     } catch (error) {
       console.error('Failed to process payouts:', error);
-      alert('Failed to process payouts. Please try again.');
+      addToast({
+        type: 'error',
+        title: 'Payout Processing Failed',
+        message: 'Failed to process payouts. Please try again.',
+        duration: 6000,
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -152,6 +185,52 @@ export function PayoutProcessing() {
     if (!asset) return sum;
     return sum + calculatePayout(asset).finalAmount;
   }, 0);
+
+  const exportPayoutReport = () => {
+    const rows = payoutAssets.map(asset => {
+      const payout = calculatePayout(asset);
+      return {
+        enterprise: getEnterpriseName(asset.enterprise_id),
+        serial_number: asset.serial_number || 'N/A',
+        brand: asset.brand,
+        model: asset.model,
+        type: asset.type || '',
+        grade: asset.grade || '',
+        base_price: payout.basePrice,
+        grade_modifier: payout.gradeModifier,
+        logistics_charge: payout.logistics,
+        payout_amount: payout.finalAmount,
+        status: asset.status === 'completed' ? 'Paid' : 'Pending',
+        date: new Date().toLocaleDateString('en-IN'),
+      };
+    });
+
+    if (rows.length === 0) return;
+
+    const headers = [
+      'Enterprise', 'Serial Number', 'Brand', 'Model', 'Type', 'Grade',
+      'Base Price (₹)', 'Grade Modifier (₹)', 'Logistics (₹)', 'Payout Amount (₹)',
+      'Status', 'Date',
+    ];
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => [
+        `"${r.enterprise}"`, `"${r.serial_number}"`, `"${r.brand}"`, `"${r.model}"`,
+        `"${r.type}"`, r.grade, r.base_price, r.grade_modifier, r.logistics_charge,
+        r.payout_amount, r.status, r.date,
+      ].join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payout-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Group by enterprise
   const assetsByEnterprise = filteredAssets.reduce((acc, asset) => {
@@ -172,7 +251,7 @@ export function PayoutProcessing() {
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             Finance
           </span>
-          <h1 className="font-brand font-bold text-3xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
             Payout Processing
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
@@ -251,7 +330,7 @@ export function PayoutProcessing() {
             placeholder="Search assets..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
         <div className="flex gap-2">
@@ -262,7 +341,7 @@ export function PayoutProcessing() {
               className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                 statusFilter === filter
                   ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                  : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-white/20'
+                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
               }`}
             >
               {filter}
@@ -282,14 +361,14 @@ export function PayoutProcessing() {
             <span className="font-mono font-bold text-sm text-ecotribe-primary">
               {selectedAssets.length} asset{selectedAssets.length > 1 ? 's' : ''} selected
             </span>
-            <span className="font-brand font-bold text-xl text-white">
+            <span className="font-brand font-bold text-xl text-slate-900 dark:text-white">
               ₹{totalSelectedValue.toLocaleString()}
             </span>
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => setSelectedAssets([])}
-              className="interactive px-4 py-2 border border-white/20 text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all"
+              className="interactive px-4 py-2 border border-slate-300 dark:border-white/20 text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
             >
               Clear Selection
             </button>
@@ -333,11 +412,11 @@ export function PayoutProcessing() {
               >
                 <div className="p-5 border-b border-slate-200 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
+                    <div className="w-12 h-12 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                       <Building2 className="w-6 h-6 text-slate-500 dark:text-white/50" />
                     </div>
                     <div>
-                      <h3 className="font-display font-bold text-lg text-white uppercase">{enterpriseName}</h3>
+                      <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white uppercase">{enterpriseName}</h3>
                       <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                         {enterpriseAssets.length} assets • {pendingCount} pending
                       </p>
@@ -374,7 +453,7 @@ export function PayoutProcessing() {
                   </div>
                 </div>
 
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-slate-200 dark:divide-white/5">
                   {enterpriseAssets.map((asset) => {
                     const payout = calculatePayout(asset);
                     const isSelected = selectedAssets.includes(asset.id);
@@ -393,19 +472,19 @@ export function PayoutProcessing() {
                             className={`w-6 h-6 border flex items-center justify-center transition-all ${
                               isSelected
                                 ? 'border-ecotribe-primary bg-ecotribe-primary text-black'
-                                : 'border-white/20 bg-white/5'
+                                : 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5'
                             }`}
                           >
                             {isSelected && <CheckCircle className="w-4 h-4" />}
                           </button>
                         )}
 
-                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
+                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                           <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-display font-bold text-white">{asset.brand} {asset.model}</p>
+                          <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
                         </div>
 
@@ -443,7 +522,7 @@ export function PayoutProcessing() {
           animate={{ opacity: 1, y: 0 }}
           className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
         >
-          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
             <DollarSign className="w-10 h-10 text-slate-500 dark:text-white/50" />
           </div>
           <h3 className="font-brand font-bold text-xl text-slate-500 dark:text-white/50 uppercase tracking-tight mb-2">
@@ -462,7 +541,10 @@ export function PayoutProcessing() {
         transition={{ delay: 0.3 }}
         className="flex justify-end"
       >
-        <button className="interactive px-5 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all flex items-center gap-2">
+        <button
+          onClick={exportPayoutReport}
+          className="interactive px-5 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
+        >
           <Download className="w-4 h-4" />
           Export Report
         </button>

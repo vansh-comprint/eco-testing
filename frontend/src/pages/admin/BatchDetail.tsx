@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft,
   Package,
@@ -105,11 +105,29 @@ export function BatchDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+  // Auto-open submit modal when navigated with ?action=submit from batch list
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'submit' && batch?.status === 'draft') {
+      setShowSubmitModal(true);
+    }
+  }, [location.search, batch?.status]);
   const [showAddExistingModal, setShowAddExistingModal] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [isAddingAssets, setIsAddingAssets] = useState(false);
   const [showReturnToDraftModal, setShowReturnToDraftModal] = useState(false);
   const [isReturningToDraft, setIsReturningToDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitForm, setSubmitForm] = useState<{
+    preferredDate: string;
+    preferredTimeSlot: string;
+    notes: string;
+  }>({
+    preferredDate: '',
+    preferredTimeSlot: 'morning',
+    notes: '',
+  });
   const [pickupForm, setPickupForm] = useState<{
     branchId: string;
     preferredDate: string;
@@ -174,15 +192,15 @@ export function BatchDetail() {
 
   if (!batch) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-        <div className="w-16 h-16 border border-white/10 flex items-center justify-center mb-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+        <div className="w-16 h-16 border border-slate-200 dark:border-white/10 flex items-center justify-center mb-4">
           <Package className="w-8 h-8 text-zinc-600" />
         </div>
-        <p className="font-display font-bold text-white uppercase tracking-wide mb-1">Batch not found</p>
+        <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Batch not found</p>
         <p className="font-mono text-xs text-zinc-600 mb-6">The batch you're looking for doesn't exist</p>
         <button
           onClick={() => navigate(`${basePath}/batches`)}
-          className="interactive px-5 py-2.5 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+          className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Batches
@@ -234,8 +252,25 @@ export function BatchDetail() {
 
   // V3: Submit for Org Admin approval (was CFO)
   const handleSubmitForApproval = async () => {
-    await submitForApprovalMutation.mutateAsync(batch.id);
-    setShowSubmitModal(false);
+    if (!submitForm.preferredDate) return;
+    setIsSubmitting(true);
+    try {
+      await submitForApprovalMutation.mutateAsync({
+        batchId: batch.id,
+        pickupDetails: {
+          preferred_pickup_date: submitForm.preferredDate,
+          preferred_pickup_slot: submitForm.preferredTimeSlot,
+          it_admin_notes: submitForm.notes || undefined,
+        },
+      });
+      showSuccess('Batch Submitted', 'Batch has been submitted for Org Admin approval.');
+      setShowSubmitModal(false);
+      setSubmitForm({ preferredDate: '', preferredTimeSlot: 'morning', notes: '' });
+    } catch (error) {
+      handleError(error, 'Submitting batch for approval');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canAddAssets = batch.status === 'draft';
@@ -300,7 +335,7 @@ export function BatchDetail() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="border-b border-white/10 pb-8">
+      <div className="border-b border-slate-200 dark:border-white/10 pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -320,7 +355,7 @@ export function BatchDetail() {
               </div>
               <div>
                 <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">Batch</span>
-                <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
+                <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                   {batch.name}
                 </h1>
                 {batch.description && (
@@ -339,7 +374,7 @@ export function BatchDetail() {
                 <>
                   <button
                     onClick={() => navigate(`${basePath}/assets/upload?batchId=${batch.id}`)}
-                    className="interactive px-5 py-2.5 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                    className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
                     Upload CSV
@@ -353,7 +388,7 @@ export function BatchDetail() {
                   </button>
                 </>
               )}
-              {batch.status === 'draft' && batch.requires_approval && batchAssets.length > 0 && (
+              {batch.status === 'draft' && batchAssets.length > 0 && (
                 <button
                   onClick={() => setShowSubmitModal(true)}
                   className="interactive px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
@@ -536,7 +571,7 @@ export function BatchDetail() {
                             <Laptop className="w-5 h-5 text-zinc-600" />
                           </div>
                           <div>
-                            <p className="font-display font-bold text-sm text-white uppercase">{asset.brand}</p>
+                            <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{asset.brand}</p>
                             <p className="font-mono text-xs text-zinc-600">{asset.model}</p>
                           </div>
                         </div>
@@ -581,17 +616,17 @@ export function BatchDetail() {
           </div>
         ) : (
           <div className="py-16 text-center">
-            <div className="w-16 h-16 border border-white/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 border border-slate-200 dark:border-white/10 flex items-center justify-center mx-auto mb-4">
               <Laptop className="w-8 h-8 text-zinc-600" />
             </div>
-            <p className="font-display font-bold text-white uppercase tracking-wide mb-1">No assets yet</p>
+            <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">No assets yet</p>
             <p className="font-mono text-xs text-zinc-600 mb-6">
               Add assets to this batch to get started
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => navigate(`${basePath}/assets/upload?batchId=${batch.id}`)}
-                className="interactive px-5 py-2.5 bg-white/5 border border-white/10 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />
                 Upload CSV
@@ -783,17 +818,104 @@ export function BatchDetail() {
         isDeleting={isDeleting}
       />
 
-      {/* Submit for Approval Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-        onConfirm={handleSubmitForApproval}
-        title="Submit Batch for Approval?"
-        description={`Once submitted, this batch cannot be modified until approved or rejected by the Org Admin. ${batchAssets.length} asset${batchAssets.length !== 1 ? 's' : ''} will be included in this submission.`}
-        confirmText="Submit for Approval"
-        variant="warning"
-        isLoading={submitForApprovalMutation.isPending}
-      />
+      {/* Submit for Approval Modal with Pickup Details */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-lg bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                  <Send className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">
+                    Submit for Approval
+                  </h3>
+                  <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
+                    {batchAssets.length} asset{batchAssets.length !== 1 ? 's' : ''} in {batch.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSubmitModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-3 border border-amber-500/20 bg-amber-500/5">
+                <p className="font-mono text-xs text-amber-400">
+                  Once submitted, this batch cannot be modified until approved or rejected by the Org Admin.
+                </p>
+              </div>
+
+              {/* Preferred Pickup Date */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Preferred Pickup Date <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={submitForm.preferredDate}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, preferredDate: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50"
+                />
+              </div>
+
+              {/* Time Slot */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Preferred Time Slot
+                </label>
+                <select
+                  value={submitForm.preferredTimeSlot}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                >
+                  <option value="morning">Morning (9 AM - 12 PM)</option>
+                  <option value="afternoon">Afternoon (12 PM - 3 PM)</option>
+                  <option value="evening">Evening (3 PM - 6 PM)</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Notes for Org Admin
+                </label>
+                <textarea
+                  value={submitForm.notes}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any notes for the Org Admin..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30 resize-none"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowSubmitModal(false)}
+                className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitForApproval}
+                disabled={!submitForm.preferredDate || isSubmitting}
+                className="px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Return to Draft Confirmation Modal */}
       <ConfirmationModal

@@ -61,7 +61,7 @@ export function RemoteReview() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-          <h2 className="font-brand font-bold text-xl text-white uppercase mb-2">Asset Not Found</h2>
+          <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase mb-2">Asset Not Found</h2>
           <p className="font-display text-zinc-500 mb-6">The asset you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/tech/review')}
@@ -116,15 +116,15 @@ export function RemoteReview() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/tech/review')}
-          className="interactive w-10 h-10 border border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-white/[0.05] transition-all"
+          className="interactive w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <ArrowLeft className="w-5 h-5 text-slate-900 dark:text-white" />
         </button>
         <div>
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">
             Remote Review
           </span>
-          <h1 className="font-brand font-bold text-2xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-2xl text-slate-900 dark:text-white uppercase tracking-tight">
             {asset.brand} {asset.model}
           </h1>
         </div>
@@ -136,7 +136,7 @@ export function RemoteReview() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             {/* Main Photo */}
             <div className="relative aspect-video bg-black flex items-center justify-center">
@@ -191,7 +191,7 @@ export function RemoteReview() {
                     className={`flex-shrink-0 w-16 h-16 border ${
                       idx === currentPhotoIndex
                         ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
                     } flex items-center justify-center transition-all`}
                   >
                     <Laptop className={`w-6 h-6 ${idx === currentPhotoIndex ? 'text-ecotribe-primary' : 'text-zinc-500'}`} />
@@ -206,37 +206,37 @@ export function RemoteReview() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Device Information
               </h3>
             </div>
             <div className="p-4 grid grid-cols-2 gap-4">
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">Brand</p>
-                <p className="font-display font-bold text-white">{asset.brand}</p>
+                <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand}</p>
               </div>
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">Model</p>
-                <p className="font-display font-bold text-white">{asset.model}</p>
+                <p className="font-display font-bold text-slate-900 dark:text-white">{asset.model}</p>
               </div>
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">Serial Number</p>
-                <p className="font-mono text-white">{asset.serial_number}</p>
+                <p className="font-mono text-slate-900 dark:text-white">{asset.serial_number}</p>
               </div>
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">Processor</p>
-                <p className="font-display text-white">{asset.processor || 'Not specified'}</p>
+                <p className="font-display text-slate-900 dark:text-white">{asset.processor || 'Not specified'}</p>
               </div>
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">RAM</p>
-                <p className="font-display text-white">{asset.ram || 'Not specified'}</p>
+                <p className="font-display text-slate-900 dark:text-white">{asset.ram || 'Not specified'}</p>
               </div>
               <div>
                 <p className="font-mono text-xs text-zinc-500 uppercase mb-1">Storage</p>
-                <p className="font-display text-white">{asset.storage || 'Not specified'}</p>
+                <p className="font-display text-slate-900 dark:text-white">{asset.storage || 'Not specified'}</p>
               </div>
             </div>
           </motion.div>
@@ -246,27 +246,27 @@ export function RemoteReview() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 User Reported Condition
               </h3>
             </div>
             <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-white/5">
                 <span className="font-display text-sm text-zinc-400">Screen condition</span>
                 <span className="font-mono font-bold text-xs text-emerald-400 uppercase">Good</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-white/5">
                 <span className="font-display text-sm text-zinc-400">Body condition</span>
                 <span className="font-mono font-bold text-xs text-amber-400 uppercase">Minor Scratches</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-white/5">
                 <span className="font-display text-sm text-zinc-400">Keyboard functional</span>
                 <span className="font-mono font-bold text-xs text-emerald-400 uppercase">Yes</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-white/5">
+              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-white/5">
                 <span className="font-display text-sm text-zinc-400">All ports working</span>
                 <span className="font-mono font-bold text-xs text-emerald-400 uppercase">Yes</span>
               </div>
@@ -284,10 +284,10 @@ export function RemoteReview() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] sticky top-4"
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] sticky top-4"
           >
             <div className="p-4 border-b border-slate-200 dark:border-white/10">
-              <h3 className="font-display font-bold text-sm text-white uppercase tracking-wide">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                 Review Decision
               </h3>
             </div>
@@ -300,7 +300,7 @@ export function RemoteReview() {
                   className={`interactive p-4 border ${
                     decision === 'conditionally_accepted'
                       ? 'border-emerald-400 bg-emerald-400/10'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
                   } transition-all`}
                 >
                   <CheckCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -317,7 +317,7 @@ export function RemoteReview() {
                   className={`interactive p-4 border ${
                     decision === 'rejected'
                       ? 'border-red-400 bg-red-400/10'
-                      : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
+                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-red-400/50'
                   } transition-all`}
                 >
                   <XCircle className={`w-8 h-8 mx-auto mb-2 ${
@@ -345,7 +345,7 @@ export function RemoteReview() {
                     <select
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
-                      className="mt-2 w-full px-4 py-3 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display focus:border-ecotribe-primary focus:outline-none transition-colors"
+                      className="mt-2 w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display focus:border-ecotribe-primary focus:outline-none transition-colors"
                     >
                       <option value="" className="bg-zinc-900">Select a reason...</option>
                       {REJECTION_REASONS.map((reason) => (
@@ -369,7 +369,7 @@ export function RemoteReview() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Add any notes about the device condition..."
                     rows={4}
-                    className="mt-2 w-full px-4 py-3 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
+                    className="mt-2 w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors resize-none"
                   />
                 </label>
               </div>
@@ -384,7 +384,7 @@ export function RemoteReview() {
                     ? decision === 'conditionally_accepted'
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400'
                       : 'bg-red-500 text-white hover:bg-red-400'
-                    : 'bg-white/10 text-zinc-500 cursor-not-allowed'
+                    : 'bg-slate-100 dark:bg-white/10 text-zinc-500 cursor-not-allowed'
                 }`}
               >
                 {isLoading ? (
@@ -400,7 +400,7 @@ export function RemoteReview() {
               {/* Skip Button */}
               <button
                 onClick={() => navigate('/tech/review')}
-                className="w-full interactive py-2.5 border border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] transition-all"
+                className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
               >
                 Skip to Next
               </button>

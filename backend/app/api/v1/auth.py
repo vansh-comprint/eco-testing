@@ -206,13 +206,18 @@ async def logout(
     status_code=status.HTTP_200_OK,
     deprecated=True,
 )
-async def request_sub_user_otp(request: EmployeeOTPRequest, db: AsyncSession = Depends(get_db)):
+async def request_sub_user_otp(
+    request: EmployeeOTPRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_otp_send),
+):
     """
     **DEPRECATED:** Use /employee/request-otp instead.
 
     Request OTP for employee authentication.
     """
-    return await request_employee_otp(request, db)
+    return await request_employee_otp(request, http_request, db, _)
 
 
 @router.post(
@@ -222,11 +227,14 @@ async def request_sub_user_otp(request: EmployeeOTPRequest, db: AsyncSession = D
     deprecated=True,
 )
 async def verify_sub_user_otp(
-    request: EmployeeOTPVerifyRequest, db: AsyncSession = Depends(get_db)
+    request: EmployeeOTPVerifyRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_otp),
 ):
     """
     **DEPRECATED:** Use /employee/verify-otp instead.
 
     Verify OTP and login employee.
     """
-    return await verify_employee_otp(request, db)
+    return await verify_employee_otp(request, http_request, db, _)

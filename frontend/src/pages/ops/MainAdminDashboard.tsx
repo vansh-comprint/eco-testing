@@ -14,7 +14,7 @@ import {
   FileText,
   X
 } from 'lucide-react';
-import { useAuth, useAllAssets, useEnterprises, useAllBatches } from '@/hooks';
+import { useAuth, useAllAssets, useEnterprises, useAllBatches, useAllDisputes } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
@@ -26,6 +26,7 @@ export function MainAdminDashboard() {
   const { data: assets = [] } = useAllAssets();
   const { data: enterprises = [] } = useEnterprises();
   const { data: batches = [] } = useAllBatches();
+  const { data: disputes = [] } = useAllDisputes();
   const { selectedEnterprise, selectedEnterpriseId, setSelectedEnterpriseId, isAllEnterprises } = useOpsEnterprise();
 
   // Filter data based on selected enterprise
@@ -48,8 +49,7 @@ export function MainAdminDashboard() {
   const pendingReview = filteredAssets.filter(a => a.status === 'submitted' || a.status === 'remote_review').length;
   const pendingQC = filteredAssets.filter(a => a.status === 'in_transit' || a.status === 'facility_qc').length;
   const pendingPayout = filteredAssets.filter(a => a.status === 'payout_pending').length;
-  // TODO: Add disputes hook when available
-  const pendingDisputes = 0;
+  const pendingDisputes = disputes.filter((d: any) => d.status === 'open' || d.status === 'pending').length;
 
   // Calculate total payout value
   const totalPayoutValue = filteredAssets

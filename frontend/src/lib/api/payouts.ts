@@ -36,6 +36,7 @@ export interface PayoutResponse {
   id: string;
   enterprise_id: string;
   batch_id?: string;
+  asset_ids?: string[];
   amount: number;
   status: string;
   method?: string;
@@ -47,7 +48,14 @@ export interface PayoutResponse {
   failed_at?: string;
   failure_reason?: string;
   transaction_reference?: string;
+  transaction_id?: string;
+  reference_id?: string;
+  processed_by?: string;
+  processed_at?: string;
   notes?: string;
+  items?: Array<{ asset_id: string; amount: number; description?: string }>;
+  batches?: { id: string; name: string } | null;
+  processed_by_user?: { id: string; name: string; email: string } | null;
   created_at: string;
   updated_at?: string;
 }

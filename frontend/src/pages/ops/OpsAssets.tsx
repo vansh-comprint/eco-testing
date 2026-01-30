@@ -114,7 +114,7 @@ export function OpsAssets() {
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             Asset Management
           </span>
-          <h1 className="font-brand font-bold text-3xl text-white uppercase tracking-tight">
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
             All Assets
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
@@ -138,13 +138,13 @@ export function OpsAssets() {
               placeholder="Search by brand, model, or serial..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+              className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
             />
           </div>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-white font-display focus:border-ecotribe-primary focus:outline-none transition-colors"
+            className="px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display focus:border-ecotribe-primary focus:outline-none transition-colors"
           >
             <option value="newest" className="bg-zinc-900">Newest First</option>
             <option value="oldest" className="bg-zinc-900">Oldest First</option>
@@ -161,7 +161,7 @@ export function OpsAssets() {
               className={`interactive px-4 py-2 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
                 statusFilter === filter.value
                   ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                  : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-white/20'
+                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
               }`}
             >
               {filter.label}
@@ -205,7 +205,7 @@ export function OpsAssets() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                 {filteredAssets.map((asset, idx) => (
                   <motion.tr
                     key={asset.id}
@@ -216,11 +216,11 @@ export function OpsAssets() {
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
+                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
                           <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
                         </div>
                         <div>
-                          <p className="font-display font-bold text-white">{asset.brand} {asset.model}</p>
+                          <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
                         </div>
                       </div>
@@ -265,7 +265,7 @@ export function OpsAssets() {
                     <td className="p-4 text-right">
                       <button
                         onClick={() => navigate(`/ops/assets/${asset.id}`)}
-                        className="interactive px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/[0.05] hover:text-white transition-all inline-flex items-center gap-1"
+                        className="interactive px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white transition-all inline-flex items-center gap-1"
                       >
                         <Eye className="w-3 h-3" />
                         View
@@ -283,7 +283,7 @@ export function OpsAssets() {
           animate={{ opacity: 1, y: 0 }}
           className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
         >
-          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
             <Laptop className="w-10 h-10 text-slate-500 dark:text-white/50" />
           </div>
           <h3 className="font-brand font-bold text-xl text-slate-500 dark:text-white/50 uppercase tracking-tight mb-2">
