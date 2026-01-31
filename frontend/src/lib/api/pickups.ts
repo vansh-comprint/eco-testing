@@ -17,14 +17,28 @@ export interface PickupResponse {
   logistics_admin_id?: string;
   logistics_user_id?: string;
   asset_ids: string[];
-  assets?: unknown[];
+  assets?: Array<{
+    id?: string;
+    asset_id?: string;
+    serial_number?: string;
+    brand?: string;
+    model?: string;
+    status: string;
+    qcResult?: { serialMatch?: boolean; powersOn?: boolean };
+  }>;
   preferred_date?: string;
   preferred_time_slot?: string;
   scheduled_date?: string;
+  confirmed_date?: string;
+  confirmed_time_slot?: string;
   assigned_at?: string;
+  scheduled_at?: string;
+  started_at?: string;
   assigned_by_id?: string;
   status: string;
+  priority: string;
   special_instructions?: string;
+  it_admin_notes?: string;
   logistics_notes?: string;
   completed_at?: string;
   proof_of_pickup?: unknown;
@@ -33,6 +47,29 @@ export interface PickupResponse {
   // Joined data
   enterprise_name?: string;
   branch_name?: string;
+  pickup_locations?: {
+    id: string;
+    name: string;
+    address: string;
+    city?: string;
+    state?: string;
+    pin_code?: string;
+    contact_person?: string;
+    contact_phone?: string;
+    operating_hours?: string;
+  };
+  branches?: {
+    branch_name: string;
+    branch_code?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    pin_code?: string;
+    site_contact_person?: string;
+    site_contact_phone?: string;
+    operating_hours?: string;
+  };
 }
 
 export interface PickupListParams {
@@ -44,7 +81,7 @@ export interface PickupListParams {
 export interface PickupCreateRequest {
   enterprise_id?: string;
   batch_id?: string;
-  location_id: string;
+  branch_id: string;
   asset_ids: string[];
   preferred_date?: string;
   preferred_time_slot: string;

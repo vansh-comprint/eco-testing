@@ -1,12 +1,15 @@
 """API endpoints for Pickup Requests"""
 
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models import User
+from app.models.enterprise import PickupLocation, Branch
 from app.schemas.pickup import (
     PickupRequestCreate,
     PickupRequestUpdate,
@@ -25,9 +28,13 @@ from app.utils.response import success_response, paginated_response
 router = APIRouter()
 
 
-def _to_response(pickup) -> dict:
-    """Convert pickup model to response dict"""
-    return {
+def _to_response(
+    pickup,
+    location: Optional[PickupLocation] = None,
+    branch: Optional[Branch] = None,
+) -> dict:
+    """Convert pickup model to response dict with optional joined data"""
+    resp = {
         "id": pickup.id,
         "enterprise_id": pickup.enterprise_id,
         "location_id": pickup.location_id,
@@ -42,6 +49,7 @@ def _to_response(pickup) -> dict:
         "assigned_at": pickup.assigned_at,
         "assigned_by_id": pickup.assigned_by_id,
         "status": pickup.status,
+        "priority": getattr(pickup, "priority", "normal"),
         "special_instructions": pickup.special_instructions,
         "logistics_notes": pickup.logistics_notes,
         "completed_at": pickup.completed_at,
@@ -49,6 +57,84 @@ def _to_response(pickup) -> dict:
         "created_at": pickup.created_at,
         "updated_at": pickup.updated_at,
     }
+
+    if location:
+        resp["pickup_locations"] = {
+            "id": location.id,
+            "name": location.name,
+            "address": location.address,
+            "city": location.city,
+            "state": location.state,
+            "pin_code": location.pin_code,
+            "contact_person": location.contact_person,
+            "contact_phone": location.contact_phone,
+            "operating_hours": location.operating_hours,
+        }
+
+    if branch:
+        resp["branches"] = {
+            "branch_name": branch.branch_name,
+            "branch_code": branch.branch_code,
+            "address_line1": branch.address_line1,
+            "address_line2": branch.address_line2,
+            "city": branch.city,
+            "state": branch.state,
+            "pin_code": branch.pin_code,
+            "site_contact_person": branch.site_contact_person,
+            "site_contact_phone": branch.site_contact_phone,
+            "operating_hours": branch.operating_hours,
+        }
+
+    return resp
+
+
+async def _enrich_pickups(
+    pickups: list, db: AsyncSession
+) -> List[dict]:
+    """Bulk-enrich pickups with location data."""
+    if not pickups:
+        return []
+
+    # Collect unique location IDs
+    location_ids = {p.location_id for p in pickups if p.location_id}
+
+    # Batch-fetch locations
+    locations_map: Dict[str, PickupLocation] = {}
+    if location_ids:
+        result = await db.execute(
+            select(PickupLocation).where(PickupLocation.id.in_(location_ids))
+        )
+        for loc in result.scalars().all():
+            locations_map[loc.id] = loc
+
+    return [
+        _to_response(p, location=locations_map.get(p.location_id))
+        for p in pickups
+    ]
+
+
+async def _enrich_single(pickup, db: AsyncSession) -> dict:
+    """Enrich a single pickup with location + branch data."""
+    location = None
+    branch = None
+
+    if pickup.location_id:
+        result = await db.execute(
+            select(PickupLocation).where(PickupLocation.id == pickup.location_id)
+        )
+        location = result.scalar_one_or_none()
+
+        # Try to find branch from location's enterprise + name match
+        if location:
+            result = await db.execute(
+                select(Branch).where(
+                    Branch.enterprise_id == pickup.enterprise_id,
+                    Branch.branch_name == location.name,
+                ).limit(1)
+            )
+            branch = result.scalar_one_or_none()
+
+    return _to_response(pickup, location=location, branch=branch)
 
 
 @router.get("")
@@ -73,7 +159,7 @@ async def list_pickups(
         await db.commit()
 
         return paginated_response(
-            data=[_to_response(p) for p in pickups],
+            data=await _enrich_pickups(pickups, db),
             page=page,
             page_size=page_size,
             total=total,
@@ -103,7 +189,7 @@ async def list_pending_assignment(
         await db.commit()
 
         return paginated_response(
-            data=[_to_response(p) for p in pickups],
+            data=await _enrich_pickups(pickups, db),
             page=page,
             page_size=page_size,
             total=total,
@@ -133,7 +219,7 @@ async def list_my_assignments(
         await db.commit()
 
         return paginated_response(
-            data=[_to_response(p) for p in pickups],
+            data=await _enrich_pickups(pickups, db),
             page=page,
             page_size=page_size,
             total=total,
@@ -155,10 +241,13 @@ async def create_pickup(
     try:
         pickup = await service.create_pickup(data, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup request created")
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup request created")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
@@ -339,7 +428,7 @@ async def get_pickup(
     if not pickup:
         raise HTTPException(status_code=404, detail="Pickup request not found")
 
-    return success_response(data=_to_response(pickup))
+    return success_response(data=await _enrich_single(pickup, db))
 
 
 @router.put("/{pickup_id}")
@@ -357,7 +446,7 @@ async def update_pickup(
         if not pickup:
             raise HTTPException(status_code=404, detail="Pickup request not found")
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup updated")
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup updated")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -376,10 +465,13 @@ async def assign_to_logistics_admin(
     try:
         pickup = await service.assign_to_logistics_admin(pickup_id, data, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Assigned to logistics admin")
+        return success_response(data=await _enrich_single(pickup, db), message="Assigned to logistics admin")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{pickup_id}/assign-user")
@@ -395,10 +487,13 @@ async def assign_to_logistics_user(
     try:
         pickup = await service.assign_to_logistics_user(pickup_id, data, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Assigned to logistics user")
+        return success_response(data=await _enrich_single(pickup, db), message="Assigned to logistics user")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{pickup_id}/start")
@@ -413,10 +508,13 @@ async def start_pickup(
     try:
         pickup = await service.start_pickup(pickup_id, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup started")
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup started")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{pickup_id}/complete")
@@ -432,10 +530,13 @@ async def complete_pickup(
     try:
         pickup = await service.complete_pickup(pickup_id, data, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup completed")
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup completed")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{pickup_id}/cancel")
@@ -451,7 +552,10 @@ async def cancel_pickup(
     try:
         pickup = await service.cancel_pickup(pickup_id, data.reason, current_user)
         await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup cancelled")
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup cancelled")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

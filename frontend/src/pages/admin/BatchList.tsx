@@ -20,6 +20,7 @@ import { Badge, Dropdown, useToast } from '@/components/ui';
 import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BatchStatus } from '@/types';
 import { getBatchStatusDisplay } from '@/lib/status-display';
@@ -81,7 +82,8 @@ export function BatchList() {
   // Branch filtering: URL query param (from "View Batches" button) or IT Admin branch selector
   const urlBranchId = new URLSearchParams(location.search).get('branch');
   const itBranchCtx = useContext(ITAdminBranchContext);
-  const activeBranchFilter = urlBranchId || itBranchCtx?.selectedBranchId || null;
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = urlBranchId || itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');

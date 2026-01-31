@@ -101,30 +101,31 @@ export const logisticsApi = {
 
   listAdmins: (params: LogisticsAdminListParams = {}) => {
     const query = new URLSearchParams();
+    query.set('role', 'logistics_admin');
     if (params.skip) query.set('skip', params.skip.toString());
     query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
-    return fetchWithAuth<LogisticsAdminResponse[]>(`/logistics/admins?${query.toString()}`);
+    return fetchWithAuth<LogisticsAdminResponse[]>(`/users?${query.toString()}`);
   },
 
   getAdmin: (id: string) =>
-    fetchWithAuth<LogisticsAdminResponse>(`/logistics/admins/${id}`),
+    fetchWithAuth<LogisticsAdminResponse>(`/users/${id}`),
 
   createAdmin: (data: LogisticsAdminCreateRequest) =>
-    fetchWithAuth<LogisticsAdminResponse>('/logistics/admins', {
+    fetchWithAuth<LogisticsAdminResponse>('/users', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, role: 'logistics_admin' }),
     }),
 
   updateAdmin: (id: string, data: LogisticsAdminUpdateRequest) =>
-    fetchWithAuth<LogisticsAdminResponse>(`/logistics/admins/${id}`, {
+    fetchWithAuth<LogisticsAdminResponse>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   deleteAdmin: (id: string) =>
-    fetchWithAuth<void>(`/logistics/admins/${id}`, { method: 'DELETE' }),
+    fetchWithAuth<void>(`/users/${id}`, { method: 'DELETE' }),
 
   /** Get pickups assigned to a logistics admin */
   getAdminPickups: (adminId: string, params: { status?: string; limit?: number } = {}) => {
@@ -141,29 +142,29 @@ export const logisticsApi = {
     const query = new URLSearchParams();
     if (params.skip) query.set('skip', params.skip.toString());
     query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
-    if (params.logistics_admin_id) query.set('logistics_admin_id', params.logistics_admin_id);
+    query.set('role', 'logistics_user');
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
-    return fetchWithAuth<LogisticsUserResponse[]>(`/logistics/users?${query.toString()}`);
+    return fetchWithAuth<LogisticsUserResponse[]>(`/users?${query.toString()}`);
   },
 
   getUser: (id: string) =>
-    fetchWithAuth<LogisticsUserResponse>(`/logistics/users/${id}`),
+    fetchWithAuth<LogisticsUserResponse>(`/users/${id}`),
 
   createUser: (data: LogisticsUserCreateRequest) =>
-    fetchWithAuth<LogisticsUserResponse>('/logistics/users', {
+    fetchWithAuth<LogisticsUserResponse>('/users', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, role: 'logistics_user', parent_user_id: data.logistics_admin_id }),
     }),
 
   updateUser: (id: string, data: LogisticsUserUpdateRequest) =>
-    fetchWithAuth<LogisticsUserResponse>(`/logistics/users/${id}`, {
+    fetchWithAuth<LogisticsUserResponse>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   deleteUser: (id: string) =>
-    fetchWithAuth<void>(`/logistics/users/${id}`, { method: 'DELETE' }),
+    fetchWithAuth<void>(`/users/${id}`, { method: 'DELETE' }),
 
   /** Get pickups assigned to a logistics user (driver) */
   getUserPickups: (userId: string, params: { status?: string; limit?: number } = {}) => {
@@ -177,6 +178,6 @@ export const logisticsApi = {
   /** List available (active) logistics users for assignment */
   listAvailableUsers: (logisticsAdminId: string) =>
     fetchWithAuth<LogisticsUserResponse[]>(
-      `/logistics/users?logistics_admin_id=${logisticsAdminId}&status=active&limit=1000`
+      `/users?role=logistics_user&status=active&limit=1000`
     ),
 };

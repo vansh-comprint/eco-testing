@@ -434,7 +434,7 @@ export function ITAdminInvite() {
                   <select
                     value={invite.branch_id}
                     onChange={(e) => handleChange(index, 'branch_id', e.target.value)}
-                    className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer ${
+                    className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer ${
                       errors[index]?.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-white/10'
                     }`}
                   >

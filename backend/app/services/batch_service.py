@@ -1,14 +1,19 @@
 """Batch service for business logic"""
 
+import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch import Batch, BatchStatus
+from app.models.asset import AssetStatus
+from app.models.logistics import PickupRequest, PickupStatus
 from app.models.user import User, UserRole
 from app.repositories.asset_repository import AssetRepository
 from app.repositories.batch_repository import BatchRepository
+from app.repositories.branch_repository import BranchRepository
+from app.repositories.pickup_repository import PickupRepository, PickupLocationRepository
 from app.schemas.batch import (
     BatchCreate,
     BatchUpdate,
@@ -308,7 +313,11 @@ class BatchService:
     async def process_approval(
         self, batch_id: str, action_data: BatchApprovalAction, processed_by: str
     ) -> BatchResponse:
-        """Process Org Admin approval/rejection with audit logging"""
+        """Process Org Admin approval/rejection with audit logging.
+
+        On approval, automatically creates a pickup request for all verified
+        assets in the batch (no manual pickup step needed).
+        """
         batch = await self.repository.get_by_id(batch_id)
         if not batch:
             raise NotFoundError("Batch", batch_id)
@@ -352,9 +361,182 @@ class BatchService:
             }
         )
 
-        return BatchResponse.model_validate(batch)
+        # --- Auto-create pickup on approval ---
+        if action_data.action == "approve":
+            await self._auto_create_pickup(batch, processed_by)
 
-    async def delete_batch(self, batch_id: str) -> bool:
-        """Delete a batch"""
-        return await self.repository.delete(batch_id)
+        response = BatchResponse.model_validate(batch)
+        # Attach progress stats
+        status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
+        response.progress = self._build_progress(status_counts)
+        return response
+
+    async def _auto_create_pickup(self, batch: Batch, approved_by: str) -> None:
+        """Auto-create a pickup request for verified assets after batch approval.
+
+        Finds verified assets, resolves a pickup location, creates the pickup
+        request, transitions asset statuses to pickup_requested, and advances
+        the batch to pickup_in_progress.
+        """
+        PICKUPABLE_STATUSES = {
+            AssetStatus.CONDITIONALLY_ACCEPTED.value,
+            AssetStatus.READY_FOR_PICKUP.value,
+        }
+
+        # 1. Get all verified assets in this batch
+        status_counts = await self.asset_repository.get_asset_status_counts(batch.id)
+        verified_count = sum(
+            count for status, count in status_counts.items()
+            if status in PICKUPABLE_STATUSES
+        )
+        if verified_count == 0:
+            return  # Nothing to pick up
+
+        # Get actual asset records
+        verified_assets = await self.asset_repository.get_assets_by_batch_and_statuses(
+            batch.id, list(PICKUPABLE_STATUSES)
+        )
+        if not verified_assets:
+            return
+
+        asset_ids = [a.id for a in verified_assets]
+
+        # 2. Resolve pickup location from branch
+        location_repo = PickupLocationRepository(self.db)
+        if batch.branch_id:
+            branch_repo = BranchRepository(self.db)
+            branch = await branch_repo.get_by_id(batch.branch_id)
+            if branch:
+                location = await location_repo.get_or_create_from_branch(branch)
+            else:
+                location = None
+        else:
+            # Fallback: use default enterprise location if no branch set
+            location = await location_repo.get_default_for_enterprise(batch.enterprise_id)
+            if not location:
+                locations, _ = await location_repo.list_by_enterprise(batch.enterprise_id)
+                location = locations[0] if locations else None
+        if not location:
+            # No branch or pickup location — batch stays approved, pickup must
+            # be created manually once a branch/location is set up.
+            return
+
+        # 3. Build assets summary
+        assets_summary = [
+            {
+                "id": a.id,
+                "serial_number": a.serial_number,
+                "brand": a.brand,
+                "model": a.model,
+            }
+            for a in verified_assets
+        ]
+
+        # 4. Create pickup request
+        pickup_repo = PickupRepository(self.db)
+        pickup = PickupRequest(
+            id=f"pr-{uuid.uuid4()}",
+            enterprise_id=batch.enterprise_id,
+            location_id=location.id,
+            batch_id=batch.id,
+            asset_ids=asset_ids,
+            assets=assets_summary,
+            preferred_date=batch.preferred_pickup_date,
+            preferred_time_slot=batch.preferred_pickup_slot or "morning",
+            special_instructions=batch.logistics_instructions,
+            status=PickupStatus.PENDING.value,
+        )
+        await pickup_repo.create(pickup)
+
+        # 5. Transition asset statuses to pickup_requested
+        for asset in verified_assets:
+            asset.status = AssetStatus.PICKUP_REQUESTED.value
+
+        # 6. Advance batch to pickup_in_progress
+        batch.status = BatchStatus.PICKUP_IN_PROGRESS.value
+        await self.db.flush()
+
+        # Log auto-pickup creation
+        audit = AuditService(self.db)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup.id,
+            old_status="(new)",
+            new_status=PickupStatus.PENDING.value,
+            user_id=approved_by,
+            enterprise_id=batch.enterprise_id,
+            branch_id=batch.branch_id,
+            details=f"Auto-created pickup for {len(asset_ids)} verified assets on batch approval",
+            metadata={
+                "batch_id": batch.id,
+                "batch_name": batch.name,
+                "asset_count": len(asset_ids),
+            }
+        )
+
+    async def delete_batch(
+        self,
+        batch_id: str,
+        delete_assets: bool = False,
+        delete_sub_users: bool = False,
+    ) -> bool:
+        """Delete a batch, optionally cascading to assets and employee users.
+
+        Args:
+            batch_id: ID of batch to delete
+            delete_assets: If True, delete all assets in this batch
+            delete_sub_users: If True, delete employee users assigned to batch assets
+        """
+        from sqlalchemy import select, delete as sql_delete
+        from app.models.asset import Asset
+        from app.models.user import User
+
+        batch = await self.repository.get_by_id(batch_id)
+        if not batch:
+            raise NotFoundError("Batch", batch_id)
+
+        # Get assets in this batch (needed for sub-user deletion and asset deletion)
+        assets = []
+        if delete_assets or delete_sub_users:
+            result = await self.db.execute(
+                select(Asset).where(Asset.batch_id == batch_id)
+            )
+            assets = list(result.scalars().all())
+
+        # Delete employee users assigned to these assets
+        if delete_sub_users and assets:
+            employee_ids = {
+                a.assigned_to_user_id for a in assets
+                if a.assigned_to_user_id
+            }
+            if employee_ids:
+                # Unassign assets first to avoid FK issues
+                for asset in assets:
+                    asset.assigned_to_user_id = None
+                await self.db.flush()
+
+                # Delete employee users
+                await self.db.execute(
+                    sql_delete(User).where(
+                        User.id.in_(employee_ids),
+                        User.role == "employee",
+                    )
+                )
+
+        # Delete assets in this batch
+        if delete_assets and assets:
+            for asset in assets:
+                await self.db.delete(asset)
+
+        # Delete any pickup requests tied to this batch
+        result = await self.db.execute(
+            select(PickupRequest).where(PickupRequest.batch_id == batch_id)
+        )
+        for pickup in result.scalars().all():
+            await self.db.delete(pickup)
+
+        # Delete the batch itself
+        await self.db.delete(batch)
+        await self.db.commit()
+        return True
 

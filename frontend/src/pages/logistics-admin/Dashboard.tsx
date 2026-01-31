@@ -15,15 +15,15 @@ export function LogisticsAdminDashboard() {
 
   // V3: Calculate summary from pickup requests - use snake_case field names
   const summary = {
-    pendingAssignment: pickupRequests.filter(r => r.status === 'pending_assignment').length,
-    assigned: pickupRequests.filter(r => r.status === 'assigned').length,
+    pendingAssignment: pickupRequests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length,
+    assigned: pickupRequests.filter(r => r.status === 'assigned_to_logistics_user').length,
     inProgress: pickupRequests.filter(r => r.status === 'in_progress').length,
     completed: pickupRequests.filter(r => r.status === 'completed').length,
   };
 
   const upcoming = useMemo(() => {
     return [...pickupRequests]
-      .filter(r => ['pending_assignment', 'assigned', 'scheduled'].includes(r.status))
+      .filter(r => ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled'].includes(r.status))
       .sort((a, b) => {
         const aDate = a.preferred_date ? new Date(a.preferred_date).getTime() : 0;
         const bDate = b.preferred_date ? new Date(b.preferred_date).getTime() : 0;
@@ -134,11 +134,14 @@ export function LogisticsAdminDashboard() {
 
 function StatusChip({ status }: { status: string }) {
   const map: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'info' | 'primary' }> = {
-    pending_assignment: { label: 'Pending', variant: 'warning' },
-    assigned: { label: 'Assigned', variant: 'info' },
+    pending: { label: 'Pending', variant: 'warning' },
+    assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info' },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info' },
     scheduled: { label: 'Scheduled', variant: 'info' },
     in_progress: { label: 'In Progress', variant: 'primary' },
     completed: { label: 'Completed', variant: 'success' },
+    failed: { label: 'Failed', variant: 'warning' },
+    cancelled: { label: 'Cancelled', variant: 'default' },
   };
   const config = map[status] || { label: status, variant: 'default' as const };
 

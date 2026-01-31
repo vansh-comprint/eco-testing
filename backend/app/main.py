@@ -43,6 +43,21 @@ async def lifespan(app: FastAPI):
     # Initialize database (optional - Alembic handles migrations)
     # await init_db()
 
+    # Cleanup expired token blacklist entries on startup
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+
+        async with AsyncSessionLocal() as session:
+            repo = TokenBlacklistRepository(session)
+            count = await repo.cleanup_expired()
+            await session.commit()
+            if count > 0:
+                logger.info(f"Cleaned up {count} expired token blacklist entries")
+    except Exception as e:
+        # Non-fatal: table might not exist yet if migration hasn't run
+        logger.warning(f"Token blacklist cleanup skipped: {e}")
+
     yield
 
     # Shutdown
@@ -242,6 +257,7 @@ from app.api.v1 import (
     pricing,
     analytics,
     dashboard,
+    epr_certificates,
 )
 
 app.include_router(auth.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["Authentication"])
@@ -269,6 +285,11 @@ app.include_router(
 )
 app.include_router(
     dashboard.router, prefix=f"{settings.api_v1_prefix}/dashboard", tags=["Dashboard"]
+)
+app.include_router(
+    epr_certificates.router,
+    prefix=f"{settings.api_v1_prefix}/epr-certificates",
+    tags=["EPR Certificates"],
 )
 
 # Mount static files for local storage (development only)

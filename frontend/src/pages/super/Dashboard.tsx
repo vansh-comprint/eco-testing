@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, IndianRupee, Shield, Plus, FileText, Settings, BarChart3, UserPlus, Truck, Laptop } from 'lucide-react';
+import { Building2, Users, IndianRupee, Shield, Plus, FileText, Settings, BarChart3, UserPlus, Truck, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
@@ -14,6 +14,8 @@ export function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isLogisticsAdminModalOpen, setIsLogisticsAdminModalOpen] = useState(false);
+  const [adminPage, setAdminPage] = useState(1);
+  const ADMIN_PAGE_SIZE = 5;
 
   // Real-time data from REST API
   const [enterpriseCount, setEnterpriseCount] = useState(0);
@@ -108,27 +110,42 @@ export function SuperAdminDashboard() {
         subtitle="Platform-wide management"
         actions={
           <div className="flex gap-2">
-            <button
-              onClick={() => setIsOpsAdminModalOpen(true)}
-              className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center group"
-              title="Add OPS Admin"
-            >
-              <UserPlus className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
-            </button>
-            <button
-              onClick={() => setIsLogisticsAdminModalOpen(true)}
-              className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center group"
-              title="Add Logistics Admin"
-            >
-              <Truck className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
-            </button>
-            <button
-              onClick={() => navigate('/super/enterprises/create')}
-              className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center group"
-              title="Add Enterprise"
-            >
-              <Building2 className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
-            </button>
+            <div className="relative group">
+              <button
+                onClick={() => setIsOpsAdminModalOpen(true)}
+                className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center"
+                title="Add OPS Admin"
+              >
+                <UserPlus className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
+              </button>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono text-[10px] uppercase tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Add OPS Admin
+              </span>
+            </div>
+            <div className="relative group">
+              <button
+                onClick={() => setIsLogisticsAdminModalOpen(true)}
+                className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center"
+                title="Add Logistics Admin"
+              >
+                <Truck className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
+              </button>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono text-[10px] uppercase tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Add Logistics
+              </span>
+            </div>
+            <div className="relative group">
+              <button
+                onClick={() => navigate('/super/enterprises/create')}
+                className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center"
+                title="Add Enterprise"
+              >
+                <Building2 className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
+              </button>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono text-[10px] uppercase tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Add Enterprise
+              </span>
+            </div>
           </div>
         }
       />
@@ -151,8 +168,17 @@ export function SuperAdminDashboard() {
           transition={{ delay: 0.2 }}
           className={`lg:col-span-2 ${glass.subtle}`}
         >
-          <div className="p-6 border-b border-slate-200/80 dark:border-zinc-800">
-            <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>Admin Users</h2>
+          <div className="p-6 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+            <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
+              Admin Users {admins.length > 0 && <span className={`font-mono text-sm ${text.muted} ml-2`}>({admins.length})</span>}
+            </h2>
+          </div>
+          {/* Column Headers */}
+          <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-4 py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Name</span>
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Email</span>
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right`}>Role</span>
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right w-16`}>Status</span>
           </div>
           <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
             {admins.length === 0 ? (
@@ -160,36 +186,54 @@ export function SuperAdminDashboard() {
                 <p className={`font-mono text-sm ${text.muted}`}>No admin users yet</p>
               </div>
             ) : (
-              admins.map((admin, index) => (
-                <motion.div
+              admins.slice((adminPage - 1) * ADMIN_PAGE_SIZE, adminPage * ADMIN_PAGE_SIZE).map((admin, index) => (
+                <div
                   key={admin.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * index }}
-                  className={`flex items-center justify-between p-4 ${hoverStyles.row}`}
+                  className={`grid grid-cols-[1fr_1fr_auto_auto] gap-4 items-center px-4 py-3 ${hoverStyles.row}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-12 h-12 border border-lime-500/30 dark:border-lime-400/20 bg-lime-50/80 dark:bg-lime-500/10 flex items-center justify-center font-brand font-bold text-lime-700 dark:text-lime-400">
-                        {admin.name?.split(' ').map((n: string) => n[0]).join('') || admin.email[0].toUpperCase()}
-                      </div>
-                      <span className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white dark:border-zinc-900 bg-emerald-500" />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 flex-shrink-0 border border-lime-500/30 dark:border-lime-400/20 bg-lime-50/80 dark:bg-lime-500/10 flex items-center justify-center font-brand font-bold text-xs text-lime-700 dark:text-lime-400">
+                      {admin.name?.split(' ').map((n: string) => n[0]).join('') || admin.email[0].toUpperCase()}
                     </div>
-                    <div>
-                      <p className={`font-display font-bold text-sm uppercase ${text.primary}`}>{admin.name || 'Admin User'}</p>
-                      <p className={`font-mono text-xs ${text.muted}`}>{admin.email}</p>
-                    </div>
+                    <p className={`font-display font-bold text-sm uppercase truncate ${text.primary}`}>{admin.name || 'Admin User'}</p>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant={admin.role === 'super_admin' ? 'info' : 'default'} size="sm">
-                      {admin.role.replace('_', ' ')}
-                    </Badge>
-                    <span className={`font-mono text-xs ${text.muted}`}>Active</span>
-                  </div>
-                </motion.div>
+                  <p className={`font-mono text-xs truncate ${text.muted}`}>{admin.email}</p>
+                  <Badge variant={admin.role === 'super_admin' ? 'info' : 'default'} size="sm">
+                    {admin.role.replace('_', ' ')}
+                  </Badge>
+                  <span className={`font-mono text-xs ${text.muted} text-right w-16`}>
+                    {admin.status === 'active' ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">Active</span>
+                    ) : (
+                      <span className="text-slate-400 dark:text-zinc-500">{admin.status || 'Active'}</span>
+                    )}
+                  </span>
+                </div>
               ))
             )}
           </div>
+          {/* Pagination */}
+          {admins.length > ADMIN_PAGE_SIZE && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
+              <button
+                onClick={() => setAdminPage(p => Math.max(1, p - 1))}
+                disabled={adminPage === 1}
+                className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400`}
+              >
+                <ChevronLeft className="w-3 h-3" /> Prev
+              </button>
+              <span className={`font-mono text-xs ${text.muted}`}>
+                Page {adminPage} of {Math.ceil(admins.length / ADMIN_PAGE_SIZE)}
+              </span>
+              <button
+                onClick={() => setAdminPage(p => Math.min(Math.ceil(admins.length / ADMIN_PAGE_SIZE), p + 1))}
+                disabled={adminPage >= Math.ceil(admins.length / ADMIN_PAGE_SIZE)}
+                className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400`}
+              >
+                Next <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* System Status */}

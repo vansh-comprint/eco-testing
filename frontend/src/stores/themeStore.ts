@@ -15,6 +15,8 @@ interface ThemeState {
 const applyTheme = (theme: Theme) => {
   const html = document.documentElement;
   const body = document.body;
+  // Set color-scheme so native form controls (select arrows, date pickers, number spinners) match the theme
+  html.style.colorScheme = theme;
   if (theme === 'dark') {
     html.classList.add('dark');
     html.classList.remove('light');

@@ -4,55 +4,29 @@
  * Migrated from legacy BatchApprovals to React Query
  */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileCheck,
   Search,
-  Building2,
   CheckCircle,
   XCircle,
   Clock,
   Eye,
   Send,
-  Laptop,
   Truck,
   MapPin,
   Calendar,
   Loader2,
-  User,
   Package
 } from 'lucide-react';
-import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useApiError } from '@/hooks';
-import { batchesApi } from '@/lib/api/batches';
+import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useRejectBatch, useApiError } from '@/hooks';
 import { ConfirmationModal } from '@/components/ui';
+import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
 import { safeNumber } from '@/utils/formatters';
 
 type ApprovalFilter = 'pending' | 'approved' | 'rejected' | 'all';
 
-// V3: Process batch approval/rejection via REST API
-async function processBatchApproval(data: {
-  batch_id: string;
-  approved: boolean;
-  rejection_reason?: string;
-  approved_by: string;
-  notes?: string;
-}) {
-  if (data.approved) {
-    const response = await batchesApi.approve(data.batch_id, data.notes);
-    if (!response.success) throw new Error(response.error?.message || 'Failed to approve batch');
-  } else {
-    const response = await batchesApi.reject(data.batch_id, data.rejection_reason || 'Rejected', data.notes);
-    if (!response.success) throw new Error(response.error?.message || 'Failed to reject batch');
-  }
-
-  return { success: true };
-}
-
 export function PickupApprovals() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   // V3: Use React Query hook for auth
   const { user, enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
@@ -62,16 +36,8 @@ export function PickupApprovals() {
   const { data: batches = [], isLoading: batchesLoading } = useBatches(enterpriseId);
   const { data: assets = [] } = useAssets(enterpriseId);
 
-  // V3: Approval mutation
-  const approvalMutation = useMutation({
-    mutationFn: processBatchApproval,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
-    },
-    onError: (error) => {
-      handleError(error, 'Processing batch decision');
-    },
-  });
+  // V3: Use proper React Query hooks for approval/rejection
+  const rejectBatchMutation = useRejectBatch();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApprovalFilter>('pending');
@@ -127,8 +93,8 @@ export function PickupApprovals() {
   const filteredBatches = pendingBatches
     .filter(b => {
       if (statusFilter === 'pending') return b.status === 'pending_approval';
-      if (statusFilter === 'approved') return b.approval_status === 'approved';
-      if (statusFilter === 'rejected') return b.approval_status === 'rejected';
+      if (statusFilter === 'approved') return b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed';
+      if (statusFilter === 'rejected') return b.status === 'rejected';
       return true;
     })
     .filter(b =>
@@ -139,8 +105,17 @@ export function PickupApprovals() {
     return assets.filter(a => a.batch_id === batchId);
   }
 
+  function getVerifiedAssets(batchId: string) {
+    return assets.filter(a =>
+      a.batch_id === batchId &&
+      (a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup')
+    );
+  }
+
   const selectedBatchData = selectedBatch ? batches.find(b => b.id === selectedBatch) : null;
   const batchAssets = selectedBatchData ? getBatchAssets(selectedBatchData.id) : [];
+  const verifiedAssets = selectedBatchData ? getVerifiedAssets(selectedBatchData.id) : [];
+  const nonVerifiedCount = batchAssets.length - verifiedAssets.length;
 
   const handleSubmitDecision = async () => {
     if (!selectedBatch || !decision || !user) return;
@@ -170,13 +145,11 @@ export function PickupApprovals() {
           showSuccess('Batch Approved', 'The batch has been approved successfully.');
         }
       } else {
-        // Use standard rejection mutation
-        await approvalMutation.mutateAsync({
-          batch_id: selectedBatch,
-          approved: false,
-          rejection_reason: rejectionReason,
-          approved_by: user.id,
-          notes: notes || undefined,
+        // Use proper React Query hook for rejection
+        await rejectBatchMutation.mutateAsync({
+          batchId: selectedBatch,
+          rejectedBy: user.id,
+          reason: rejectionReason || 'Rejected',
         });
         setSuccessMessage('Batch rejected. IT Admin will be notified.');
         showSuccess('Batch Rejected', 'IT Admin has been notified of the rejection.');
@@ -215,8 +188,8 @@ export function PickupApprovals() {
   // Stats
   const stats = {
     pending: pendingBatches.filter(b => b.status === 'pending_approval').length,
-    approved: pendingBatches.filter(b => b.approval_status === 'approved').length,
-    rejected: pendingBatches.filter(b => b.approval_status === 'rejected').length,
+    approved: pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
+    rejected: pendingBatches.filter(b => b.status === 'rejected').length,
     totalValue: pendingBatches
       .filter(b => b.status === 'pending_approval')
       .reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
@@ -383,16 +356,16 @@ export function PickupApprovals() {
                   <div className="p-5">
                     <div className="flex items-start gap-4">
                       <div className={`w-14 h-14 border flex items-center justify-center flex-shrink-0 ${
-                        batch.approval_status === 'approved'
+                        batch.status === 'approved' || batch.status === 'pickup_in_progress' || batch.status === 'completed'
                           ? 'border-emerald-400/30 bg-emerald-400/10'
-                          : batch.approval_status === 'rejected'
+                          : batch.status === 'rejected'
                           ? 'border-red-400/30 bg-red-400/10'
                           : 'border-amber-400/30 bg-amber-400/10'
                       }`}>
                         <Truck className={`w-7 h-7 ${
-                          batch.approval_status === 'approved'
+                          batch.status === 'approved' || batch.status === 'pickup_in_progress' || batch.status === 'completed'
                             ? 'text-emerald-400'
-                            : batch.approval_status === 'rejected'
+                            : batch.status === 'rejected'
                             ? 'text-red-400'
                             : 'text-amber-400'
                         }`} />
@@ -410,13 +383,18 @@ export function PickupApprovals() {
                             )}
                           </div>
                           <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${
-                            batch.approval_status === 'approved'
+                            batch.status === 'approved' || batch.status === 'pickup_in_progress' || batch.status === 'completed'
                               ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
-                              : batch.approval_status === 'rejected'
+                              : batch.status === 'rejected'
                               ? 'border-red-400/30 bg-red-400/10 text-red-400'
                               : 'border-amber-400/30 bg-amber-400/10 text-amber-400'
                           }`}>
-                            {batch.approval_status || 'Pending'}
+                            {batch.status === 'pending_approval' ? 'Pending'
+                              : batch.status === 'approved' ? 'Approved'
+                              : batch.status === 'pickup_in_progress' ? 'Pickup In Progress'
+                              : batch.status === 'completed' ? 'Completed'
+                              : batch.status === 'rejected' ? 'Rejected'
+                              : batch.status}
                           </span>
                         </div>
 
@@ -543,26 +521,35 @@ export function PickupApprovals() {
                 )}
 
                 {/* Batch Summary */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Total Assets</p>
-                    <p className="font-brand font-bold text-2xl text-slate-900 dark:text-white">{batchAssets.length}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                    <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase mb-1">Total Assets</p>
+                    <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{batchAssets.length}</p>
                   </div>
-                  <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">Estimated Value</p>
-                    <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+                  <div className="p-3 border border-emerald-400/30 bg-emerald-400/5">
+                    <p className="font-mono text-[10px] text-emerald-500 dark:text-emerald-400 uppercase mb-1">Verified</p>
+                    <p className="font-brand font-bold text-xl text-emerald-500 dark:text-emerald-400">{verifiedAssets.length}</p>
+                  </div>
+                  <div className="p-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                    <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase mb-1">Est. Value</p>
+                    <p className="font-brand font-bold text-xl text-ecotribe-primary">
                       {selectedBatchData.estimated_value
-                        ? `₹${selectedBatchData.estimated_value.toLocaleString()}`
+                        ? `₹${(selectedBatchData.estimated_value / 1000).toFixed(0)}K`
                         : '—'
                       }
                     </p>
                   </div>
                 </div>
 
-                {/* V3.2: Asset Pricing Table */}
+                {/* Progress Bar */}
+                {selectedBatchData.progress && (
+                  <BatchProgressBar progress={selectedBatchData.progress} compact />
+                )}
+
+                {/* V3.2: Asset Pricing Table — Verified Assets Only */}
                 <div>
                   <p className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3">
-                    Assets
+                    Verified Assets for Pickup ({verifiedAssets.length})
                   </p>
                   <div className="border border-slate-200 dark:border-white/10 overflow-hidden">
                     {/* Table Header */}
@@ -573,7 +560,7 @@ export function PickupApprovals() {
                     </div>
                     {/* Table Body */}
                     <div className="max-h-64 overflow-y-auto divide-y divide-slate-200 dark:divide-white/5">
-                      {batchAssets.map((asset) => (
+                      {verifiedAssets.map((asset) => (
                         <div key={asset.id} className="grid grid-cols-[1fr_1fr_120px] gap-2 p-3 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                           <div>
                             <p className="font-display text-sm text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
@@ -601,14 +588,22 @@ export function PickupApprovals() {
                           </div>
                         </div>
                       ))}
-                      {batchAssets.length === 0 && (
+                      {verifiedAssets.length === 0 && (
                         <div className="p-6 text-center">
-                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">No assets in this batch</p>
+                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">No verified assets in this batch</p>
                         </div>
                       )}
                     </div>
+                    {/* Note about non-verified assets */}
+                    {nonVerifiedCount > 0 && (
+                      <div className="px-3 py-2 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-200 dark:border-white/10">
+                        <p className="font-mono text-[10px] text-slate-400 dark:text-white/30">
+                          {nonVerifiedCount} other asset{nonVerifiedCount !== 1 ? 's' : ''} still in progress (not shown)
+                        </p>
+                      </div>
+                    )}
                     {/* Table Footer - Total */}
-                    {batchAssets.length > 0 && selectedBatchData?.status === 'pending_approval' && (
+                    {verifiedAssets.length > 0 && selectedBatchData?.status === 'pending_approval' && (
                       <div className="grid grid-cols-[1fr_1fr_120px] gap-2 p-3 bg-slate-100 dark:bg-white/[0.04] border-t border-slate-200 dark:border-white/10">
                         <p className="font-mono font-bold text-xs text-slate-700 dark:text-white/70 uppercase col-span-2">Total</p>
                         <p className="font-mono font-bold text-sm text-ecotribe-primary text-right">
@@ -724,20 +719,20 @@ export function PickupApprovals() {
                 ) : (
                   /* Already Decided */
                   <div className={`p-4 border ${
-                    selectedBatchData.approval_status === 'approved'
+                    selectedBatchData.status === 'approved'
                       ? 'border-emerald-400/30 bg-emerald-400/10'
                       : 'border-red-400/30 bg-red-400/10'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      {selectedBatchData.approval_status === 'approved' ? (
+                      {selectedBatchData.status === 'approved' ? (
                         <CheckCircle className="w-5 h-5 text-emerald-400" />
                       ) : (
                         <XCircle className="w-5 h-5 text-red-400" />
                       )}
                       <span className={`font-mono font-bold text-sm uppercase ${
-                        selectedBatchData.approval_status === 'approved' ? 'text-emerald-400' : 'text-red-400'
+                        selectedBatchData.status === 'approved' ? 'text-emerald-400' : 'text-red-400'
                       }`}>
-                        {selectedBatchData.approval_status}
+                        {selectedBatchData.status === 'approved' ? 'Approved' : 'Rejected'}
                       </span>
                     </div>
                     {selectedBatchData.rejection_reason && (
@@ -780,7 +775,7 @@ export function PickupApprovals() {
         title={decision === 'approve' ? 'Approve Batch for Pickup?' : 'Reject Batch?'}
         description={
           decision === 'approve'
-            ? `Approving this batch will initiate a pickup request. ${batchAssets.length} asset${batchAssets.length !== 1 ? 's' : ''}${calculateTotal() > 0 ? ` worth ₹${calculateTotal().toLocaleString('en-IN')}` : ''} will be scheduled for collection.`
+            ? `Approving this batch will initiate a pickup request for ${verifiedAssets.length} verified asset${verifiedAssets.length !== 1 ? 's' : ''}${calculateTotal() > 0 ? ` worth ₹${calculateTotal().toLocaleString('en-IN')}` : ''}.${nonVerifiedCount > 0 ? ` ${nonVerifiedCount} other asset${nonVerifiedCount !== 1 ? 's' : ''} still in progress will not be included.` : ''}`
             : 'This batch will be returned to the IT Admin with your feedback. They can modify and resubmit.'
         }
         confirmText={decision === 'approve' ? 'Approve & Initiate Pickup' : 'Reject Batch'}
@@ -791,7 +786,7 @@ export function PickupApprovals() {
                 <span className="text-slate-400 dark:text-white/40">Batch:</span> {selectedBatchData.name}
               </p>
               <p className="font-mono text-xs text-slate-500 dark:text-white/60">
-                <span className="text-slate-400 dark:text-white/40">Assets:</span> {batchAssets.length}
+                <span className="text-slate-400 dark:text-white/40">Verified Assets:</span> {verifiedAssets.length} of {batchAssets.length}
               </p>
               {calculateTotal() > 0 && (
                 <p className="font-mono text-xs text-slate-500 dark:text-white/60">

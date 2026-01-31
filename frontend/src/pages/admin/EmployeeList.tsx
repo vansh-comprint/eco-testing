@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth, useSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { formatDistanceToNow } from 'date-fns';
 
 type SubUserStatus = 'active' | 'pending_invite' | 'inactive';
@@ -47,7 +48,8 @@ export function EmployeeList() {
   const userId = user?.id || '';
 
   const itBranchCtx = useContext(ITAdminBranchContext);
-  const activeBranchFilter = itBranchCtx?.selectedBranchId || null;
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   // Determine if org admin context
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
@@ -254,7 +256,7 @@ export function EmployeeList() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[140px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer min-w-[140px]"
             >
               {STATUS_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
@@ -263,7 +265,7 @@ export function EmployeeList() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[160px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer min-w-[160px]"
             >
               {DEPARTMENT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>

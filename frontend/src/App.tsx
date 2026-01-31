@@ -26,7 +26,7 @@ import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check
 import { ReviewDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/review';
 import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications } from '@/pages/ops';
 // V3: Org Admin pages
-import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite } from '@/pages/org-admin';
+import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite, EnterpriseAssets, EnterpriseBatches, EnterpriseEmployees, EnterprisePickups, EnterpriseDisputes, OrgAdminSettings } from '@/pages/org-admin';
 import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Enterprises, Admins, Logistics, Pickups as SuperPickups, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
 import { PrivacyPolicy, TermsOfService, CookiePolicy } from '@/pages/legal/LegalPage';
 import { LogisticsAdminDashboard, LogisticsAssignmentQueue, LogisticsUserManagement } from '@/pages/logistics-admin';
@@ -77,25 +77,42 @@ const opsEnterpriseNavItems = [
   { label: 'Disputes', path: '/ops/disputes', icon: <DisputeIcon /> },
 ];
 
-// Org Admin nav items
+// Org Admin nav items - grouped enterprise-level views
 const orgAdminNavItems = [
   { label: 'Dashboard', path: '/org-admin', icon: <DashboardIcon /> },
-  { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon /> },
-  { label: 'IT Admins', path: '/org-admin/it-admins', icon: <UsersIcon /> },
-  { label: 'Pickup Approvals', path: '/org-admin/approvals', icon: <BatchIcon /> },
-  { label: 'Wallet', path: '/org-admin/wallet', icon: <PayoutIcon /> },
-  { label: 'Reports', path: '/org-admin/reports', icon: <ReportIcon /> },
-  { label: 'EPR Certificates', path: '/org-admin/epr', icon: <DocumentIcon /> },
+  { label: 'Organization', path: '/org-admin/branches', icon: <EnterpriseIcon />, children: [
+    { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon /> },
+    { label: 'IT Admins', path: '/org-admin/it-admins', icon: <UsersIcon /> },
+    { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon /> },
+    { label: 'Settings', path: '/org-admin/settings', icon: <SettingsIcon /> },
+  ]},
+  { label: 'Assets & Batches', path: '/org-admin/enterprise-assets', icon: <AssetIcon />, children: [
+    { label: 'Assets', path: '/org-admin/enterprise-assets', icon: <AssetIcon /> },
+    { label: 'Batches', path: '/org-admin/enterprise-batches', icon: <BatchIcon /> },
+    { label: 'Pickup Approvals', path: '/org-admin/approvals', icon: <BatchIcon /> },
+  ]},
+  { label: 'Logistics', path: '/org-admin/enterprise-pickups', icon: <TruckIcon />, children: [
+    { label: 'Pickups', path: '/org-admin/enterprise-pickups', icon: <TruckIcon /> },
+    { label: 'Disputes', path: '/org-admin/enterprise-disputes', icon: <DisputeIcon /> },
+  ]},
+  { label: 'Finance', path: '/org-admin/wallet', icon: <PayoutIcon />, children: [
+    { label: 'Wallet', path: '/org-admin/wallet', icon: <PayoutIcon /> },
+    { label: 'Reports', path: '/org-admin/reports', icon: <ReportIcon /> },
+    { label: 'EPR Certificates', path: '/org-admin/epr', icon: <DocumentIcon /> },
+  ]},
 ];
 
-// IT Admin nav items for Org Admin toggle view (Org Admin has ALL IT Admin capabilities)
+// Branch Operations toggle - full IT Admin capabilities scoped to selected branch
 const orgAdminITViewNavItems = [
-  { label: 'All Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
-  { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
+  { label: 'Branch Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
+  { label: 'Add Asset', path: '/org-admin/assets/new', icon: <SubmitIcon /> },
+  { label: 'Upload Assets', path: '/org-admin/assets/upload', icon: <AssetIcon /> },
+  { label: 'Branch Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
+  { label: 'Create Batch', path: '/org-admin/batches/new', icon: <BatchIcon /> },
+  { label: 'Branch Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
+  { label: 'Branch Pickups', path: '/org-admin/pickups', icon: <TruckIcon /> },
+  { label: 'Branch Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
   { label: 'My Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon /> },
-  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
-  { label: 'Pickup Requests', path: '/org-admin/pickups', icon: <TruckIcon /> },
-  { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
   { label: 'Payouts', path: '/org-admin/payouts', icon: <PayoutIcon /> },
 ];
 
@@ -138,11 +155,20 @@ function App() {
   );
 }
 
+/** Nav item type for sidebar */
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+  badge?: number;
+  children?: NavItem[];
+}
+
 /** Apply badge counts to a static nav items array */
-function withBadges(items: typeof itAdminNavItems, badges: ReturnType<typeof useSidebarBadges>): typeof itAdminNavItems {
+function withBadges(items: NavItem[], badges: ReturnType<typeof useSidebarBadges>): NavItem[] {
   return items.map(item => {
     const badge = getBadgeForPath(badges, item.path);
-    const result = badge ? { ...item, badge } : { ...item };
+    const result: NavItem = badge ? { ...item, badge } : { ...item };
     if (item.children) {
       result.children = withBadges(item.children, badges);
     }
@@ -295,10 +321,17 @@ function AppRoutes() {
             <Route path="wallet" element={<CreditsWallet />} />
             <Route path="reports" element={<FinancialReports />} />
             <Route path="epr" element={<EPRCertificates />} />
-            {/* IT Admin View Routes (via toggle) - Org Admin has ALL IT Admin capabilities */}
+            <Route path="settings" element={<OrgAdminSettings />} />
+            {/* Enterprise-level overview pages */}
+            <Route path="enterprise-assets" element={<EnterpriseAssets />} />
+            <Route path="enterprise-batches" element={<EnterpriseBatches />} />
+            <Route path="enterprise-employees" element={<EnterpriseEmployees />} />
+            <Route path="enterprise-pickups" element={<EnterprisePickups />} />
+            <Route path="enterprise-disputes" element={<EnterpriseDisputes />} />
+            {/* Branch Operations routes (IT Admin CRUD via toggle) */}
             <Route path="assets" element={<AssetList />} />
             <Route path="assets/new" element={<AddAsset />} />
-            <Route path="assets/add" element={<AddAsset />} /> {/* Alias for /new */}
+            <Route path="assets/add" element={<AddAsset />} />
             <Route path="assets/upload" element={<UploadAssets />} />
             <Route path="assets/:assetId" element={<AssetDetail />} />
             <Route path="batches" element={<BatchList />} />
@@ -318,8 +351,6 @@ function AppRoutes() {
             <Route path="disputes" element={<DisputeList />} />
             <Route path="disputes/:disputeId" element={<DisputeDetail />} />
             <Route path="payouts" element={<PayoutView />} />
-            <Route path="reviews" element={<PlaceholderPage title="Asset Reviews" />} />
-            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Logistics Admin Routes */}

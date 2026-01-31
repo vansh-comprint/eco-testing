@@ -25,8 +25,8 @@ export function ITAdminLogistics() {
 
   // V3: Calculate summary from data
   const summary = useMemo(() => {
-    const pendingAssignment = pickupRequests.filter(r => r.status === 'pending_assignment').length;
-    const assigned = pickupRequests.filter(r => r.status === 'assigned').length;
+    const pendingAssignment = pickupRequests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
+    const assigned = pickupRequests.filter(r => r.status === 'assigned_to_logistics_user').length;
     const scheduled = pickupRequests.filter(r => r.status === 'scheduled').length;
     const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
     const completed = pickupRequests.filter(r => r.status === 'completed').length;
@@ -36,7 +36,7 @@ export function ITAdminLogistics() {
   // V3: Get upcoming pickups with snake_case
   const upcoming = useMemo(() => {
     return [...pickupRequests]
-      .filter(r => ['pending_assignment', 'assigned', 'scheduled', 'in_progress'].includes(r.status))
+      .filter(r => ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress'].includes(r.status))
       .sort((a, b) => {
         const aDate = a.preferred_date ? new Date(a.preferred_date).getTime() : 0;
         const bDate = b.preferred_date ? new Date(b.preferred_date).getTime() : 0;
@@ -261,8 +261,9 @@ export function ITAdminLogistics() {
 
 function StatusChip({ status }: { status: string }) {
   const map: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'info' | 'primary' }> = {
-    pending_assignment: { label: 'Pending', variant: 'warning' },
-    assigned: { label: 'Assigned', variant: 'info' },
+    pending: { label: 'Pending', variant: 'warning' },
+    assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info' },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info' },
     scheduled: { label: 'Scheduled', variant: 'info' },
     in_progress: { label: 'In Progress', variant: 'primary' },
     completed: { label: 'Completed', variant: 'success' },

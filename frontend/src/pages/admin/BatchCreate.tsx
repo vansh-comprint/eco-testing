@@ -13,6 +13,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useAuth, useCreateBatch, useBranches, useBranchesByITAdmin, useApiError } from '@/hooks';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { BranchSelector } from '@/components/ui';
 
 export function BatchCreate() {
@@ -36,11 +37,12 @@ export function BatchCreate() {
   // V3: React Query mutation for batch creation
   const createBatchMutation = useCreateBatch();
   const { handleError, showSuccess } = useApiError();
+  const orgBranchCtx = useOrgBranchSafe();
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    branchId: '',
+    branchId: orgBranchCtx?.selectedBranchId || '',
     estimatedAssets: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});

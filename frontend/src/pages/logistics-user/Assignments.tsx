@@ -39,7 +39,7 @@ export function LogisticsAssignments() {
   const myRequests = useMemo(() => {
     if (statusFilter === 'active') {
       return pickupRequests.filter(r =>
-        !['completed', 'cancelled', 'partially_completed'].includes(r.status)
+        !['completed', 'cancelled', 'failed'].includes(r.status)
       );
     }
     return pickupRequests;
@@ -176,7 +176,7 @@ export function LogisticsAssignments() {
         // Partial success - pass picked asset IDs so they transition to in_transit
         await updateStatusMutation.mutateAsync({
           requestId: activeRequest.id,
-          status: 'partially_completed',
+          status: 'failed',
           notes: `Picked: ${pickedCount}, Failed/No-show: ${failedCount}`,
           pickedAssetIds,
         });
@@ -309,7 +309,7 @@ export function LogisticsAssignments() {
                 {isLoading ? 'Starting...' : 'Start Pickup'}
               </button>
             )}
-            {['cancelled', 'completed', 'partially_completed'].includes(activeRequest.status) && (
+            {['cancelled', 'completed', 'failed'].includes(activeRequest.status) && (
               <div className="px-4 py-2 border border-slate-400/40 bg-slate-400/10 text-slate-500 dark:text-white/50 font-mono text-xs uppercase tracking-widest">
                 {activeRequest.status === 'cancelled' ? 'Cancelled' : 'Completed'}
               </div>
@@ -318,7 +318,7 @@ export function LogisticsAssignments() {
 
           {/* Asset List */}
           <div className="divide-y divide-slate-200 dark:divide-white/10">
-            {['cancelled', 'completed', 'partially_completed'].includes(activeRequest.status) ? (
+            {['cancelled', 'completed', 'failed'].includes(activeRequest.status) ? (
               <div className="p-6 text-center">
                 <p className="font-mono text-sm text-slate-500 dark:text-white/50">
                   {activeRequest.status === 'cancelled'
@@ -670,12 +670,13 @@ export function LogisticsAssignments() {
 // Status Badge Component
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending_assignment: 'bg-amber-400/10 border border-amber-400/40 text-amber-400',
+    pending: 'bg-amber-400/10 border border-amber-400/40 text-amber-400',
+    assigned_to_logistics_admin: 'bg-blue-400/10 border border-blue-400/40 text-blue-400',
+    assigned_to_logistics_user: 'bg-blue-400/10 border border-blue-400/40 text-blue-400',
     scheduled: 'bg-purple-400/10 border border-purple-400/40 text-purple-400',
-    assigned: 'bg-blue-400/10 border border-blue-400/40 text-blue-400',
     in_progress: 'bg-amber-400/10 border border-amber-400/40 text-amber-400',
     completed: 'bg-emerald-400/10 border border-emerald-400/40 text-emerald-400',
-    partially_completed: 'bg-orange-400/10 border border-orange-400/40 text-orange-400',
+    failed: 'bg-orange-400/10 border border-orange-400/40 text-orange-400',
     cancelled: 'bg-red-400/10 border border-red-400/40 text-red-400',
   };
   const cls = map[status] || 'bg-slate-400/10 border border-slate-400/40 text-slate-400';

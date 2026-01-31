@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { useAuth } from '@/hooks';
-import { usersApi } from '@/lib/api/users';
+import { useAuth, useCreateITAdmin } from '@/hooks';
 
 // Validation schema
 const addITAdminSchema = z.object({
@@ -24,10 +22,9 @@ interface AddITAdminModalProps {
 }
 
 export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  // V3: Use React Query hook for auth
-  const { user: currentUser, enterprise } = useAuth();
+  const { enterprise } = useAuth();
   const { addToast } = useToast();
+  const createITAdmin = useCreateITAdmin();
 
   const {
     register,
@@ -49,21 +46,14 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      // Create IT Admin via REST API
-      const result = await usersApi.create({
+      await createITAdmin.mutateAsync({
         enterprise_id: enterprise.id,
         email: data.email,
         name: data.name,
         phone: data.phone,
         password: data.password,
-        role: 'it_admin',
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to create IT Admin');
-      }
 
       addToast({
         type: 'success',
@@ -76,21 +66,17 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
       onClose();
       onSuccess?.();
     } catch (error) {
-      console.error('Error creating IT Admin:', error);
-
       addToast({
         type: 'error',
         title: 'Failed to Create IT Admin',
         message: error instanceof Error ? error.message : 'Unknown error occurred',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createITAdmin.isPending) {
       reset();
       onClose();
     }
@@ -153,17 +139,17 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
             type="button"
             variant="secondary"
             onClick={handleClose}
-            disabled={isSubmitting}
+            disabled={createITAdmin.isPending}
           >
             Cancel
           </Button>
           <Button
             type="submit"
             variant="primary"
-            disabled={isSubmitting}
+            disabled={createITAdmin.isPending}
             leftIcon={<UserPlus className="w-4 h-4" />}
           >
-            {isSubmitting ? 'Adding...' : 'Add IT Admin'}
+            {createITAdmin.isPending ? 'Adding...' : 'Add IT Admin'}
           </Button>
         </ModalFooter>
       </form>

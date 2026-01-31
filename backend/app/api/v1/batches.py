@@ -223,17 +223,23 @@ async def process_batch_approval(
 @router.delete("/{batch_id}", response_model=dict, status_code=status.HTTP_200_OK)
 async def delete_batch(
     batch_id: str,
+    delete_assets: bool = Query(False, description="Also delete assets in this batch"),
+    delete_sub_users: bool = Query(False, description="Also delete employee users assigned to assets"),
     current_user: User = Depends(require_permission(Permission.BATCH_DELETE)),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Delete batch by ID.
+    Delete batch by ID, optionally cascading to assets and sub-users.
 
     **Permissions:** BATCH_DELETE
     """
     try:
         service = BatchService(db)
-        await service.delete_batch(batch_id)
+        await service.delete_batch(
+            batch_id,
+            delete_assets=delete_assets,
+            delete_sub_users=delete_sub_users,
+        )
         return success_response(message="Batch deleted successfully")
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

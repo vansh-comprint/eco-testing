@@ -997,7 +997,7 @@ export function Settings() {
                       setLocationForm({ ...locationForm, operating_hours: e.target.value });
                     }
                   }}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
                 >
                   {OPERATING_HOURS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">

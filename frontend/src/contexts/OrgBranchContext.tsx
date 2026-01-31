@@ -81,3 +81,9 @@ export function useOrgBranch() {
   }
   return context;
 }
+
+/** Safe version that returns null when outside OrgBranchProvider (e.g., on /admin routes) */
+export function useOrgBranchSafe(): OrgBranchContextType | null {
+  const context = useContext(OrgBranchContext);
+  return context ?? null;
+}

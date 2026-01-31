@@ -65,13 +65,13 @@ async def get_badge_counts(
         if assets:
             badges["assets"] = assets
 
-        # Pickup requests pending for branch or enterprise
-        pickup_conditions = [PickupRequest.status == PickupStatus.PENDING.value]
-        if effective_branch_id:
-            pickup_conditions.append(PickupRequest.branch_id == effective_branch_id)
-        else:
-            pickup_conditions.append(PickupRequest.enterprise_id == user.enterprise_id)
-        q = select(func.count()).select_from(PickupRequest).where(and_(*pickup_conditions))
+        # Pickup requests pending for IT Admin's enterprise
+        q = select(func.count()).select_from(PickupRequest).where(
+            and_(
+                PickupRequest.status == PickupStatus.PENDING.value,
+                PickupRequest.enterprise_id == user.enterprise_id,
+            )
+        )
         pickups = await _count(db, q)
         if pickups:
             badges["pickups"] = pickups

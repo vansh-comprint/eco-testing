@@ -206,10 +206,14 @@ export function useDeleteBatch() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (batchId: string) => {
-      await batchesApi.delete(batchId);
+    mutationFn: async ({ batchId, deleteAssets, deleteSubUsers }: {
+      batchId: string;
+      deleteAssets?: boolean;
+      deleteSubUsers?: boolean;
+    }) => {
+      await batchesApi.delete(batchId, { deleteAssets, deleteSubUsers });
     },
-    onSuccess: (_, batchId) => {
+    onSuccess: (_, { batchId }) => {
       queryClient.removeQueries({ queryKey: batchKeys.detail(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
@@ -224,6 +228,7 @@ export interface SubmitForApprovalInput {
     pickup_priority?: string;
     it_admin_notes?: string;
     logistics_instructions?: string;
+    pickup_location_override?: string;
   };
 }
 
@@ -236,9 +241,11 @@ export function useSubmitBatchForApproval() {
   return useMutation({
     mutationFn: async ({ batchId, pickupDetails }: SubmitForApprovalInput) => {
       const response = await batchesApi.submitForApproval(batchId, {
-        pickup_address: {}, // Address comes from branch
-        pickup_date: pickupDetails.preferred_pickup_date,
-        pickup_time_slot: pickupDetails.preferred_pickup_slot,
+        preferred_pickup_date: pickupDetails.preferred_pickup_date,
+        preferred_pickup_slot: pickupDetails.preferred_pickup_slot,
+        pickup_priority: pickupDetails.pickup_priority,
+        it_admin_notes: pickupDetails.it_admin_notes,
+        logistics_instructions: pickupDetails.logistics_instructions,
       });
       if (!response.success) throw new Error(response.error?.message || 'Failed to submit batch for approval');
       return response.data;

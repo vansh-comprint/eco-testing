@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Laptop, CheckCircle, Info, Plus, ArrowRight, Building2 } from 'lucide-react';
 import { AssetForm } from '@/components/assets';
 import { useAuth, useCreateAsset, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useApiError } from '@/hooks';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import type { CreateAssetInput } from '@/hooks';
 
 export function AddAsset() {
@@ -37,7 +38,8 @@ export function AddAsset() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [successState, setSuccessState] = useState<{ serialNumber: string } | null>(null);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const orgBranchCtx = useOrgBranchSafe();
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(orgBranchCtx?.selectedBranchId || '');
 
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 
@@ -203,7 +205,7 @@ export function AddAsset() {
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors appearance-none cursor-pointer ${
+              className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors appearance-none select-themed cursor-pointer ${
                 needsBranchSelection ? 'border-amber-500/50' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
               }`}
             >

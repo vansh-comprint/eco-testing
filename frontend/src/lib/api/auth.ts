@@ -33,6 +33,7 @@ export interface UserResponse {
   enterprise_name?: string;
   branch_name?: string;
   department?: string;
+  parent_user_id?: string;
   created_at: string;
   last_login_at?: string;
   permissions?: string[];

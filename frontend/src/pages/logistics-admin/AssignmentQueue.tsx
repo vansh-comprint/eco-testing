@@ -40,7 +40,7 @@ export function LogisticsAssignmentQueue() {
       .filter(r => {
         // Filter by status
         if (statusFilter === 'active') {
-          return ['pending_assignment', 'assigned', 'scheduled', 'in_progress'].includes(r.status);
+          return ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress'].includes(r.status);
         }
         return true; // Show all statuses
       })
@@ -516,13 +516,13 @@ export function LogisticsAssignmentQueue() {
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    pending_assignment: { label: 'Pending', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
-    // For logistics admin view, "assigned" means pending field user assignment
-    assigned: { label: 'Pending Field User', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
+    pending: { label: 'Pending', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
+    assigned_to_logistics_admin: { label: 'Awaiting Driver', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', cls: 'border-blue-400/40 bg-blue-400/10 text-blue-400' },
     scheduled: { label: 'Scheduled', cls: 'border-purple-400/40 bg-purple-400/10 text-purple-400' },
     in_progress: { label: 'In Progress', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
     completed: { label: 'Completed', cls: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400' },
-    partially_completed: { label: 'Partial', cls: 'border-orange-400/40 bg-orange-400/10 text-orange-400' },
+    failed: { label: 'Failed', cls: 'border-orange-400/40 bg-orange-400/10 text-orange-400' },
     cancelled: { label: 'Cancelled', cls: 'border-red-400/40 bg-red-400/10 text-red-400' },
   };
   const cfg = map[status] || { label: status, cls: 'border-slate-400/40 bg-slate-400/10 text-slate-400' };

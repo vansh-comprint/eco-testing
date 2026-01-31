@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Upload, Info } from 'lucide-react';
 import { CSVUpload, type BulkUploadMetadata } from '@/components/assets';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { usersApi } from '@/lib/api/users';
 
 // V3: Input type for creating assets with snake_case
@@ -60,8 +61,9 @@ export function UploadAssets() {
 
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 
-  // V3.2: Determine branch_id - from batch if available, otherwise first active branch
-  const effectiveBranchId = batch?.branch_id || (activeBranches.length > 0 ? activeBranches[0].id : undefined);
+  // V3.2: Determine branch_id - from batch, org branch context, or first active branch
+  const orgBranchCtx = useOrgBranchSafe();
+  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || (activeBranches.length > 0 ? activeBranches[0].id : undefined);
 
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata) => {
     if (!enterprise || !user) return;

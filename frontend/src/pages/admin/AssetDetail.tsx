@@ -28,11 +28,12 @@ import {
   MapPin,
   FileText,
   PlayCircle,
-  CheckSquare
+  CheckSquare,
+  Plus
 } from 'lucide-react';
 import { Badge, Button, Input, Dropdown, useToast } from '@/components/ui';
 import { useAuditStore, useSubmissionStore, useReviewStore, useNotificationStore } from '@/stores';
-import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute } from '@/hooks';
+import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute, useCreateBatch } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { AssetStatus, QCImage } from '@/types';
 import { getAssetStatusDisplay } from '@/lib/status-display';
@@ -84,6 +85,7 @@ export function AssetDetail() {
   const unassignMutation = useUnassignAsset();
   const createSubUserMutation = useCreateSubUser();
   const createDisputeMutation = useCreateDispute();
+  const createBatchMutation = useCreateBatch();
 
   // Stores still needed for audit, submissions, reviews
   const { getByEntity } = useAuditStore();
@@ -105,6 +107,9 @@ export function AssetDetail() {
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [disputeType, setDisputeType] = useState('condition_dispute');
+  const [showNewBatchForm, setShowNewBatchForm] = useState(false);
+  const [newBatchName, setNewBatchName] = useState('');
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const [selectedSubUserId, setSelectedSubUserId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUnassigning, setIsUnassigning] = useState(false);
@@ -596,7 +601,7 @@ export function AssetDetail() {
                   Assign
                 </button>
               )}
-              {!isEditing && ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'].includes(asset.status) && (
+              {!isEditing && ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review', 'conditionally_accepted', 'ready_for_pickup'].includes(asset.status) && (
                 <button
                   onClick={() => setShowBatchSelectModal(true)}
                   className="interactive px-5 py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2"
@@ -1096,7 +1101,7 @@ export function AssetDetail() {
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Add to Batch</h3>
               <button
-                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); }}
+                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); setShowNewBatchForm(false); setNewBatchName(''); }}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 <X className="w-5 h-5 text-zinc-500" />
@@ -1113,40 +1118,96 @@ export function AssetDetail() {
                   b.status === 'draft' && b.branch_id === asset.branch_id
                 );
 
-                if (eligibleBatches.length === 0) {
-                  return (
-                    <div className="p-6 text-center border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                      <Package className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
-                      <p className="font-mono text-xs text-zinc-500 uppercase tracking-wide">No draft batches available</p>
-                      <p className="font-display text-xs text-zinc-400 mt-1">Create a new batch first from the Batches page</p>
-                    </div>
-                  );
-                }
-
                 return (
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {eligibleBatches.map((b: any) => (
-                      <button
-                        key={b.id}
-                        onClick={() => setSelectedBatchId(b.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 border transition-all text-left ${
-                          selectedBatchId === b.id
-                            ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                            : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                        }`}
-                      >
-                        <Package className={`w-5 h-5 ${selectedBatchId === b.id ? 'text-ecotribe-primary' : 'text-zinc-400'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-display font-bold text-sm truncate ${selectedBatchId === b.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
-                            {b.name}
-                          </p>
-                          <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
-                            {b.asset_count || 0} assets
-                          </p>
+                  <div className="space-y-3">
+                    {eligibleBatches.length > 0 && (
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {eligibleBatches.map((b: any) => (
+                          <button
+                            key={b.id}
+                            onClick={() => { setSelectedBatchId(b.id); setShowNewBatchForm(false); }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 border transition-all text-left ${
+                              selectedBatchId === b.id && !showNewBatchForm
+                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
+                                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
+                            }`}
+                          >
+                            <Package className={`w-5 h-5 ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-zinc-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-display font-bold text-sm truncate ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
+                                {b.name}
+                              </p>
+                              <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
+                                {b.asset_count || 0} assets
+                              </p>
+                            </div>
+                            {selectedBatchId === b.id && !showNewBatchForm && <CheckCircle className="w-4 h-4 text-ecotribe-primary" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="border-t border-slate-200 dark:border-white/10 pt-3">
+                      {!showNewBatchForm ? (
+                        <button
+                          onClick={() => { setShowNewBatchForm(true); setSelectedBatchId(''); }}
+                          className="w-full flex items-center gap-3 px-4 py-3 border border-dashed border-slate-300 dark:border-white/20 hover:border-ecotribe-primary/50 hover:bg-ecotribe-primary/5 transition-all text-left"
+                        >
+                          <Plus className="w-5 h-5 text-ecotribe-primary" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-display font-bold text-sm text-ecotribe-primary">Create New Batch</p>
+                            <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">Add a new draft batch for this branch</p>
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="space-y-3 p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5">
+                          <p className="font-mono font-bold text-[10px] text-ecotribe-primary uppercase tracking-widest">New Batch</p>
+                          <input
+                            type="text"
+                            value={newBatchName}
+                            onChange={(e) => setNewBatchName(e.target.value)}
+                            placeholder="Batch name (e.g. Q1 2026 Laptops)"
+                            className="w-full px-4 py-2.5 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setShowNewBatchForm(false); setNewBatchName(''); }}
+                              className="px-3 py-1.5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 font-mono text-xs uppercase tracking-wide hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!newBatchName.trim() || !enterprise) return;
+                                setIsCreatingBatch(true);
+                                try {
+                                  const newBatch = await createBatchMutation.mutateAsync({
+                                    name: newBatchName.trim(),
+                                    enterprise_id: enterprise.id,
+                                    branch_id: asset.branch_id || '',
+                                  });
+                                  if (newBatch) {
+                                    setSelectedBatchId(newBatch.id);
+                                  }
+                                  setShowNewBatchForm(false);
+                                  setNewBatchName('');
+                                  addToast({ type: 'success', title: 'Batch Created', message: `"${newBatchName.trim()}" created successfully` });
+                                } catch (error) {
+                                  addToast({ type: 'error', title: 'Error', message: 'Failed to create batch' });
+                                } finally {
+                                  setIsCreatingBatch(false);
+                                }
+                              }}
+                              disabled={!newBatchName.trim() || isCreatingBatch}
+                              className="px-3 py-1.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-wide hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            >
+                              {isCreatingBatch ? 'Creating...' : 'Create'}
+                            </button>
+                          </div>
                         </div>
-                        {selectedBatchId === b.id && <CheckCircle className="w-4 h-4 text-ecotribe-primary" />}
-                      </button>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -1154,7 +1215,7 @@ export function AssetDetail() {
 
             <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3">
               <button
-                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); }}
+                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); setShowNewBatchForm(false); setNewBatchName(''); }}
                 className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
               >
                 Cancel
@@ -1270,7 +1331,7 @@ export function AssetDetail() {
                       <select
                         value={selectedSubUserId}
                         onChange={(e) => setSelectedSubUserId(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                       >
                         <option value="" className="bg-white dark:bg-[#0a0a0a]">Select an employee...</option>
                         {enterpriseSubUsers.map(user => (
@@ -1346,7 +1407,7 @@ export function AssetDetail() {
                     <select
                       value={newUserForm.department}
                       onChange={(e) => setNewUserForm(prev => ({ ...prev, department: e.target.value }))}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                     >
                       <option value="" className="bg-white dark:bg-[#0a0a0a]">Select department</option>
                       <option value="Engineering" className="bg-white dark:bg-[#0a0a0a]">Engineering</option>

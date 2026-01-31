@@ -179,7 +179,7 @@ export const usePickupStore = create<PickupState>()(
       },
 
       getPendingAssignmentRequests: () => {
-        return get().pickupRequests.filter(r => r.status === 'pending_assignment');
+        return get().pickupRequests.filter(r => r.status === 'pending');
       },
 
       getRequestsForLogisticsAdmin: (logisticsAdminId: string) => {
@@ -227,7 +227,7 @@ export const usePickupStore = create<PickupState>()(
             preferred_time_slot: input.preferredTimeSlot || null,
             priority: input.priority || 'normal',
             it_admin_notes: combinedNotes || null,
-            status: 'pending_assignment',
+            status: 'pending',
             picked_asset_ids: [],
             failed_asset_ids: [],
             created_by: createdBy,
@@ -251,7 +251,7 @@ export const usePickupStore = create<PickupState>()(
             priority: input.priority || 'normal',
             specialInstructions: input.specialInstructions,
             itAdminNotes: input.notes,
-            status: 'pending_assignment',
+            status: 'pending',
             pickedAssetIds: [],
             failedAssetIds: [],
             createdAt: new Date(),
@@ -353,7 +353,7 @@ export const usePickupStore = create<PickupState>()(
               scheduledDate: input.scheduledDate,
               internalNotes: input.internalNotes,
               logisticsNotes: input.internalNotes,
-              status: 'assigned' as const,
+              status: 'assigned_to_logistics_user' as const,
               updatedAt: new Date(),
             } : r
           ),
@@ -411,7 +411,7 @@ export const usePickupStore = create<PickupState>()(
             r.id === id ? {
               ...r,
               status,
-              ...(status === 'assigned' && { assignedAt: new Date() }),
+              ...(status === 'assigned_to_logistics_user' && { assignedAt: new Date() }),
               ...(status === 'scheduled' && { scheduledAt: new Date() }),
               ...(status === 'in_progress' && { startedAt: new Date() }),
               ...(status === 'completed' && { completedAt: new Date() }),
@@ -648,7 +648,7 @@ export const usePickupStore = create<PickupState>()(
               ...r,
               pickedAssetIds,
               failedAssetIds,
-              status: allProcessed ? 'completed' : 'partially_completed',
+              status: allProcessed ? 'completed' : 'failed',
               completedAt: allProcessed ? new Date() : undefined,
               updatedAt: new Date(),
             } : r
@@ -737,9 +737,9 @@ export const usePickupStore = create<PickupState>()(
 
         return {
           readyForPickup: assets.filter(a => a.status === 'ready_for_pickup').length,
-          pendingAssignment: requests.filter(r => r.status === 'pending_assignment').length,
-          requested: requests.filter(r => r.status === 'pending_assignment').length, // Legacy
-          assigned: requests.filter(r => r.status === 'assigned').length,
+          pendingAssignment: requests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length,
+          requested: requests.filter(r => r.status === 'pending').length,
+          assigned: requests.filter(r => r.status === 'assigned_to_logistics_user').length,
           scheduled: requests.filter(r => r.status === 'scheduled').length,
           inProgress: requests.filter(r => r.status === 'in_progress').length,
           completed: requests.filter(r => r.status === 'completed').length,
@@ -762,8 +762,8 @@ export const usePickupStore = create<PickupState>()(
 
         return {
           totalRequests: requests.length,
-          pendingAssignment: requests.filter(r => r.status === 'pending_assignment').length,
-          assigned: requests.filter(r => r.status === 'assigned').length,
+          pendingAssignment: requests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length,
+          assigned: requests.filter(r => r.status === 'assigned_to_logistics_user').length,
           inProgress: requests.filter(r => r.status === 'in_progress').length,
           completed: requests.filter(r => r.status === 'completed').length,
           cancelled: requests.filter(r => r.status === 'cancelled').length,

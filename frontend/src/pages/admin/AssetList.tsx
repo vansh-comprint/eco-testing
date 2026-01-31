@@ -26,6 +26,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 
 // Use centralized status options
 const STATUS_OPTIONS = ASSET_STATUS_FILTER_OPTIONS;
@@ -56,7 +57,8 @@ export function AssetList() {
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
   const itBranchCtx = useContext(ITAdminBranchContext);
-  const activeBranchFilter = itBranchCtx?.selectedBranchId || null;
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   // V3.2: React Query hooks - use different hooks based on role
   // Only enable the appropriate queries to avoid unnecessary requests
@@ -770,7 +772,7 @@ export function AssetList() {
                     <select
                       value={selectedSubUserId}
                       onChange={(e) => setSelectedSubUserId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                     >
                       <option value="" className="bg-white dark:bg-[#0a0a0a]">Select an employee...</option>
                       {enterpriseSubUsers.map(subUser => (
@@ -954,7 +956,7 @@ export function AssetList() {
                     <select
                       value={selectedBatchId}
                       onChange={(e) => setSelectedBatchId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none select-themed cursor-pointer"
                     >
                       <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
                       {eligibleBatches.map(batch => (

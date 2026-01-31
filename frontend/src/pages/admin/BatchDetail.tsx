@@ -74,7 +74,6 @@ export function BatchDetail() {
         batchId,
         updates: {
           status: 'draft',
-          approval_status: undefined, // Clear approval status
         },
       });
       showSuccess('Batch Updated', 'Batch has been returned to draft status. You can now make changes and resubmit.');
@@ -304,10 +303,13 @@ export function BatchDetail() {
 
   const canAddAssets = batch.status === 'draft';
 
-  // Assets eligible for pickup: verified statuses only
-  const pickupableAssets = batchAssets.filter(a =>
+  // Verified assets: eligible for approval submission and pickup
+  const verifiedAssets = batchAssets.filter(a =>
     a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
   );
+
+  // Alias for pickup flow (same set)
+  const pickupableAssets = verifiedAssets;
 
   // Open pickup modal: auto-select all pickupable assets
   const openPickupModal = () => {
@@ -419,13 +421,13 @@ export function BatchDetail() {
                   Add Asset
                 </button>
               )}
-              {batch.status === 'draft' && batchAssets.length > 0 && (
+              {batch.status === 'draft' && verifiedAssets.length > 0 && (
                 <button
                   onClick={() => setShowSubmitModal(true)}
                   className="interactive px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  Submit for Approval
+                  Submit for Approval ({verifiedAssets.length})
                 </button>
               )}
               {batch.status === 'approved' && pickupableAssets.length > 0 && (
@@ -463,16 +465,16 @@ export function BatchDetail() {
             </span>
             <p className="font-display text-sm text-zinc-500 uppercase tracking-wide">{statusConfig.description}</p>
           </div>
-          {batch.requires_approval && (
+          {batch.requires_approval && batch.status === 'pending_approval' && (
             <span className="px-3 py-1.5 border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-400 uppercase tracking-wide flex items-center gap-2">
               <AlertTriangle className="w-3 h-3" />
-              Requires Org Admin Approval
+              Awaiting Org Admin Approval
             </span>
           )}
         </div>
 
         {/* V3: Rejection Reason with Action Buttons */}
-        {(batch.status === 'rejected' || batch.approval_status === 'rejected') && (
+        {batch.status === 'rejected' && (
           <div className="mt-4 p-4 border border-red-500/20 bg-red-500/5">
             <div className="flex items-start gap-3">
               <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -756,7 +758,7 @@ export function BatchDetail() {
                 </div>
               </div>
 
-              {/* Branch Selection */}
+              {/* Branch Selection (pickup location auto-created from branch) */}
               <div>
                 <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
                   Branch <span className="text-red-400">*</span>
@@ -765,12 +767,12 @@ export function BatchDetail() {
                   <select
                     value={pickupForm.branchId}
                     onChange={(e) => setPickupForm(prev => ({ ...prev, branchId: e.target.value }))}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                   >
                     <option value="">Select branch...</option>
-                    {branches.map(branch => (
+                    {branches.map((branch: { id: string; branch_name: string; branch_code: string; city: string }) => (
                       <option key={branch.id} value={branch.id}>
-                        {branch.branch_name} ({branch.branch_code}) - {branch.city}
+                        {branch.branch_name} ({branch.branch_code}) — {branch.city}
                       </option>
                     ))}
                   </select>
@@ -805,7 +807,7 @@ export function BatchDetail() {
                 <select
                   value={pickupForm.preferredTimeSlot}
                   onChange={(e) => setPickupForm(prev => ({ ...prev, preferredTimeSlot: e.target.value as PickupTimeSlot }))}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                 >
                   <option value="morning">Morning (9 AM - 12 PM)</option>
                   <option value="afternoon">Afternoon (12 PM - 3 PM)</option>
@@ -821,7 +823,7 @@ export function BatchDetail() {
                 <select
                   value={pickupForm.priority}
                   onChange={(e) => setPickupForm(prev => ({ ...prev, priority: e.target.value as PickupPriority }))}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                 >
                   <option value="normal">Normal</option>
                   <option value="urgent">Urgent</option>
@@ -889,7 +891,7 @@ export function BatchDetail() {
                     Submit for Approval
                   </h3>
                   <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
-                    {batchAssets.length} asset{batchAssets.length !== 1 ? 's' : ''} in {batch.name}
+                    {verifiedAssets.length} verified asset{verifiedAssets.length !== 1 ? 's' : ''} in {batch.name}
                   </p>
                 </div>
               </div>
@@ -903,8 +905,36 @@ export function BatchDetail() {
             <div className="p-6 space-y-4">
               <div className="p-3 border border-amber-500/20 bg-amber-500/5">
                 <p className="font-mono text-xs text-amber-400">
-                  Once submitted, this batch cannot be modified until approved or rejected by the Org Admin.
+                  Only the {verifiedAssets.length} verified asset{verifiedAssets.length !== 1 ? 's' : ''} will be sent for Org Admin approval.
+                  {batchAssets.length - verifiedAssets.length > 0 && (
+                    <> The remaining {batchAssets.length - verifiedAssets.length} asset{batchAssets.length - verifiedAssets.length !== 1 ? 's' : ''} are still in progress and will not be included.</>
+                  )}
                 </p>
+              </div>
+
+              {/* Verified Assets Preview */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Assets for Approval ({verifiedAssets.length})
+                </label>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 dark:border-white/10 divide-y divide-slate-100 dark:divide-white/5">
+                  {verifiedAssets.map(asset => (
+                    <div key={asset.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <Laptop className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-display text-xs text-slate-900 dark:text-white uppercase">
+                          {asset.brand} {asset.model}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 ml-2">
+                          S/N: {asset.serial_number}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-emerald-400 uppercase">
+                        {getAssetStatusConfig(asset.status).label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Preferred Pickup Date */}
@@ -929,7 +959,7 @@ export function BatchDetail() {
                 <select
                   value={submitForm.preferredTimeSlot}
                   onChange={(e) => setSubmitForm(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                 >
                   <option value="morning">Morning (9 AM - 12 PM)</option>
                   <option value="afternoon">Afternoon (12 PM - 3 PM)</option>

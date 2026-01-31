@@ -42,6 +42,18 @@ export interface BatchResponse {
   created_by_name?: string;
   branch_name?: string;
   total_estimated_value?: number;
+  // Progress stats (computed by backend)
+  progress?: {
+    total: number;
+    pending_assignment: number;
+    assigned: number;
+    in_review: number;
+    verified: number;
+    in_pickup: number;
+    picked_up: number;
+    completed: number;
+    rejected: number;
+  };
 }
 
 export interface BatchListParams {
@@ -69,9 +81,12 @@ export interface BatchUpdateRequest {
 }
 
 export interface BatchSubmitForApprovalRequest {
-  pickup_address: Record<string, unknown>;
-  pickup_date: string;
-  pickup_time_slot: string;
+  preferred_pickup_date: string;
+  preferred_pickup_slot: string;
+  pickup_priority?: string;
+  pickup_location_override?: string;
+  it_admin_notes?: string;
+  logistics_instructions?: string;
 }
 
 // ============================================================================
@@ -104,8 +119,13 @@ export const batchesApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: string) =>
-    fetchWithAuth<void>(`/batches/${id}`, { method: 'DELETE' }),
+  delete: (id: string, options?: { deleteAssets?: boolean; deleteSubUsers?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.deleteAssets) params.set('delete_assets', 'true');
+    if (options?.deleteSubUsers) params.set('delete_sub_users', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth<void>(`/batches/${id}${query}`, { method: 'DELETE' });
+  },
 
   addAssets: (id: string, assetIds: string[]) =>
     fetchWithAuth<BatchResponse>(`/batches/${id}/assets`, {

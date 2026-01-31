@@ -1,11 +1,13 @@
 """Security utilities for authentication and authorization"""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, Set
 from jose import JWTError, jwt
 import bcrypt
 import hashlib
 import threading
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 
@@ -235,19 +237,23 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
     return encoded_jwt
 
 
-def decode_token(token: str, check_blacklist: bool = True) -> Optional[Dict[str, Any]]:
+def decode_token(token: str, check_blacklist: bool = False) -> Optional[Dict[str, Any]]:
     """
     Decode and verify a JWT token.
 
+    Blacklist checking is now done at the async service/middleware layer via
+    async_is_blacklisted() for cross-worker safety. The in-memory check is
+    kept as an optional fast path but defaults to False.
+
     Args:
         token: JWT token string
-        check_blacklist: Whether to check if token is blacklisted (default True)
+        check_blacklist: Whether to check in-memory blacklist (default False)
 
     Returns:
-        Optional[Dict]: Decoded token payload or None if invalid/blacklisted
+        Optional[Dict]: Decoded token payload or None if invalid
     """
     try:
-        # Check blacklist first (fast operation)
+        # Optional in-memory fast path (same-worker only)
         if check_blacklist and token_blacklist.is_blacklisted(token):
             return None
 
@@ -293,3 +299,72 @@ def generate_otp() -> str:
     import random
 
     return str(random.randint(100000, 999999))
+
+
+# =============================================================================
+# ASYNC (DB-BACKED) TOKEN BLACKLIST — cross-worker safe
+# =============================================================================
+
+def _hash_token(token: str) -> str:
+    """Hash a token string to a 32-char hex prefix for storage."""
+    return hashlib.sha256(token.encode()).hexdigest()[:32]
+
+
+def _token_expiry(token: str) -> datetime:
+    """Extract expiry from a JWT, falling back to 24h from now."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+            options={"verify_exp": False},
+        )
+        exp = payload.get("exp")
+        if exp:
+            return datetime.fromtimestamp(exp, tz=timezone.utc)
+    except JWTError:
+        pass
+    return datetime.now(timezone.utc) + timedelta(days=1)
+
+
+async def async_blacklist_token(token: str, db: AsyncSession) -> None:
+    """
+    Blacklist a token in both DB (source of truth) and in-memory cache.
+
+    Safe for multi-worker deployments.
+    """
+    from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+
+    token_hash = _hash_token(token)
+    expires_at = _token_expiry(token)
+
+    repo = TokenBlacklistRepository(db)
+    await repo.add(token_hash, expires_at)
+
+    # Also cache locally for same-worker fast path
+    token_blacklist.add(token, expires_at)
+
+
+async def async_is_blacklisted(token: str, db: AsyncSession) -> bool:
+    """
+    Check if a token is blacklisted. Checks in-memory cache first, then DB.
+
+    Safe for multi-worker deployments.
+    """
+    # Fast path: in-memory cache (covers tokens blacklisted by this worker)
+    if token_blacklist.is_blacklisted(token):
+        return True
+
+    # Slow path: DB check (covers tokens blacklisted by other workers)
+    from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+
+    token_hash = _hash_token(token)
+    repo = TokenBlacklistRepository(db)
+    is_blocked = await repo.is_blacklisted(token_hash)
+
+    # Backfill local cache if found in DB
+    if is_blocked:
+        expires_at = _token_expiry(token)
+        token_blacklist.add(token, expires_at)
+
+    return is_blocked

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.core.database import get_db
-from app.core.security import blacklist_token
+from app.core.security import async_blacklist_token
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
@@ -173,6 +173,7 @@ async def logout(
     request: Optional[LogoutRequest] = None,
     authorization: Optional[str] = Header(None),
     current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout user and invalidate tokens.
@@ -182,14 +183,14 @@ async def logout(
 
     **Roles:** All authenticated users
     """
-    # Blacklist the access token from header
+    # Blacklist the access token from header (DB-backed, cross-worker safe)
     if authorization and authorization.startswith("Bearer "):
         access_token = authorization[7:]
-        blacklist_token(access_token)
+        await async_blacklist_token(access_token, db)
 
     # Blacklist refresh token if provided
     if request and request.refresh_token:
-        blacklist_token(request.refresh_token)
+        await async_blacklist_token(request.refresh_token, db)
 
     return success_response(
         data=None,

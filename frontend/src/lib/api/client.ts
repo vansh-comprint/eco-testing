@@ -5,6 +5,14 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
 
+// Page unload detection — prevents token clearing during hard refresh / navigation
+let isPageUnloading = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    isPageUnloading = true;
+  });
+}
+
 // Token storage
 const TOKEN_KEY = 'ecotribe_access_token';
 const REFRESH_TOKEN_KEY = 'ecotribe_refresh_token';
@@ -31,6 +39,10 @@ export const clearTokens = () => {
 
 // Force logout and redirect to login page
 const forceLogout = () => {
+  // Do NOT clear tokens during page unload (hard refresh / navigation).
+  // The new page will handle auth initialization fresh.
+  if (isPageUnloading) return;
+
   clearTokens();
   // Redirect to login page if not already there
   if (window.location.pathname !== '/login') {
@@ -222,7 +234,7 @@ export async function fetchWithAuth<T>(
       success: false,
       error: {
         message: error instanceof Error ? error.message : 'Network error',
-        code: 'NETWORK_ERROR',
+        code: isPageUnloading ? 'PAGE_UNLOADING' : 'NETWORK_ERROR',
       },
     };
   }

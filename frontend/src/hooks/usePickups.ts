@@ -150,7 +150,7 @@ export function useCreatePickupRequest() {
       const apiData: PickupCreateRequest = {
         enterprise_id: request.enterprise_id,
         batch_id: request.batch_id,
-        location_id: request.branch_id, // Map branch_id to location_id
+        branch_id: request.branch_id,
         asset_ids: request.asset_ids,
         preferred_date: request.preferred_date,
         preferred_time_slot: request.preferred_time_slot,

@@ -18,31 +18,35 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui';
 import { useAuth, usePickupRequests, usePickupsByITAdmin, useAssets, useAssetsByITAdmin } from '@/hooks';
-import type { PickupRequestStatus } from '@/types';
+// PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
+// Backend PickupStatus values: pending, assigned_to_logistics_admin,
+// assigned_to_logistics_user, scheduled, in_progress, completed, failed, cancelled
 const STATUS_OPTIONS = [
   { label: 'All Statuses', value: '' },
-  { label: 'Pending Assignment', value: 'pending_assignment' },
-  { label: 'Assigned', value: 'assigned' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Assigned to Admin', value: 'assigned_to_logistics_admin' },
+  { label: 'Assigned to Driver', value: 'assigned_to_logistics_user' },
   { label: 'Scheduled', value: 'scheduled' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
-  { label: 'Partially Completed', value: 'partially_completed' },
+  { label: 'Failed', value: 'failed' },
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
-const getStatusConfig = (status: PickupRequestStatus) => {
-  const configs: Record<PickupRequestStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: React.ReactNode }> = {
-    pending_assignment: { label: 'Pending Assignment', variant: 'warning', icon: <Clock className="w-3 h-3" /> },
-    assigned: { label: 'Assigned', variant: 'info', icon: <User className="w-3 h-3" /> },
+const getStatusConfig = (status: string) => {
+  const configs: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: React.ReactNode }> = {
+    pending: { label: 'Pending', variant: 'warning', icon: <Clock className="w-3 h-3" /> },
+    assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info', icon: <User className="w-3 h-3" /> },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info', icon: <User className="w-3 h-3" /> },
     scheduled: { label: 'Scheduled', variant: 'info', icon: <Calendar className="w-3 h-3" /> },
     in_progress: { label: 'In Progress', variant: 'warning', icon: <Truck className="w-3 h-3" /> },
     completed: { label: 'Completed', variant: 'success', icon: <CheckCircle className="w-3 h-3" /> },
-    partially_completed: { label: 'Partially Completed', variant: 'warning', icon: <AlertTriangle className="w-3 h-3" /> },
+    failed: { label: 'Failed', variant: 'error', icon: <XCircle className="w-3 h-3" /> },
     cancelled: { label: 'Cancelled', variant: 'error', icon: <XCircle className="w-3 h-3" /> },
   };
-  return configs[status] || configs.pending_assignment;
+  return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', variant: 'default' as const, icon: <Clock className="w-3 h-3" /> };
 };
 
 export function PickupRequests() {
@@ -74,11 +78,11 @@ export function PickupRequests() {
   // Calculate stats from data
   const stats = useMemo(() => {
     const readyForPickup = assets.filter(a => a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted').length;
-    const requested = pickupRequests.filter(r => r.status === 'pending_assignment').length;
-    const scheduled = pickupRequests.filter(r => r.status === 'scheduled').length;
+    const requested = pickupRequests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
+    const scheduled = pickupRequests.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
     const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
     const completed = pickupRequests.filter(r => r.status === 'completed').length;
-    const exceptions = pickupRequests.filter(r => r.status === 'partially_completed' || r.status === 'cancelled').length;
+    const exceptions = pickupRequests.filter(r => r.status === 'failed' || r.status === 'cancelled').length;
 
     return { readyForPickup, requested, scheduled, inProgress, completed, exceptions };
   }, [pickupRequests, assets]);
@@ -212,7 +216,7 @@ export function PickupRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer min-w-[160px]"
+            className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer min-w-[160px]"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">

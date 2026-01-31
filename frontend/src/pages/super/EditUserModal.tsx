@@ -159,7 +159,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
       });
 
       resetPassword();
-      setActiveTab('details');
+      onClose();
       onSuccess?.();
     } catch (error) {
       console.error('❌ Error resetting password:', error);
@@ -189,8 +189,6 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
   const statuses = [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'suspended', label: 'Suspended' },
   ];
 
   return (

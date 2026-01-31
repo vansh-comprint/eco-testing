@@ -14,7 +14,7 @@ from app.models.logistics import PickupStatus, PickupTimeSlot
 class PickupRequestCreate(BaseModel):
     """Schema for creating a pickup request"""
     enterprise_id: Optional[str] = Field(None, description="Enterprise ID (auto-filled for scoped users)")
-    location_id: str = Field(..., description="Pickup location ID")
+    branch_id: str = Field(..., description="Branch ID — a pickup location will be auto-created from the branch address")
     batch_id: str = Field(..., description="Batch ID (required — pickup must go through a batch)")
     asset_ids: List[str] = Field(..., description="List of asset IDs to pick up")
     preferred_date: Optional[date] = Field(None, description="Preferred pickup date")

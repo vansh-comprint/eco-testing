@@ -3,9 +3,9 @@
  * V3: View wallet balance, transactions, and request redemptions
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wallet,
   TrendingUp,
@@ -23,11 +23,12 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import { useAuth } from '@/hooks';
+import { useAuth, useApiError } from '@/hooks';
 import { walletApi } from '@/lib/api/payouts';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
+import Papa from 'papaparse';
 
 // Types
 interface EnterpriseWallet {
@@ -53,31 +54,21 @@ interface CreditTransaction {
 }
 
 export function CreditsWallet() {
-  // V3: Use React Query hook for auth
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
+  const { handleError, showSuccess } = useApiError();
 
   // State
   const [isRedemptionModalOpen, setIsRedemptionModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
 
   // React Query hooks - using REST API
-  const { data: wallet, isLoading: walletLoading } = useQuery({
+  const { data: rawWallet, isLoading: walletLoading } = useQuery({
     queryKey: ['wallet', enterpriseId],
     queryFn: async () => {
       const response = await walletApi.get(enterpriseId);
       if (!response.success || !response.data) return null;
-      const w = response.data;
-      // Map backend wallet shape to component's expected shape
-      return {
-        id: w.id,
-        enterprise_id: w.enterprise_id,
-        available_balance: w.balance ?? 0,
-        pending_balance: 0,
-        total_earned: w.balance ?? 0,
-        total_redeemed: 0,
-        updated_at: w.updated_at || w.created_at,
-      } as EnterpriseWallet;
+      return response.data;
     },
     enabled: !!enterpriseId,
   });
@@ -89,7 +80,6 @@ export function CreditsWallet() {
       if (!response.success) return [];
       const data = response.data;
       if (!Array.isArray(data)) return [];
-      // Map backend transactions to component's expected shape
       return data.map(t => ({
         id: t.id,
         enterprise_id: enterpriseId,
@@ -104,6 +94,32 @@ export function CreditsWallet() {
     },
     enabled: !!enterpriseId,
   });
+
+  // Compute wallet summary from transactions + raw wallet balance
+  const wallet: EnterpriseWallet | null = useMemo(() => {
+    if (!rawWallet) return null;
+
+    // Compute values from transaction history
+    const totalEarned = transactions
+      .filter(t => t.type === 'credit' || t.type === 'release')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalRedeemed = transactions
+      .filter(t => t.type === 'debit' || t.type === 'redemption')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const pendingBalance = transactions
+      .filter(t => t.type === 'pending' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return {
+      id: rawWallet.id,
+      enterprise_id: rawWallet.enterprise_id,
+      available_balance: rawWallet.balance ?? 0,
+      pending_balance: pendingBalance,
+      total_earned: totalEarned > 0 ? totalEarned : (rawWallet.balance ?? 0),
+      total_redeemed: totalRedeemed,
+      updated_at: rawWallet.updated_at || rawWallet.created_at,
+    };
+  }, [rawWallet, transactions]);
 
   const isLoading = walletLoading || transactionsLoading;
 
@@ -120,6 +136,25 @@ export function CreditsWallet() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  // Export transactions as CSV
+  const exportTransactions = () => {
+    const data = filteredTransactions.map(t => ({
+      date: format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
+      type: t.type,
+      amount: t.amount,
+      description: t.description,
+      status: t.status,
+      reference: t.reference_id || '-',
+    }));
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `wallet_transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   // Loading state
@@ -243,7 +278,11 @@ export function CreditsWallet() {
               <option value="release">Released</option>
               <option value="redemption">Redemptions</option>
             </select>
-            <button className={`p-2 ${hoverStyles.subtle} transition-colors`}>
+            <button
+              onClick={exportTransactions}
+              className={`p-2 ${hoverStyles.subtle} transition-colors`}
+              title="Download transactions as CSV"
+            >
               <Download className={iconSize.md} />
             </button>
           </div>
@@ -428,6 +467,8 @@ function RedemptionModal({
 }) {
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  const { handleError, showSuccess } = useApiError();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -440,11 +481,28 @@ function RedemptionModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const requestAmount = parseInt(amount) || 0;
+    if (requestAmount <= 0 || requestAmount > availableBalance) return;
+
     setIsSubmitting(true);
-    // TODO: Implement redemption request mutation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    onClose();
+    try {
+      const response = await walletApi.debit(enterpriseId, {
+        amount: requestAmount,
+        description: `Redemption request for ${formatCurrency(requestAmount)}`,
+      });
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to process redemption');
+      }
+      showSuccess('Redemption Requested', `${formatCurrency(requestAmount)} will be transferred to your bank account within 3-5 business days.`);
+      queryClient.invalidateQueries({ queryKey: ['wallet', enterpriseId] });
+      queryClient.invalidateQueries({ queryKey: ['transactions', enterpriseId] });
+      setAmount('');
+      onClose();
+    } catch (error) {
+      handleError(error, 'Requesting redemption');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const requestAmount = parseInt(amount) || 0;

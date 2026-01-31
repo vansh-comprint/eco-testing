@@ -138,6 +138,7 @@ class AuthService:
 
         SECURITY: Implements token rotation - each refresh token can only be used once.
         The old refresh token is blacklisted and a new one is issued.
+        Uses DB-backed blacklist for cross-worker safety.
 
         Args:
             refresh_token: JWT refresh token
@@ -148,7 +149,11 @@ class AuthService:
         Raises:
             AuthenticationError: If refresh token is invalid
         """
-        from app.core.security import blacklist_token
+        from app.core.security import async_blacklist_token, async_is_blacklisted
+
+        # Check if token was already used (DB-backed, cross-worker safe)
+        if await async_is_blacklisted(refresh_token, self.db):
+            raise AuthenticationError("Refresh token has been revoked")
 
         # Decode refresh token
         payload = decode_token(refresh_token)
@@ -172,8 +177,8 @@ class AuthService:
         # Check if branch and enterprise are still active
         await self._check_branch_and_enterprise_active(user)
 
-        # SECURITY: Token rotation - blacklist the used refresh token
-        blacklist_token(refresh_token)
+        # SECURITY: Token rotation - blacklist the used refresh token (DB-backed)
+        await async_blacklist_token(refresh_token, self.db)
 
         # Generate new tokens
         token_data = self._build_token_data(user)

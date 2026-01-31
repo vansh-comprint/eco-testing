@@ -94,6 +94,9 @@ export const useAuthStoreApi = create<AuthState>()(
        * Checks for existing token and fetches user data
        */
       initialize: async () => {
+        // Guard: prevent concurrent initialization (e.g., rapid hard refreshes)
+        if (get().isLoading) return;
+
         const token = getAccessToken();
         if (!token) {
           set({
@@ -141,23 +144,35 @@ export const useAuthStoreApi = create<AuthState>()(
               isInitialized: true,
             });
           } else {
-            // Token invalid or expired
-            clearTokens();
-            set({
-              user: null,
-              enterprise: null,
-              isAuthenticated: false,
-              isLoading: false,
-              isInitialized: true,
-            });
+            // Distinguish network/transient errors from real auth failures.
+            // On hard refresh, the browser aborts in-flight requests which come back
+            // as NETWORK_ERROR or PAGE_UNLOADING — do NOT clear tokens for these.
+            const errorCode = response.error?.code;
+            const isTransientError = errorCode === 'NETWORK_ERROR' || errorCode === 'PAGE_UNLOADING';
+
+            if (isTransientError) {
+              // Keep tokens and persisted auth state — next navigation will retry
+              set({
+                isLoading: false,
+                isInitialized: true,
+              });
+            } else {
+              // Genuine auth failure (401, invalid token, etc.) — clear session
+              clearTokens();
+              set({
+                user: null,
+                enterprise: null,
+                isAuthenticated: false,
+                isLoading: false,
+                isInitialized: true,
+              });
+            }
           }
         } catch (error) {
-          console.error('[AuthStoreApi] Initialize error:', error);
-          clearTokens();
+          // Catch block fires for abort errors, network failures, etc.
+          // Do NOT clear tokens — keep persisted state, let next API call handle auth.
+          console.error('[AuthStoreApi] Initialize error (keeping tokens):', error);
           set({
-            user: null,
-            enterprise: null,
-            isAuthenticated: false,
             isLoading: false,
             isInitialized: true,
           });

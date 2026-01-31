@@ -22,7 +22,7 @@ import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAd
 import { ConfirmationModal, PageHeader, Card, Button } from '@/components/ui';
 import { iconSize, text, glass, hover as hoverStyles } from '@/lib/design-tokens';
 
-type QueueFilter = 'all' | 'pending_assignment' | 'assigned' | 'completed';
+type QueueFilter = 'all' | 'pending' | 'assigned' | 'completed';
 
 export function Pickups() {
   const navigate = useNavigate();
@@ -55,9 +55,9 @@ export function Pickups() {
   // Filter pickup requests
   const filteredRequests = pickupRequests
     .filter(r => {
-      if (statusFilter === 'pending_assignment') return r.status === 'pending_assignment';
-      if (statusFilter === 'assigned') return r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'partially_completed';
-      if (statusFilter === 'completed') return r.status === 'completed' || r.status === 'partially_completed';
+      if (statusFilter === 'pending') return r.status === 'pending';
+      if (statusFilter === 'assigned') return r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed';
+      if (statusFilter === 'completed') return r.status === 'completed' || r.status === 'failed';
       // 'all' shows everything except cancelled
       return r.status !== 'cancelled';
     })
@@ -79,10 +79,10 @@ export function Pickups() {
     });
 
   // Stats
-  const pendingCount = pickupRequests.filter(r => r.status === 'pending_assignment').length;
-  const assignedCount = pickupRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'partially_completed').length;
-  const completedCount = pickupRequests.filter(r => r.status === 'completed' || r.status === 'partially_completed').length;
-  const totalActive = pickupRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'partially_completed').length;
+  const pendingCount = pickupRequests.filter(r => r.status === 'pending').length;
+  const assignedCount = pickupRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
+  const completedCount = pickupRequests.filter(r => r.status === 'completed' || r.status === 'failed').length;
+  const totalActive = pickupRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
 
   const getEnterpriseName = (enterpriseId: string) => {
     const enterprise = enterprises.find(e => e.id === enterpriseId);
@@ -155,12 +155,13 @@ export function Pickups() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending_assignment': return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
-      case 'assigned': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
+      case 'pending': return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
+      case 'assigned_to_logistics_admin': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
+      case 'assigned_to_logistics_user': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
       case 'scheduled': return 'border-cyan-400/30 bg-cyan-400/10 text-cyan-400';
       case 'in_progress': return 'border-purple-400/30 bg-purple-400/10 text-purple-400';
       case 'completed': return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400';
-      case 'partially_completed': return 'border-orange-400/30 bg-orange-400/10 text-orange-400';
+      case 'failed': return 'border-orange-400/30 bg-orange-400/10 text-orange-400';
       default: return 'border-white/10 bg-white/5 text-white/50';
     }
   };
@@ -260,7 +261,7 @@ export function Pickups() {
             <div className="flex gap-2">
               {([
                 { key: 'all', label: 'All' },
-                { key: 'pending_assignment', label: 'Pending' },
+                { key: 'pending', label: 'Pending' },
                 { key: 'assigned', label: 'Assigned' },
                 { key: 'completed', label: 'Completed' }
               ] as const).map((filter) => (
@@ -315,12 +316,12 @@ export function Pickups() {
                     <div className="p-4">
                       <div className="flex items-start gap-4">
                         <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
-                          request.status === 'pending_assignment'
+                          request.status === 'pending'
                             ? 'border-amber-400/30 bg-amber-400/10'
                             : 'border-blue-400/30 bg-blue-400/10'
                         }`}>
                           <Truck className={`w-6 h-6 ${
-                            request.status === 'pending_assignment'
+                            request.status === 'pending'
                               ? 'text-amber-400'
                               : 'text-blue-400'
                           }`} />

@@ -180,6 +180,19 @@ export {
   payoutKeys,
 } from './usePayouts';
 
+// EPR Certificates
+export {
+  useEPRCertificates,
+  useEPRCertificate,
+  useEPRWeightTotals,
+  useCreateEPRCertificate,
+  useUpdateEPRCertificate,
+  useDeleteEPRCertificate,
+  eprKeys,
+  EPR_STATUS_LABELS,
+  EPR_STATUS_COLORS,
+} from './useEPRCertificates';
+
 // Sidebar Badges
 export { useSidebarBadges, getBadgeForPath } from './useSidebarBadges';
 export type { SidebarBadges } from './useSidebarBadges';

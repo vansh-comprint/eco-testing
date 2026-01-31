@@ -30,7 +30,7 @@ export interface StatBoxItem {
 interface DashboardStatGridProps {
   items: StatBoxItem[];
   /** Number of columns on large screens */
-  columns?: 2 | 3 | 4 | 5;
+  columns?: 2 | 3 | 4 | 5 | 6;
   className?: string;
 }
 
@@ -155,6 +155,7 @@ export function DashboardStatGrid({
     3: 'md:grid-cols-3',
     4: 'md:grid-cols-2 lg:grid-cols-4',
     5: 'md:grid-cols-2 lg:grid-cols-5',
+    6: 'md:grid-cols-3 lg:grid-cols-6',
   };
 
   return (

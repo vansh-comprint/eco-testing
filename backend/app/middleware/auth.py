@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.core.security import decode_token
+from app.core.security import decode_token, async_is_blacklisted
 from app.core.permissions import Permission
 from app.core.permission_checker import (
     has_permission,
@@ -48,7 +48,7 @@ async def get_current_user(
     """
     token = credentials.credentials
 
-    # Decode token
+    # Decode token (JWT validation only — blacklist check is async below)
     payload = decode_token(token)
     if not payload:
         raise AuthenticationError("Invalid or expired token")
@@ -56,6 +56,10 @@ async def get_current_user(
     # Check token type
     if payload.get("type") != "access":
         raise AuthenticationError("Invalid token type")
+
+    # DB-backed blacklist check (cross-worker safe)
+    if await async_is_blacklisted(token, db):
+        raise AuthenticationError("Token has been revoked")
 
     # Get user ID from token
     user_id: str = payload.get("sub")

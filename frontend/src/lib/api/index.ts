@@ -199,3 +199,13 @@ export type { FileUploadResponse } from './files';
 // Dashboard
 export { dashboardApi } from './dashboard';
 export type { BadgeCounts } from './dashboard';
+
+// EPR Certificates
+export { eprCertificatesApi } from './epr';
+export type {
+  EPRCertificateResponse,
+  EPRCertificateListParams,
+  EPRCertificateCreateRequest,
+  EPRCertificateUpdateRequest,
+  EPRWeightTotals,
+} from './epr';

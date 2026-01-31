@@ -14,11 +14,15 @@ import {
   UserPlus,
   Briefcase,
   Shield,
-  Upload
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
+  Key
 } from 'lucide-react';
 import { PageHeader, Card, Spinner, BulkImportModal } from '@/components/ui';
 import type { BulkImportColumn, BulkImportResult } from '@/components/ui';
-import { CreateEnterpriseUserModal } from '@/pages/super';
+import { CreateEnterpriseUserModal, EditUserModal } from '@/pages/super';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
 import { subUsersApi } from '@/lib/api/sub-users';
@@ -72,6 +76,14 @@ export function EnterpriseDetail() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'employee'>('employee');
   const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'employee' | null>(null);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<EnterpriseUser | null>(null);
+
+  // Pagination state
+  const PAGE_SIZE = 5;
+  const [orgAdminPage, setOrgAdminPage] = useState(1);
+  const [itAdminPage, setItAdminPage] = useState(1);
+  const [employeePage, setEmployeePage] = useState(1);
 
   useEffect(() => {
     if (id) {
@@ -430,37 +442,67 @@ export function EnterpriseDetail() {
             </div>
           </div>
           {orgAdmins.length > 0 ? (
-            <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-              {orgAdmins.map((user) => (
-                <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className={`font-display font-bold ${text.primary}`}>{user.name}</h3>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
-                          {getRoleLabel(user.role)}
-                        </span>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
-                          {user.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Mail className={`${iconSize.sm} ${text.muted}`} />
-                          <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
+            <>
+              <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
+                {orgAdmins.slice((orgAdminPage - 1) * PAGE_SIZE, orgAdminPage * PAGE_SIZE).map((user) => (
+                  <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={`font-display font-bold ${text.primary}`}>{user.name}</h3>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
+                            {getRoleLabel(user.role)}
+                          </span>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
+                            {user.status}
+                          </span>
                         </div>
-                        {user.phone && (
+                        <div className="flex items-center gap-4 text-sm">
                           <div className="flex items-center gap-2">
-                            <Phone className={`${iconSize.sm} ${text.muted}`} />
-                            <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            <Mail className={`${iconSize.sm} ${text.muted}`} />
+                            <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
                           </div>
-                        )}
+                          {user.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className={`${iconSize.sm} ${text.muted}`} />
+                              <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                      <button
+                        onClick={() => { setEditingUser(user); setIsEditUserModalOpen(true); }}
+                        className={`p-2 hover:bg-emerald-500/10 transition-colors ${text.muted} hover:text-emerald-500`}
+                        title="Edit Org Admin"
+                      >
+                        <Edit2 className={iconSize.sm} />
+                      </button>
                     </div>
                   </div>
+                ))}
+              </div>
+              {orgAdmins.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
+                  <button
+                    onClick={() => setOrgAdminPage(p => Math.max(1, p - 1))}
+                    disabled={orgAdminPage === 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-emerald-500`}
+                  >
+                    <ChevronLeft className="w-3 h-3" /> Prev
+                  </button>
+                  <span className={`font-mono text-xs ${text.muted}`}>
+                    Page {orgAdminPage} of {Math.ceil(orgAdmins.length / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => setOrgAdminPage(p => Math.min(Math.ceil(orgAdmins.length / PAGE_SIZE), p + 1))}
+                    disabled={orgAdminPage >= Math.ceil(orgAdmins.length / PAGE_SIZE)}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-emerald-500`}
+                  >
+                    Next <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="p-12 text-center">
               <Briefcase className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
@@ -505,43 +547,66 @@ export function EnterpriseDetail() {
             </div>
           </div>
           {itAdmins.length > 0 ? (
-            <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-              {itAdmins.map((user) => (
-                <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className={`font-display font-bold ${text.primary}`}>{user.name}</h3>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
-                          {getRoleLabel(user.role)}
-                        </span>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
-                          {user.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <Mail className={`${iconSize.sm} ${text.muted}`} />
-                          <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
+            <>
+              <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
+                {itAdmins.slice((itAdminPage - 1) * PAGE_SIZE, itAdminPage * PAGE_SIZE).map((user) => (
+                  <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={`font-display font-bold ${text.primary}`}>{user.name}</h3>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
+                            {getRoleLabel(user.role)}
+                          </span>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
+                            {user.status}
+                          </span>
                         </div>
-                        {user.phone && (
+                        <div className="flex items-center gap-4 text-sm flex-wrap">
                           <div className="flex items-center gap-2">
-                            <Phone className={`${iconSize.sm} ${text.muted}`} />
-                            <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            <Mail className={`${iconSize.sm} ${text.muted}`} />
+                            <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
                           </div>
-                        )}
-                        {user.branch_id && branches[user.branch_id] && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className={`${iconSize.sm} text-amber-400`} />
-                            <span className={`font-mono text-xs text-amber-400`}>{branches[user.branch_id]}</span>
-                          </div>
-                        )}
+                          {user.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className={`${iconSize.sm} ${text.muted}`} />
+                              <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            </div>
+                          )}
+                          {user.branch_id && branches[user.branch_id] && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className={`${iconSize.sm} text-amber-400`} />
+                              <span className={`font-mono text-xs text-amber-400`}>{branches[user.branch_id]}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
+                ))}
+              </div>
+              {itAdmins.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
+                  <button
+                    onClick={() => setItAdminPage(p => Math.max(1, p - 1))}
+                    disabled={itAdminPage === 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-blue-500`}
+                  >
+                    <ChevronLeft className="w-3 h-3" /> Prev
+                  </button>
+                  <span className={`font-mono text-xs ${text.muted}`}>
+                    Page {itAdminPage} of {Math.ceil(itAdmins.length / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => setItAdminPage(p => Math.min(Math.ceil(itAdmins.length / PAGE_SIZE), p + 1))}
+                    disabled={itAdminPage >= Math.ceil(itAdmins.length / PAGE_SIZE)}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-blue-500`}
+                  >
+                    Next <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="p-12 text-center">
               <Shield className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
@@ -586,43 +651,66 @@ export function EnterpriseDetail() {
             </div>
           </div>
           {subUsers.length > 0 ? (
-            <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-              {subUsers.map((user) => (
-                <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className={`font-display font-bold ${text.primary}`}>{user.name || user.email}</h3>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('employee')}`}>
-                          Employee
-                        </span>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
-                          {user.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm flex-wrap">
-                        <div className="flex items-center gap-2">
-                          <Mail className={`${iconSize.sm} ${text.muted}`} />
-                          <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
+            <>
+              <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
+                {subUsers.slice((employeePage - 1) * PAGE_SIZE, employeePage * PAGE_SIZE).map((user) => (
+                  <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={`font-display font-bold ${text.primary}`}>{user.name || user.email}</h3>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('employee')}`}>
+                            Employee
+                          </span>
+                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
+                            {user.status}
+                          </span>
                         </div>
-                        {user.phone && (
+                        <div className="flex items-center gap-4 text-sm flex-wrap">
                           <div className="flex items-center gap-2">
-                            <Phone className={`${iconSize.sm} ${text.muted}`} />
-                            <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            <Mail className={`${iconSize.sm} ${text.muted}`} />
+                            <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
                           </div>
-                        )}
-                        {user.department && (
-                          <div className="flex items-center gap-2">
-                            <Briefcase className={`${iconSize.sm} text-purple-400`} />
-                            <span className={`font-mono text-xs text-purple-400`}>{user.department}</span>
-                          </div>
-                        )}
+                          {user.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className={`${iconSize.sm} ${text.muted}`} />
+                              <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
+                            </div>
+                          )}
+                          {user.department && (
+                            <div className="flex items-center gap-2">
+                              <Briefcase className={`${iconSize.sm} text-purple-400`} />
+                              <span className={`font-mono text-xs text-purple-400`}>{user.department}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
+                ))}
+              </div>
+              {subUsers.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
+                  <button
+                    onClick={() => setEmployeePage(p => Math.max(1, p - 1))}
+                    disabled={employeePage === 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-purple-500`}
+                  >
+                    <ChevronLeft className="w-3 h-3" /> Prev
+                  </button>
+                  <span className={`font-mono text-xs ${text.muted}`}>
+                    Page {employeePage} of {Math.ceil(subUsers.length / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => setEmployeePage(p => Math.min(Math.ceil(subUsers.length / PAGE_SIZE), p + 1))}
+                    disabled={employeePage >= Math.ceil(subUsers.length / PAGE_SIZE)}
+                    className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-purple-500`}
+                  >
+                    Next <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="p-12 text-center">
               <Users className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />

@@ -20,7 +20,7 @@ import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAd
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { ConfirmationModal, useToast } from '@/components/ui';
 
-type QueueFilter = 'all' | 'pending_assignment' | 'assigned' | 'completed';
+type QueueFilter = 'all' | 'pending' | 'assigned' | 'completed';
 
 export function PickupQueue() {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ export function PickupQueue() {
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<QueueFilter>('pending_assignment');
+  const [statusFilter, setStatusFilter] = useState<QueueFilter>('pending');
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [selectedLogisticsAdmin, setSelectedLogisticsAdmin] = useState<string>('');
 
@@ -55,9 +55,9 @@ export function PickupQueue() {
     .filter(r => {
       // Apply global enterprise filter
       if (!isAllEnterprises && r.enterprise_id !== selectedEnterpriseId) return false;
-      if (statusFilter === 'pending_assignment') return r.status === 'pending_assignment';
+      if (statusFilter === 'pending') return r.status === 'pending';
       if (statusFilter === 'assigned') return r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled';
-      if (statusFilter === 'completed') return r.status === 'completed' || r.status === 'partially_completed';
+      if (statusFilter === 'completed') return r.status === 'completed' || r.status === 'failed';
       // 'all' shows everything except cancelled
       return r.status !== 'cancelled';
     })
@@ -80,9 +80,9 @@ export function PickupQueue() {
 
   // Stats also respect enterprise filter
   const enterpriseFilteredRequests = pickupRequests.filter(r => isAllEnterprises || r.enterprise_id === selectedEnterpriseId);
-  const pendingCount = enterpriseFilteredRequests.filter(r => r.status === 'pending_assignment').length;
-  const assignedCount = enterpriseFilteredRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'partially_completed').length;
-  const completedCount = enterpriseFilteredRequests.filter(r => r.status === 'completed' || r.status === 'partially_completed').length;
+  const pendingCount = enterpriseFilteredRequests.filter(r => r.status === 'pending').length;
+  const assignedCount = enterpriseFilteredRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
+  const completedCount = enterpriseFilteredRequests.filter(r => r.status === 'completed' || r.status === 'failed').length;
 
   const getEnterpriseName = (enterpriseId: string) => {
     const enterprise = enterprises.find(e => e.id === enterpriseId);
@@ -158,12 +158,13 @@ export function PickupQueue() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending_assignment': return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
-      case 'assigned': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
+      case 'pending': return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
+      case 'assigned_to_logistics_admin': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
+      case 'assigned_to_logistics_user': return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
       case 'scheduled': return 'border-cyan-400/30 bg-cyan-400/10 text-cyan-400';
       case 'in_progress': return 'border-purple-400/30 bg-purple-400/10 text-purple-400';
       case 'completed': return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400';
-      case 'partially_completed': return 'border-orange-400/30 bg-orange-400/10 text-orange-400';
+      case 'failed': return 'border-orange-400/30 bg-orange-400/10 text-orange-400';
       default: return 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-white/50';
     }
   };
@@ -254,7 +255,7 @@ export function PickupQueue() {
         <div className="flex gap-2">
           {([
             { key: 'all', label: 'All' },
-            { key: 'pending_assignment', label: 'Pending' },
+            { key: 'pending', label: 'Pending' },
             { key: 'assigned', label: 'Assigned' },
             { key: 'completed', label: 'Completed' }
           ] as const).map((filter) => (
@@ -305,12 +306,12 @@ export function PickupQueue() {
                   <div className="p-4">
                     <div className="flex items-start gap-4">
                       <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
-                        request.status === 'pending_assignment'
+                        request.status === 'pending'
                           ? 'border-amber-400/30 bg-amber-400/10'
                           : 'border-blue-400/30 bg-blue-400/10'
                       }`}>
                         <Truck className={`w-6 h-6 ${
-                          request.status === 'pending_assignment'
+                          request.status === 'pending'
                             ? 'text-amber-400'
                             : 'text-blue-400'
                         }`} />

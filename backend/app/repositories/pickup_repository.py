@@ -1,10 +1,12 @@
 """Repository for Pickup database operations"""
 
+from uuid import uuid4
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PickupRequest, PickupStatus, PickupLocation
+from app.models.enterprise import Branch
 from app.repositories.base import BaseRepository
 
 
@@ -194,4 +196,48 @@ class PickupLocationRepository(BaseRepository[PickupLocation]):
 
         # Return the updated location
         return await self.get_by_id(location_id)
+
+    async def get_or_create_from_branch(self, branch: Branch) -> PickupLocation:
+        """Find or create a pickup location from a branch's address.
+
+        Looks for an existing active location whose name matches the branch name.
+        If none exists, creates one using the branch address fields.
+        """
+        result = await self.session.execute(
+            select(PickupLocation).where(
+                and_(
+                    PickupLocation.enterprise_id == branch.enterprise_id,
+                    PickupLocation.name == branch.branch_name,
+                    PickupLocation.is_active == True,
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+
+        # Build address string from branch fields
+        address_parts = [branch.address_line1]
+        if branch.address_line2:
+            address_parts.append(branch.address_line2)
+        address = ", ".join(address_parts)
+
+        location = PickupLocation(
+            id=f"pl-{uuid4()}",
+            enterprise_id=branch.enterprise_id,
+            name=branch.branch_name,
+            address=address,
+            city=branch.city,
+            state=branch.state,
+            pin_code=branch.pin_code,
+            contact_person=branch.site_contact_person,
+            contact_phone=branch.site_contact_phone,
+            operating_hours=branch.operating_hours,
+            special_instructions=branch.special_instructions,
+            is_default=False,
+            is_active=True,
+        )
+        self.session.add(location)
+        await self.session.flush()
+        return location
 

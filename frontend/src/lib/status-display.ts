@@ -248,11 +248,13 @@ export function getBatchStatusDisplay(status: BatchStatus): StatusDisplayConfig 
 // ============================================
 
 export const PICKUP_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
-  pending_assignment: { label: 'Pending Assignment', variant: 'default' },
-  assigned: { label: 'Assigned', variant: 'info' },
+  pending: { label: 'Pending', variant: 'default' },
+  assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info' },
+  assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info' },
   scheduled: { label: 'Scheduled', variant: 'info' },
   in_progress: { label: 'In Progress', variant: 'warning' },
   completed: { label: 'Completed', variant: 'success' },
+  failed: { label: 'Failed', variant: 'error' },
   cancelled: { label: 'Cancelled', variant: 'default' },
 };
 

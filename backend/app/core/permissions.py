@@ -260,6 +260,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.EMPLOYEE_DELETE,
         # CRUD permissions
         Permission.ASSET_READ,
+        Permission.ASSET_UPDATE,  # Org Admin sets asset prices during batch approval
         Permission.BATCH_READ,
         Permission.BATCH_APPROVE,
         Permission.BRANCH_READ,

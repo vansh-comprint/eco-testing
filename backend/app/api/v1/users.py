@@ -3,11 +3,13 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.database import get_db
 from app.middleware.auth import get_current_user, require_permission
 from app.core.permissions import Permission
 from app.models.user import User, UserRole, UserStatus
+from app.models.enterprise import Branch
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate, PasswordReset
 from app.services.user_service import UserService
 from app.utils.response import success_response, paginated_response
@@ -143,6 +145,60 @@ async def update_current_user_profile(
     service = UserService(db)
     user = await service.update_user(current_user.id, user_data, current_user.id)
     return success_response(data=user.model_dump(), message="Profile updated successfully")
+
+
+@router.get("/it-admins", response_model=dict)
+async def list_it_admins_with_branches(
+    enterprise_id: str = Query(..., description="Enterprise ID to fetch IT admins for"),
+    current_user: User = Depends(require_permission(Permission.USER_READ)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List IT admins for an enterprise with their assigned branch details.
+
+    Returns each IT admin with branch_count and branches array.
+
+    **Permissions:** USER_READ
+    """
+    # Query IT admins for this enterprise
+    users_query = (
+        select(User)
+        .where(User.enterprise_id == enterprise_id)
+        .where(User.role == UserRole.IT_ADMIN.value)
+    )
+    users_result = await db.execute(users_query)
+    it_admins = users_result.scalars().all()
+
+    # Query all branches for this enterprise to build the mapping
+    branches_query = (
+        select(Branch)
+        .where(Branch.enterprise_id == enterprise_id)
+        .where(Branch.it_admin_id.isnot(None))
+    )
+    branches_result = await db.execute(branches_query)
+    branches = branches_result.scalars().all()
+
+    # Build IT admin → branches map
+    admin_branches: dict = {}
+    for branch in branches:
+        if branch.it_admin_id not in admin_branches:
+            admin_branches[branch.it_admin_id] = []
+        admin_branches[branch.it_admin_id].append({
+            "id": branch.id,
+            "branch_name": branch.branch_name,
+            "branch_code": branch.branch_code,
+        })
+
+    # Build response
+    data = []
+    for admin in it_admins:
+        admin_data = UserResponse.model_validate(admin).model_dump()
+        branch_list = admin_branches.get(admin.id, [])
+        admin_data["branch_count"] = len(branch_list)
+        admin_data["branches"] = branch_list
+        data.append(admin_data)
+
+    return success_response(data=data)
 
 
 @router.get("/{user_id}", response_model=dict)

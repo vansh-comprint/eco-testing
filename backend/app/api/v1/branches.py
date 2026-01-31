@@ -3,12 +3,14 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models.user import User, UserRole
-from app.models.enterprise import BranchStatus
+from app.models.enterprise import Branch, BranchStatus
+from app.models.asset import Asset
 from app.schemas.branch import BranchCreate, BranchUpdate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
@@ -98,6 +100,69 @@ async def create_branch(
         return success_response(data=branch.model_dump(), message="Branch created successfully")
     except (ValidationError, ConflictError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/summary", response_model=dict)
+async def get_branches_summary(
+    enterprise_id: str = Query(..., description="Enterprise ID"),
+    current_user: User = Depends(require_permission(Permission.BRANCH_READ)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get branch summary with aggregated statistics for an enterprise.
+
+    Returns each branch with asset counts and IT admin count.
+
+    **Permissions:** BRANCH_READ
+    """
+    # Query branches for this enterprise
+    branches_query = (
+        select(Branch)
+        .where(Branch.enterprise_id == enterprise_id)
+        .order_by(Branch.branch_name)
+    )
+    branches_result = await db.execute(branches_query)
+    branches = branches_result.scalars().all()
+
+    # Get asset counts per branch
+    asset_counts_query = (
+        select(
+            Asset.branch_id,
+            func.count(Asset.id).label("total"),
+            func.count(Asset.id).filter(Asset.status.in_([
+                "pending_assignment", "assigned", "check_in_started", "submitted",
+                "remote_review", "conditionally_accepted", "disputed",
+            ])).label("pending"),
+            func.count(Asset.id).filter(Asset.status.in_([
+                "final_accepted", "payout_pending", "completed",
+            ])).label("completed"),
+        )
+        .where(Asset.enterprise_id == enterprise_id)
+        .where(Asset.branch_id.isnot(None))
+        .group_by(Asset.branch_id)
+    )
+    asset_result = await db.execute(asset_counts_query)
+    asset_counts = {row.branch_id: row for row in asset_result}
+
+    # Build response
+    data = []
+    for branch in branches:
+        ac = asset_counts.get(branch.id)
+        data.append({
+            "id": branch.id,
+            "enterprise_id": branch.enterprise_id,
+            "branch_name": branch.branch_name,
+            "branch_code": branch.branch_code,
+            "city": branch.city,
+            "state": branch.state,
+            "status": branch.status,
+            "it_admin_count": 1 if branch.it_admin_id else 0,
+            "asset_count": ac.total if ac else 0,
+            "pending_assets": ac.pending if ac else 0,
+            "completed_assets": ac.completed if ac else 0,
+        })
+
+    return success_response(data=data)
 
 
 @router.get("/{branch_id}", response_model=dict)

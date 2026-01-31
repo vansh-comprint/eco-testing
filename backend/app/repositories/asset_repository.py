@@ -157,3 +157,15 @@ class AssetRepository:
                 counts[batch_id] = {}
             counts[batch_id][status] = count
         return counts
+
+    async def get_assets_by_batch_and_statuses(
+        self, batch_id: str, statuses: List[str]
+    ) -> List[Asset]:
+        """Get all assets in a batch that have one of the given statuses"""
+        result = await self.db.execute(
+            select(Asset).where(
+                Asset.batch_id == batch_id,
+                Asset.status.in_(statuses),
+            )
+        )
+        return list(result.scalars().all())

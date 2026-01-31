@@ -6,13 +6,11 @@ import { Button, Card, Badge, PageHeader, DashboardStatGrid } from '@/components
 import type { StatAccent } from '@/components/ui';
 import { useEnterprises, useAllAssets } from '@/hooks';
 import { usersApi } from '@/lib/api/users';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 export function Analytics() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
   // Use React Query hooks for reliable data fetching
   const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
   const { data: assets = [], isLoading: assetsLoading } = useAllAssets();
@@ -98,17 +96,6 @@ export function Analytics() {
               leftIcon={<ArrowLeft className={iconSize.sm} />}
             >
               Back
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['enterprises'] });
-                queryClient.invalidateQueries({ queryKey: ['assets'] });
-                queryClient.invalidateQueries({ queryKey: ['users'] });
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
             <Button
               variant="primary"

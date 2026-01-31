@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import PickupRequest, PickupStatus, Asset, AssetStatus, User, UserRole
 from app.models.batch import Batch, BatchStatus
 from app.repositories.batch_repository import BatchRepository
-from app.repositories.pickup_repository import PickupRepository
+from app.repositories.branch_repository import BranchRepository
+from app.repositories.pickup_repository import PickupRepository, PickupLocationRepository
 from app.repositories.asset_repository import AssetRepository
 from app.schemas.pickup import (
     PickupRequestCreate,
@@ -31,6 +32,8 @@ class PickupService:
         self.repo = PickupRepository(session)
         self.asset_repo = AssetRepository(session)
         self.batch_repo = BatchRepository(session)
+        self.branch_repo = BranchRepository(session)
+        self.location_repo = PickupLocationRepository(session)
 
     async def create_pickup(self, data: PickupRequestCreate, user: User) -> PickupRequest:
         """Create a pickup request — batch is mandatory and must be approved"""
@@ -41,6 +44,12 @@ class PickupService:
 
         if not enterprise_id:
             raise ValueError("Enterprise ID is required")
+
+        # --- Branch → Pickup Location resolution ---
+        branch = await self.branch_repo.get_by_id(data.branch_id)
+        if not branch:
+            raise ValueError(f"Branch '{data.branch_id}' not found")
+        location = await self.location_repo.get_or_create_from_branch(branch)
 
         # --- Batch validation ---
         batch = await self.batch_repo.get_by_id(data.batch_id)
@@ -74,7 +83,6 @@ class PickupService:
                 {
                     "id": asset.id,
                     "serial_number": asset.serial_number,
-                    "device_type": asset.device_type,
                     "brand": asset.brand,
                     "model": asset.model,
                 }
@@ -86,7 +94,7 @@ class PickupService:
         pickup = PickupRequest(
             id=f"pr-{uuid.uuid4()}",
             enterprise_id=enterprise_id,
-            location_id=data.location_id,
+            location_id=location.id,
             batch_id=data.batch_id,
             asset_ids=data.asset_ids,
             assets=assets_summary,

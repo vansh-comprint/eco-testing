@@ -433,7 +433,7 @@ export function EmployeeDetail() {
                             customDepartment: e.target.value !== 'Other' ? '' : prev.customDepartment
                           }));
                         }}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                       >
                         <option value="" className="bg-white dark:bg-[#0a0a0a]">Select department...</option>
                         {DEPARTMENT_OPTIONS.map(dept => (
@@ -461,7 +461,7 @@ export function EmployeeDetail() {
                       <select
                         value={editForm.status}
                         onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value as 'active' | 'pending_invite' | 'inactive' }))}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
                       >
                         <option value="active" className="bg-white dark:bg-[#0a0a0a]">Active</option>
                         <option value="pending_invite" className="bg-white dark:bg-[#0a0a0a]">Pending Invite</option>

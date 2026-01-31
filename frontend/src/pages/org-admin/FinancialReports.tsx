@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
@@ -13,14 +13,30 @@ import {
   ArrowDownRight,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAllAssets, useEnterprises } from '@/hooks';
+import { useAuth, useAssets, useEnterprises } from '@/hooks';
 import Papa from 'papaparse';
 
 type TimeRange = 'week' | 'month' | 'quarter' | 'year';
 
+const TIME_RANGE_DAYS: Record<TimeRange, number> = {
+  week: 7,
+  month: 30,
+  quarter: 90,
+  year: 365,
+};
+
+function getMonthLabel(date: Date): string {
+  return date.toLocaleString('en-US', { month: 'short' });
+}
+
+function getMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}`;
+}
+
 export function FinancialReports() {
   const { enterprise } = useAuth();
-  const { data: assets = [] } = useAllAssets();
+  const enterpriseId = enterprise?.id || '';
+  const { data: assets = [] } = useAssets(enterpriseId);
   const { data: enterprises = [] } = useEnterprises();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -36,11 +52,108 @@ export function FinancialReports() {
     URL.revokeObjectURL(link.href);
   };
 
+  // Filter assets by selected time range
+  const filteredAssets = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - TIME_RANGE_DAYS[timeRange] * 24 * 60 * 60 * 1000);
+    return assets.filter(a => {
+      const date = new Date(a.updated_at || a.created_at);
+      return date >= cutoff;
+    });
+  }, [assets, timeRange]);
+
+  // Previous period assets for growth comparison
+  const previousPeriodAssets = useMemo(() => {
+    const now = new Date();
+    const days = TIME_RANGE_DAYS[timeRange];
+    const currentCutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const previousCutoff = new Date(now.getTime() - days * 2 * 24 * 60 * 60 * 1000);
+    return assets.filter(a => {
+      const date = new Date(a.updated_at || a.created_at);
+      return date >= previousCutoff && date < currentCutoff;
+    });
+  }, [assets, timeRange]);
+
+  // Calculate metrics from filtered assets
+  const completedAssets = useMemo(() => filteredAssets.filter(a => a.status === 'completed'), [filteredAssets]);
+  const totalDisbursed = useMemo(() => completedAssets.reduce((sum, a) => sum + (a.final_price || 0), 0), [completedAssets]);
+  const pendingAssets = useMemo(() => filteredAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending'), [filteredAssets]);
+  const pendingPayout = useMemo(() => pendingAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0), [pendingAssets]);
+  const avgAssetValue = completedAssets.length > 0 ? totalDisbursed / completedAssets.length : 0;
+
+  // Compute growth percentages by comparing to previous period
+  const prevCompleted = useMemo(() => previousPeriodAssets.filter(a => a.status === 'completed'), [previousPeriodAssets]);
+  const prevDisbursed = prevCompleted.reduce((sum, a) => sum + (a.final_price || 0), 0);
+
+  const disbursedGrowth = prevDisbursed > 0
+    ? ((totalDisbursed - prevDisbursed) / prevDisbursed) * 100
+    : null;
+  const assetsGrowth = prevCompleted.length > 0
+    ? ((completedAssets.length - prevCompleted.length) / prevCompleted.length) * 100
+    : null;
+
+  // Compute real monthly data from all assets (last 6 months)
+  const monthlyData = useMemo(() => {
+    const now = new Date();
+    const months: { month: string; key: string; disbursed: number; assets: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = getMonthKey(date);
+      months.push({ month: getMonthLabel(date), key, disbursed: 0, assets: 0 });
+    }
+
+    // Use all assets (not filtered) for the 6-month trend
+    for (const asset of assets) {
+      if (asset.status !== 'completed') continue;
+      const date = new Date(asset.updated_at || asset.created_at);
+      const key = getMonthKey(date);
+      const entry = months.find(m => m.key === key);
+      if (entry) {
+        entry.disbursed += asset.final_price || 0;
+        entry.assets += 1;
+      }
+    }
+
+    return months;
+  }, [assets]);
+
+  const maxDisbursed = Math.max(...monthlyData.map(d => d.disbursed), 1);
+
+  // Enterprise breakdown - uses filtered assets
+  const enterpriseStats = useMemo(() => {
+    return enterprises.map(ent => {
+      const enterpriseAssets = filteredAssets.filter(a => a.enterprise_id === ent.id);
+      const completed = enterpriseAssets.filter(a => a.status === 'completed');
+      const totalValue = completed.reduce((sum, a) => sum + (a.final_price || 0), 0);
+      const pending = enterpriseAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
+      const pendingValue = pending.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+
+      return {
+        ...ent,
+        completedAssets: completed.length,
+        totalValue,
+        pendingAssets: pending.length,
+        pendingValue,
+      };
+    }).sort((a, b) => b.totalValue - a.totalValue);
+  }, [enterprises, filteredAssets]);
+
+  // Grade distribution from filtered completed assets
+  const gradeDistribution = useMemo(() => ({
+    A: completedAssets.filter(a => a.grade === 'A').length,
+    B: completedAssets.filter(a => a.grade === 'B').length,
+    C: completedAssets.filter(a => a.grade === 'C').length,
+    D: completedAssets.filter(a => a.grade === 'D').length,
+  }), [completedAssets]);
+
+  const totalGraded = Object.values(gradeDistribution).reduce((sum, count) => sum + count, 0);
+
   // Export functions
   const exportMainReport = () => {
     setIsExporting('main');
     try {
-      const data = assets.map(a => ({
+      const data = filteredAssets.map(a => ({
         serial_number: a.serial_number,
         brand: a.brand,
         model: a.model,
@@ -108,51 +221,17 @@ export function FinancialReports() {
     }
   };
 
-  // Calculate metrics - V3: Use snake_case field names from database
-  const completedAssets = assets.filter(a => a.status === 'completed');
-  const totalDisbursed = completedAssets.reduce((sum, a) => sum + (a.final_price || 0), 0);
-  const pendingAssets = assets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
-  const pendingPayout = pendingAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
-  const avgAssetValue = completedAssets.length > 0 ? totalDisbursed / completedAssets.length : 0;
-
-  // Mock monthly data for chart
-  const monthlyData = [
-    { month: 'Jul', disbursed: 245000, assets: 12 },
-    { month: 'Aug', disbursed: 312000, assets: 18 },
-    { month: 'Sep', disbursed: 289000, assets: 15 },
-    { month: 'Oct', disbursed: 425000, assets: 23 },
-    { month: 'Nov', disbursed: 378000, assets: 20 },
-    { month: 'Dec', disbursed: totalDisbursed || 156000, assets: completedAssets.length || 8 },
-  ];
-
-  const maxDisbursed = Math.max(...monthlyData.map(d => d.disbursed));
-
-  // Enterprise breakdown - V3: Use snake_case field names
-  const enterpriseStats = enterprises.map(ent => {
-    const enterpriseAssets = assets.filter(a => a.enterprise_id === ent.id);
-    const completed = enterpriseAssets.filter(a => a.status === 'completed');
-    const totalValue = completed.reduce((sum, a) => sum + (a.final_price || 0), 0);
-    const pending = enterpriseAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
-    const pendingValue = pending.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
-
-    return {
-      ...ent,
-      completedAssets: completed.length,
-      totalValue,
-      pendingAssets: pending.length,
-      pendingValue,
-    };
-  }).sort((a, b) => b.totalValue - a.totalValue);
-
-  // Grade distribution
-  const gradeDistribution = {
-    A: completedAssets.filter(a => a.grade === 'A').length,
-    B: completedAssets.filter(a => a.grade === 'B').length,
-    C: completedAssets.filter(a => a.grade === 'C').length,
-    D: completedAssets.filter(a => a.grade === 'D').length,
-  };
-
-  const totalGraded = Object.values(gradeDistribution).reduce((sum, count) => sum + count, 0);
+  // Helper to render growth badge
+  function GrowthBadge({ value, color }: { value: number | null; color: string }) {
+    if (value === null) return null;
+    const isPositive = value >= 0;
+    return (
+      <span className={`flex items-center gap-1 font-mono text-xs ${color}`}>
+        {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+        {isPositive ? '+' : ''}{value.toFixed(1)}%
+      </span>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -209,10 +288,7 @@ export function FinancialReports() {
         <div className="border border-emerald-400/30 bg-emerald-400/5 p-5">
           <div className="flex items-center justify-between mb-3">
             <DollarSign className="w-5 h-5 text-emerald-400" />
-            <span className="flex items-center gap-1 font-mono text-xs text-emerald-400">
-              <ArrowUpRight className="w-3 h-3" />
-              +12.5%
-            </span>
+            <GrowthBadge value={disbursedGrowth} color="text-emerald-400" />
           </div>
           <p className="font-brand font-bold text-3xl text-emerald-400">
             ₹{(totalDisbursed / 100000).toFixed(2)}L
@@ -236,10 +312,7 @@ export function FinancialReports() {
         <div className="border border-blue-400/30 bg-blue-400/5 p-5">
           <div className="flex items-center justify-between mb-3">
             <Laptop className="w-5 h-5 text-blue-400" />
-            <span className="flex items-center gap-1 font-mono text-xs text-blue-400">
-              <ArrowUpRight className="w-3 h-3" />
-              +8.3%
-            </span>
+            <GrowthBadge value={assetsGrowth} color="text-blue-400" />
           </div>
           <p className="font-brand font-bold text-3xl text-blue-400">
             {completedAssets.length}
@@ -273,16 +346,19 @@ export function FinancialReports() {
         <div className="p-5">
           <div className="flex items-end gap-4 h-48">
             {monthlyData.map((data, idx) => (
-              <div key={data.month} className="flex-1 flex flex-col items-center gap-2">
+              <div key={data.key} className="flex-1 flex flex-col items-center gap-2">
                 <motion.div
                   initial={{ height: 0 }}
                   animate={{ height: `${(data.disbursed / maxDisbursed) * 100}%` }}
                   transition={{ delay: idx * 0.1, duration: 0.5 }}
-                  className="w-full bg-ecotribe-primary/80 hover:bg-ecotribe-primary transition-colors relative group"
+                  className={`w-full transition-colors relative group ${
+                    data.disbursed > 0 ? 'bg-ecotribe-primary/80 hover:bg-ecotribe-primary' : 'bg-slate-300/30 dark:bg-white/10'
+                  }`}
+                  style={{ minHeight: data.disbursed > 0 ? '4px' : '2px' }}
                 >
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block">
                     <div className="px-2 py-1 bg-white text-black font-mono text-xs whitespace-nowrap">
-                      ₹{(data.disbursed / 1000).toFixed(0)}K
+                      ₹{(data.disbursed / 1000).toFixed(0)}K ({data.assets})
                     </div>
                   </div>
                 </motion.div>
@@ -307,7 +383,7 @@ export function FinancialReports() {
             </h2>
           </div>
           <div className="divide-y divide-white/5">
-            {enterpriseStats.map((enterprise, idx) => (
+            {enterpriseStats.length > 0 ? enterpriseStats.map((enterprise) => (
               <div key={enterprise.id} className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
@@ -335,7 +411,11 @@ export function FinancialReports() {
                   </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="p-8 text-center">
+                <p className="font-mono text-xs text-slate-500 dark:text-white/50">No enterprise data for this period</p>
+              </div>
+            )}
           </div>
         </motion.div>
 

@@ -217,7 +217,7 @@ export function ITAdminManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as '' | ITAdminStatus)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none cursor-pointer min-w-[140px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer min-w-[140px]"
             >
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -587,7 +587,7 @@ function AddITAdminModal({
             <select
               value={formData.branch_id}
               onChange={(e) => { setFormData(prev => ({ ...prev, branch_id: e.target.value })); setFormErrors(prev => ({ ...prev, branch_id: '' })); }}
-              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 appearance-none cursor-pointer ${formErrors.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 appearance-none select-themed cursor-pointer ${formErrors.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             >
               <option value="">Select a branch...</option>
               {branches.map((branch: any) => (

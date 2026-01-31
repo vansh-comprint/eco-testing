@@ -29,22 +29,18 @@ import { useAuth, usePickupRequest, useAssets, useLogisticsUsers, useCancelPicku
 import type { PickupRequestStatus, AssetPickupStatus } from '@/types';
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
-const getStatusConfig = (status: PickupRequestStatus, isLogisticsAdmin = false) => {
-  const configs: Record<PickupRequestStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: React.ReactNode }> = {
-    pending_assignment: { label: 'Pending Assignment', variant: 'warning', icon: <Clock className="w-4 h-4" /> },
-    // For logistics admin, "assigned" means assigned to their company but no field user yet
-    assigned: {
-      label: isLogisticsAdmin ? 'Pending Field User' : 'Assigned',
-      variant: 'warning',
-      icon: isLogisticsAdmin ? <Clock className="w-4 h-4" /> : <User className="w-4 h-4" />
-    },
+const getStatusConfig = (status: string) => {
+  const configs: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: React.ReactNode }> = {
+    pending: { label: 'Pending', variant: 'warning', icon: <Clock className="w-4 h-4" /> },
+    assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info', icon: <User className="w-4 h-4" /> },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info', icon: <User className="w-4 h-4" /> },
     scheduled: { label: 'Scheduled', variant: 'info', icon: <Calendar className="w-4 h-4" /> },
     in_progress: { label: 'In Progress', variant: 'warning', icon: <Truck className="w-4 h-4" /> },
     completed: { label: 'Completed', variant: 'success', icon: <CheckCircle className="w-4 h-4" /> },
-    partially_completed: { label: 'Partially Completed', variant: 'warning', icon: <AlertTriangle className="w-4 h-4" /> },
+    failed: { label: 'Failed', variant: 'error', icon: <XCircle className="w-4 h-4" /> },
     cancelled: { label: 'Cancelled', variant: 'error', icon: <XCircle className="w-4 h-4" /> },
   };
-  return configs[status];
+  return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', variant: 'default' as const, icon: <Clock className="w-4 h-4" /> };
 };
 
 const getAssetStatusConfig = (status: AssetPickupStatus) => {
@@ -174,7 +170,7 @@ export function PickupRequestDetail() {
 
   // V3.2: Use branches instead of pickup_locations
   const branch = request.branches;
-  const statusConfig = getStatusConfig(request.status, isLogisticsAdminRole);
+  const statusConfig = getStatusConfig(request.status);
   const requestAssets = (request.asset_ids || []).map(id => assets.find(a => a.id === id)).filter(Boolean);
 
   // Calculate progress
@@ -182,7 +178,7 @@ export function PickupRequestDetail() {
   const exceptionsCount = (request.assets || []).filter(a => ['no_show', 'qc_failed'].includes(a.status)).length;
 
   // Determine timeline status
-  const statusOrder: PickupRequestStatus[] = ['pending_assignment', 'assigned', 'scheduled', 'in_progress', 'completed'];
+  const statusOrder: string[] = ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress', 'completed'];
   const currentIndex = statusOrder.indexOf(request.status);
 
   const handleCancel = async () => {
@@ -316,7 +312,7 @@ export function PickupRequestDetail() {
                       <p className="font-mono text-sm text-slate-500 dark:text-white/50">Not assigned</p>
                     )}
                   </div>
-                  {['pending_assignment', 'assigned', 'scheduled'].includes(request.status) && (
+                  {['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled'].includes(request.status) && (
                     <button
                       onClick={openAssignModal}
                       disabled={isLoading}
@@ -330,7 +326,7 @@ export function PickupRequestDetail() {
             )}
 
             {/* Cancel Button */}
-            {request.status === 'pending_assignment' && !isLogisticsAdminRole && (
+            {request.status === 'pending' && !isLogisticsAdminRole && (
               <button
                 onClick={handleCancel}
                 disabled={isCancelling}

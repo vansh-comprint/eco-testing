@@ -70,6 +70,9 @@ def can_modify_user(actor: User, target_user_id: str, target_role: str,
 
     # Cannot modify users at or above your level
     if target_level >= actor_level:
+        # Exception: Super Admin can modify other Super Admins
+        if actor.role == UserRole.SUPER_ADMIN.value and target_role == UserRole.SUPER_ADMIN.value:
+            return True
         return False
 
     # Super Admin can modify anyone below them

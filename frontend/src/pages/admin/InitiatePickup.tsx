@@ -64,7 +64,7 @@ export function InitiatePickup() {
   // V3.2: Get asset IDs that are already in active/pending pickup requests
   // This is a backup check in case asset status wasn't updated properly
   const assetsInActivePickups = useMemo(() => {
-    const activeStatuses = ['pending_assignment', 'assigned', 'scheduled', 'in_progress'];
+    const activeStatuses = ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress'];
     const assetIds = new Set<string>();
     pickupRequests
       .filter(pr => activeStatuses.includes(pr.status))

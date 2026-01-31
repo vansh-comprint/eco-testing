@@ -95,6 +95,22 @@
       }
     </script>
     <style>
+      /* Color scheme for native form controls (select arrows, date pickers, number spinners) */
+      html, .dark { color-scheme: dark; }
+      .light { color-scheme: light; }
+
+      /* Custom chevron for appearance-none selects */
+      .select-themed {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px !important;
+      }
+      .light .select-themed {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      }
+
       /* Premium Scrollbar - Dark Mode */
       .dark ::-webkit-scrollbar {
         width: 6px;
@@ -431,6 +447,7 @@
             const theme = parsed?.state?.theme || 'dark';
             document.documentElement.classList.remove('dark', 'light');
             document.documentElement.classList.add(theme);
+            document.documentElement.style.colorScheme = theme;
             // Update body classes based on theme
             if (theme === 'light') {
               document.body.classList.remove('bg-ecotribe-dark', 'text-white');

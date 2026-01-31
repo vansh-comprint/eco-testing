@@ -22,6 +22,7 @@ import { Badge, PageHeader, ConnectedSection } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
 import { useMemo, useContext } from 'react';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { iconSize, text, hover as hoverStyles } from '@/lib/design-tokens';
 
 export function ITAdminDashboard() {
@@ -46,7 +47,8 @@ export function ITAdminDashboard() {
   const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
 
   const itBranchCtx = useContext(ITAdminBranchContext);
-  const activeBranchFilter = itBranchCtx?.selectedBranchId || null;
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   const allAssets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;

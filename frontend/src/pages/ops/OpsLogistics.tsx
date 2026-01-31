@@ -72,7 +72,7 @@ export function OpsLogistics() {
           }))
         : [];
 
-      const allUsers: LogisticsUser[] = (usersResult.success && usersResult.data)
+      const allUsers: (LogisticsUser & { parent_user_id?: string })[] = (usersResult.success && usersResult.data)
         ? usersResult.data.map(u => ({
             id: u.id,
             email: u.email,
@@ -81,14 +81,14 @@ export function OpsLogistics() {
             role: 'logistics_user',
             status: u.status,
             created_at: u.created_at,
-            logistics_admin_id: u.logistics_admin_id,
-          } as LogisticsUser & { logistics_admin_id: string }))
+            parent_user_id: (u as any).parent_user_id,
+          }))
         : [];
 
-      // Group users by their logistics_admin_id
+      // Group users by their parent_user_id (logistics_admin_id)
       const grouped: LogisticsAdminWithUsers[] = admins.map(admin => ({
         admin,
-        users: allUsers.filter((user: any) => user.logistics_admin_id === admin.id),
+        users: allUsers.filter(user => user.parent_user_id === admin.id),
         expanded: false,
       }));
 

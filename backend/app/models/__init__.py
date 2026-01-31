@@ -35,6 +35,7 @@ from app.models.support import (
 )
 from app.models.epr import EPRCertificate, EPRCertificateStatus
 from app.models.pricing import PricingRule, ConditionModifier, DeviceCategory
+from app.models.token_blacklist import TokenBlacklistEntry
 
 __all__ = [
     # Base
@@ -92,4 +93,6 @@ __all__ = [
     "PricingRule",
     "ConditionModifier",
     "DeviceCategory",
+    # Token Blacklist
+    "TokenBlacklistEntry",
 ]

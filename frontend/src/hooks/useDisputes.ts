@@ -25,6 +25,8 @@ export interface Dispute {
   reason: string;
   description?: string;
   evidence?: string[];
+  status: string;
+  type: string;
   resolution?: 'upheld' | 'overturned' | 'partial';
   resolved_by?: string;
   resolver_notes?: string;
@@ -89,6 +91,8 @@ function mapDisputeResponse(d: DisputeResponse): Dispute {
     reason: d.dispute_type,
     description: d.description,
     evidence: d.evidence_urls,
+    status: d.status,
+    type: d.dispute_type,
     resolution: d.resolution as Dispute['resolution'],
     resolved_by: d.resolved_by_user_id,
     resolved_at: d.resolved_at,

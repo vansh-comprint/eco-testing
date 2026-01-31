@@ -2,13 +2,14 @@ import type { PickupLocation } from './enterprise';
 
 // Pickup Request Status
 export type PickupRequestStatus =
-  | 'pending_assignment'    // IT Admin created, waiting for Logistics Admin
-  | 'assigned'              // Logistics Admin assigned to Logistics User
-  | 'scheduled'             // Date/time confirmed
-  | 'in_progress'           // Logistics User at location
-  | 'partially_completed'   // Some devices picked, some failed on-site QC
-  | 'completed'             // All devices processed
-  | 'cancelled';            // Request cancelled
+  | 'pending'                       // Created, waiting for Logistics Admin assignment
+  | 'assigned_to_logistics_admin'   // Assigned to a Logistics Admin
+  | 'assigned_to_logistics_user'    // Logistics Admin assigned to a field driver
+  | 'scheduled'                     // Date/time confirmed
+  | 'in_progress'                   // Logistics User at location
+  | 'completed'                     // All devices processed
+  | 'failed'                        // Pickup failed
+  | 'cancelled';                    // Request cancelled
 
 // Priority levels
 export type PickupPriority = 'low' | 'normal' | 'high' | 'urgent';

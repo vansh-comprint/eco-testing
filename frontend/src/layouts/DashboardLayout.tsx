@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronDown, Menu, X, LogOut, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -28,8 +28,15 @@ interface DashboardLayoutProps {
 function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [itAdminViewEnabled, setItAdminViewEnabled] = useState(false);
+  const [itAdminViewEnabled, setItAdminViewEnabled] = useState(() => {
+    return sessionStorage.getItem('org_branch_ops_enabled') === 'true';
+  });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Persist Branch Ops toggle state
+  useEffect(() => {
+    sessionStorage.setItem('org_branch_ops_enabled', String(itAdminViewEnabled));
+  }, [itAdminViewEnabled]);
   const location = useLocation();
 
   const toggleGroup = (label: string) => {
@@ -244,7 +251,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
               );
             })}
 
-            {/* IT Admin View Toggle - Only for Org Admin */}
+            {/* Branch Operations Toggle - Only for Org Admin */}
             {role === 'org_admin' && itViewNavItems && sidebarOpen && (
               <>
                 <div className="my-3 border-t border-black/10 dark:border-white/10" />
@@ -261,7 +268,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                   ) : (
                     <ToggleLeft className="w-5 h-5" />
                   )}
-                  <span className="font-mono font-bold text-xs uppercase tracking-widest">IT Admin View</span>
+                  <span className="font-mono font-bold text-xs uppercase tracking-widest">Branch Ops</span>
                 </button>
 
                 {/* V3.2: Branch Selector - when IT Admin View is enabled */}
@@ -487,6 +494,61 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                   );
                 })}
               </nav>
+
+              {/* Mobile Branch Ops Toggle - Only for Org Admin */}
+              {role === 'org_admin' && itViewNavItems && (
+                <div className="px-3 pb-3">
+                  <div className="my-2 border-t border-black/10 dark:border-white/10" />
+                  <button
+                    onClick={() => setItAdminViewEnabled(!itAdminViewEnabled)}
+                    className={`interactive w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-300 ${
+                      itAdminViewEnabled
+                        ? 'text-ecotribe-primary'
+                        : 'text-black/60 dark:text-zinc-500 hover:text-black dark:hover:text-white'
+                    }`}
+                  >
+                    {itAdminViewEnabled ? (
+                      <ToggleRight className="w-5 h-5" />
+                    ) : (
+                      <ToggleLeft className="w-5 h-5" />
+                    )}
+                    <span className="font-mono font-bold text-xs uppercase tracking-widest">Branch Ops</span>
+                  </button>
+
+                  {itAdminViewEnabled && (
+                    <>
+                      <div className="mt-2 mb-2">
+                        <p className="px-3 py-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/40 dark:text-zinc-600">
+                          Filter by Branch
+                        </p>
+                        <div className="mt-1">
+                          <BranchSelector />
+                        </div>
+                      </div>
+                      <div className="ml-2 pl-2 border-l-2 border-ecotribe-primary/30 space-y-1">
+                        {itViewNavItems.map((item) => {
+                          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                          return (
+                            <Link
+                              key={item.path}
+                              to={item.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`interactive flex items-center gap-3 px-3 py-2 transition-all duration-300 ${
+                                isActive
+                                  ? 'bg-ecotribe-primary/20 text-ecotribe-primary'
+                                  : 'text-black/50 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                              }`}
+                            >
+                              <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">{item.icon}</span>
+                              <span className="font-brand font-bold text-xs uppercase tracking-wide truncate">{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Mobile User Info */}
               <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-black/95 backdrop-blur-xl">

@@ -78,8 +78,6 @@ const createEnterpriseSchema = z.object({
   // Business Info
   industry: z.string().optional().or(z.literal('')),
   companySize: z.string().optional().or(z.literal('')),
-  employeeCount: z.coerce.number().optional(),
-
   // Contact
   contactPerson: z.string().min(1, 'Contact person is required'),
   contactEmail: z.string().email('Invalid email address'),
@@ -305,7 +303,6 @@ export function CreateEnterprise() {
         },
         industry: clean(data.industry),
         company_size: clean(data.companySize),
-        employee_count: data.employeeCount,
         contact_person: data.contactPerson,
         contact_email: data.contactEmail,
         contact_phone: data.contactPhone,
@@ -434,7 +431,7 @@ export function CreateEnterprise() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
                       Industry
@@ -469,12 +466,6 @@ export function CreateEnterprise() {
                       <p className="text-red-400 text-xs font-mono">{errors.companySize.message}</p>
                     )}
                   </div>
-                  <Input
-                    label="Employee Count"
-                    type="number"
-                    {...register('employeeCount')}
-                    error={errors.employeeCount?.message}
-                  />
                 </div>
 
                 <div className="space-y-4">

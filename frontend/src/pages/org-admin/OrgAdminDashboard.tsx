@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { safeNumber } from '@/utils/formatters';
@@ -13,10 +13,17 @@ import {
   XCircle,
   FileText,
   BarChart3,
-  UserPlus
+  UserPlus,
+  Monitor,
+  Building2,
+  Users,
+  Package,
+  Truck,
+  AlertTriangle,
+  Settings,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth, useAssets, useBatches, useEnterprises } from '@/hooks';
+import { useAuth, useAssets, useBatches, useBranches, useITAdmins, useSubUsers, usePickupRequests, useDisputesByEnterprise } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
@@ -28,18 +35,30 @@ export function OrgAdminDashboard() {
   const [isAddITAdminModalOpen, setIsAddITAdminModalOpen] = useState(false);
   const { user, enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
+
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: batches = [] } = useBatches(enterpriseId);
-  const { data: enterprises = [] } = useEnterprises();
+  const { data: branches = [] } = useBranches(enterpriseId);
+  const { data: itAdmins = [] } = useITAdmins(enterpriseId);
+  const { data: employees = [] } = useSubUsers(enterpriseId);
+  const { data: pickups = [] } = usePickupRequests(enterpriseId);
+  const { data: disputes = [] } = useDisputesByEnterprise(enterpriseId);
 
-  // Get batches requiring Org Admin approval
+  // Batch metrics
   const pendingApprovals = batches.filter(b => b.status === 'pending_approval');
-  const approvedBatches = batches.filter(b => b.approval_status === 'approved');
-  const rejectedBatches = batches.filter(b => b.approval_status === 'rejected');
+  const approvedBatches = batches.filter(b => ['approved', 'pickup_in_progress', 'completed'].includes(b.status));
+  const rejectedBatches = batches.filter(b => b.status === 'rejected');
+  const pendingApprovalValue = pendingApprovals.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
 
-  // Submission metrics
-  const submittedAssets = assets.filter(a => ['submitted', 'remote_review', 'conditionally_accepted'].includes(a.status));
-  const estimatedSubmissionValue = submittedAssets.reduce((sum, a) => sum + safeNumber(a.base_price), 0);
+  // Asset metrics
+  const assetsByStatus = useMemo(() => {
+    const pending = assets.filter(a => ['pending_assignment', 'assigned', 'check_in_started'].includes(a.status)).length;
+    const inReview = assets.filter(a => ['submitted', 'remote_review', 'facility_review'].includes(a.status)).length;
+    const accepted = assets.filter(a => ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'].includes(a.status)).length;
+    const completed = assets.filter(a => a.status === 'completed').length;
+    const rejected = assets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status)).length;
+    return { pending, inReview, accepted, completed, rejected, total: assets.length };
+  }, [assets]);
 
   // Financial metrics
   const totalPayoutValue = assets
@@ -50,17 +69,79 @@ export function OrgAdminDashboard() {
     .filter(a => a.status === 'final_accepted' || a.status === 'payout_pending')
     .reduce((sum, a) => sum + safeNumber(a.final_price || a.base_price), 0);
 
-  const pendingApprovalValue = pendingApprovals.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
+  // Branch performance
+  const branchPerformance = useMemo(() => {
+    return branches.map(branch => {
+      const branchAssets = assets.filter(a => a.branch_id === branch.id);
+      const branchBatches = batches.filter(b => b.branch_id === branch.id);
+      const completed = branchAssets.filter(a => a.status === 'completed').length;
+      const value = branchAssets.reduce((sum, a) => sum + safeNumber(a.final_price || a.base_price), 0);
+      return {
+        id: branch.id,
+        name: branch.name,
+        code: branch.code,
+        assetCount: branchAssets.length,
+        batchCount: branchBatches.length,
+        completedCount: completed,
+        completionRate: branchAssets.length > 0 ? Math.round((completed / branchAssets.length) * 100) : 0,
+        value,
+        hasAdmin: !!branch.it_admin_id,
+      };
+    }).sort((a, b) => b.assetCount - a.assetCount);
+  }, [branches, assets, batches]);
 
-  // Prepare stat items for the grid
-  const statItems = [
+  // Action items
+  const branchesWithoutAdmin = branches.filter(b => !b.it_admin_id).length;
+  const stalledBatches = pendingApprovals.filter(b => {
+    const submittedAt = b.submitted_for_approval_at || b.created_at;
+    const daysSince = (Date.now() - new Date(submittedAt).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince > 7;
+  }).length;
+  const pendingDisputes = disputes.filter(d => d.status === 'pending').length;
+  const activePickups = pickups.filter(p => ['in_progress', 'scheduled'].includes(p.status)).length;
+
+  // Batch pipeline counts
+  const pipeline = useMemo(() => ({
+    draft: batches.filter(b => b.status === 'draft').length,
+    pending: pendingApprovals.length,
+    approved: batches.filter(b => b.status === 'approved').length,
+    pickup: batches.filter(b => b.status === 'pickup_in_progress').length,
+    completed: batches.filter(b => b.status === 'completed').length,
+  }), [batches, pendingApprovals]);
+
+  // Top row: operational stats
+  const operationalStats = [
+    {
+      label: 'Total Assets',
+      value: assetsByStatus.total,
+      subLabel: `${assetsByStatus.completed} completed`,
+      icon: <Monitor className={`${iconSize.lg} text-slate-500`} />,
+      accent: 'neutral' as StatAccent,
+      onClick: () => navigate('/org-admin/enterprise-assets'),
+    },
     {
       label: 'Pending Approvals',
       value: pendingApprovals.length,
-      subLabel: `₹${(pendingApprovalValue / 100000).toFixed(1)}L value`,
+      subLabel: pendingApprovalValue > 0 ? `₹${(pendingApprovalValue / 100000).toFixed(1)}L value` : 'None pending',
       icon: <Clock className={`${iconSize.lg} text-amber-500`} />,
       accent: (pendingApprovals.length > 0 ? 'warning' : 'neutral') as StatAccent,
       onClick: () => navigate('/org-admin/approvals'),
+    },
+    {
+      label: 'Active Branches',
+      value: branches.filter(b => b.status === 'active').length,
+      subLabel: branchesWithoutAdmin > 0 ? `${branchesWithoutAdmin} need admin` : 'All staffed',
+      icon: <Building2 className={`${iconSize.lg} text-blue-500`} />,
+      accent: (branchesWithoutAdmin > 0 ? 'warning' : 'success') as StatAccent,
+      onClick: () => navigate('/org-admin/branches'),
+    },
+    {
+      label: 'IT Admins',
+      value: itAdmins.filter(a => a.status === 'active').length,
+      subLabel: `${itAdmins.length} total`,
+      icon: <Users className={`${iconSize.lg} text-purple-500`} />,
+      accent: 'neutral' as StatAccent,
+      onClick: () => navigate('/org-admin/it-admins'),
     },
     {
       label: 'Total Disbursed',
@@ -74,23 +155,11 @@ export function OrgAdminDashboard() {
       label: 'Pending Payout',
       value: `₹${(pendingPayoutValue / 100000).toFixed(1)}L`,
       subLabel: 'Ready to process',
-      icon: <TrendingUp className={`${iconSize.lg} text-blue-500`} />,
-      accent: 'info' as StatAccent,
-      onClick: () => navigate('/org-admin/payouts'),
-    },
-    {
-      label: 'EPR Pending',
-      value: batches.filter(b => b.epr_status === 'pending').length,
-      subLabel: 'Certificates needed',
-      icon: <FileText className={`${iconSize.lg} text-purple-500`} />,
-      accent: 'neutral' as StatAccent,
-      onClick: () => navigate('/org-admin/epr'),
+      icon: <TrendingUp className={`${iconSize.lg} text-lime-500`} />,
+      accent: 'brand' as StatAccent,
+      onClick: () => navigate('/org-admin/wallet'),
     },
   ];
-
-  const getEnterpriseName = (entId: string) => {
-    return enterprises.find(e => e.id === entId)?.name || 'Unknown';
-  };
 
   return (
     <div className="space-y-8">
@@ -98,7 +167,7 @@ export function OrgAdminDashboard() {
       <PageHeader
         label="Organization Admin Portal"
         title={`Welcome, ${user?.name?.split(' ')[0]}`}
-        subtitle="Financial oversight and batch approvals"
+        subtitle={`${enterprise?.name || 'Enterprise'} — ${branches.length} branches, ${assets.length} assets`}
         actions={
           <button
             onClick={() => setIsAddITAdminModalOpen(true)}
@@ -110,47 +179,106 @@ export function OrgAdminDashboard() {
         }
       />
 
-      {/* Urgent Alert */}
-      {pendingApprovals.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="border border-amber-500/40 bg-amber-50/80 dark:bg-amber-500/10 p-5"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 border border-amber-500/50 bg-amber-100/80 dark:bg-amber-500/20 flex items-center justify-center animate-pulse">
-              <AlertCircle className={`${iconSize.xl} text-amber-500`} />
+      {/* Urgent Alerts */}
+      {(pendingApprovals.length > 0 || branchesWithoutAdmin > 0 || stalledBatches > 0) && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+          {pendingApprovals.length > 0 && (
+            <div className="border border-amber-500/40 bg-amber-50/80 dark:bg-amber-500/10 p-4 flex items-center gap-4">
+              <div className="w-10 h-10 border border-amber-500/50 bg-amber-100/80 dark:bg-amber-500/20 flex items-center justify-center animate-pulse flex-shrink-0">
+                <AlertCircle className={`${iconSize.lg} text-amber-500`} />
+              </div>
+              <div className="flex-1">
+                <p className={`font-display font-bold uppercase text-sm ${text.primary}`}>
+                  {pendingApprovals.length} Batch{pendingApprovals.length > 1 ? 'es' : ''} Awaiting Approval
+                </p>
+                <p className="font-mono text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  ₹{pendingApprovalValue.toLocaleString()} total value
+                  {stalledBatches > 0 && ` — ${stalledBatches} stalled (>7 days)`}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/org-admin/approvals')}
+                className="px-4 py-2 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
+              >
+                Review <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div className="flex-1">
-              <p className={`font-display font-bold uppercase ${text.primary}`}>
-                {pendingApprovals.length} Batch{pendingApprovals.length > 1 ? 'es' : ''} Awaiting Your Approval
-              </p>
-              <p className="font-mono text-xs text-amber-600 dark:text-amber-400 mt-1">
-                Total value: ₹{pendingApprovalValue.toLocaleString()}
-              </p>
+          )}
+          {branchesWithoutAdmin > 0 && (
+            <div className="border border-red-500/30 bg-red-50/60 dark:bg-red-500/5 p-4 flex items-center gap-4">
+              <div className="w-10 h-10 border border-red-500/30 bg-red-100/80 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className={`${iconSize.lg} text-red-500`} />
+              </div>
+              <div className="flex-1">
+                <p className={`font-display font-bold uppercase text-sm ${text.primary}`}>
+                  {branchesWithoutAdmin} Branch{branchesWithoutAdmin > 1 ? 'es' : ''} Without IT Admin
+                </p>
+                <p className="font-mono text-xs text-red-600 dark:text-red-400 mt-0.5">
+                  Assign IT Admins to enable operations
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/org-admin/branches')}
+                className="px-4 py-2 border border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+              >
+                Manage
+              </button>
             </div>
-            <button
-              onClick={() => navigate('/org-admin/approvals')}
-              className="px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
-            >
-              Review Now
-              <ArrowRight className={iconSize.md} />
-            </button>
-          </div>
+          )}
         </motion.div>
       )}
 
       {/* Stats Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <DashboardStatGrid items={statItems} columns={4} />
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <DashboardStatGrid items={operationalStats} columns={3} />
       </motion.div>
 
-      {/* Pending Approvals List */}
-      {pendingApprovals.length > 0 && (
+      {/* Batch Pipeline */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className={glass.subtle}
+      >
+        <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+          <h2 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
+            Batch Pipeline
+          </h2>
+          <button
+            onClick={() => navigate('/org-admin/enterprise-batches')}
+            className={`font-mono font-bold text-xs uppercase tracking-widest ${text.muted} hover:text-lime-600 dark:hover:text-lime-400 transition-colors flex items-center gap-1`}
+          >
+            View All <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="p-5">
+          <div className="grid grid-cols-5 gap-3">
+            {[
+              { label: 'Draft', count: pipeline.draft, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-white/5' },
+              { label: 'Pending', count: pipeline.pending, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+              { label: 'Approved', count: pipeline.approved, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+              { label: 'Pickup', count: pipeline.pickup, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+              { label: 'Completed', count: pipeline.completed, color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-500/10' },
+            ].map((stage, i) => (
+              <div key={stage.label} className="relative">
+                <div className={`p-4 ${stage.bg} border border-slate-200/60 dark:border-white/5 text-center`}>
+                  <p className={`font-brand font-bold text-2xl ${stage.color}`}>{stage.count}</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest mt-1">{stage.label}</p>
+                </div>
+                {i < 4 && (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
+                    <ArrowRight className="w-3 h-3 text-slate-300 dark:text-zinc-700" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Branch Performance + Financial Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Branch Performance */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,43 +287,54 @@ export function OrgAdminDashboard() {
         >
           <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
             <h2 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
-              Pending Approvals
+              Branch Performance
             </h2>
             <button
-              onClick={() => navigate('/org-admin/approvals')}
+              onClick={() => navigate('/org-admin/branches')}
               className={`font-mono font-bold text-xs uppercase tracking-widest ${text.muted} hover:text-lime-600 dark:hover:text-lime-400 transition-colors flex items-center gap-1`}
             >
-              View All <ArrowRight className="w-3 h-3" />
+              Manage <ArrowRight className="w-3 h-3" />
             </button>
           </div>
           <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {pendingApprovals.slice(0, 3).map((batch) => (
-              <div key={batch.id} className={`p-5 flex items-center gap-5 ${hoverStyles.row}`}>
-                <div className="w-14 h-14 border border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 flex items-center justify-center">
-                  <FileCheck className={`${iconSize.xl} text-amber-500`} />
-                </div>
-                <div className="flex-1">
-                  <h3 className={`font-display font-bold uppercase ${text.primary}`}>{batch.name}</h3>
-                  <p className={`font-mono text-xs ${text.muted}`}>{getEnterpriseName(batch.enterprise_id)}</p>
-                  <div className={`flex items-center gap-4 mt-2 font-mono text-xs ${text.muted}`}>
-                    <span>{batch.asset_count || 0} assets</span>
-                    <span>₹{(batch.estimated_value || 0).toLocaleString()}</span>
+            {branchPerformance.slice(0, 5).map((branch) => (
+              <div key={branch.id} className={`p-4 ${hoverStyles.row}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                    <span className={`font-display font-bold text-sm uppercase ${text.primary}`}>{branch.name}</span>
+                    {!branch.hasAdmin && (
+                      <span className="px-1.5 py-0.5 bg-red-50 dark:bg-red-500/10 border border-red-500/20 font-mono text-[9px] text-red-500 uppercase">No Admin</span>
+                    )}
                   </div>
+                  <span className="font-mono text-xs text-ecotribe-primary font-bold">
+                    {branch.completionRate}%
+                  </span>
                 </div>
-                <button
-                  onClick={() => navigate(`/org-admin/approvals/${batch.id}`)}
-                  className="px-5 py-2.5 border border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-100/80 dark:hover:bg-amber-500/20 transition-all"
-                >
-                  Review
-                </button>
+                <div className="flex items-center gap-4">
+                  <span className={`font-mono text-xs ${text.muted}`}>{branch.assetCount} assets</span>
+                  <span className={`font-mono text-xs ${text.muted}`}>{branch.batchCount} batches</span>
+                  {branch.value > 0 && (
+                    <span className="font-mono text-xs text-emerald-500">₹{(branch.value / 1000).toFixed(0)}K</span>
+                  )}
+                </div>
+                {/* Mini progress bar */}
+                <div className="mt-2 h-1.5 bg-slate-100 dark:bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full bg-ecotribe-primary transition-all duration-500"
+                    style={{ width: `${branch.completionRate}%` }}
+                  />
+                </div>
               </div>
             ))}
+            {branchPerformance.length === 0 && (
+              <div className="p-8 text-center">
+                <p className={`font-display ${text.muted}`}>No branches yet</p>
+              </div>
+            )}
           </div>
         </motion.div>
-      )}
 
-      {/* Recent Activity & Financial Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Financial Summary */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -252,14 +391,38 @@ export function OrgAdminDashboard() {
               </span>
             </div>
           </div>
-        </motion.div>
 
-        {/* Approval History */}
+          {/* Activity Summary */}
+          <div className="p-5 border-t border-slate-200/80 dark:border-zinc-800">
+            <h3 className={`font-display font-bold text-xs uppercase tracking-wide ${text.muted} mb-3`}>Active Operations</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+                <Truck className="w-4 h-4 text-blue-500" />
+                <div>
+                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{activePickups}</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase">Active Pickups</p>
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <div>
+                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{pendingDisputes}</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase">Open Disputes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Recent Decisions + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Decisions */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className={glass.subtle}
+          className={`lg:col-span-2 ${glass.subtle}`}
         >
           <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800">
             <h2 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
@@ -267,17 +430,19 @@ export function OrgAdminDashboard() {
             </h2>
           </div>
           <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {[...approvedBatches, ...rejectedBatches].slice(0, 4).map((batch) => (
+            {[...approvedBatches, ...rejectedBatches]
+              .sort((a, b) => new Date(b.approved_at || b.rejected_at || b.created_at).getTime() - new Date(a.approved_at || a.rejected_at || a.created_at).getTime())
+              .slice(0, 5).map((batch) => (
               <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
                 <div className={`w-10 h-10 border flex items-center justify-center ${
-                  batch.approval_status === 'approved'
-                    ? 'border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10'
-                    : 'border-red-500/30 bg-red-50/80 dark:bg-red-500/10'
+                  batch.status === 'rejected'
+                    ? 'border-red-500/30 bg-red-50/80 dark:bg-red-500/10'
+                    : 'border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10'
                 }`}>
-                  {batch.approval_status === 'approved' ? (
-                    <CheckCircle className={`${iconSize.lg} text-emerald-500`} />
-                  ) : (
+                  {batch.status === 'rejected' ? (
                     <XCircle className={`${iconSize.lg} text-red-500`} />
+                  ) : (
+                    <CheckCircle className={`${iconSize.lg} text-emerald-500`} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -286,8 +451,8 @@ export function OrgAdminDashboard() {
                     {batch.asset_count || 0} assets • ₹{(batch.estimated_value || 0).toLocaleString()}
                   </p>
                 </div>
-                <Badge variant={batch.approval_status === 'approved' ? 'success' : 'error'} size="sm">
-                  {batch.approval_status}
+                <Badge variant={batch.status === 'rejected' ? 'error' : 'success'} size="sm">
+                  {batch.status === 'rejected' ? 'Rejected' : 'Approved'}
                 </Badge>
               </div>
             ))}
@@ -298,54 +463,39 @@ export function OrgAdminDashboard() {
             )}
           </div>
         </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="space-y-3"
+        >
+          {[
+            { label: 'Batch Approvals', desc: 'Review pending batches', icon: <FileCheck className="w-6 h-6 text-amber-500" />, path: '/org-admin/approvals', hoverColor: 'hover:border-amber-500/30' },
+            { label: 'All Assets', desc: 'Enterprise-wide overview', icon: <Monitor className="w-6 h-6 text-blue-500" />, path: '/org-admin/enterprise-assets', hoverColor: 'hover:border-blue-500/30' },
+            { label: 'All Batches', desc: 'Batch pipeline view', icon: <Package className="w-6 h-6 text-purple-500" />, path: '/org-admin/enterprise-batches', hoverColor: 'hover:border-purple-500/30' },
+            { label: 'Financial Reports', desc: 'Analytics & exports', icon: <BarChart3 className="w-6 h-6 text-emerald-500" />, path: '/org-admin/reports', hoverColor: 'hover:border-emerald-500/30' },
+            { label: 'EPR Certificates', desc: 'Compliance docs', icon: <FileText className="w-6 h-6 text-purple-500" />, path: '/org-admin/epr', hoverColor: 'hover:border-purple-500/30' },
+            { label: 'Settings', desc: 'Enterprise preferences', icon: <Settings className="w-6 h-6 text-slate-500" />, path: '/org-admin/settings', hoverColor: 'hover:border-slate-400/30' },
+          ].map((action) => (
+            <button
+              key={action.path}
+              onClick={() => navigate(action.path)}
+              className={`${glass.subtle} w-full p-4 text-left ${action.hoverColor} group transition-all flex items-center gap-4`}
+            >
+              {action.icon}
+              <div>
+                <h3 className={`font-display font-bold text-sm uppercase group-hover:text-ecotribe-primary transition-colors ${text.primary}`}>
+                  {action.label}
+                </h3>
+                <p className={`font-mono text-[11px] ${text.muted}`}>{action.desc}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ))}
+        </motion.div>
       </div>
-
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-      >
-        <button
-          onClick={() => navigate('/org-admin/approvals')}
-          className={`${glass.subtle} p-5 text-left hover:border-amber-500/30 group transition-all`}
-        >
-          <FileCheck className={`${iconSize['2xl']} text-amber-500 mb-3`} />
-          <h3 className={`font-display font-bold uppercase group-hover:text-amber-500 transition-colors ${text.primary}`}>
-            Batch Approvals
-          </h3>
-          <p className={`font-mono text-xs mt-1 ${text.muted}`}>
-            Review and approve high-value batches
-          </p>
-        </button>
-
-        <button
-          onClick={() => navigate('/org-admin/reports')}
-          className={`${glass.subtle} p-5 text-left hover:border-blue-500/30 group transition-all`}
-        >
-          <BarChart3 className={`${iconSize['2xl']} text-blue-500 mb-3`} />
-          <h3 className={`font-display font-bold uppercase group-hover:text-blue-500 transition-colors ${text.primary}`}>
-            Financial Reports
-          </h3>
-          <p className={`font-mono text-xs mt-1 ${text.muted}`}>
-            View detailed financial analytics
-          </p>
-        </button>
-
-        <button
-          onClick={() => navigate('/org-admin/epr')}
-          className={`${glass.subtle} p-5 text-left hover:border-purple-500/30 group transition-all`}
-        >
-          <FileText className={`${iconSize['2xl']} text-purple-500 mb-3`} />
-          <h3 className={`font-display font-bold uppercase group-hover:text-purple-500 transition-colors ${text.primary}`}>
-            EPR Certificates
-          </h3>
-          <p className={`font-mono text-xs mt-1 ${text.muted}`}>
-            Manage EPR compliance documents
-          </p>
-        </button>
-      </motion.div>
 
       {/* Add IT Admin Modal */}
       <AddITAdminModal
