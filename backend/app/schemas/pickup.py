@@ -15,7 +15,7 @@ class PickupRequestCreate(BaseModel):
     """Schema for creating a pickup request"""
     enterprise_id: Optional[str] = Field(None, description="Enterprise ID (auto-filled for scoped users)")
     location_id: str = Field(..., description="Pickup location ID")
-    batch_id: Optional[str] = Field(None, description="Batch ID")
+    batch_id: str = Field(..., description="Batch ID (required — pickup must go through a batch)")
     asset_ids: List[str] = Field(..., description="List of asset IDs to pick up")
     preferred_date: Optional[date] = Field(None, description="Preferred pickup date")
     preferred_time_slot: str = Field(..., description="Preferred time slot")

@@ -7,7 +7,7 @@
  * - "Accepted" → "Verified"
  * - "Scheduled" → "Scheduled for Pickup"
  * - "Picked Up" → "Pickup Completed"
- * - CFO references → Org Admin
+ * - Legacy status keys kept as backwards-compatible aliases for old database values
  */
 
 import type { AssetStatus, BatchStatus } from '@/types';
@@ -26,17 +26,17 @@ export const ASSET_STATUS_DISPLAY: Record<AssetStatus, StatusDisplayConfig> = {
   pending_assignment: {
     label: 'Pending Assignment',
     variant: 'default',
-    description: 'Asset is waiting to be assigned to a sub-user'
+    description: 'Asset is waiting to be assigned to an employee'
   },
   assigned: {
     label: 'Assigned',
     variant: 'info',
-    description: 'Asset has been assigned to a sub-user for check-in'
+    description: 'Asset has been assigned to an employee for check-in'
   },
   check_in_started: {
     label: 'Check-in Started',
     variant: 'info',
-    description: 'Sub-user has started the check-in process'
+    description: 'Employee has started the check-in process'
   },
   submitted: {
     label: 'Awaiting Verification',
@@ -46,7 +46,7 @@ export const ASSET_STATUS_DISPLAY: Record<AssetStatus, StatusDisplayConfig> = {
   remote_review: {
     label: 'Awaiting Verification',
     variant: 'warning',
-    description: 'Under remote review by technician'
+    description: 'Under remote review by reviewer'
   },
   conditionally_accepted: {
     label: 'Verified',
@@ -172,10 +172,11 @@ export const BATCH_STATUS_DISPLAY: Record<BatchStatus, StatusDisplayConfig> = {
     variant: 'warning',
     description: 'Waiting for Org Admin approval'
   },
+  // Backwards-compatible aliases for legacy DB status strings
   pending_cfo_approval: {
-    label: 'Pending Approval',
+    label: 'Pending Org Admin Approval',
     variant: 'warning',
-    description: 'Waiting for approval'
+    description: 'Waiting for Org Admin approval'
   },
   approved: {
     label: 'Approved',
@@ -183,7 +184,7 @@ export const BATCH_STATUS_DISPLAY: Record<BatchStatus, StatusDisplayConfig> = {
     description: 'Batch has been approved'
   },
   cfo_approved: {
-    label: 'Approved',
+    label: 'Org Admin Approved',
     variant: 'success',
     description: 'Batch has been approved'
   },
@@ -193,10 +194,16 @@ export const BATCH_STATUS_DISPLAY: Record<BatchStatus, StatusDisplayConfig> = {
     description: 'Batch was rejected'
   },
   cfo_rejected: {
-    label: 'Rejected',
+    label: 'Org Admin Rejected',
     variant: 'error',
     description: 'Batch was rejected'
   },
+  pickup_in_progress: {
+    label: 'Pickup In Progress',
+    variant: 'info',
+    description: 'Pickup has been initiated for this batch'
+  },
+  // Backwards-compatible aliases for legacy DB status strings
   active: {
     label: 'Active',
     variant: 'info',
@@ -226,8 +233,7 @@ export const BATCH_STATUS_FILTER_OPTIONS = [
   { label: 'Pending Approval', value: 'pending_approval' },
   { label: 'Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' },
-  { label: 'Active', value: 'active' },
-  { label: 'Processing', value: 'in_progress' },
+  { label: 'Pickup In Progress', value: 'pickup_in_progress' },
   { label: 'Completed', value: 'completed' },
   { label: 'Cancelled', value: 'cancelled' },
 ];

@@ -49,8 +49,8 @@ test.describe('Authentication', () => {
     await expect(page.getByRole('heading', { name: 'Super Admin' })).toBeVisible();
   });
 
-  test('should login as OPS Admin (main_admin) and redirect correctly', async ({ page }) => {
-    await loginAs(page, 'main_admin');
+  test('should login as OPS Admin and redirect correctly', async ({ page }) => {
+    await loginAs(page, 'ops_admin');
 
     // Verify we're on the ops dashboard
     await expect(page).toHaveURL(/\/ops/);
@@ -76,10 +76,10 @@ test.describe('Authentication', () => {
     await waitForPageReady(page);
   });
 
-  test.skip('should login as Sub User and redirect correctly', async ({ page }) => {
-    // SKIP: Sub Users (employees) require OTP login flow, not password login
+  test.skip('should login as Employee and redirect correctly', async ({ page }) => {
+    // SKIP: Employees require OTP login flow, not password login
     // The backend enforces "Employees must use OTP login"
-    await loginAs(page, 'sub_user');
+    await loginAs(page, 'employee');
     await expect(page).toHaveURL(/\/check-in/);
     await waitForPageReady(page);
   });

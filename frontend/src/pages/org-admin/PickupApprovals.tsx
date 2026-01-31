@@ -1,7 +1,7 @@
 /**
  * Org Admin Pickup Approvals Page
  * V3: IT Admin submits batches for pickup → Org Admin approves → Auto pickup initiated
- * Migrated from CFO BatchApprovals to React Query
+ * Migrated from legacy BatchApprovals to React Query
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ import {
 import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useApiError } from '@/hooks';
 import { batchesApi } from '@/lib/api/batches';
 import { ConfirmationModal } from '@/components/ui';
+import { safeNumber } from '@/utils/formatters';
 
 type ApprovalFilter = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -218,7 +219,7 @@ export function PickupApprovals() {
     rejected: pendingBatches.filter(b => b.approval_status === 'rejected').length,
     totalValue: pendingBatches
       .filter(b => b.status === 'pending_approval')
-      .reduce((sum, b) => sum + (b.estimated_value || 0), 0),
+      .reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
   };
 
   return (

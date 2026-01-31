@@ -17,7 +17,7 @@ class UserService:
     Service for unified User business logic.
 
     Handles all user types through role-based differentiation:
-    - Platform users (Super Admin, OPS Admin, Technician) - password-based
+    - Platform users (Super Admin, OPS Admin) - password-based
     - Enterprise users (Org Admin, IT Admin) - password-based
     - Employees - OTP-based (no password)
     - Logistics users (Logistics Admin, Logistics User) - password-based
@@ -258,7 +258,9 @@ class UserService:
         # Update only provided fields
         update_data = user_data.model_dump(exclude_unset=True)
 
-        # Handle status enum conversion
+        # Handle enum conversions
+        if "role" in update_data and update_data["role"]:
+            update_data["role"] = update_data["role"].value
         if "status" in update_data and update_data["status"]:
             update_data["status"] = update_data["status"].value
 
@@ -325,7 +327,7 @@ class UserService:
                 raise ValidationError("Org Admin must be assigned to an enterprise")
 
         # Platform users should not have enterprise_id
-        elif role in [UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN, UserRole.TECHNICIAN]:
+        elif role in [UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN]:
             if user_data.enterprise_id:
                 raise ValidationError(f"{role.value} should not be assigned to an enterprise")
 

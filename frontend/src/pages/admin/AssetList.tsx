@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,17 +18,14 @@ import {
   Trash2,
   TrendingUp,
   Truck,
-  MapPin,
-  Calendar,
   Loader2
 } from 'lucide-react';
 import { Badge, Dropdown, useToast } from '@/components/ui';
-import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreatePickupRequest, usePickupRequests, usePickupsByITAdmin } from '@/hooks';
-import type { PickupTimeSlot, PickupPriority } from '@/types';
-import { pickupTimeSlotLabels } from '@/types/pickup';
+import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 
 // Use centralized status options
 const STATUS_OPTIONS = ASSET_STATUS_FILTER_OPTIONS;
@@ -58,6 +55,9 @@ export function AssetList() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || null;
+
   // V3.2: React Query hooks - use different hooks based on role
   // Only enable the appropriate queries to avoid unnecessary requests
   const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
@@ -67,40 +67,23 @@ export function AssetList() {
   const { data: subUsers = [] } = useSubUsers(enterpriseId); // Sub-users remain enterprise-wide
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
   const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: orgPickups = [] } = usePickupRequests(isOrgAdmin ? enterpriseId : '');
-  const { data: itPickups = [] } = usePickupsByITAdmin(isOrgAdmin ? '' : userId);
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
   const batches = isOrgAdmin ? orgBatches : itBatches;
   const batchesLoading = isOrgAdmin ? orgBatchesLoading : itBatchesLoading;
   const branches = isOrgAdmin ? orgBranches : itBranches;
-  const pickupRequests = isOrgAdmin ? orgPickups : itPickups;
-
-  // V3.2: Get asset IDs that are already in active/pending pickup requests
-  // This is a backup check in case asset status wasn't updated properly
-  const assetsInActivePickups = useMemo(() => {
-    const activeStatuses = ['pending_assignment', 'assigned', 'scheduled', 'in_progress'];
-    const assetIds = new Set<string>();
-    pickupRequests
-      .filter(pr => activeStatuses.includes(pr.status))
-      .forEach(pr => {
-        (pr.asset_ids || []).forEach((id: string) => assetIds.add(id));
-      });
-    return assetIds;
-  }, [pickupRequests]);
-
   // Mutations
   const assignAssetMutation = useAssignAssetToSubUser();
   const updateAssetMutation = useUpdateAsset();
   const deleteAssetMutation = useDeleteAsset();
-  const createPickupMutation = useCreatePickupRequest();
 
   const isLoading = assetsLoading || batchesLoading;
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [batchFilter, setBatchFilter] = useState(searchParams.get('batch') || '');
+  const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
 
   // Selection state for bulk actions
@@ -112,25 +95,29 @@ export function AssetList() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
-  // Pickup modal state
-  const [showPickupModal, setShowPickupModal] = useState(false);
-  const [isCreatingPickup, setIsCreatingPickup] = useState(false);
-  const [pickupForm, setPickupForm] = useState({
-    branchId: '',  // V3.2: Use branch instead of location
-    preferredDate: '',
-    preferredTimeSlot: 'morning' as PickupTimeSlot,
-    priority: 'normal' as PickupPriority,
-    notes: ''
-  });
+  // Bulk "Add to Batch" modal state
+  const [showBulkBatchModal, setShowBulkBatchModal] = useState(false);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [isAddingToBatch, setIsAddingToBatch] = useState(false);
 
   // V3: Data is already filtered by enterpriseId from the hooks
   const enterpriseSubUsers = subUsers;
-  const enterpriseAssets = assets;
   const enterpriseBatches = batches;
+
+  // Apply branch filter to assets for stats and filtering
+  const enterpriseAssets = useMemo(() => {
+    if (activeBranchFilter) return assets.filter(a => a.branch_id === activeBranchFilter);
+    return assets;
+  }, [assets, activeBranchFilter]);
 
   const batchOptions = [
     { label: 'All Batches', value: '' },
     ...enterpriseBatches.map(b => ({ label: b.name, value: b.id })),
+  ];
+
+  const branchOptions = [
+    { label: 'All Branches', value: '' },
+    ...branches.map((b: { id: string; branch_name: string }) => ({ label: b.branch_name, value: b.id })),
   ];
 
   const filteredAssets = useMemo(() => {
@@ -160,6 +147,10 @@ export function AssetList() {
       result = result.filter(a => a.batch_id === batchFilter);
     }
 
+    if (branchFilter) {
+      result = result.filter(a => a.branch_id === branchFilter);
+    }
+
     result.sort((a, b) => {
       switch (sortBy) {
         case 'oldest':
@@ -175,7 +166,7 @@ export function AssetList() {
     });
 
     return result;
-  }, [enterpriseAssets, searchQuery, statusFilter, batchFilter, sortBy]);
+  }, [enterpriseAssets, searchQuery, statusFilter, batchFilter, branchFilter, sortBy]);
 
   const stats = {
     total: enterpriseAssets.length,
@@ -198,23 +189,19 @@ export function AssetList() {
     assignableAssets.some(a => a.id === id)
   );
 
-  // V3.2: Statuses that indicate asset is already in pickup flow - should not be re-selected
-  const PICKUP_FLOW_STATUSES = ['pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit'];
-
-  // Get assets ready for pickup (conditionally_accepted can also be picked up)
-  // V3.2: Explicitly exclude assets already in pickup flow AND check against pickup_requests table as backup
-  const pickupableAssets = filteredAssets.filter(a =>
-    (a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted') &&
-    !PICKUP_FLOW_STATUSES.includes(a.status) &&
-    !assetsInActivePickups.has(a.id) // Backup check against pickup_requests table
-  );
-  const selectedPickupable = Array.from(selectedAssets).filter(id =>
-    pickupableAssets.some(a => a.id === id)
-  );
-
   // Combined selectable assets (for bulk selection)
   const selectableAssets = filteredAssets.filter(a =>
-    a.status === 'pending_assignment' || a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted'
+    a.status === 'pending_assignment' || a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted' ||
+    a.status === 'assigned' || a.status === 'check_in_started' || a.status === 'submitted' || a.status === 'remote_review'
+  );
+
+  // Assets eligible for batch assignment / reassignment
+  const BATCH_ELIGIBLE_STATUSES = ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'];
+  const batchableAssets = filteredAssets.filter(a =>
+    BATCH_ELIGIBLE_STATUSES.includes(a.status)
+  );
+  const selectedBatchable = Array.from(selectedAssets).filter(id =>
+    batchableAssets.some(a => a.id === id)
   );
 
   // Selection handlers
@@ -252,17 +239,9 @@ export function AssetList() {
     setIsAssigning(true);
     try {
       if (assignMode === 'self') {
-        // Self-assign: Update each asset with assigned_user_id
+        // Self-assign: Use the assign endpoint which handles status transition
         for (const assetId of selectedAssignable) {
-          await updateAssetMutation.mutateAsync({
-            assetId,
-            updates: {
-              assigned_user_id: userId,
-              is_self_assigned: true,
-              status: 'assigned',
-              assigned_at: new Date().toISOString(),
-            },
-          });
+          await assignAssetMutation.mutateAsync({ assetId, subUserId: userId });
         }
         addToast({
           type: 'success',
@@ -323,44 +302,31 @@ export function AssetList() {
     }
   };
 
-  // V3.2: Initiate pickup handler using mutation - uses branch instead of location
-  const handleInitiatePickup = async () => {
-    if (selectedPickupable.length === 0 || !pickupForm.branchId || !pickupForm.preferredDate) return;
-    setIsCreatingPickup(true);
+  // Bulk add to batch handler
+  const handleBulkAddToBatch = async () => {
+    if (selectedBatchable.length === 0 || !selectedBatchId) return;
+    setIsAddingToBatch(true);
     try {
-      await createPickupMutation.mutateAsync({
-        enterprise_id: enterpriseId,
-        branch_id: pickupForm.branchId,  // V3.2: Use branch_id instead of location_id
-        asset_ids: selectedPickupable,
-        preferred_date: pickupForm.preferredDate,
-        preferred_time_slot: pickupForm.preferredTimeSlot,
-        priority: pickupForm.priority,
-        notes: pickupForm.notes,
-        created_by: user?.id || ''
-      });
+      for (const assetId of selectedBatchable) {
+        await updateAssetMutation.mutateAsync({ assetId, updates: { batch_id: selectedBatchId } });
+      }
       addToast({
         type: 'success',
-        title: 'Pickup Request Created',
-        message: `Pickup request created for ${selectedPickupable.length} asset(s).`,
+        title: 'Assets Added to Batch',
+        message: `Successfully added ${selectedBatchable.length} asset(s) to batch.`,
       });
-      setShowPickupModal(false);
-      setPickupForm({
-        branchId: '',
-        preferredDate: '',
-        preferredTimeSlot: 'morning',
-        priority: 'normal',
-        notes: ''
-      });
+      setShowBulkBatchModal(false);
+      setSelectedBatchId('');
       setSelectedAssets(new Set());
     } catch (error) {
-      console.error('Failed to create pickup request:', error);
+      console.error('Failed to add assets to batch:', error);
       addToast({
         type: 'error',
-        title: 'Pickup Request Failed',
-        message: 'Could not create pickup request. Please try again.',
+        title: 'Add to Batch Failed',
+        message: 'Could not add assets to batch. Please try again.',
       });
     } finally {
-      setIsCreatingPickup(false);
+      setIsAddingToBatch(false);
     }
   };
 
@@ -477,6 +443,14 @@ export function AssetList() {
                 placeholder="Batch"
               />
             </div>
+            <div className="w-40">
+              <Dropdown
+                options={branchOptions}
+                value={branchFilter}
+                onChange={setBranchFilter}
+                placeholder="Branch"
+              />
+            </div>
             <div className="w-36">
               <Dropdown
                 options={SORT_OPTIONS}
@@ -517,13 +491,13 @@ export function AssetList() {
                   Assign ({selectedAssignable.length})
                 </button>
               )}
-              {selectedPickupable.length > 0 && (
+              {selectedBatchable.length > 0 && (
                 <button
-                  onClick={() => setShowPickupModal(true)}
-                  className="interactive px-4 py-2 bg-green-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-green-400 transition-all flex items-center gap-2 btn-chamfer"
+                  onClick={() => setShowBulkBatchModal(true)}
+                  className="interactive px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2"
                 >
-                  <Truck className="w-4 h-4" />
-                  Initiate Pickup ({selectedPickupable.length})
+                  <Package className="w-4 h-4" />
+                  Add to Batch ({selectedBatchable.length})
                 </button>
               )}
               <button
@@ -596,7 +570,7 @@ export function AssetList() {
                 {filteredAssets.map((asset, index) => {
                   const statusConfig = getStatusConfig(asset.status);
                   const batch = batches.find(b => b.id === asset.batch_id);
-                  const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted';
+                  const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted' || asset.status === 'assigned' || asset.status === 'check_in_started' || asset.status === 'submitted' || asset.status === 'remote_review';
                   const isSelected = selectedAssets.has(asset.id);
 
                   return (
@@ -679,11 +653,11 @@ export function AssetList() {
             <Laptop className="w-12 h-12 text-slate-400 dark:text-zinc-700 mx-auto mb-4" />
             <p className="font-display font-bold text-slate-600 dark:text-zinc-500 uppercase tracking-wide mb-2">No assets found</p>
             <p className="font-mono text-xs text-slate-500 dark:text-zinc-600 mb-6">
-              {searchQuery || statusFilter || batchFilter
+              {searchQuery || statusFilter || batchFilter || branchFilter
                 ? 'Try adjusting your filters'
                 : 'Add your first asset to get started'}
             </p>
-            {!searchQuery && !statusFilter && !batchFilter && (
+            {!searchQuery && !statusFilter && !batchFilter && !branchFilter && (
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => navigate(`${basePath}/assets/upload`)}
@@ -762,7 +736,7 @@ export function AssetList() {
                   }`}
                 >
                   <UserPlus className="w-4 h-4" />
-                  Sub-User
+                  Employee
                 </button>
               </div>
 
@@ -786,11 +760,11 @@ export function AssetList() {
                 </div>
               )}
 
-              {/* Sub-User Selection Mode */}
+              {/* Employee Selection Mode */}
               {assignMode === 'select' && (
                 <div>
                   <label className="font-mono font-bold text-[10px] text-slate-600 dark:text-white/60 uppercase tracking-widest mb-2 block">
-                    Assign to Sub-User
+                    Assign to Employee
                   </label>
                   {enterpriseSubUsers.length > 0 ? (
                     <select
@@ -798,7 +772,7 @@ export function AssetList() {
                       onChange={(e) => setSelectedSubUserId(e.target.value)}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                     >
-                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a sub-user...</option>
+                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select an employee...</option>
                       {enterpriseSubUsers.map(subUser => (
                         <option key={subUser.id} value={subUser.id} className="bg-white dark:bg-[#0a0a0a]">
                           {subUser.name || subUser.email} {subUser.department ? `(${subUser.department})` : ''}
@@ -807,15 +781,15 @@ export function AssetList() {
                     </select>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-3">No sub-users found</p>
+                      <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-3">No employees found</p>
                       <button
                         onClick={() => {
                           setShowBulkAssignModal(false);
-                          navigate(`${basePath}/sub-users/invite`);
+                          navigate(`${basePath}/employees/invite`);
                         }}
                         className="text-xs text-ecotribe-primary hover:underline font-mono uppercase tracking-widest"
                       >
-                        Invite Sub-Users
+                        Invite Employees
                       </button>
                     </div>
                   )}
@@ -923,180 +897,105 @@ export function AssetList() {
         </div>
       )}
 
-      {/* Initiate Pickup Modal */}
-      {showPickupModal && (
+      {/* Bulk Add to Batch Modal */}
+      {showBulkBatchModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-lg bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-                  <Truck className="w-5 h-5 text-green-400" />
+                <div className="w-10 h-10 bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
                   <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">
-                    Initiate Pickup
+                    Add to Batch
                   </h3>
-                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">Request device pickup from location</p>
+                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">Assign assets to a draft batch</p>
                 </div>
               </div>
               <button
-                onClick={() => setShowPickupModal(false)}
+                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); }}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 <X className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
               </button>
             </div>
-            <div className="p-6 space-y-5">
-              {/* Selected Assets Summary */}
-              <div className="p-4 border border-green-500/20 bg-green-500/5">
-                <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Assets for Pickup</p>
-                <p className="font-brand font-bold text-xl text-green-400">
-                  {selectedPickupable.length} device{selectedPickupable.length !== 1 ? 's' : ''}
+            <div className="p-6 space-y-4">
+              {/* Selected Assets Count */}
+              <div className="p-4 border border-blue-500/20 bg-blue-500/5">
+                <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest mb-1">Assets to Add</p>
+                <p className="font-brand font-bold text-xl text-blue-400">
+                  {selectedBatchable.length} asset{selectedBatchable.length !== 1 ? 's' : ''}
                 </p>
               </div>
 
-              {/* Branch Selection - V3.2: Replaced pickup locations with branches */}
+              {/* Batch Selection */}
               <div>
                 <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  <MapPin className="w-3 h-3 inline mr-1" />
-                  Branch *
+                  Select Batch *
                 </label>
-                {branches.length > 0 ? (
-                  <select
-                    value={pickupForm.branchId}
-                    onChange={(e) => setPickupForm(prev => ({ ...prev, branchId: e.target.value }))}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
-                  >
-                    <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a branch...</option>
-                    {branches.filter(b => b.status === 'active').map(branch => (
-                      <option key={branch.id} value={branch.id} className="bg-white dark:bg-[#0a0a0a]">
-                        {branch.branch_name} ({branch.branch_code}) - {branch.city}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <MapPin className="w-8 h-8 text-slate-500 dark:text-zinc-600 mx-auto mb-2" />
-                    <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-3">No branches assigned</p>
-                    <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
-                      Contact your Org Admin to be assigned to a branch
-                    </p>
-                  </div>
-                )}
-              </div>
+                {(() => {
+                  // Get branch IDs of selected batchable assets
+                  const selectedBranchIds = new Set(
+                    selectedBatchable
+                      .map(id => batchableAssets.find(a => a.id === id)?.branch_id)
+                      .filter(Boolean)
+                  );
+                  const eligibleBatches = batches.filter(b =>
+                    b.status === 'draft' &&
+                    (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
+                  );
 
-              {/* Preferred Date */}
-              <div>
-                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  <Calendar className="w-3 h-3 inline mr-1" />
-                  Preferred Date *
-                </label>
-                <input
-                  type="date"
-                  value={pickupForm.preferredDate}
-                  onChange={(e) => setPickupForm(prev => ({ ...prev, preferredDate: e.target.value }))}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50"
-                />
-              </div>
-
-              {/* Time Slot */}
-              <div>
-                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  <Clock className="w-3 h-3 inline mr-1" />
-                  Preferred Time Slot
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(Object.keys(pickupTimeSlotLabels) as PickupTimeSlot[]).map(slot => (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setPickupForm(prev => ({ ...prev, preferredTimeSlot: slot }))}
-                      className={`px-3 py-2 border font-mono text-xs uppercase tracking-widest transition-all ${
-                        pickupForm.preferredTimeSlot === slot
-                          ? 'bg-ecotribe-primary text-black border-ecotribe-primary'
-                          : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
-                      }`}
+                  return eligibleBatches.length > 0 ? (
+                    <select
+                      value={selectedBatchId}
+                      onChange={(e) => setSelectedBatchId(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none cursor-pointer"
                     >
-                      {slot}
-                    </button>
-                  ))}
-                </div>
-                <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-600 mt-1">
-                  {pickupTimeSlotLabels[pickupForm.preferredTimeSlot]}
-                </p>
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  Priority
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPickupForm(prev => ({ ...prev, priority: 'normal' }))}
-                    className={`flex-1 px-4 py-2 border font-mono text-xs uppercase tracking-widest transition-all ${
-                      pickupForm.priority === 'normal'
-                        ? 'bg-ecotribe-primary text-black border-ecotribe-primary'
-                        : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
-                    }`}
-                  >
-                    Normal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPickupForm(prev => ({ ...prev, priority: 'urgent' }))}
-                    className={`flex-1 px-4 py-2 border font-mono text-xs uppercase tracking-widest transition-all ${
-                      pickupForm.priority === 'urgent'
-                        ? 'bg-amber-500 text-black border-amber-500'
-                        : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
-                    }`}
-                  >
-                    Urgent
-                  </button>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  Notes (Optional)
-                </label>
-                <textarea
-                  value={pickupForm.notes}
-                  onChange={(e) => setPickupForm(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Any special instructions for the pickup..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 resize-none placeholder:text-slate-400 dark:placeholder:text-zinc-600"
-                />
+                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
+                      {eligibleBatches.map(batch => (
+                        <option key={batch.id} value={batch.id} className="bg-white dark:bg-[#0a0a0a]">
+                          {batch.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                      <Package className="w-8 h-8 text-slate-500 dark:text-zinc-600 mx-auto mb-2" />
+                      <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-1">No draft batches available</p>
+                      <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
+                        Create a batch first from the Batches page
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
               <button
-                onClick={() => setShowPickupModal(false)}
+                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); }}
                 className="px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
               >
                 Cancel
               </button>
               <button
-                onClick={handleInitiatePickup}
-                disabled={!pickupForm.branchId || !pickupForm.preferredDate || isCreatingPickup}
-                className="px-5 py-2.5 bg-green-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                onClick={handleBulkAddToBatch}
+                disabled={!selectedBatchId || isAddingToBatch}
+                className="px-5 py-2.5 bg-blue-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {isCreatingPickup ? (
+                {isAddingToBatch ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin" />
-                    Creating...
+                    Adding...
                   </>
                 ) : (
                   <>
-                    <Truck className="w-4 h-4" />
-                    Create Pickup Request
+                    <Package className="w-4 h-4" />
+                    Add {selectedBatchable.length} Asset{selectedBatchable.length !== 1 ? 's' : ''}
                   </>
                 )}
               </button>
@@ -1104,6 +1003,7 @@ export function AssetList() {
           </motion.div>
         </div>
       )}
+
     </div>
   );
 }

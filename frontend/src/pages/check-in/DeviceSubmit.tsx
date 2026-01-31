@@ -20,7 +20,7 @@ import {
   FileCheck,
   Send,
 } from 'lucide-react';
-import { useAuth, useAllAssets, useApiError } from '@/hooks';
+import { useAuth, useAsset, useApiError } from '@/hooks';
 import { useSubmissionStore } from '@/stores';
 import {
   PHOTO_SLOTS,
@@ -53,7 +53,7 @@ export function DeviceSubmit() {
     : location.pathname.startsWith('/admin') 
       ? '/admin' 
       : '/check-in';
-  const { data: assets = [] } = useAllAssets();
+  const { data: asset, isLoading: assetLoading } = useAsset(assetId || '');
   const {
     currentDraft,
     startSubmission,
@@ -65,21 +65,15 @@ export function DeviceSubmit() {
     getSubmissionByAssetId,
   } = useSubmissionStore();
   const { handleError, showSuccess, showError } = useApiError();
-
-  const asset = assets.find(a => a.id === assetId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPhotoKey, setCurrentPhotoKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (assetId) {
-      // Check if asset exists
-      const currentAsset = assets.find(a => a.id === assetId);
-      if (!currentAsset) return;
-
+    if (assetId && asset) {
       // Check if submission already exists OR asset status indicates submission
       const existingSubmission = getSubmissionByAssetId(assetId);
-      const isAlreadySubmitted = existingSubmission || !['assigned', 'check_in_started'].includes(currentAsset.status);
+      const isAlreadySubmitted = existingSubmission || !['assigned', 'check_in_started'].includes(asset.status);
 
       if (isAlreadySubmitted) {
         // Already submitted, redirect to success/evaluations based on context
@@ -93,7 +87,7 @@ export function DeviceSubmit() {
         startSubmission(assetId);
       }
     }
-  }, [assetId, currentDraft, startSubmission, getSubmissionByAssetId, navigate, assets, basePath]);
+  }, [assetId, asset, currentDraft, startSubmission, getSubmissionByAssetId, navigate, basePath]);
 
   const currentStep = currentDraft?.step || 1;
 
@@ -137,7 +131,7 @@ export function DeviceSubmit() {
 
     console.log('📤 Starting submission for assetId:', assetId);
     console.log('📋 Current draft:', currentDraft);
-    console.log('🔍 Current asset status BEFORE submit:', assets.find(a => a.id === assetId)?.status);
+    console.log('🔍 Current asset status BEFORE submit:', asset?.status);
 
     setIsSubmitting(true);
     try {
@@ -199,7 +193,20 @@ export function DeviceSubmit() {
     }
   };
 
+  if (assetLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-ecotribe-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Loading device...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!asset) {
+    const backPath = basePath === '/check-in' ? basePath : `${basePath}/my-evaluations`;
+    const backLabel = basePath === '/check-in' ? 'Back to Dashboard' : 'Back to My Evaluations';
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center p-8">
@@ -207,10 +214,10 @@ export function DeviceSubmit() {
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Device Not Found</h2>
           <p className="text-slate-500 dark:text-white/50 mb-6">This device may have been removed or reassigned.</p>
           <button
-            onClick={() => navigate(basePath)}
+            onClick={() => navigate(backPath)}
             className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
           >
-            Back to Dashboard
+            {backLabel}
           </button>
         </div>
       </div>

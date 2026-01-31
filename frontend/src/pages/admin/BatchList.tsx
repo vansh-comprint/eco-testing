@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -19,20 +19,21 @@ import {
 import { Badge, Dropdown, useToast } from '@/components/ui';
 import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BatchStatus } from '@/types';
 import { getBatchStatusDisplay } from '@/lib/status-display';
+import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
 
-// V3: Updated status options - CFO → Org Admin terminology
 const STATUS_OPTIONS = [
   { label: 'All Statuses', value: '' },
   { label: 'Draft', value: 'draft' },
   { label: 'Pending Approval', value: 'pending_approval' },
   { label: 'Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' },
-  { label: 'Active', value: 'active' },
-  { label: 'Processing', value: 'in_progress' },
+  { label: 'Pickup In Progress', value: 'pickup_in_progress' },
   { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
 ];
 
 const SORT_OPTIONS = [
@@ -77,6 +78,11 @@ export function BatchList() {
   const updateBatchMutation = useUpdateBatch();
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
+  // Branch filtering: URL query param (from "View Batches" button) or IT Admin branch selector
+  const urlBranchId = new URLSearchParams(location.search).get('branch');
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const activeBranchFilter = urlBranchId || itBranchCtx?.selectedBranchId || null;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -85,13 +91,19 @@ export function BatchList() {
   const filteredBatches = useMemo(() => {
     let result = [...batches];
 
+    // Filter by branch if active
+    if (activeBranchFilter) {
+      result = result.filter(b => b.branch_id === activeBranchFilter);
+    }
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(b => b.name.toLowerCase().includes(query));
     }
 
     if (statusFilter) {
-      result = result.filter(b => b.status === statusFilter);
+      const statuses = statusFilter.split(',');
+      result = result.filter(b => statuses.includes(b.status));
     }
 
     result.sort((a, b) => {
@@ -109,14 +121,20 @@ export function BatchList() {
     });
 
     return result;
-  }, [batches, searchQuery, statusFilter, sortBy]);
+  }, [batches, searchQuery, statusFilter, sortBy, activeBranchFilter]);
+
+  // Branch-scoped batches for stats
+  const scopedBatches = useMemo(() => {
+    if (activeBranchFilter) return batches.filter(b => b.branch_id === activeBranchFilter);
+    return batches;
+  }, [batches, activeBranchFilter]);
 
   const stats = {
-    total: batches.length,
-    draft: batches.filter(b => b.status === 'draft').length,
-    pendingApproval: batches.filter(b => b.status === 'pending_approval' || b.status === 'pending_cfo_approval').length,
-    active: batches.filter(b => ['active', 'in_progress', 'approved'].includes(b.status)).length,
-    totalValue: batches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
+    total: scopedBatches.length,
+    draft: scopedBatches.filter(b => b.status === 'draft').length,
+    pendingApproval: scopedBatches.filter(b => b.status === 'pending_approval').length,
+    active: scopedBatches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
+    totalValue: scopedBatches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
   };
 
   // V3: Use centralized status display helper
@@ -129,7 +147,7 @@ export function BatchList() {
   };
 
   // Send reminder notification (placeholder - would create notification in production)
-  const handleNudgeCfo = async (batchId: string, e: React.MouseEvent) => {
+  const handleNudgeOrgAdmin = async (batchId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     addToast({
       type: 'info',
@@ -193,8 +211,8 @@ export function BatchList() {
       >
         <StatBox label="Total" value={stats.total} icon={<Package className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Draft" value={stats.draft} icon={<Clock className="w-4 h-4" />} onClick={() => handleStatClick('draft')} active={statusFilter === 'draft'} />
-        <StatBox label="Pending" value={stats.pendingApproval} icon={<AlertTriangle className="w-4 h-4" />} highlight={stats.pendingApproval > 0} onClick={() => handleStatClick('pending_approval')} active={statusFilter === 'pending_approval' || statusFilter === 'pending_cfo_approval'} />
-        <StatBox label="Active" value={stats.active} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('active')} active={statusFilter === 'active'} />
+        <StatBox label="Pending" value={stats.pendingApproval} icon={<AlertTriangle className="w-4 h-4" />} highlight={stats.pendingApproval > 0} onClick={() => handleStatClick('pending_approval')} active={statusFilter === 'pending_approval'} />
+        <StatBox label="Active" value={stats.active} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('approved,pickup_in_progress')} active={statusFilter === 'approved,pickup_in_progress'} />
         <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />
       </motion.div>
 
@@ -252,8 +270,6 @@ export function BatchList() {
             const statusConfig = getStatusConfig(batch.status);
             // V3: Use snake_case from database
             const batchAssets = assets.filter(a => a.batch_id === batch.id);
-            const pendingCount = batchAssets.filter(a => a.status === 'pending_assignment').length;
-
             return (
               <motion.div
                 key={batch.id}
@@ -278,7 +294,7 @@ export function BatchList() {
                       <Badge variant={statusConfig.variant} size="sm">
                         {statusConfig.label}
                       </Badge>
-                      {batch.requires_cfo_approval && batch.status === 'draft' && (
+                      {batch.requires_approval && batch.status === 'draft' && (
                         <span className="font-mono font-bold text-[10px] text-amber-400 px-2 py-0.5 bg-amber-500/10 uppercase tracking-widest">
                           Requires Approval
                         </span>
@@ -289,15 +305,15 @@ export function BatchList() {
                         <Laptop className="w-3.5 h-3.5" />
                         {batchAssets.length} assets
                       </span>
-                      {pendingCount > 0 && (
-                        <span className="text-amber-400">
-                          {pendingCount} pending
-                        </span>
-                      )}
                       <span>
                         Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
                       </span>
                     </div>
+                    {batch.progress && batch.progress.total > 0 && (
+                      <div className="mt-2">
+                        <BatchProgressBar progress={batch.progress} compact />
+                      </div>
+                    )}
                   </div>
 
                   {/* Value */}
@@ -313,15 +329,17 @@ export function BatchList() {
                     {batch.status === 'draft' && (
                       <button
                         onClick={(e) => handleSubmitForApproval(batch.id, e)}
-                        className="interactive px-4 py-2 font-mono font-bold text-xs text-ecotribe-primary border border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
+                        disabled={batchAssets.length === 0}
+                        title={batchAssets.length === 0 ? 'Add assets to this batch before submitting' : undefined}
+                        className={`interactive px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${batchAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
                       >
                         <Send className="w-3 h-3" />
                         Submit for Approval
                       </button>
                     )}
-                    {(batch.status === 'pending_cfo_approval' || batch.status === 'pending_approval') && (
+                    {batch.status === 'pending_approval' && (
                       <button
-                        onClick={(e) => handleNudgeCfo(batch.id, e)}
+                        onClick={(e) => handleNudgeOrgAdmin(batch.id, e)}
                         className="interactive px-4 py-2 font-mono font-bold text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400 hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
                       >
                         <Bell className="w-3 h-3" />

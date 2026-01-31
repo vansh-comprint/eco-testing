@@ -37,6 +37,8 @@ export interface BadgeCounts {
 // ============================================================================
 
 export const dashboardApi = {
-  getBadges: () =>
-    fetchWithAuth<BadgeCounts>('/dashboard/badges'),
+  getBadges: (params?: { branch_id?: string | null }) => {
+    const query = params?.branch_id ? `?branch_id=${params.branch_id}` : '';
+    return fetchWithAuth<BadgeCounts>(`/dashboard/badges${query}`);
+  },
 };

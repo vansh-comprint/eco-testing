@@ -31,7 +31,6 @@ export function LoginPage() {
         navigate('/super');
         break;
       case 'ops_admin':
-      case 'main_admin':
         navigate('/ops');
         break;
       case 'it_admin':
@@ -47,7 +46,6 @@ export function LoginPage() {
         navigate('/logistics');
         break;
       case 'employee':
-      case 'sub_user':
         navigate('/check-in');
         break;
       default:

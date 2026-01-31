@@ -60,28 +60,28 @@ export const mockUsers: User[] = [
     phone: '+91 99999 00000',
     createdAt: new Date('2024-01-01'),
   },
-  // Main Admin
+  // OPS Admin
   {
     id: id('usr', 2),
-    role: 'main_admin',
+    role: 'ops_admin',
     name: 'Ops Manager',
     email: 'ops@ecotribe.in',
     phone: '+91 99999 11111',
     createdAt: new Date('2024-01-05'),
   },
-  // Technicians
+  // OPS Admins (formerly Technicians)
   {
     id: id('usr', 3),
-    role: 'technician',
-    name: 'Amit Technician',
+    role: 'ops_admin',
+    name: 'Amit Reviewer',
     email: 'amit@ecotribe.in',
     phone: '+91 99999 22222',
     createdAt: new Date('2024-01-10'),
   },
   {
     id: id('usr', 4),
-    role: 'technician',
-    name: 'Sneha Technician',
+    role: 'ops_admin',
+    name: 'Sneha Reviewer',
     email: 'sneha@ecotribe.in',
     createdAt: new Date('2024-01-12'),
   },
@@ -156,7 +156,7 @@ export const mockBatches: Batch[] = [
     pendingCount: 7,
     totalPayout: 375000,
     estimatedValue: 425000,
-    requiresCfoApproval: false,
+    requiresApproval: false,
     createdBy: id('usr', 6),
     createdAt: new Date('2024-10-01'),
   },
@@ -171,7 +171,7 @@ export const mockBatches: Batch[] = [
     pendingCount: 5,
     totalPayout: 100000,
     estimatedValue: 150000,
-    requiresCfoApproval: false,
+    requiresApproval: false,
     createdBy: id('usr', 6),
     createdAt: new Date('2024-11-01'),
   },
@@ -179,16 +179,16 @@ export const mockBatches: Batch[] = [
     id: id('bat', 3),
     enterpriseId: id('ent', 1),
     name: 'Large Scale Decommission',
-    description: 'Datacenter hardware decommissioning - requires CFO approval',
-    status: 'pending_cfo_approval',
+    description: 'Datacenter hardware decommissioning - requires Org Admin approval',
+    status: 'pending_approval',
     assetCount: 75,
     acceptedCount: 0,
     rejectedCount: 0,
     pendingCount: 75,
     totalPayout: 0,
     estimatedValue: 825000,
-    requiresCfoApproval: true,
-    cfoApprovalStatus: 'pending',
+    requiresApproval: true,
+    approvalStatus: 'pending',
     createdBy: id('usr', 6),
     createdAt: new Date('2024-11-20'),
   },
@@ -352,7 +352,7 @@ export const mockPricingCatalog: PricingCatalog[] = [
 
 // ===== NOTIFICATIONS =====
 export const mockNotifications: Notification[] = [
-  // CFO Notifications
+  // Org Admin Notifications
   {
     id: id('not', 1),
     recipientType: 'user',
@@ -465,7 +465,7 @@ export const mockRemoteReviews: RemoteReview[] = [
   {
     id: id('rev', 1),
     assetId: id('ast', 2),
-    technicianId: id('usr', 3),
+    reviewerId: id('usr', 3),
     decision: 'conditionally_accepted',
     notes: 'Minor scuffs on lid; overall good condition.',
     reviewedAt: new Date('2024-11-14'),
@@ -473,7 +473,7 @@ export const mockRemoteReviews: RemoteReview[] = [
   {
     id: id('rev', 2),
     assetId: id('ast', 6),
-    technicianId: id('usr', 4),
+    reviewerId: id('usr', 4),
     decision: 'rejected',
     reason: 'Keyboard malfunction detected during diagnostics.',
     reviewedAt: new Date('2024-10-18'),

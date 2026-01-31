@@ -14,7 +14,7 @@ export type NotificationType =
 
 export interface Notification {
   id: string;
-  recipientType: 'user' | 'sub_user';
+  recipientType: 'user' | 'employee';
   recipientId: string;
   channel: NotificationChannel;
   type: NotificationType;
@@ -28,7 +28,7 @@ export interface Notification {
 }
 
 export interface CreateNotificationInput {
-  recipientType: 'user' | 'sub_user';
+  recipientType: 'user' | 'employee';
   recipientId: string;
   channel: NotificationChannel;
   type: NotificationType;

@@ -108,6 +108,7 @@ class Enterprise(BaseModel):
 
     # Business Details
     industry = Column(String, nullable=True)
+    company_size = Column(String, nullable=True)
     employee_count = Column(Integer, nullable=True)
 
     # Contact Information
@@ -154,7 +155,8 @@ class Branch(BaseModel):
     """
     Branch model representing a branch/office of an enterprise.
 
-    V3: Each branch can have one or more IT Admins assigned to it.
+    V3.2: 1 Branch → 1 IT Admin, 1 IT Admin → Multiple Branches.
+    The it_admin_id column is the primary relationship field.
     """
 
     __tablename__ = "branches"
@@ -165,6 +167,9 @@ class Branch(BaseModel):
     # Foreign Keys
     enterprise_id = Column(
         String, ForeignKey("enterprises.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    it_admin_id = Column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Branch Information
@@ -195,7 +200,13 @@ class Branch(BaseModel):
 
     # Relationships
     enterprise = relationship("Enterprise", back_populates="branches")
-    it_admins = relationship("User", back_populates="branch")
+    it_admin = relationship(
+        "User", foreign_keys=[it_admin_id], lazy="joined",
+    )
+    it_admins = relationship(
+        "User", back_populates="branch",
+        foreign_keys="[User.branch_id]",
+    )
     batches = relationship("Batch", back_populates="branch")
     assets = relationship("Asset", back_populates="branch")
 

@@ -1,6 +1,6 @@
 /**
  * API-based Query Functions
- * All read operations from REST API (replaces direct Supabase calls)
+ * All read operations from REST API
  */
 
 import {
@@ -66,12 +66,12 @@ export async function fetchUsersByEnterprise(enterpriseId: string) {
 // ============================================
 
 export async function fetchAllAssets() {
-  const response = await assetsApi.list();
+  const response = await assetsApi.list({ limit: 10000 });
   return response.data || [];
 }
 
 export async function fetchAssets(enterpriseId: string) {
-  const response = await assetsApi.list({ enterprise_id: enterpriseId });
+  const response = await assetsApi.list({ enterprise_id: enterpriseId, limit: 10000 });
   return response.data || [];
 }
 
@@ -133,7 +133,9 @@ export async function createAsset(input: {
   batch_id?: string;
   device_type?: string;
   asset_tag?: string;
-  assigned_user_id?: string;
+  specs?: Record<string, unknown>;
+  purchase_date?: string;
+  assigned_to_user_id?: string;
 }) {
   const response = await assetsApi.create({
     serial_number: input.serial_number,
@@ -144,7 +146,9 @@ export async function createAsset(input: {
     batch_id: input.batch_id,
     device_type: input.device_type || 'laptop',
     asset_tag: input.asset_tag,
-    assigned_user_id: input.assigned_user_id,
+    specs: input.specs,
+    purchase_date: input.purchase_date,
+    assigned_to_user_id: input.assigned_to_user_id,
   });
   if (!response.success) throw new Error(response.error?.message || 'Failed to create asset');
   return response.data;
@@ -169,13 +173,13 @@ export async function assignAssetToSubUser(assetId: string, subUserId: string) {
 }
 
 export async function assignAssetToSelf(assetId: string, userId: string) {
-  const response = await assetsApi.update(assetId, { assigned_user_id: userId, status: 'assigned' } as any);
+  const response = await assetsApi.update(assetId, { assigned_to_user_id: userId });
   if (!response.success) throw new Error(response.error?.message || 'Failed to self-assign asset');
   return response.data;
 }
 
 export async function unassignAsset(assetId: string) {
-  const response = await assetsApi.update(assetId, { assigned_user_id: undefined, status: 'unassigned' } as any);
+  const response = await assetsApi.unassign(assetId);
   if (!response.success) throw new Error(response.error?.message || 'Failed to unassign asset');
   return response.data;
 }
@@ -187,7 +191,15 @@ export async function updateAssetStatus(assetId: string, status: string) {
 }
 
 export async function bulkCreateAssets(assets: Array<Record<string, unknown>>) {
-  const response = await assetsApi.createBulk({ assets: assets as any });
+  // Backend AssetBulkCreate expects enterprise_id, branch_id, batch_id at top level
+  const first = assets[0] || {};
+  const payload = {
+    enterprise_id: first.enterprise_id as string | undefined,
+    branch_id: first.branch_id as string | undefined,
+    batch_id: first.batch_id as string | undefined,
+    assets: assets.map(({ enterprise_id, branch_id, batch_id, it_admin_id, ...item }) => item),
+  };
+  const response = await assetsApi.createBulk(payload as any);
   if (!response.success) throw new Error(response.error?.message || 'Failed to bulk create assets');
   return response.data || [];
 }

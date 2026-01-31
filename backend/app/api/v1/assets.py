@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("", response_model=dict)
 async def list_assets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=10000, description="Number of records to return"),
     batch_id: Optional[str] = Query(None, description="Filter by batch"),
     status: Optional[AssetStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by serial number, brand, model"),
@@ -193,7 +193,7 @@ async def assign_asset(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Assign an asset to an employee (sub-user).
+    Assign an asset to an employee.
 
     Sets the assigned_to_user_id and transitions status to 'assigned'
     if the asset is currently in 'pending_assignment' status.

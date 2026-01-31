@@ -17,7 +17,7 @@ interface Asset {
   model: string;
   status: string;
   base_price: number;
-  assigned_sub_user_id?: string;
+  assigned_to_user_id?: string;
   assigned_sub_user_name?: string;
   created_at: string;
 }
@@ -101,7 +101,7 @@ export function AllAssets() {
             model: a.model,
             status: a.status,
             base_price: a.base_price || 0,
-            assigned_sub_user_id: a.assigned_to_user_id,
+            assigned_to_user_id: a.assigned_to_user_id,
             created_at: a.created_at,
           }))
         : [];

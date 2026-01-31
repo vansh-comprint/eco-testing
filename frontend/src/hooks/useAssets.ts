@@ -150,11 +150,13 @@ export interface CreateAssetInput {
   model: string;
   asset_tag?: string;
   device_type?: string;  // V3.2: Made optional, defaults in database
-  status?: string;
-  // V3.2: Self-assignment fields
-  assigned_user_id?: string;
-  is_self_assigned?: boolean;
-  assigned_at?: string;
+  specs?: Record<string, unknown>;
+  purchase_date?: string;
+  assigned_to_user_id?: string;
+  // CSV bulk upload: user assignment fields (used by UploadAssets to create sub-users)
+  assigned_email?: string;
+  assigned_name?: string;
+  assigned_department?: string;
 }
 
 /**

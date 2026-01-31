@@ -35,11 +35,11 @@ def get_storage_backend(
         storage = get_storage_backend()
         url = await storage.upload(file, 'submissions', 'photo.jpg')
     """
-    backend_type = storage_type or settings.STORAGE_TYPE
+    backend_type = storage_type or settings.storage_type
     
     if backend_type == StorageType.LOCAL:
         return LocalStorageBackend(
-            base_path=settings.LOCAL_STORAGE_PATH
+            base_path=settings.local_storage_path
         )
     
     elif backend_type == StorageType.S3:

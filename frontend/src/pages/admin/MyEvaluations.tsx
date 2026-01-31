@@ -15,7 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui';
-import { useAuth, usePendingSelfEvaluations, useSelfAssignedAssets } from '@/hooks';
+import { useAuth, useSelfAssignedAssets } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { getAssetStatusDisplay } from '@/lib/status-display';
 
@@ -30,10 +30,15 @@ export function MyEvaluations() {
   const userId = user?.id || '';
 
   // V3.2: Fetch self-assigned assets
-  const { data: pendingAssets = [], isLoading: pendingLoading } = usePendingSelfEvaluations(userId);
   const { data: allSelfAssets = [], isLoading: allLoading } = useSelfAssignedAssets(userId);
 
-  const isLoading = pendingLoading || allLoading;
+  const isLoading = allLoading;
+
+  // Derive pending assets from allSelfAssets using the same status criteria as stats
+  const pendingAssets = useMemo(() =>
+    allSelfAssets.filter(a => ['assigned', 'check_in_started'].includes(a.status)),
+    [allSelfAssets]
+  );
 
   // Determine base path for navigation
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');

@@ -8,7 +8,7 @@
  * ENTITY RELATIONSHIPS:
  * =====================
  *
- *   Enterprise (1) ───────< (N) User (IT Admin, CFO)
+ *   Enterprise (1) ───────< (N) User (IT Admin, Org Admin)
  *       │
  *       ├───────< (N) SubUser (Employees)
  *       │             │
@@ -132,10 +132,10 @@ export interface DBUser {
 
 export type DBUserRole =
   | 'super_admin'       // Ecotribe platform admin
-  | 'main_admin'        // Ecotribe OPS manager
+  | 'ops_admin'         // Ecotribe OPS manager
   | 'it_admin'          // Enterprise IT admin
   | 'org_admin'         // Organization Admin (enterprise level)
-  | 'sub_user'          // Enterprise employee
+  | 'employee'          // Enterprise employee
   | 'logistics_admin'   // Logistics company admin
   | 'logistics_user';   // Field logistics personnel
 
@@ -216,7 +216,7 @@ export type DBAssetStatus =
   | 'assigned'             // Sub-user assigned, awaiting evaluation
   | 'check_in_started'     // Sub-user started evaluation
   | 'submitted'            // Evaluation submitted
-  | 'remote_review'        // Under technician review
+  | 'remote_review'        // Under reviewer assessment
   | 'conditionally_accepted' // Passed remote review
   | 'remote_rejected'      // Failed remote review
   | 'disputed'             // Sub-user/IT Admin disputed decision
@@ -241,7 +241,7 @@ export interface DBQCReport {
   images: DBQCImage[];
   notes?: string;
   grade?: DBAssetGrade;
-  technician?: string;
+  reviewer?: string;
   completedAt?: Date;
 }
 
@@ -286,7 +286,7 @@ export interface DBBatch {
 export type DBBatchStatus =
   | 'draft'
   | 'active'
-  | 'pending_cfo_approval'
+  | 'pending_approval'
   | 'approved'
   | 'completed'
   | 'cancelled';
@@ -377,7 +377,7 @@ export interface DBDeclaration {
 export interface DBRemoteReview {
   id: string;                    // Primary Key: 'rev-{uuid}'
   assetId: string;               // Foreign Key → Asset (unique)
-  technicianId: string;          // Foreign Key → User
+  reviewerId: string;            // Foreign Key → User
 
   decision: 'conditionally_accepted' | 'rejected';
   notes?: string;
@@ -389,7 +389,7 @@ export interface DBRemoteReview {
 export interface DBFacilityQC {
   id: string;                    // Primary Key: 'fqc-{uuid}'
   assetId: string;               // Foreign Key → Asset (unique)
-  technicianId: string;          // Foreign Key → User
+  reviewerId: string;            // Foreign Key → User
 
   checklistData: DBFacilityQCChecklist;
   decision: 'final_accept' | 'final_reject';
@@ -845,13 +845,13 @@ export interface DBAddress {
  * 10. payout_pending:
  *    - assetStore: Update status
  *    - enterpriseStore: Update pending credits
- *    - notificationStore: Notify CFO
+ *    - notificationStore: Notify Org Admin
  *    - auditStore: Log transition
  *
  * 11. completed:
  *    - assetStore: Update status
  *    - payoutStore: Create payout record
  *    - enterpriseStore: Update wallet balance
- *    - notificationStore: Notify CFO
+ *    - notificationStore: Notify Org Admin
  *    - auditStore: Log transition
  */

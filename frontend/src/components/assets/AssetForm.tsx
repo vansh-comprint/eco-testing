@@ -171,16 +171,11 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
       purchase_date: formData.purchaseDate || undefined,
       // V3.2: Self-assignment fields
       ...(selfAssign && userId && {
-        assigned_user_id: userId,
-        is_self_assigned: true,
-        status: 'assigned',
-        assigned_at: new Date().toISOString(),
+        assigned_to_user_id: userId,
       }),
       // V3.3: Employee assignment (not self-assign)
       ...(!selfAssign && assignedEmployeeId && {
-        assigned_sub_user_id: assignedEmployeeId,
-        status: 'assigned',
-        assigned_at: new Date().toISOString(),
+        assigned_to_user_id: assignedEmployeeId,
       }),
     };
 

@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Batch, BatchStatus, CreateBatchInput, UpdateBatchInput, CFOApprovalInput } from '@/types';
+import type { Batch, BatchStatus, CreateBatchInput, UpdateBatchInput, PickupApprovalInput } from '@/types';
 import { generateId } from '@/lib/utils';
-import { requiresCfoApproval } from '@/types/batch';
+import { requiresOrgAdminApproval } from '@/types/batch';
 import { triggerNotification } from './notificationStore';
 import { db } from '@/lib/database';
 
-// CFO user ID - in a real app, this would come from user/enterprise settings
-const CFO_USER_ID = 'cfo-1';
+// Org Admin user ID - in a real app, this would come from user/enterprise settings
+const ORG_ADMIN_USER_ID = 'org-admin-1';
 
 interface BatchState {
   batches: Batch[];
@@ -24,14 +24,14 @@ interface BatchState {
   deleteBatch: (id: string, options?: { deleteAssets?: boolean; deleteSubUsers?: boolean }) => Promise<void>;
   setSelectedBatch: (batch: Batch | null) => void;
   activateBatch: (batchId: string) => Promise<Batch>;
-  submitForCfoApproval: (batchId: string, enterpriseName?: string) => Promise<Batch>;
-  nudgeCfo: (batchId: string, enterpriseName?: string) => void;
-  processCfoApproval: (input: CFOApprovalInput & { approvedBy: string }) => Promise<Batch>;
+  submitForApproval: (batchId: string, enterpriseName?: string) => Promise<Batch>;
+  nudgeOrgAdmin: (batchId: string, enterpriseName?: string) => void;
+  processApproval: (input: PickupApprovalInput & { approvedBy: string }) => Promise<Batch>;
   getBatchStats: (enterpriseId: string) => {
     total: number;
     draft: number;
     active: number;
-    pendingCfo: number;
+    pendingApproval: number;
     completed: number;
     totalValue: number;
   };
@@ -79,7 +79,7 @@ export const useBatchStore = create<BatchState>()(
           pendingCount: dbBatch.pending_count || 0,
           totalPayout: dbBatch.total_payout || 0,
           estimatedValue: dbBatch.estimated_value || 0,
-          requiresCfoApproval: dbBatch.requires_cfo_approval || false,
+          requiresApproval: dbBatch.requires_approval || dbBatch.requires_cfo_approval || false,
           createdBy: dbBatch.created_by,
           submittedAt: dbBatch.submitted_at ? new Date(dbBatch.submitted_at) : undefined,
           approvedAt: dbBatch.approved_at ? new Date(dbBatch.approved_at) : undefined,
@@ -89,7 +89,7 @@ export const useBatchStore = create<BatchState>()(
         }));
 
         set({ batches, isLoading: false });
-        console.log(`✅ Fetched ${batches.length} batches from database`);
+        console.log(`Fetched ${batches.length} batches from database`);
       } else {
         set({ isLoading: false });
       }
@@ -123,7 +123,7 @@ export const useBatchStore = create<BatchState>()(
         pending_count: 0,
         total_payout: 0,
         estimated_value: input.estimatedValue || 0,
-        requires_cfo_approval: false,
+        requires_approval: false,
         created_by: createdBy,
         created_at: new Date().toISOString(),
       });
@@ -142,13 +142,13 @@ export const useBatchStore = create<BatchState>()(
         pendingCount: 0,
         totalPayout: 0,
         estimatedValue: input.estimatedValue || 0,
-        requiresCfoApproval: false,
+        requiresApproval: false,
         createdBy,
         createdAt: new Date(),
       };
 
       set(state => ({ batches: [...state.batches, newBatch], isLoading: false }));
-      console.log(`✅ Batch created: ${input.name}`);
+      console.log(`Batch created: ${input.name}`);
       return newBatch;
     } catch (error) {
       set({ isLoading: false });
@@ -191,7 +191,7 @@ export const useBatchStore = create<BatchState>()(
       if (input.pendingCount !== undefined) updateData.pending_count = input.pendingCount;
       if (input.totalPayout !== undefined) updateData.total_payout = input.totalPayout;
       if (input.estimatedValue !== undefined) updateData.estimated_value = input.estimatedValue;
-      if (input.requiresCfoApproval !== undefined) updateData.requires_cfo_approval = input.requiresCfoApproval;
+      if (input.requiresApproval !== undefined) updateData.requires_approval = input.requiresApproval;
       if (input.submittedAt) updateData.submitted_at = new Date(input.submittedAt).toISOString();
       if (input.approvedAt) updateData.approved_at = new Date(input.approvedAt).toISOString();
       if (input.completedAt) updateData.completed_at = new Date(input.completedAt).toISOString();
@@ -203,7 +203,7 @@ export const useBatchStore = create<BatchState>()(
       }
 
       set({ isLoading: false });
-      console.log(`✅ Batch updated: ${id}`);
+      console.log(`Batch updated: ${id}`);
       return updatedBatch;
     } catch (error) {
       set({ isLoading: false });
@@ -246,7 +246,7 @@ export const useBatchStore = create<BatchState>()(
       if (options?.deleteAssets || options?.deleteSubUsers) {
         // Delete assets associated with this batch
         if (options.deleteAssets) {
-          console.log(`🗑️ Deleting assets for batch: ${id}`);
+          console.log(`Deleting assets for batch: ${id}`);
           const deleteAssetsResult = await db.query('assets', {
             filters: [{ field: 'batch_id', operator: 'eq', value: id }]
           });
@@ -255,13 +255,13 @@ export const useBatchStore = create<BatchState>()(
             for (const asset of deleteAssetsResult.data) {
               await db.delete('assets', asset.id);
             }
-            console.log(`✅ Deleted ${deleteAssetsResult.data.length} assets`);
+            console.log(`Deleted ${deleteAssetsResult.data.length} assets`);
           }
         }
 
         // Delete sub-users associated with this batch's enterprise
         if (options.deleteSubUsers && batch.enterpriseId) {
-          console.log(`🗑️ Deleting sub-users for enterprise: ${batch.enterpriseId}`);
+          console.log(`Deleting sub-users for enterprise: ${batch.enterpriseId}`);
           const deleteSubUsersResult = await db.query('sub_users', {
             filters: [{ field: 'enterprise_id', operator: 'eq', value: batch.enterpriseId }]
           });
@@ -270,7 +270,7 @@ export const useBatchStore = create<BatchState>()(
             for (const subUser of deleteSubUsersResult.data) {
               await db.delete('sub_users', subUser.id);
             }
-            console.log(`✅ Deleted ${deleteSubUsersResult.data.length} sub-users`);
+            console.log(`Deleted ${deleteSubUsersResult.data.length} sub-users`);
           }
         }
       }
@@ -289,7 +289,7 @@ export const useBatchStore = create<BatchState>()(
       if (options?.deleteAssets) deletedItems.push('assets');
       if (options?.deleteSubUsers) deletedItems.push('sub-users');
 
-      console.log(`✅ Deleted: ${deletedItems.join(', ')} for batch ${id}`);
+      console.log(`Deleted: ${deletedItems.join(', ')} for batch ${id}`);
     } catch (error) {
       set({ isLoading: false });
       console.error('Failed to delete batch:', error);
@@ -308,13 +308,13 @@ export const useBatchStore = create<BatchState>()(
     set(state => ({
       batches: state.batches.map(b => {
         if (b.id === batchId) {
-          // Only activate if it's a draft and doesn't require CFO approval
-          // or if it's already CFO approved
-          if (b.status === 'draft' && !b.requiresCfoApproval) {
-            updatedBatch = { ...b, status: 'active' as BatchStatus, updatedAt: new Date() };
+          // Only activate if it's a draft and doesn't require approval
+          // or if it's already approved
+          if (b.status === 'draft' && !b.requiresApproval) {
+            updatedBatch = { ...b, status: 'pickup_in_progress' as BatchStatus, updatedAt: new Date() };
             return updatedBatch;
-          } else if (b.status === 'cfo_approved') {
-            updatedBatch = { ...b, status: 'active' as BatchStatus, updatedAt: new Date() };
+          } else if (b.status === 'approved') {
+            updatedBatch = { ...b, status: 'pickup_in_progress' as BatchStatus, updatedAt: new Date() };
             return updatedBatch;
           }
         }
@@ -326,19 +326,19 @@ export const useBatchStore = create<BatchState>()(
     return updatedBatch;
   },
 
-  submitForCfoApproval: async (batchId: string, enterpriseName?: string) => {
+  submitForApproval: async (batchId: string, enterpriseName?: string) => {
     await new Promise(resolve => setTimeout(resolve, 200));
 
     let updatedBatch: Batch | undefined;
     set(state => ({
       batches: state.batches.map(b => {
         if (b.id === batchId) {
-          const needsCfo = requiresCfoApproval(b.assetCount, b.estimatedValue);
+          const needsApproval = requiresOrgAdminApproval(b.assetCount, b.estimatedValue);
           updatedBatch = {
             ...b,
-            status: needsCfo ? 'pending_cfo_approval' : 'active',
-            requiresCfoApproval: needsCfo,
-            cfoApprovalStatus: needsCfo ? 'pending' : undefined,
+            status: needsApproval ? 'pending_approval' : 'active',
+            requiresApproval: needsApproval,
+            approvalStatus: needsApproval ? 'pending' : undefined,
             updatedAt: new Date(),
           };
           return updatedBatch;
@@ -349,11 +349,11 @@ export const useBatchStore = create<BatchState>()(
 
     if (!updatedBatch) throw new Error('Batch not found');
 
-    // Send notification to CFO if approval is required
-    if (updatedBatch.requiresCfoApproval) {
+    // Send notification to Org Admin if approval is required
+    if (updatedBatch.requiresApproval) {
       triggerNotification(
         'batch_ready',
-        CFO_USER_ID,
+        ORG_ADMIN_USER_ID,
         'Batch Pending Approval',
         `Batch "${updatedBatch.name}" from ${enterpriseName || 'an enterprise'} with ${updatedBatch.assetCount} assets (₹${(updatedBatch.estimatedValue / 1000).toFixed(0)}K) requires your approval.`,
         'in_app'
@@ -363,20 +363,20 @@ export const useBatchStore = create<BatchState>()(
     return updatedBatch;
   },
 
-  nudgeCfo: (batchId: string, enterpriseName?: string) => {
+  nudgeOrgAdmin: (batchId: string, enterpriseName?: string) => {
     const batch = get().batches.find(b => b.id === batchId);
-    if (!batch || batch.status !== 'pending_cfo_approval') return;
+    if (!batch || batch.status !== 'pending_approval') return;
 
     triggerNotification(
       'batch_ready',
-      CFO_USER_ID,
+      ORG_ADMIN_USER_ID,
       'Reminder: Batch Awaiting Approval',
       `Friendly reminder: Batch "${batch.name}" from ${enterpriseName || 'an enterprise'} is still pending your approval. ${batch.assetCount} assets worth ₹${(batch.estimatedValue / 1000).toFixed(0)}K.`,
       'in_app'
     );
   },
 
-  processCfoApproval: async (input: CFOApprovalInput & { approvedBy: string }) => {
+  processApproval: async (input: PickupApprovalInput & { approvedBy: string }) => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const { approvedBy, ...approvalInput } = input;
@@ -386,11 +386,11 @@ export const useBatchStore = create<BatchState>()(
         if (b.id === approvalInput.batchId) {
           updatedBatch = {
             ...b,
-            status: approvalInput.approved ? 'active' : 'cfo_rejected',
-            cfoApprovalStatus: approvalInput.approved ? 'approved' : 'rejected',
-            cfoApprovedBy: approvedBy,
-            cfoApprovedAt: new Date(),
-            cfoRejectionReason: approvalInput.approved ? undefined : approvalInput.rejectionReason,
+            status: approvalInput.approved ? 'active' : 'rejected',
+            approvalStatus: approvalInput.approved ? 'approved' : 'rejected',
+            approvedBy: approvedBy,
+            approvedAt: new Date(),
+            rejectionReason: approvalInput.approved ? undefined : approvalInput.rejectionReason,
             updatedAt: new Date(),
           };
           return updatedBatch;
@@ -409,8 +409,8 @@ export const useBatchStore = create<BatchState>()(
     return {
       total: batches.length,
       draft: batches.filter(b => b.status === 'draft').length,
-      active: batches.filter(b => ['active', 'in_progress'].includes(b.status)).length,
-      pendingCfo: batches.filter(b => b.status === 'pending_cfo_approval').length,
+      active: batches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
+      pendingApproval: batches.filter(b => b.status === 'pending_approval').length,
       completed: batches.filter(b => b.status === 'completed').length,
       totalValue: batches.reduce((sum, b) => sum + b.estimatedValue, 0),
     };

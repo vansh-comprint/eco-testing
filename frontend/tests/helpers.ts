@@ -8,8 +8,8 @@ export const TEST_USERS = {
     password: 'password123',
     expectedPath: '/super',
   },
-  main_admin: {
-    email: 'opsadmin@ecotribe.io',  // OPS Admin = main_admin role
+  ops_admin: {
+    email: 'opsadmin@ecotribe.io',
     password: 'password123',
     expectedPath: '/ops',
   },
@@ -23,7 +23,7 @@ export const TEST_USERS = {
     password: 'password123',
     expectedPath: '/admin',
   },
-  sub_user: {
+  employee: {
     email: 'employee@techcorp.com',
     password: 'password123',
     expectedPath: '/check-in',

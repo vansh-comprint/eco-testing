@@ -3,7 +3,7 @@
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from app.models.asset import AssetStatus, AssetGrade
 
@@ -60,6 +60,13 @@ class AssetUpdate(BaseModel):
     grade: Optional[AssetGrade] = None
     base_price: Optional[Decimal] = None
     final_price: Optional[Decimal] = None
+
+    @field_validator("base_price", "final_price")
+    @classmethod
+    def validate_prices_non_negative(cls, v: Optional[Decimal]) -> Optional[Decimal]:
+        if v is not None and v < 0:
+            return Decimal("0")
+        return v
 
 
 class AssetResponse(BaseModel):

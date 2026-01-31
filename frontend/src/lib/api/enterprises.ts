@@ -17,6 +17,7 @@ export interface EnterpriseResponse {
   pan_number?: string;
   address?: Record<string, unknown>;
   industry?: string;
+  company_size?: string;
   employee_count?: number;
   contact_person?: string;
   contact_email?: string;
@@ -42,6 +43,7 @@ export interface EnterpriseCreateRequest {
   pan_number?: string;
   address?: Record<string, unknown>;
   industry?: string;
+  company_size?: string;
   employee_count?: number;
   contact_person?: string;
   contact_email?: string;
@@ -55,6 +57,7 @@ export interface EnterpriseUpdateRequest {
   pan_number?: string;
   address?: Record<string, unknown>;
   industry?: string;
+  company_size?: string;
   employee_count?: number;
   contact_person?: string;
   contact_email?: string;

@@ -285,7 +285,7 @@ def blacklist_token(token: str) -> None:
 
 def generate_otp() -> str:
     """
-    Generate a 6-digit OTP for sub-user authentication.
+    Generate a 6-digit OTP for employee authentication.
 
     Returns:
         str: 6-digit OTP

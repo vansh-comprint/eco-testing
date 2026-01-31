@@ -141,9 +141,6 @@ class SubmissionService:
         elif user.role == UserRole.ORG_ADMIN.value:
             enterprise_id = user.enterprise_id
             branch_id = branch_id  # Org admin can filter by branch within their enterprise
-        elif user.role == UserRole.TECHNICIAN.value:
-            # Technicians see submissions for review
-            pass  # No scoping, they need to review all
         # Super Admin and OPS Admin can see all
 
         return await self.repo.list_with_filters(

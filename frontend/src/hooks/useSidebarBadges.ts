@@ -3,21 +3,32 @@
  *
  * Fetches counts from a single backend endpoint (GET /dashboard/badges)
  * instead of pulling full entity lists and filtering client-side.
+ *
+ * When an IT Admin selects a branch, the branch_id is passed to the
+ * backend so badge counts reflect the scoped branch.
  */
 
+import { useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { dashboardApi, type BadgeCounts } from '@/lib/api';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 
 export type SidebarBadges = BadgeCounts;
 
 export function useSidebarBadges(): SidebarBadges {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const itBranchCtx = useContext(ITAdminBranchContext);
+
+  // Only pass branch_id for IT Admin when a specific branch is selected
+  const branchId = user?.role === 'it_admin' ? itBranchCtx?.selectedBranchId ?? null : null;
 
   const { data } = useQuery({
-    queryKey: ['sidebar-badges'],
+    queryKey: ['sidebar-badges', branchId],
     queryFn: async () => {
-      const res = await dashboardApi.getBadges();
+      const res = await dashboardApi.getBadges(
+        branchId ? { branch_id: branchId } : undefined
+      );
       // fetchWithAuth returns ApiResponse<BadgeCounts> with { success, data }
       return (res.data ?? {}) as BadgeCounts;
     },
@@ -36,7 +47,6 @@ export function getBadgeForPath(badges: SidebarBadges, path: string): number | u
   const pathBadgeMap: Record<string, keyof SidebarBadges> = {
     // IT Admin
     '/admin/batches': 'batches',
-    '/admin/assets': 'assets',
     '/admin/pickups': 'pickups',
 
     // Org Admin
@@ -55,10 +65,10 @@ export function getBadgeForPath(badges: SidebarBadges, path: string): number | u
     '/super/applications': 'applications',
     '/super/pickups': 'opsPickups',
 
-    // Technician
-    '/tech/review': 'reviews',
-    '/tech/qc': 'qc',
-    '/tech/disputes': 'disputes',
+    // Review & QC
+    '/review/queue': 'reviews',
+    '/review/qc': 'qc',
+    '/review/disputes': 'disputes',
 
     // Logistics Admin
     '/logistics-admin/assignments': 'assignments',

@@ -32,7 +32,7 @@ import {
   useRejectEnterpriseApplication,
   useRequestMoreInfo,
 } from '@/hooks';
-import { ConfirmationModal } from '@/components/ui';
+import { ConfirmationModal, useToast } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'more_info_requested' | 'all';
@@ -69,6 +69,7 @@ export function EnterpriseApplications() {
   // V3: Use React Query hooks for auth and data
   const { user } = useAuth();
   const { handleError, showSuccess } = useApiError();
+  const { addToast } = useToast();
 
   // V3: React Query hooks for data fetching and mutations
   const { data: applications = [], isLoading } = useEnterpriseApplications();
@@ -553,15 +554,14 @@ export function EnterpriseApplications() {
                                   </span>
                                 </div>
                                 {docUrl ? (
-                                  <a
-                                    href={docUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  <button
+                                    type="button"
+                                    onClick={() => addToast({ type: 'info', message: 'Document viewer coming soon' })}
                                     className="flex items-center gap-1.5 px-2 py-1 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-colors"
                                   >
                                     <Eye className="w-3 h-3" />
                                     <span className="font-mono text-[10px] uppercase">View</span>
-                                  </a>
+                                  </button>
                                 ) : (
                                   <span className={`font-mono text-[10px] ${doc.required ? 'text-red-400' : 'text-slate-400 dark:text-white/30'}`}>
                                     {doc.required ? 'Missing' : 'Not uploaded'}

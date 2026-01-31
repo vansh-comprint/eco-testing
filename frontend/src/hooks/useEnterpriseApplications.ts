@@ -1,8 +1,6 @@
 /**
  * useEnterpriseApplications - React Query hook for V3 enterprise registration
  * Handles the new registration workflow: Apply -> Review -> Approve/Reject
- *
- * MIGRATED: Now uses REST API instead of direct Supabase calls
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

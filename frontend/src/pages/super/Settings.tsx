@@ -35,8 +35,8 @@ export function Settings() {
           key: 'db_provider',
           label: 'Database Provider',
           type: 'select',
-          value: 'supabase',
-          options: ['supabase', 'postgresql', 'mongodb'],
+          value: 'postgresql',
+          options: ['postgresql', 'mongodb'],
           description: 'Current database provider',
         },
         {

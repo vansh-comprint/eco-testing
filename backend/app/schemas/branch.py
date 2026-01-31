@@ -12,21 +12,24 @@ class BranchCreate(BaseModel):
 
     branch_name: str = Field(..., min_length=1, max_length=200)
     branch_code: str = Field(..., min_length=1, max_length=50)
-    
+
     # Address
     address_line1: str = Field(..., min_length=1, max_length=500)
     address_line2: Optional[str] = Field(None, max_length=500)
     city: str = Field(..., min_length=1, max_length=100)
     state: str = Field(..., min_length=1, max_length=100)
     pin_code: str = Field(..., min_length=1, max_length=10)
-    
+
     # Pickup details
     pickup_point_description: Optional[str] = None
     site_contact_person: Optional[str] = None
     site_contact_phone: Optional[str] = None
     operating_hours: Optional[str] = None
     special_instructions: Optional[str] = None
-    
+
+    # IT Admin assignment (optional, auto-filled for IT Admin creators)
+    it_admin_id: Optional[str] = None
+
     # Context (auto-filled from current user if not provided)
     enterprise_id: Optional[str] = None
 
@@ -36,23 +39,36 @@ class BranchUpdate(BaseModel):
 
     branch_name: Optional[str] = Field(None, min_length=1, max_length=200)
     branch_code: Optional[str] = Field(None, min_length=1, max_length=50)
-    
+
     # Address
     address_line1: Optional[str] = Field(None, min_length=1, max_length=500)
     address_line2: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = Field(None, min_length=1, max_length=100)
     state: Optional[str] = Field(None, min_length=1, max_length=100)
     pin_code: Optional[str] = Field(None, min_length=1, max_length=10)
-    
+
     # Pickup details
     pickup_point_description: Optional[str] = None
     site_contact_person: Optional[str] = None
     site_contact_phone: Optional[str] = None
     operating_hours: Optional[str] = None
     special_instructions: Optional[str] = None
-    
+
+    # IT Admin assignment
+    it_admin_id: Optional[str] = None
+
     # Status
     status: Optional[BranchStatus] = None
+
+
+class ITAdminInfo(BaseModel):
+    """Embedded IT Admin info for branch responses"""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: Optional[str] = None
+    email: str
+    phone: Optional[str] = None
 
 
 class BranchResponse(BaseModel):
@@ -64,23 +80,27 @@ class BranchResponse(BaseModel):
     enterprise_id: str
     branch_name: str
     branch_code: str
-    
+
     # Address
     address_line1: str
     address_line2: Optional[str] = None
     city: str
     state: str
     pin_code: str
-    
+
     # Pickup details
     pickup_point_description: Optional[str] = None
     site_contact_person: Optional[str] = None
     site_contact_phone: Optional[str] = None
     operating_hours: Optional[str] = None
     special_instructions: Optional[str] = None
-    
+
     # Status
     status: str
+
+    # IT Admin assignment
+    it_admin_id: Optional[str] = None
+    it_admin: Optional[ITAdminInfo] = None
 
     # Computed counts (populated by service layer)
     asset_count: int = 0
@@ -96,4 +116,3 @@ class BranchListResponse(BaseModel):
 
     branches: List[BranchResponse]
     total: int
-

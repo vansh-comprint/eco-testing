@@ -1,8 +1,6 @@
 /**
  * useBranches - React Query hook for branch management
  * V3.2: Branch -> IT Admin (1 IT Admin can manage multiple branches)
- *
- * MIGRATED: Now uses REST API instead of direct Supabase calls
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

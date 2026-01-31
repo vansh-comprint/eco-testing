@@ -85,16 +85,36 @@ export function OpsAssets() {
   }, [assets, statusFilter, searchQuery, isAllEnterprises, selectedEnterpriseId, sortBy]);
 
   const getStatusColor = (status: AssetStatus) => {
-    if (['completed', 'final_accepted'].includes(status)) {
-      return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400';
-    }
-    if (['remote_rejected', 'final_rejected'].includes(status)) {
-      return 'border-red-400/30 bg-red-400/10 text-red-400';
-    }
-    if (['in_transit', 'facility_qc'].includes(status)) {
-      return 'border-blue-400/30 bg-blue-400/10 text-blue-400';
-    }
-    return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
+    const colorMap: Record<string, string> = {
+      // Early / pre-submission — neutral gray
+      pending_assignment: 'border-zinc-400/30 bg-zinc-400/10 text-zinc-400',
+      assigned:           'border-zinc-400/30 bg-zinc-400/10 text-zinc-400',
+      check_in_started:   'border-zinc-400/30 bg-zinc-400/10 text-zinc-400',
+      // Awaiting review — amber
+      submitted:          'border-amber-400/30 bg-amber-400/10 text-amber-400',
+      remote_review:      'border-amber-400/30 bg-amber-400/10 text-amber-400',
+      // Verified / accepted — emerald
+      conditionally_accepted: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
+      final_accepted:     'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
+      completed:          'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
+      // Rejected — red
+      remote_rejected:    'border-red-400/30 bg-red-400/10 text-red-400',
+      final_rejected:     'border-red-400/30 bg-red-400/10 text-red-400',
+      // Disputed — orange
+      disputed:           'border-orange-400/30 bg-orange-400/10 text-orange-400',
+      // Pickup flow — violet
+      ready_for_pickup:   'border-violet-400/30 bg-violet-400/10 text-violet-400',
+      pickup_requested:   'border-violet-400/30 bg-violet-400/10 text-violet-400',
+      pickup_scheduled:   'border-violet-400/30 bg-violet-400/10 text-violet-400',
+      picked_up:          'border-violet-400/30 bg-violet-400/10 text-violet-400',
+      pickup_failed_qc:   'border-rose-400/30 bg-rose-400/10 text-rose-400',
+      // Logistics / warehouse — blue
+      in_transit:         'border-blue-400/30 bg-blue-400/10 text-blue-400',
+      facility_qc:        'border-blue-400/30 bg-blue-400/10 text-blue-400',
+      // Payout — cyan
+      payout_pending:     'border-cyan-400/30 bg-cyan-400/10 text-cyan-400',
+    };
+    return colorMap[status] || 'border-zinc-400/30 bg-zinc-400/10 text-zinc-400';
   };
 
   const getEnterpriseName = (enterpriseId?: string) => {

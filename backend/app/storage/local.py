@@ -25,7 +25,7 @@ class LocalStorageBackend(StorageBackend):
         Args:
             base_path: Base directory for file storage (defaults to ./storage)
         """
-        self.base_path = Path(base_path or settings.LOCAL_STORAGE_PATH or "./storage")
+        self.base_path = Path(base_path or settings.local_storage_path or "./storage")
         self.base_path.mkdir(parents=True, exist_ok=True)
     
     def _get_file_path(self, bucket: str, key: str) -> Path:

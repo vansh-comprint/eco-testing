@@ -5,14 +5,14 @@ import { Building2, Users, IndianRupee, Shield, Plus, FileText, Settings, BarCha
 import { Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
-import { CreateMainAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
+import { CreateOpsAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import type { UserResponse } from '@/lib/api/auth';
 
 export function SuperAdminDashboard() {
   const navigate = useNavigate();
-  const [isMainAdminModalOpen, setIsMainAdminModalOpen] = useState(false);
+  const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isLogisticsAdminModalOpen, setIsLogisticsAdminModalOpen] = useState(false);
 
   // Real-time data from REST API
@@ -109,9 +109,9 @@ export function SuperAdminDashboard() {
         actions={
           <div className="flex gap-2">
             <button
-              onClick={() => setIsMainAdminModalOpen(true)}
+              onClick={() => setIsOpsAdminModalOpen(true)}
               className="w-11 h-11 bg-lime-500 hover:bg-lime-400 hover:shadow-[0_0_20px_rgba(132,204,22,0.3)] transition-all flex items-center justify-center group"
-              title="Add Main Admin"
+              title="Add OPS Admin"
             >
               <UserPlus className={`${iconSize.md} text-black group-hover:scale-110 transition-transform`} />
             </button>
@@ -261,12 +261,12 @@ export function SuperAdminDashboard() {
       </motion.div>
 
       {/* Modals */}
-      <CreateMainAdminModal
-        isOpen={isMainAdminModalOpen}
-        onClose={() => setIsMainAdminModalOpen(false)}
+      <CreateOpsAdminModal
+        isOpen={isOpsAdminModalOpen}
+        onClose={() => setIsOpsAdminModalOpen(false)}
         onSuccess={() => {
           fetchDashboardData();
-          console.log('Main Admin created successfully');
+          console.log('OPS Admin created successfully');
         }}
       />
       <CreateLogisticsAdminModal

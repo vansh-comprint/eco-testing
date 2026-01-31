@@ -160,14 +160,16 @@ export function BranchDetail() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate(`${basePath}/branches`, { state: { editBranch: branch.id } })}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
-        >
-          <Edit className={iconSize.md} />
-          Edit Branch
-        </button>
+        {isOrgAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/branches`, { state: { editBranch: branch.id } })}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
+          >
+            <Edit className={iconSize.md} />
+            Edit Branch
+          </button>
+        )}
       </div>
 
       {/* Main Content Grid */}
@@ -182,16 +184,18 @@ export function BranchDetail() {
           >
             <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
               <h2 className={`font-display font-bold text-sm uppercase tracking-wider ${text.muted}`}>IT Admin</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAdminId(branch.it_admin_id || null);
-                  setIsEditAdminModalOpen(true);
-                }}
-                className="text-xs font-semibold text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 uppercase tracking-wider transition-colors"
-              >
-                {branch.it_admin ? 'Change Admin' : 'Assign Admin'}
-              </button>
+              {isOrgAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAdminId(branch.it_admin_id || null);
+                    setIsEditAdminModalOpen(true);
+                  }}
+                  className="text-xs font-semibold text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 uppercase tracking-wider transition-colors"
+                >
+                  {branch.it_admin ? 'Change Admin' : 'Assign Admin'}
+                </button>
+              )}
             </div>
             <div className="p-5">
               {branch.it_admin ? (
@@ -413,7 +417,7 @@ export function BranchDetail() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate(`${basePath}/approvals?branch=${branchId}`)}
+                onClick={() => navigate(`${basePath}/batches?branch=${branchId}`)}
                 className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors text-left"
               >
                 <div className="flex items-center gap-3">

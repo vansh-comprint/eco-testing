@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search } from 'lucide-react';
-import { PageHeader, StatBox, Modal, Button, Spinner } from '@/components/ui';
+import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search, Power, CheckCircle } from 'lucide-react';
+import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
 import type { Enterprise } from '@/types';
 
@@ -15,6 +15,28 @@ export function Enterprises() {
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{ enterprise: Enterprise; newStatus: 'active' | 'inactive' } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  const handleStatusChange = async () => {
+    if (!statusChangeTarget) return;
+    setIsChangingStatus(true);
+    try {
+      const result = await enterprisesApi.update(statusChangeTarget.enterprise.id, {
+        status: statusChangeTarget.newStatus,
+      });
+      if (result.success) {
+        await fetchEnterprises();
+        setIsModalOpen(false);
+        setSelectedEnterprise(null);
+      }
+    } catch (error) {
+      console.error('Error changing enterprise status:', error);
+    } finally {
+      setIsChangingStatus(false);
+      setStatusChangeTarget(null);
+    }
+  };
 
   const fetchEnterprises = async () => {
     setIsLoading(true);
@@ -188,7 +210,12 @@ export function Enterprises() {
                 </div>
               ) : (
                 filteredActive.map((enterprise) => (
-                  <EnterpriseCard key={enterprise.id} enterprise={enterprise} onView={handleViewDetails} />
+                  <EnterpriseCard
+                    key={enterprise.id}
+                    enterprise={enterprise}
+                    onView={handleViewDetails}
+                    onDeactivate={() => setStatusChangeTarget({ enterprise, newStatus: 'inactive' })}
+                  />
                 ))
               )}
             </motion.div>
@@ -206,7 +233,12 @@ export function Enterprises() {
                 </div>
               ) : (
                 filteredInactive.map((enterprise) => (
-                  <InactiveEnterpriseCard key={enterprise.id} enterprise={enterprise} onView={handleViewDetails} />
+                  <InactiveEnterpriseCard
+                    key={enterprise.id}
+                    enterprise={enterprise}
+                    onView={handleViewDetails}
+                    onActivate={() => setStatusChangeTarget({ enterprise, newStatus: 'active' })}
+                  />
                 ))
               )}
             </motion.div>
@@ -225,8 +257,8 @@ export function Enterprises() {
       >
         {selectedEnterprise && (
           <div className="space-y-6">
-            {/* Status Badge */}
-            <div className="flex items-center gap-2">
+            {/* Status Badge + Toggle */}
+            <div className="flex items-center justify-between">
               <span className={`px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border ${
                 selectedEnterprise.status === 'active'
                   ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
@@ -234,6 +266,21 @@ export function Enterprises() {
               }`}>
                 {selectedEnterprise.status}
               </span>
+              {selectedEnterprise.status === 'active' ? (
+                <button
+                  onClick={() => setStatusChangeTarget({ enterprise: selectedEnterprise, newStatus: 'inactive' })}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs uppercase tracking-widest hover:bg-red-500/20 transition-colors"
+                >
+                  <Ban className="w-3.5 h-3.5" /> Deactivate
+                </button>
+              ) : (
+                <button
+                  onClick={() => setStatusChangeTarget({ enterprise: selectedEnterprise, newStatus: 'active' })}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-colors"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Activate
+                </button>
+              )}
             </div>
 
             {/* Enterprise Info */}
@@ -314,11 +361,27 @@ export function Enterprises() {
           </div>
         )}
       </Modal>
+
+      {/* Status Change Confirmation */}
+      <ConfirmationModal
+        isOpen={!!statusChangeTarget}
+        onClose={() => setStatusChangeTarget(null)}
+        onConfirm={handleStatusChange}
+        title={statusChangeTarget?.newStatus === 'active' ? 'Activate Enterprise' : 'Deactivate Enterprise'}
+        description={
+          statusChangeTarget?.newStatus === 'active'
+            ? `Are you sure you want to activate "${statusChangeTarget?.enterprise.name}"? This will restore full access for all users under this enterprise.`
+            : `Are you sure you want to deactivate "${statusChangeTarget?.enterprise.name}"? All users under this enterprise will lose access.`
+        }
+        confirmText={statusChangeTarget?.newStatus === 'active' ? 'Activate' : 'Deactivate'}
+        variant={statusChangeTarget?.newStatus === 'active' ? 'info' : 'danger'}
+        isLoading={isChangingStatus}
+      />
     </div>
   );
 }
 
-function EnterpriseCard({ enterprise, onView }: { enterprise: Enterprise; onView: (e: Enterprise) => void }) {
+function EnterpriseCard({ enterprise, onView, onDeactivate }: { enterprise: Enterprise; onView: (e: Enterprise) => void; onDeactivate: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -350,17 +413,26 @@ function EnterpriseCard({ enterprise, onView }: { enterprise: Enterprise; onView
         )}
       </div>
 
-      <button
-        onClick={() => onView(enterprise)}
-        className="w-full px-3 py-2 bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:border-ecotribe-primary transition-colors flex items-center justify-center gap-2"
-      >
-        <Eye className="w-4 h-4" /> View Details
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onView(enterprise)}
+          className="flex-1 px-3 py-2 bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:border-ecotribe-primary transition-colors flex items-center justify-center gap-2"
+        >
+          <Eye className="w-4 h-4" /> View
+        </button>
+        <button
+          onClick={onDeactivate}
+          className="px-3 py-2 border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs uppercase tracking-widest hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+          title="Deactivate enterprise"
+        >
+          <Ban className="w-4 h-4" />
+        </button>
+      </div>
     </motion.div>
   );
 }
 
-function InactiveEnterpriseCard({ enterprise, onView }: { enterprise: Enterprise; onView: (e: Enterprise) => void }) {
+function InactiveEnterpriseCard({ enterprise, onView, onActivate }: { enterprise: Enterprise; onView: (e: Enterprise) => void; onActivate: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -396,12 +468,21 @@ function InactiveEnterpriseCard({ enterprise, onView }: { enterprise: Enterprise
         </div>
       </div>
 
-      <button
-        onClick={() => onView(enterprise)}
-        className="w-full px-3 py-2 bg-red-500/20 border border-red-500/30 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
-      >
-        <Eye className="w-4 h-4" /> View Details
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onView(enterprise)}
+          className="flex-1 px-3 py-2 bg-red-500/20 border border-red-500/30 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
+        >
+          <Eye className="w-4 h-4" /> View
+        </button>
+        <button
+          onClick={onActivate}
+          className="px-3 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2"
+          title="Activate enterprise"
+        >
+          <CheckCircle className="w-4 h-4" />
+        </button>
+      </div>
     </motion.div>
   );
 }

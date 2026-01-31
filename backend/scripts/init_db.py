@@ -61,18 +61,6 @@ async def create_sample_data():
             )
             db.add(ops_admin)
 
-            # 3. Technician
-            technician = User(
-                id=str(uuid.uuid4()),
-                email="tech@ecotribe.io",
-                name="Tech Reviewer",
-                role=UserRole.TECHNICIAN,
-                status=UserStatus.ACTIVE,
-                password_hash=get_password_hash("password123"),
-                created_by="system",
-            )
-            db.add(technician)
-
             # ==================== Logistics Roles ====================
 
             # 6. Logistics Admin
@@ -195,7 +183,6 @@ async def create_sample_data():
             print("\n   Platform Roles:")
             print("   • Super Admin:     superadmin@ecotribe.io")
             print("   • OPS Admin:       admin@ecotribe.io")
-            print("   • Technician:      tech@ecotribe.io")
             print("\n   Enterprise Roles (TechCorp India):")
             print("   • Org Admin:       orgadmin@techcorp.com")
             print("   • IT Admin:        it@techcorp.com")

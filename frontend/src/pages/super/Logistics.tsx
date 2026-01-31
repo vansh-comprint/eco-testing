@@ -381,6 +381,7 @@ export function Logistics() {
             fetchLogisticsData();
           }}
           user={selectedUser}
+          hideRole
         />
       )}
     </div>

@@ -100,7 +100,7 @@ class FacilityQCResponse(BaseModel):
 
     id: str
     asset_id: str
-    technician_id: Optional[str] = None
+    reviewer_id: Optional[str] = None
     decision: str
     grade: Optional[str] = None
     final_value: Optional[Decimal] = None

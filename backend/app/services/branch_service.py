@@ -4,13 +4,14 @@ from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 
 from app.models.enterprise import Branch, BranchStatus
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.batch import Batch
 from app.repositories.branch_repository import BranchRepository
-from app.schemas.branch import BranchCreate, BranchUpdate, BranchResponse
+from app.schemas.branch import BranchCreate, BranchUpdate, BranchResponse, ITAdminInfo
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 
 
@@ -22,8 +23,27 @@ class BranchService:
         self.db = db
 
     async def _enrich_branch_response(self, branch) -> BranchResponse:
-        """Convert branch model to response with computed counts."""
+        """Convert branch model to response with computed counts and IT admin info."""
         response = BranchResponse.model_validate(branch)
+
+        # Populate IT Admin info if assigned
+        if branch.it_admin_id:
+            admin = getattr(branch, "it_admin", None)
+            if admin:
+                response.it_admin = ITAdminInfo.model_validate(admin)
+            else:
+                # Fallback: load IT admin if not eagerly loaded
+                result = await self.db.execute(
+                    select(User).where(User.id == branch.it_admin_id)
+                )
+                admin = result.scalar_one_or_none()
+                if admin:
+                    response.it_admin = ITAdminInfo(
+                        id=admin.id,
+                        name=admin.name,
+                        email=admin.email,
+                        phone=admin.phone,
+                    )
 
         # Count assets in this branch
         result = await self.db.execute(
@@ -40,8 +60,13 @@ class BranchService:
         return response
 
     async def get_branch(self, branch_id: str) -> BranchResponse:
-        """Get branch by ID"""
-        branch = await self.repository.get_by_id(branch_id)
+        """Get branch by ID with eager-loaded IT admin."""
+        result = await self.db.execute(
+            select(Branch)
+            .options(joinedload(Branch.it_admin))
+            .where(Branch.id == branch_id)
+        )
+        branch = result.unique().scalar_one_or_none()
         if not branch:
             raise NotFoundError("Branch", branch_id)
         return await self._enrich_branch_response(branch)
@@ -51,6 +76,7 @@ class BranchService:
         skip: int = 0,
         limit: int = 100,
         enterprise_id: Optional[str] = None,
+        it_admin_id: Optional[str] = None,
         status: Optional[BranchStatus] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[BranchResponse], int]:
@@ -59,6 +85,7 @@ class BranchService:
             skip=skip,
             limit=limit,
             enterprise_id=enterprise_id,
+            it_admin_id=it_admin_id,
             status=status,
             search=search,
         )
@@ -96,13 +123,14 @@ class BranchService:
             site_contact_phone=branch_data.site_contact_phone,
             operating_hours=branch_data.operating_hours,
             special_instructions=branch_data.special_instructions,
+            it_admin_id=branch_data.it_admin_id,
             status=BranchStatus.ACTIVE.value,
             created_by=created_by,
             updated_by=created_by,
         )
 
         branch = await self.repository.create(branch)
-        return BranchResponse.model_validate(branch)
+        return await self._enrich_branch_response(branch)
 
     async def update_branch(
         self, branch_id: str, branch_data: BranchUpdate, updated_by: str
@@ -133,7 +161,7 @@ class BranchService:
 
         branch.updated_by = updated_by
         branch = await self.repository.update(branch)
-        return BranchResponse.model_validate(branch)
+        return await self._enrich_branch_response(branch)
 
     async def delete_branch(self, branch_id: str) -> bool:
         """

@@ -318,7 +318,7 @@ export function ITAdminInvite() {
             <p className="font-display font-bold text-sm text-black dark:text-white uppercase tracking-wide mb-2">IT Admin Responsibilities</p>
             <ul className="font-mono text-xs text-slate-500 dark:text-white/50 space-y-1">
               <li>• Manage assets and create batches for their assigned branch</li>
-              <li>• Invite sub-users who check-in their devices</li>
+              <li>• Invite employees who check-in their devices</li>
               <li>• Submit batches for pickup approval</li>
               <li>• Track pickup status and coordinate logistics</li>
             </ul>

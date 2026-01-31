@@ -31,7 +31,7 @@ interface ReviewState {
   getPendingDisputes: () => Dispute[];
 
   // Stats
-  getReviewStats: (technicianId: string) => {
+  getReviewStats: (reviewerId: string) => {
     reviewedToday: number;
     qcCompletedToday: number;
     disputesResolved: number;
@@ -70,7 +70,7 @@ export const useReviewStore = create<ReviewState>()(
           const result = await db.insert('remote_reviews', {
             id: reviewId,
             asset_id: input.assetId,
-            technician_id: input.technicianId,
+            reviewer_id: input.reviewerId,
             decision: input.decision,
             notes: input.notes || null,
             reason: input.reason || null,
@@ -94,7 +94,7 @@ export const useReviewStore = create<ReviewState>()(
 
           await handleRemoteReview({
             assetId: input.assetId,
-            technicianId: input.technicianId,
+            reviewerId: input.reviewerId,
             decision: input.decision === 'conditionally_accepted' ? 'conditionally_accepted' : 'rejected',
             notes: input.notes,
             reason: input.reason,
@@ -123,7 +123,7 @@ export const useReviewStore = create<ReviewState>()(
           const result = await db.insert('facility_qc', {
             id: qcId,
             asset_id: input.assetId,
-            technician_id: input.technicianId,
+            reviewer_id: input.reviewerId,
             checklist_data: input.checklistData || {},
             decision: input.decision,
             grade: input.grade || null,
@@ -149,7 +149,7 @@ export const useReviewStore = create<ReviewState>()(
 
           await handleFacilityQC({
             assetId: input.assetId,
-            technicianId: input.technicianId,
+            reviewerId: input.reviewerId,
             decision: input.decision,
             grade: input.grade,
           });
@@ -255,20 +255,20 @@ export const useReviewStore = create<ReviewState>()(
         return get().disputes.filter(d => !d.resolution);
       },
 
-      getReviewStats: (technicianId: string) => {
+      getReviewStats: (reviewerId: string) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const reviewsToday = get().remoteReviews.filter(
-          r => r.technicianId === technicianId && new Date(r.reviewedAt) >= today
+          r => r.reviewerId === reviewerId && new Date(r.reviewedAt) >= today
         );
 
         const qcToday = get().facilityQCs.filter(
-          qc => qc.technicianId === technicianId && new Date(qc.completedAt) >= today
+          qc => qc.reviewerId === reviewerId && new Date(qc.completedAt) >= today
         );
 
         const disputesResolved = get().disputes.filter(
-          d => d.resolvedBy === technicianId
+          d => d.resolvedBy === reviewerId
         ).length;
 
         return {

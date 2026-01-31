@@ -7,8 +7,6 @@ import {
   Laptop,
   Plus,
   Upload,
-  Clock,
-  CheckCircle,
   XCircle,
   Send,
   Eye,
@@ -16,15 +14,20 @@ import {
   Truck,
   X,
   Trash2,
-  Loader2
+  Loader2,
+  Search,
+  FileSpreadsheet
 } from 'lucide-react';
-import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useSubmitBatchForApproval, useDeleteBatch, useUpdateBatch, useBranches, useBranchesByITAdmin, useCreatePickupRequest, usePickupRequests, usePickupsByITAdmin, useApiError } from '@/hooks';
+import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useSubmitBatchForApproval, useDeleteBatch, useUpdateBatch, useBranches, useBranchesByITAdmin, useCreatePickupRequest, useCreateAsset, useApiError } from '@/hooks';
 import { assetsApi } from '@/lib/api/assets';
+import { AssetForm } from '@/components/assets';
+import type { CreateAssetInput } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BatchStatus, AssetStatus, PickupPriority, PickupTimeSlot } from '@/types';
 import { DeleteBatchModal, ConfirmationModal } from '@/components/ui';
 import { getBatchStatusDisplay, getAssetStatusDisplay } from '@/lib/status-display';
+import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
 
 export function BatchDetail() {
   const navigate = useNavigate();
@@ -47,34 +50,19 @@ export function BatchDetail() {
   const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
   const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: orgPickups = [] } = usePickupRequests(isOrgAdmin ? enterpriseId : '');
-  const { data: itPickups = [] } = usePickupsByITAdmin(isOrgAdmin ? '' : userId);
 
   const batches = isOrgAdmin ? orgBatches : itBatches;
   const batchesLoading = isOrgAdmin ? orgBatchesLoading : itBatchesLoading;
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
   const branches = isOrgAdmin ? orgBranches : itBranches;
-  const pickupRequests = isOrgAdmin ? orgPickups : itPickups;
-
-  // V3.2: Get asset IDs that are already in active/pending pickup requests
-  // This is a backup check in case asset status wasn't updated properly
-  const assetsInActivePickups = useMemo(() => {
-    const activeStatuses = ['pending_assignment', 'assigned', 'scheduled', 'in_progress'];
-    const assetIds = new Set<string>();
-    pickupRequests
-      .filter(pr => activeStatuses.includes(pr.status))
-      .forEach(pr => {
-        (pr.asset_ids || []).forEach((id: string) => assetIds.add(id));
-      });
-    return assetIds;
-  }, [pickupRequests]);
 
   // V3: Mutations
   const submitForApprovalMutation = useSubmitBatchForApproval();
   const deleteBatchMutation = useDeleteBatch();
   const updateBatchMutation = useUpdateBatch();
   const createPickupMutation = useCreatePickupRequest();
+  const createAssetMutation = useCreateAsset();
   const { handleError, showSuccess } = useApiError();
 
   // Handler to return rejected batch to draft status
@@ -102,20 +90,16 @@ export function BatchDetail() {
 
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [isCreatingPickup, setIsCreatingPickup] = useState(false);
+  const [selectedPickupAssetIds, setSelectedPickupAssetIds] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-
-  // Auto-open submit modal when navigated with ?action=submit from batch list
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('action') === 'submit' && batch?.status === 'draft') {
-      setShowSubmitModal(true);
-    }
-  }, [location.search, batch?.status]);
-  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
+  const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [addAssetTab, setAddAssetTab] = useState<'existing' | 'new' | 'csv'>('existing');
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [isAddingAssets, setIsAddingAssets] = useState(false);
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
+  const [isCreatingAsset, setIsCreatingAsset] = useState(false);
   const [showReturnToDraftModal, setShowReturnToDraftModal] = useState(false);
   const [isReturningToDraft, setIsReturningToDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,13 +127,26 @@ export function BatchDetail() {
   });
 
   const batch = batches.find(b => b.id === batchId);
+
+  // Auto-open submit modal when navigated with ?action=submit from batch list
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'submit' && batch?.status === 'draft') {
+      setShowSubmitModal(true);
+    }
+  }, [location.search, batch?.status]);
+
   // V3: Use snake_case field names
   const batchAssets = assets.filter(a => a.batch_id === batchId);
 
-  // Available assets: those without a batch_id and in pending_assignment status
+  // Available assets: not already in THIS batch, in the same branch, and in an eligible status
   const availableAssets = useMemo(() => {
-    return assets.filter(a => !a.batch_id && a.status === 'pending_assignment');
-  }, [assets]);
+    return assets.filter(a =>
+      a.batch_id !== batchId &&
+      (!batch?.branch_id || a.branch_id === batch.branch_id) &&
+      ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'].includes(a.status)
+    );
+  }, [assets, batch?.branch_id, batchId]);
 
   const queryClient = useQueryClient();
 
@@ -167,14 +164,55 @@ export function BatchDetail() {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       showSuccess('Assets Added', `${selectedAssetIds.length} asset(s) added to batch`);
-      setShowAddExistingModal(false);
+      setShowAddAssetModal(false);
       setSelectedAssetIds([]);
+      setAssetSearchQuery('');
     } catch (error) {
       handleError(error, 'Adding assets to batch');
     } finally {
       setIsAddingAssets(false);
     }
   };
+
+  // Handler to create a new asset inline and add it to the batch
+  const handleCreateAssetInline = async (data: CreateAssetInput) => {
+    setIsCreatingAsset(true);
+    try {
+      // Ensure batch_id and branch_id are set even if AssetForm didn't include them
+      const assetData: CreateAssetInput = {
+        ...data,
+        batch_id: data.batch_id || batchId,
+        branch_id: data.branch_id || batch?.branch_id,
+        enterprise_id: data.enterprise_id || enterpriseId,
+      };
+      await createAssetMutation.mutateAsync(assetData);
+      showSuccess('Asset Created', `Serial number: ${data.serial_number}`);
+      setShowAddAssetModal(false);
+    } catch (error) {
+      handleError(error, 'Creating asset');
+    } finally {
+      setIsCreatingAsset(false);
+    }
+  };
+
+  // Open unified add asset modal
+  const openAddAssetModal = (tab: 'existing' | 'new' | 'csv' = 'existing') => {
+    setAddAssetTab(tab);
+    setSelectedAssetIds([]);
+    setAssetSearchQuery('');
+    setShowAddAssetModal(true);
+  };
+
+  // Filtered available assets for search
+  const filteredAvailableAssets = useMemo(() => {
+    if (!assetSearchQuery.trim()) return availableAssets;
+    const q = assetSearchQuery.toLowerCase();
+    return availableAssets.filter(a =>
+      a.brand?.toLowerCase().includes(q) ||
+      a.model?.toLowerCase().includes(q) ||
+      a.serial_number?.toLowerCase().includes(q)
+    );
+  }, [availableAssets, assetSearchQuery]);
 
   // V3: Loading state
   if (isLoading) {
@@ -238,19 +276,10 @@ export function BatchDetail() {
 
   const statusConfig = getStatusConfig(batch.status);
 
-  // Asset stats
-  const assetStats = {
-    total: batchAssets.length,
-    pending: batchAssets.filter(a => a.status === 'pending_assignment').length,
-    inProgress: batchAssets.filter(a => ['assigned', 'check_in_started', 'submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)).length,
-    accepted: batchAssets.filter(a => ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'].includes(a.status)).length,
-    rejected: batchAssets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status)).length,
-    // Pickup status counts
-    pickupScheduled: batchAssets.filter(a => a.status === 'pickup_scheduled').length,
-    pickedUp: batchAssets.filter(a => a.status === 'picked_up').length,
-  };
+  // Use API-provided progress stats, falling back to a basic count
+  const progress = batch.progress || { total: batchAssets.length, pending_assignment: 0, assigned: 0, in_review: 0, verified: 0, in_pickup: 0, picked_up: 0, completed: 0, rejected: 0 };
 
-  // V3: Submit for Org Admin approval (was CFO)
+  // V3: Submit for Org Admin approval
   const handleSubmitForApproval = async () => {
     if (!submitForm.preferredDate) return;
     setIsSubmitting(true);
@@ -275,35 +304,46 @@ export function BatchDetail() {
 
   const canAddAssets = batch.status === 'draft';
 
-  // V3.2: Statuses that indicate asset is already in pickup flow - should not be re-selected
-  const PICKUP_FLOW_STATUSES = ['pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit'];
-
-  // Get assets eligible for pickup (excluding rejected AND already in pickup flow)
-  // Also check against pickup_requests table as backup in case status update failed
+  // Assets eligible for pickup: verified statuses only
   const pickupableAssets = batchAssets.filter(a =>
-    (a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup') &&
-    !['remote_rejected', 'final_rejected'].includes(a.status) &&
-    !PICKUP_FLOW_STATUSES.includes(a.status) &&
-    !assetsInActivePickups.has(a.id) // Backup check against pickup_requests table
+    a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
   );
 
-  // V3.2: Use mutation for pickup creation with branch_id
+  // Open pickup modal: auto-select all pickupable assets
+  const openPickupModal = () => {
+    setSelectedPickupAssetIds(new Set(pickupableAssets.map(a => a.id)));
+    setShowPickupModal(true);
+  };
+
+  // Toggle individual asset selection in pickup modal
+  const togglePickupAsset = (assetId: string) => {
+    setSelectedPickupAssetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  };
+
+  // Use mutation for pickup creation — batch_id is now required
   const handleInitiatePickup = async () => {
-    if (pickupableAssets.length === 0 || !pickupForm.branchId || !pickupForm.preferredDate) return;
+    if (selectedPickupAssetIds.size === 0 || !pickupForm.branchId || !pickupForm.preferredDate || !batchId) return;
     setIsCreatingPickup(true);
     try {
       await createPickupMutation.mutateAsync({
         enterprise_id: enterpriseId,
+        batch_id: batchId,
         branch_id: pickupForm.branchId,
-        asset_ids: pickupableAssets.map(a => a.id),
+        asset_ids: Array.from(selectedPickupAssetIds),
         preferred_date: pickupForm.preferredDate,
         preferred_time_slot: pickupForm.preferredTimeSlot,
         priority: pickupForm.priority,
         notes: pickupForm.notes,
         created_by: user?.id || ''
       });
-      showSuccess('Pickup Requested', `Pickup request created for ${pickupableAssets.length} asset${pickupableAssets.length > 1 ? 's' : ''}`);
+      showSuccess('Pickup Requested', `Pickup request created for ${selectedPickupAssetIds.size} asset${selectedPickupAssetIds.size > 1 ? 's' : ''}`);
       setShowPickupModal(false);
+      setSelectedPickupAssetIds(new Set());
       setPickupForm({
         branchId: '',
         preferredDate: '',
@@ -371,22 +411,13 @@ export function BatchDetail() {
 
             <div className="flex gap-3 flex-wrap">
               {batch.status === 'draft' && (
-                <>
-                  <button
-                    onClick={() => navigate(`${basePath}/assets/upload?batchId=${batch.id}`)}
-                    className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload CSV
-                  </button>
-                  <button
-                    onClick={() => navigate(`${basePath}/assets/new?batchId=${batch.id}`)}
-                    className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Asset
-                  </button>
-                </>
+                <button
+                  onClick={() => openAddAssetModal('existing')}
+                  className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Asset
+                </button>
               )}
               {batch.status === 'draft' && batchAssets.length > 0 && (
                 <button
@@ -397,9 +428,9 @@ export function BatchDetail() {
                   Submit for Approval
                 </button>
               )}
-              {pickupableAssets.length > 0 && (
+              {batch.status === 'approved' && pickupableAssets.length > 0 && (
                 <button
-                  onClick={() => setShowPickupModal(true)}
+                  onClick={openPickupModal}
                   className="interactive px-5 py-2.5 bg-green-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-green-400 transition-all flex items-center gap-2"
                 >
                   <Truck className="w-4 h-4" />
@@ -475,24 +506,20 @@ export function BatchDetail() {
         )}
       </motion.div>
 
-      {/* Stats Grid - Protocol Style */}
+      {/* Batch Progress */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 sm:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10"
+        className="border border-slate-200 dark:border-white/10 bg-white/85 dark:bg-white/[0.02] p-5 shadow-sm"
       >
-        <StatBox label="Total Assets" value={assetStats.total} icon={<Laptop className="w-4 h-4" />} />
-        <StatBox label="Unassigned" value={assetStats.pending} icon={<Clock className="w-4 h-4" />} highlight={assetStats.pending > 0} />
-        <StatBox label="Processing" value={assetStats.inProgress} icon={<Eye className="w-4 h-4" />} />
-        <StatBox label="Verified" value={assetStats.accepted} icon={<CheckCircle className="w-4 h-4" />} />
-        <StatBox
-          label="Pickup Status"
-          value={assetStats.pickedUp > 0 ? `${assetStats.pickedUp} Done` : assetStats.pickupScheduled > 0 ? `${assetStats.pickupScheduled} Scheduled` : '—'}
-          icon={<Truck className="w-4 h-4" />}
-          highlight={assetStats.pickupScheduled > 0}
-          isText
-        />
+        <div className="flex items-center gap-3 mb-3">
+          <Laptop className="w-4 h-4 text-slate-500 dark:text-zinc-500" />
+          <h3 className="font-mono font-bold text-xs text-slate-600 dark:text-white/60 uppercase tracking-widest">
+            Asset Progress — {progress.total} total
+          </h3>
+        </div>
+        <BatchProgressBar progress={progress} />
       </motion.div>
 
       {/* Assets List */}
@@ -514,28 +541,13 @@ export function BatchDetail() {
               </span>
             )}
             {canAddAssets && (
-              <div className="flex gap-2">
-                {availableAssets.length > 0 && (
-                  <button
-                    onClick={() => setShowAddExistingModal(true)}
-                    className="px-3 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-400 font-mono text-[11px] uppercase tracking-widest hover:bg-blue-500/30 transition-colors"
-                  >
-                    Add Existing ({availableAssets.length})
-                  </button>
-                )}
-                <button
-                  onClick={() => navigate(`${basePath}/assets/new?batchId=${batch.id}`)}
-                  className="px-3 py-2 bg-ecotribe-primary text-black font-mono text-[11px] uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors"
-                >
-                  Add New
-                </button>
-                <button
-                  onClick={() => navigate(`${basePath}/assets/upload?batchId=${batch.id}`)}
-                  className="px-3 py-2 bg-white/80 dark:bg-white/10 border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white font-mono text-[11px] uppercase tracking-widest hover:bg-white"
-                >
-                  Upload CSV
-                </button>
-              </div>
+              <button
+                onClick={() => openAddAssetModal('existing')}
+                className="px-3 py-2 bg-ecotribe-primary text-black font-mono text-[11px] uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Asset
+              </button>
             )}
           </div>
         </div>
@@ -623,22 +635,13 @@ export function BatchDetail() {
             <p className="font-mono text-xs text-zinc-600 mb-6">
               Add assets to this batch to get started
             </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => navigate(`${basePath}/assets/upload?batchId=${batch.id}`)}
-                className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-              >
-                <Upload className="w-4 h-4" />
-                Upload CSV
-              </button>
-              <button
-                onClick={() => navigate(`${basePath}/assets/new?batchId=${batch.id}`)}
-                className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Asset
-              </button>
-            </div>
+            <button
+              onClick={() => openAddAssetModal('existing')}
+              className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Asset
+            </button>
           </div>
         )}
       </motion.div>
@@ -672,7 +675,7 @@ export function BatchDetail() {
         </div>
       </motion.div>
 
-      {/* Pickup Modal */}
+      {/* Pickup Modal with Asset Selection */}
       {showPickupModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <motion.div
@@ -690,7 +693,7 @@ export function BatchDetail() {
                     Initiate Batch Pickup
                   </h3>
                   <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
-                    {pickupableAssets.length} asset{pickupableAssets.length !== 1 ? 's' : ''} from {batch.name}
+                    {selectedPickupAssetIds.size} of {pickupableAssets.length} verified asset{pickupableAssets.length !== 1 ? 's' : ''} selected
                   </p>
                 </div>
               </div>
@@ -702,6 +705,57 @@ export function BatchDetail() {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Asset Selection */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                    Assets for Pickup
+                  </label>
+                  <button
+                    onClick={() => {
+                      if (selectedPickupAssetIds.size === pickupableAssets.length) {
+                        setSelectedPickupAssetIds(new Set());
+                      } else {
+                        setSelectedPickupAssetIds(new Set(pickupableAssets.map(a => a.id)));
+                      }
+                    }}
+                    className="font-mono text-[10px] text-ecotribe-primary uppercase tracking-widest hover:underline"
+                  >
+                    {selectedPickupAssetIds.size === pickupableAssets.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-white/10 divide-y divide-slate-100 dark:divide-white/5">
+                  {pickupableAssets.map(asset => (
+                    <label
+                      key={asset.id}
+                      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                        selectedPickupAssetIds.has(asset.id)
+                          ? 'bg-green-500/5'
+                          : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPickupAssetIds.has(asset.id)}
+                        onChange={() => togglePickupAsset(asset.id)}
+                        className="w-4 h-4 text-green-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-display text-xs text-slate-900 dark:text-white uppercase">
+                          {asset.brand} {asset.model}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 ml-2">
+                          S/N: {asset.serial_number}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-emerald-400 uppercase">
+                        {getAssetStatusConfig(asset.status).label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* Branch Selection */}
               <div>
                 <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
@@ -770,7 +824,6 @@ export function BatchDetail() {
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                 >
                   <option value="normal">Normal</option>
-                  <option value="high">High</option>
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
@@ -798,10 +851,10 @@ export function BatchDetail() {
               </button>
               <button
                 onClick={handleInitiatePickup}
-                disabled={!pickupForm.branchId || !pickupForm.preferredDate || isCreatingPickup}
+                disabled={selectedPickupAssetIds.size === 0 || !pickupForm.branchId || !pickupForm.preferredDate || isCreatingPickup}
                 className="px-5 py-2.5 bg-green-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {isCreatingPickup ? 'Creating...' : 'Create Pickup Request'}
+                {isCreatingPickup ? 'Creating...' : `Pickup ${selectedPickupAssetIds.size} Asset${selectedPickupAssetIds.size !== 1 ? 's' : ''}`}
               </button>
             </div>
           </motion.div>
@@ -929,125 +982,243 @@ export function BatchDetail() {
         isLoading={isReturningToDraft}
       />
 
-      {/* Add Existing Assets Modal */}
-      {showAddExistingModal && (
+      {/* Unified Add Asset Modal */}
+      {showAddAssetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddExistingModal(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddAssetModal(false)} />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative w-full max-w-2xl max-h-[80vh] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0">
               <div>
-                <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-tight">Add Existing Assets</h2>
-                <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">Select unassigned assets to add to this batch</p>
+                <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-tight">Add Assets to Batch</h2>
+                <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">{batch.name}</p>
               </div>
               <button
-                onClick={() => setShowAddExistingModal(false)}
+                onClick={() => setShowAddAssetModal(false)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
               </button>
             </div>
 
-            {/* Asset List */}
-            <div className="flex-1 overflow-y-auto p-5">
-              {availableAssets.length === 0 ? (
-                <div className="text-center py-8">
-                  <Laptop className="w-12 h-12 text-slate-300 dark:text-zinc-600 mx-auto mb-3" />
-                  <p className="font-display text-slate-500 dark:text-zinc-500">No unassigned assets available</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {availableAssets.map(asset => (
-                    <label
-                      key={asset.id}
-                      className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors ${
-                        selectedAssetIds.includes(asset.id)
-                          ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                          : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedAssetIds.includes(asset.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAssetIds(prev => [...prev, asset.id]);
-                          } else {
-                            setSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
-                          }
-                        }}
-                        className="w-5 h-5 text-ecotribe-primary"
-                      />
-                      <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center">
-                        <Laptop className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-display font-bold text-sm text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
-                        <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">S/N: {asset.serial_number}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+              <button
+                onClick={() => setAddAssetTab('existing')}
+                className={`flex items-center gap-2 px-5 py-3 font-mono text-xs uppercase tracking-widest transition-colors border-b-2 ${
+                  addAssetTab === 'existing'
+                    ? 'border-ecotribe-primary text-ecotribe-primary'
+                    : 'border-transparent text-slate-500 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-white'
+                }`}
+              >
+                <Laptop className="w-4 h-4" />
+                Select Existing
+                {availableAssets.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-white/10 rounded-full">
+                    {availableAssets.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setAddAssetTab('new')}
+                className={`flex items-center gap-2 px-5 py-3 font-mono text-xs uppercase tracking-widest transition-colors border-b-2 ${
+                  addAssetTab === 'new'
+                    ? 'border-ecotribe-primary text-ecotribe-primary'
+                    : 'border-transparent text-slate-500 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-white'
+                }`}
+              >
+                <Plus className="w-4 h-4" />
+                Add New
+              </button>
+              <button
+                onClick={() => setAddAssetTab('csv')}
+                className={`flex items-center gap-2 px-5 py-3 font-mono text-xs uppercase tracking-widest transition-colors border-b-2 ${
+                  addAssetTab === 'csv'
+                    ? 'border-ecotribe-primary text-ecotribe-primary'
+                    : 'border-transparent text-slate-500 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-white'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Upload CSV
+              </button>
             </div>
 
-            {/* Footer */}
-            <div className="p-5 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
-              <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">
-                {selectedAssetIds.length} asset{selectedAssetIds.length !== 1 ? 's' : ''} selected
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowAddExistingModal(false)}
-                  className="px-4 py-2 text-slate-500 dark:text-zinc-500 font-mono text-xs uppercase tracking-widest hover:text-slate-700 dark:hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddExistingAssets}
-                  disabled={selectedAssetIds.length === 0 || isAddingAssets}
-                  className="px-4 py-2 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isAddingAssets ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto">
+              {/* === Select Existing Tab === */}
+              {addAssetTab === 'existing' && (
+                <div className="flex flex-col h-full">
+                  {/* Search */}
+                  <div className="p-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by serial number, brand, or model..."
+                        value={assetSearchQuery}
+                        onChange={(e) => setAssetSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-zinc-600"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Asset List */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {availableAssets.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Laptop className="w-12 h-12 text-slate-300 dark:text-zinc-600 mx-auto mb-3" />
+                        <p className="font-display font-bold text-sm text-slate-500 dark:text-zinc-500 uppercase tracking-wide mb-1">No unassigned assets</p>
+                        <p className="font-mono text-xs text-slate-400 dark:text-zinc-600">
+                          Create new assets or upload a CSV to get started
+                        </p>
+                        <button
+                          onClick={() => setAddAssetTab('new')}
+                          className="mt-4 px-4 py-2 bg-ecotribe-primary text-black font-mono text-xs uppercase tracking-widest hover:bg-white transition-colors flex items-center gap-2 mx-auto"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Create New Asset
+                        </button>
+                      </div>
+                    ) : filteredAvailableAssets.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Search className="w-10 h-10 text-slate-300 dark:text-zinc-600 mx-auto mb-3" />
+                        <p className="font-display text-sm text-slate-500 dark:text-zinc-500">No assets match "{assetSearchQuery}"</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {/* Select All */}
+                        <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedAssetIds.length === filteredAvailableAssets.length && filteredAvailableAssets.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAssetIds(filteredAvailableAssets.map(a => a.id));
+                              } else {
+                                setSelectedAssetIds([]);
+                              }
+                            }}
+                            className="w-4 h-4 text-ecotribe-primary"
+                          />
+                          <span className="font-mono text-xs text-slate-600 dark:text-zinc-400 uppercase tracking-widest">
+                            Select All ({filteredAvailableAssets.length})
+                          </span>
+                        </label>
+
+                        {filteredAvailableAssets.map(asset => (
+                          <label
+                            key={asset.id}
+                            className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors ${
+                              selectedAssetIds.includes(asset.id)
+                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
+                                : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedAssetIds.includes(asset.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedAssetIds(prev => [...prev, asset.id]);
+                                } else {
+                                  setSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
+                                }
+                              }}
+                              className="w-5 h-5 text-ecotribe-primary"
+                            />
+                            <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center">
+                              <Laptop className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-display font-bold text-sm text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
+                              <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">S/N: {asset.serial_number}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  {availableAssets.length > 0 && (
+                    <div className="p-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 bg-slate-50 dark:bg-white/[0.02]">
+                      <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">
+                        {selectedAssetIds.length} asset{selectedAssetIds.length !== 1 ? 's' : ''} selected
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setShowAddAssetModal(false)}
+                          className="px-4 py-2 text-slate-500 dark:text-zinc-500 font-mono text-xs uppercase tracking-widest hover:text-slate-700 dark:hover:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleAddExistingAssets}
+                          disabled={selectedAssetIds.length === 0 || isAddingAssets}
+                          className="px-4 py-2 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {isAddingAssets ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Plus className="w-4 h-4" />
+                          )}
+                          Add to Batch
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  Add to Batch
-                </button>
-              </div>
+                </div>
+              )}
+
+              {/* === Add New Tab === */}
+              {addAssetTab === 'new' && (
+                <div className="p-5">
+                  <AssetForm
+                    enterpriseId={enterpriseId}
+                    batchId={batchId}
+                    branchId={batch.branch_id}
+                    itAdminId={userId}
+                    userId={userId}
+                    onSubmit={handleCreateAssetInline}
+                    onCancel={() => setShowAddAssetModal(false)}
+                    isLoading={isCreatingAsset}
+                    showSelfAssign={false}
+                  />
+                </div>
+              )}
+
+              {/* === Upload CSV Tab === */}
+              {addAssetTab === 'csv' && (
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center mx-auto mb-4">
+                    <Upload className="w-8 h-8 text-slate-400 dark:text-zinc-500" />
+                  </div>
+                  <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-2">
+                    Bulk Upload via CSV
+                  </h3>
+                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 mb-6 max-w-sm mx-auto">
+                    Upload a CSV file with multiple assets at once. Supports drag & drop, column mapping, and preview before import.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAddAssetModal(false);
+                      navigate(`${basePath}/assets/upload?batchId=${batch.id}`);
+                    }}
+                    className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2 mx-auto"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Go to CSV Upload
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatBox({
-  label,
-  value,
-  icon,
-  highlight = false,
-  isText = false,
-}: {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  highlight?: boolean;
-  isText?: boolean;
-}) {
-  return (
-    <div className={`p-5 border-r border-b border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:border-ecotribe-primary/30 hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition-colors group ${highlight ? 'bg-amber-500/5 dark:bg-amber-500/10' : 'bg-white/85 dark:bg-black/30'} shadow-[0_1px_0_rgba(15,23,42,0.04)] dark:shadow-none`}>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="font-mono font-bold text-xs text-slate-600 dark:text-white/60 uppercase tracking-widest group-hover:text-ecotribe-primary transition-colors">{label}</h4>
-        <span className={`${highlight ? 'text-amber-500' : 'text-slate-500 dark:text-white/60'} group-hover:text-ecotribe-primary transition-colors`}>{icon}</span>
-      </div>
-      <div className={`font-brand font-bold ${isText ? 'text-2xl' : 'text-3xl'} text-slate-900 dark:text-white`}>{value}</div>
     </div>
   );
 }

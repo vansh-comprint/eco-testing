@@ -4,37 +4,89 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Building2, User, ArrowLeft, Save } from 'lucide-react';
+import { Building2, User, ArrowLeft, Save, FileText, Upload, FileCheck, X, Loader2, AlertCircle, Info } from 'lucide-react';
 import { Input, Button, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 
-// Validation schema (TEMPORARY: relaxed for testing)
+// Dropdown options (matching registration page)
+const industryOptions = [
+  { label: 'Information Technology', value: 'technology' },
+  { label: 'Banking & Finance', value: 'finance' },
+  { label: 'Healthcare & Pharma', value: 'healthcare' },
+  { label: 'Education', value: 'education' },
+  { label: 'Manufacturing', value: 'manufacturing' },
+  { label: 'Retail & E-commerce', value: 'retail' },
+  { label: 'Government & PSU', value: 'government' },
+  { label: 'Telecom', value: 'telecom' },
+  { label: 'Media & Entertainment', value: 'media' },
+  { label: 'Other', value: 'other' },
+];
+
+const companySizeOptions = [
+  { label: '1-50 employees', value: '1-50' },
+  { label: '51-200 employees', value: '51-200' },
+  { label: '201-500 employees', value: '201-500' },
+  { label: '501-1000 employees', value: '501-1000' },
+  { label: '1000+ employees', value: '1000+' },
+];
+
+const indianStates = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Delhi', 'Chandigarh', 'Puducherry',
+];
+
+// Validation schema
 const createEnterpriseSchema = z.object({
   // Enterprise Details
-  name: z.string().min(1, 'Company name is required').optional().or(z.literal('')),
+  name: z.string().min(1, 'Company name is required'),
   legalName: z.string().optional().or(z.literal('')),
-  gstNumber: z.string().optional().or(z.literal('')),
-  panNumber: z.string().optional().or(z.literal('')),
+  gstNumber: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .refine(
+      (v) => !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase()),
+      { message: 'Invalid GST format (e.g. 29AABCT1234H1Z5)' }
+    ),
+  panNumber: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .refine(
+      (v) => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v.toUpperCase()),
+      { message: 'Invalid PAN format (e.g. AABCT1234H)' }
+    ),
 
   // Address
-  addressLine1: z.string().optional().or(z.literal('')),
+  addressLine1: z.string().min(1, 'Address is required'),
   addressLine2: z.string().optional(),
-  city: z.string().optional().or(z.literal('')),
-  state: z.string().optional().or(z.literal('')),
-  pinCode: z.string().optional().or(z.literal('')),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  pinCode: z
+    .string()
+    .min(1, 'PIN code is required')
+    .regex(/^[0-9]{6}$/, 'PIN code must be 6 digits'),
   country: z.string().default('India'),
 
   // Business Info
   industry: z.string().optional().or(z.literal('')),
+  companySize: z.string().optional().or(z.literal('')),
   employeeCount: z.coerce.number().optional(),
 
   // Contact
-  contactPerson: z.string().optional().or(z.literal('')),
-  contactEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  contactPhone: z.string().optional().or(z.literal('')),
+  contactPerson: z.string().min(1, 'Contact person is required'),
+  contactEmail: z.string().email('Invalid email address'),
+  contactPhone: z
+    .string()
+    .min(1, 'Contact phone is required')
+    .regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optionally starting with +)'),
 
   // Org Admin (Optional) - V3: Org Admin manages the enterprise, creates branches & IT Admins
   orgAdminName: z.string().optional(),
@@ -44,12 +96,123 @@ const createEnterpriseSchema = z.object({
 
 type CreateEnterpriseForm = z.infer<typeof createEnterpriseSchema>;
 
+// Document upload types
+type DocField = 'docGstCertificate' | 'docPanCard' | 'docIncorporationCert' | 'docSignatoryId' | 'docAddressProof' | 'docCompanyLogo';
+
+const DOC_FIELDS: { field: DocField; label: string; docType: string; required: boolean }[] = [
+  { field: 'docGstCertificate', label: 'GST Certificate', docType: 'gst', required: false },
+  { field: 'docPanCard', label: 'PAN Card', docType: 'pan', required: false },
+  { field: 'docIncorporationCert', label: 'Certificate of Incorporation', docType: 'incorporation', required: false },
+  { field: 'docSignatoryId', label: 'Signatory ID Proof', docType: 'signatory_id', required: false },
+  { field: 'docAddressProof', label: 'Address Proof', docType: 'address_proof', required: false },
+  { field: 'docCompanyLogo', label: 'Company Logo', docType: 'logo', required: false },
+];
+
+function DocumentUpload({
+  label,
+  value,
+  progress,
+  error,
+  onUpload,
+  onRemove,
+}: {
+  label: string;
+  value: string;
+  progress?: number;
+  error?: string;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const [sizeError, setSizeError] = useState('');
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setSizeError('File size exceeds 5MB limit');
+        e.target.value = '';
+        return;
+      }
+      setSizeError('');
+      onUpload(file);
+    }
+  };
+
+  const isUploading = progress !== undefined && progress < 100;
+  const isUploaded = !!value && progress === 100;
+
+  return (
+    <div className="space-y-2">
+      <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
+        {label}
+      </label>
+      <div
+        className={`relative border-2 border-dashed ${
+          error || sizeError
+            ? 'border-red-400 bg-red-500/10'
+            : isUploaded
+            ? 'border-lime-500 bg-lime-500/10'
+            : 'border-slate-300 dark:border-zinc-700 hover:border-lime-500 bg-white/20 dark:bg-black/20'
+        } p-4 transition-colors`}
+      >
+        {isUploading ? (
+          <div className="text-center">
+            <Loader2 className="w-5 h-5 animate-spin text-lime-500 mx-auto mb-2" />
+            <p className={`font-mono text-xs ${text.muted}`}>Uploading... {progress}%</p>
+          </div>
+        ) : isUploaded ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-lime-500" />
+              <span className="font-mono text-xs text-lime-500 font-bold">Uploaded</span>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className={`p-1 hover:bg-slate-200/50 dark:hover:bg-zinc-700/50 rounded transition-colors`}
+            >
+              <X className={`w-4 h-4 ${text.muted}`} />
+            </button>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center cursor-pointer">
+            <Upload className={`w-5 h-5 ${text.muted} mb-2`} />
+            <span className={`font-mono text-xs ${text.muted}`}>Click to upload</span>
+            <input
+              type="file"
+              onChange={handleChange}
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+            />
+          </label>
+        )}
+      </div>
+      {(error || sizeError) && (
+        <p className="text-red-400 text-xs font-mono flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" /> {error || sizeError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CreateEnterprise() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // V3: Use React Query hook for auth
   const { user: currentUser } = useAuth();
   const { addToast } = useToast();
+
+  // Document upload state
+  const [documents, setDocuments] = useState<Record<DocField, string>>({
+    docGstCertificate: '',
+    docPanCard: '',
+    docIncorporationCert: '',
+    docSignatoryId: '',
+    docAddressProof: '',
+    docCompanyLogo: '',
+  });
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number | undefined>>({});
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
 
   const {
     register,
@@ -62,15 +225,76 @@ export function CreateEnterprise() {
     },
   });
 
+  const handleFileUpload = async (field: DocField, docType: string, file: File) => {
+    setUploadProgress(prev => ({ ...prev, [field]: 0 }));
+    setUploadErrors(prev => ({ ...prev, [field]: '' }));
+
+    // Simulate incremental progress
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        const current = prev[field] || 0;
+        if (current >= 90) {
+          clearInterval(interval);
+          return prev;
+        }
+        return { ...prev, [field]: Math.min(current + 15, 90) };
+      });
+    }, 300);
+
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('document_type', docType);
+
+      const response = await fetch(`${apiBaseUrl}/enterprises/applications/upload-document`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      clearInterval(interval);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.message || 'Upload failed');
+      }
+
+      const data = await response.json();
+      const fileUrl = data.data?.file_url;
+
+      if (!fileUrl) {
+        throw new Error('No file URL returned from server');
+      }
+
+      setDocuments(prev => ({ ...prev, [field]: fileUrl }));
+      setUploadProgress(prev => ({ ...prev, [field]: 100 }));
+    } catch (error) {
+      clearInterval(interval);
+      setUploadProgress(prev => ({ ...prev, [field]: undefined }));
+      setUploadErrors(prev => ({
+        ...prev,
+        [field]: error instanceof Error ? error.message : 'Upload failed. Please try again.',
+      }));
+    }
+  };
+
+  const handleRemoveDocument = (field: DocField) => {
+    setDocuments(prev => ({ ...prev, [field]: '' }));
+    setUploadProgress(prev => ({ ...prev, [field]: undefined }));
+    setUploadErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
   const onSubmit = async (data: CreateEnterpriseForm) => {
     setIsSubmitting(true);
     try {
       // Create Enterprise via REST API
+      // Normalize empty strings to undefined so backend receives null
+      const clean = (v?: string) => (v && v.trim() ? v.trim() : undefined);
       const enterpriseResult = await enterprisesApi.create({
-        name: data.name || 'Unnamed Enterprise',
-        legal_name: data.legalName,
-        gst_number: data.gstNumber,
-        pan_number: data.panNumber,
+        name: data.name,
+        legal_name: clean(data.legalName),
+        gst_number: clean(data.gstNumber),
+        pan_number: clean(data.panNumber),
         address: {
           line1: data.addressLine1,
           line2: data.addressLine2,
@@ -79,7 +303,8 @@ export function CreateEnterprise() {
           pinCode: data.pinCode,
           country: data.country,
         },
-        industry: data.industry,
+        industry: clean(data.industry),
+        company_size: clean(data.companySize),
         employee_count: data.employeeCount,
         contact_person: data.contactPerson,
         contact_email: data.contactEmail,
@@ -127,7 +352,7 @@ export function CreateEnterprise() {
       });
 
       // Navigate back
-      if (currentUser?.role === 'main_admin' || currentUser?.role === 'ops_admin') {
+      if (currentUser?.role === 'ops_admin' || currentUser?.role === 'ops_admin') {
         navigate('/ops/enterprises');
       } else {
         navigate('/super');
@@ -150,13 +375,13 @@ export function CreateEnterprise() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        label={currentUser?.role === 'main_admin' ? 'Operations' : 'Super Admin'}
+        label={currentUser?.role === 'ops_admin' ? 'Operations' : 'Super Admin'}
         title="Create Enterprise"
-        subtitle="Add a new enterprise (All fields optional for testing)"
+        subtitle="Add a new enterprise to the platform"
         actions={
           <Button
             variant="secondary"
-            onClick={() => navigate(currentUser?.role === 'main_admin' ? '/ops' : '/super')}
+            onClick={() => navigate(currentUser?.role === 'ops_admin' ? '/ops' : '/super')}
             leftIcon={<ArrowLeft className={iconSize.sm} />}
           >
             Back to Dashboard
@@ -186,6 +411,7 @@ export function CreateEnterprise() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Company Name"
+                    required
                     {...register('name')}
                     error={errors.name?.message}
                   />
@@ -208,13 +434,41 @@ export function CreateEnterprise() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Industry"
-                    {...register('industry')}
-                    error={errors.industry?.message}
-                    placeholder="IT Services"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
+                      Industry
+                    </label>
+                    <select
+                      {...register('industry')}
+                      className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                    >
+                      <option value="">Select industry</option>
+                      {industryOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {errors.industry?.message && (
+                      <p className="text-red-400 text-xs font-mono">{errors.industry.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
+                      Company Size
+                    </label>
+                    <select
+                      {...register('companySize')}
+                      className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                    >
+                      <option value="">Select size</option>
+                      {companySizeOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {errors.companySize?.message && (
+                      <p className="text-red-400 text-xs font-mono">{errors.companySize.message}</p>
+                    )}
+                  </div>
                   <Input
                     label="Employee Count"
                     type="number"
@@ -229,6 +483,7 @@ export function CreateEnterprise() {
                   </h3>
                   <Input
                     label="Address Line 1"
+                    required
                     {...register('addressLine1')}
                     error={errors.addressLine1?.message}
                   />
@@ -240,16 +495,30 @@ export function CreateEnterprise() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Input
                       label="City"
+                      required
                       {...register('city')}
                       error={errors.city?.message}
                     />
-                    <Input
-                      label="State"
-                      {...register('state')}
-                      error={errors.state?.message}
-                    />
+                    <div className="space-y-1.5">
+                      <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
+                        State <span className="text-red-400">*</span>
+                      </label>
+                      <select
+                        {...register('state')}
+                        className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                      >
+                        <option value="">Select state</option>
+                        {indianStates.map(state => (
+                          <option key={state} value={state}>{state}</option>
+                        ))}
+                      </select>
+                      {errors.state?.message && (
+                        <p className="text-red-400 text-xs font-mono">{errors.state.message}</p>
+                      )}
+                    </div>
                     <Input
                       label="PIN Code"
+                      required
                       {...register('pinCode')}
                       error={errors.pinCode?.message}
                       placeholder="560100"
@@ -270,22 +539,69 @@ export function CreateEnterprise() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Input
                       label="Contact Person"
+                      required
                       {...register('contactPerson')}
                       error={errors.contactPerson?.message}
                     />
                     <Input
                       label="Contact Email"
                       type="email"
+                      required
                       {...register('contactEmail')}
                       error={errors.contactEmail?.message}
                     />
                     <Input
                       label="Contact Phone"
+                      required
                       {...register('contactPhone')}
                       error={errors.contactPhone?.message}
-                      placeholder="+91-9876543210"
+                      placeholder="+919876543210"
                     />
                   </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Documents */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card>
+              <div className="p-6 border-b border-slate-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className={`${iconSize.lg} text-blue-500`} />
+                    <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
+                      Documents
+                    </h2>
+                  </div>
+                  <span className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Optional</span>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p className="font-mono text-xs text-blue-800 dark:text-blue-200">
+                      Upload clear, legible copies of documents. Accepted formats: PDF, JPG, PNG (max 5MB each).
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {DOC_FIELDS.map((doc) => (
+                    <DocumentUpload
+                      key={doc.field}
+                      label={doc.label}
+                      value={documents[doc.field]}
+                      progress={uploadProgress[doc.field]}
+                      error={uploadErrors[doc.field]}
+                      onUpload={(file) => handleFileUpload(doc.field, doc.docType, file)}
+                      onRemove={() => handleRemoveDocument(doc.field)}
+                    />
+                  ))}
                 </div>
               </div>
             </Card>
@@ -349,7 +665,7 @@ export function CreateEnterprise() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate(currentUser?.role === 'main_admin' ? '/ops/enterprises' : '/super')}
+              onClick={() => navigate(currentUser?.role === 'ops_admin' ? '/ops/enterprises' : '/super')}
               disabled={isSubmitting}
             >
               Cancel

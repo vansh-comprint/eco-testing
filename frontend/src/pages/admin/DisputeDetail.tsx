@@ -93,7 +93,7 @@ export function DisputeDetail() {
     checklist?: Array<{ id: string; label: string; passed: boolean; notes?: string }>;
     images?: Array<{ id: string; url: string; type: QCImage['type']; caption?: string }>;
     notes?: string;
-    technician?: string;
+    reviewer?: string;
     completedAt?: string;
   } | undefined;
 
@@ -347,16 +347,16 @@ export function DisputeDetail() {
               {/* QC Notes */}
               {qcReport.notes && (
                 <div className="p-6 border-b border-emerald-500/10">
-                  <h3 className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">Technician Notes</h3>
+                  <h3 className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">Reviewer Notes</h3>
                   <p className="font-display text-sm text-slate-700 dark:text-white/70">{qcReport.notes}</p>
                 </div>
               )}
 
               {/* QC Meta */}
               <div className="p-6 flex items-center justify-between text-xs">
-                {qcReport.technician && (
+                {qcReport.reviewer && (
                   <span className="font-mono text-slate-500 dark:text-white/50">
-                    Reviewed by: <span className="text-slate-700 dark:text-white/70">{qcReport.technician}</span>
+                    Reviewed by: <span className="text-slate-700 dark:text-white/70">{qcReport.reviewer}</span>
                   </span>
                 )}
                 {qcReport.completedAt && (

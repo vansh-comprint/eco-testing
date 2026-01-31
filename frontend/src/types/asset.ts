@@ -55,7 +55,7 @@ export interface QCReport {
   images: QCImage[];
   notes?: string;
   grade?: AssetGrade;
-  technician?: string;
+  reviewer?: string;
   completedAt?: Date;
 }
 

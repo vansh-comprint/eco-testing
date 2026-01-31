@@ -21,11 +21,11 @@ const queryClient = new QueryClient({
 // Pages
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage, PendingApproval, EnterpriseRegister, ForgotPassword } from '@/pages/auth';
-import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, SubUserList, SubUserDetail, SubUserInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
+import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, EmployeeList, EmployeeDetail, EmployeeInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
-import { TechnicianDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/tech';
+import { ReviewDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/review';
 import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications } from '@/pages/ops';
-// V3: Org Admin pages (some still aliased from CFO during migration)
+// V3: Org Admin pages
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite } from '@/pages/org-admin';
 import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Enterprises, Admins, Logistics, Pickups as SuperPickups, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
 import { PrivacyPolicy, TermsOfService, CookiePolicy } from '@/pages/legal/LegalPage';
@@ -40,7 +40,7 @@ const itAdminNavItems = [
   { label: 'Assets', path: '/admin/assets', icon: <AssetIcon /> },
   { label: 'My Evaluations', path: '/admin/my-evaluations', icon: <EvaluationIcon /> },
   { label: 'Pickups', path: '/admin/pickups', icon: <TruckIcon /> },
-  { label: 'Sub-Users', path: '/admin/sub-users', icon: <UsersIcon /> },
+  { label: 'Employees', path: '/admin/employees', icon: <UsersIcon /> },
   { label: 'Settings', path: '/admin/settings', icon: <SettingsIcon /> },
 ];
 
@@ -50,12 +50,12 @@ const subUserNavItems = [
   { label: 'Help', path: '/check-in/help', icon: <HelpIcon /> },
 ];
 
-const technicianNavItems = [
-  { label: 'Dashboard', path: '/tech', icon: <DashboardIcon /> },
-  { label: 'Review Queue', path: '/tech/review', icon: <ReviewIcon /> },
-  { label: 'QC Queue', path: '/tech/qc', icon: <QCIcon /> },
-  { label: 'Disputes', path: '/tech/disputes', icon: <DisputeIcon /> },
-  { label: 'History', path: '/tech/history', icon: <HistoryIcon /> },
+const reviewNavItems = [
+  { label: 'Dashboard', path: '/review', icon: <DashboardIcon /> },
+  { label: 'Review Queue', path: '/review/queue', icon: <ReviewIcon /> },
+  { label: 'QC Queue', path: '/review/qc', icon: <QCIcon /> },
+  { label: 'Disputes', path: '/review/disputes', icon: <DisputeIcon /> },
+  { label: 'History', path: '/review/history', icon: <HistoryIcon /> },
 ];
 
 // OPS Admin - Admin Section (always visible, not enterprise-filtered)
@@ -77,7 +77,7 @@ const opsEnterpriseNavItems = [
   { label: 'Disputes', path: '/ops/disputes', icon: <DisputeIcon /> },
 ];
 
-// Org Admin nav items (V3 - was CFO)
+// Org Admin nav items
 const orgAdminNavItems = [
   { label: 'Dashboard', path: '/org-admin', icon: <DashboardIcon /> },
   { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon /> },
@@ -93,7 +93,7 @@ const orgAdminITViewNavItems = [
   { label: 'All Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
   { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
   { label: 'My Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon /> },
-  { label: 'Sub-Users', path: '/org-admin/sub-users', icon: <UsersIcon /> },
+  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
   { label: 'Pickup Requests', path: '/org-admin/pickups', icon: <TruckIcon /> },
   { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
   { label: 'Payouts', path: '/org-admin/payouts', icon: <PayoutIcon /> },
@@ -103,8 +103,11 @@ const superAdminNavItems = [
   { label: 'Dashboard', path: '/super', icon: <DashboardIcon /> },
   { label: 'Applications', path: '/super/applications', icon: <DocumentIcon /> },
   { label: 'Enterprises', path: '/super/enterprises', icon: <EnterpriseIcon /> },
-  { label: 'Admins', path: '/super/admins', icon: <UsersIcon /> },
-  { label: 'Logistics', path: '/super/logistics', icon: <TruckIcon /> },
+  { label: 'Users', path: '/super/users', icon: <UsersIcon />, children: [
+    { label: 'All Users', path: '/super/users', icon: <UsersIcon /> },
+    { label: 'Admins', path: '/super/admins', icon: <UsersIcon /> },
+    { label: 'Logistics', path: '/super/logistics', icon: <TruckIcon /> },
+  ]},
   { label: 'Pickups', path: '/super/pickups', icon: <PackageIcon /> },
   { label: 'Pricing', path: '/super/pricing', icon: <PricingIcon /> },
   { label: 'Analytics', path: '/super/analytics', icon: <AnalyticsIcon /> },
@@ -136,10 +139,14 @@ function App() {
 }
 
 /** Apply badge counts to a static nav items array */
-function withBadges(items: typeof itAdminNavItems, badges: ReturnType<typeof useSidebarBadges>) {
+function withBadges(items: typeof itAdminNavItems, badges: ReturnType<typeof useSidebarBadges>): typeof itAdminNavItems {
   return items.map(item => {
     const badge = getBadgeForPath(badges, item.path);
-    return badge ? { ...item, badge } : item;
+    const result = badge ? { ...item, badge } : { ...item };
+    if (item.children) {
+      result.children = withBadges(item.children, badges);
+    }
+    return result;
   });
 }
 
@@ -148,7 +155,7 @@ function AppRoutes() {
 
   // Memoize badged nav arrays so layout components don't re-render on every tick
   const badgedItAdmin = useMemo(() => withBadges(itAdminNavItems, badges), [badges]);
-  const badgedTechnician = useMemo(() => withBadges(technicianNavItems, badges), [badges]);
+  const badgedReview = useMemo(() => withBadges(reviewNavItems, badges), [badges]);
   const badgedOpsAdmin = useMemo(() => withBadges(opsAdminNavItems, badges), [badges]);
   const badgedOpsEnterprise = useMemo(() => withBadges(opsEnterpriseNavItems, badges), [badges]);
   const badgedOrgAdmin = useMemo(() => withBadges(orgAdminNavItems, badges), [badges]);
@@ -194,10 +201,10 @@ function AppRoutes() {
             <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
             <Route path="submissions/:assetId" element={<SubmissionDetail />} />
             <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
-            <Route path="sub-users" element={<SubUserList />} />
-            <Route path="sub-users/:subUserId" element={<SubUserDetail />} />
-            <Route path="sub-users/invite" element={<SubUserInvite />} />
-            <Route path="sub-users/upload" element={<BulkUserUpload />} />
+            <Route path="employees" element={<EmployeeList />} />
+            <Route path="employees/:subUserId" element={<EmployeeDetail />} />
+            <Route path="employees/invite" element={<EmployeeInvite />} />
+            <Route path="employees/upload" element={<BulkUserUpload />} />
             <Route path="pickups" element={<PickupRequests />} />
             <Route path="pickups/initiate" element={<InitiatePickup />} />
             <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
@@ -207,12 +214,12 @@ function AppRoutes() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          {/* Sub-User Routes */}
+          {/* Employee Routes */}
           <Route
             path="/check-in"
             element={
-              <ProtectedRoute allowedRoles={['sub_user']}>
-                <DashboardLayout role="sub_user" title="Device Check-In" navItems={subUserNavItems} /> {/* sub-users don't need badges */}
+              <ProtectedRoute allowedRoles={['employee']}>
+                <DashboardLayout role="employee" title="Device Check-In" navItems={subUserNavItems} /> {/* employees don't need badges */}
               </ProtectedRoute>
             }
           >
@@ -223,29 +230,29 @@ function AppRoutes() {
             <Route path="help" element={<PlaceholderPage title="Help" />} />
           </Route>
 
-          {/* Technician Routes */}
+          {/* Review & QC Routes (formerly Technician) */}
           <Route
-            path="/tech"
+            path="/review"
             element={
-              <ProtectedRoute allowedRoles={['main_admin']}>
-                <DashboardLayout role="main_admin" title="Technician Portal" navItems={badgedTechnician} />
+              <ProtectedRoute allowedRoles={['ops_admin']}>
+                <DashboardLayout role="ops_admin" title="Review & QC" navItems={badgedReview} />
               </ProtectedRoute>
             }
           >
-            <Route index element={<TechnicianDashboard />} />
-            <Route path="review" element={<ReviewQueue />} />
-            <Route path="review/:assetId" element={<RemoteReview />} />
+            <Route index element={<ReviewDashboard />} />
+            <Route path="queue" element={<ReviewQueue />} />
+            <Route path="queue/:assetId" element={<RemoteReview />} />
             <Route path="qc" element={<QCQueue />} />
             <Route path="qc/:assetId" element={<FacilityQC />} />
             <Route path="disputes" element={<PlaceholderPage title="Disputes" />} />
             <Route path="history" element={<PlaceholderPage title="History" />} />
           </Route>
 
-          {/* Main Admin Routes - V3: Uses OpsLayout with enterprise selector */}
+          {/* OPS Admin Routes - V3: Uses OpsLayout with enterprise selector */}
           <Route
             path="/ops"
             element={
-              <ProtectedRoute allowedRoles={['main_admin']}>
+              <ProtectedRoute allowedRoles={['ops_admin']}>
                 <OpsLayout title="Operations Portal" adminNavItems={badgedOpsAdmin} enterpriseNavItems={badgedOpsEnterprise} />
               </ProtectedRoute>
             }
@@ -268,7 +275,7 @@ function AppRoutes() {
             <Route path="qc/:assetId" element={<FacilityQC />} />
           </Route>
 
-          {/* Org Admin Routes (V3 - was CFO) */}
+          {/* Org Admin Routes */}
           <Route
             path="/org-admin"
             element={
@@ -301,10 +308,10 @@ function AppRoutes() {
             <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
             <Route path="submissions/:assetId" element={<SubmissionDetail />} />
             <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
-            <Route path="sub-users" element={<SubUserList />} />
-            <Route path="sub-users/:subUserId" element={<SubUserDetail />} />
-            <Route path="sub-users/invite" element={<SubUserInvite />} />
-            <Route path="sub-users/upload" element={<BulkUserUpload />} />
+            <Route path="employees" element={<EmployeeList />} />
+            <Route path="employees/:subUserId" element={<EmployeeDetail />} />
+            <Route path="employees/invite" element={<EmployeeInvite />} />
+            <Route path="employees/upload" element={<BulkUserUpload />} />
             <Route path="pickups" element={<PickupRequests />} />
             <Route path="pickups/initiate" element={<InitiatePickup />} />
             <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
@@ -319,7 +326,7 @@ function AppRoutes() {
           <Route
             path="/logistics-admin"
             element={
-              <ProtectedRoute allowedRoles={['logistics_admin', 'main_admin']}>
+              <ProtectedRoute allowedRoles={['logistics_admin', 'ops_admin']}>
                 <DashboardLayout role="logistics_admin" title="Logistics Admin" navItems={badgedLogisticsAdmin} />
               </ProtectedRoute>
             }

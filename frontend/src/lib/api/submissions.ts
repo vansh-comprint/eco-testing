@@ -12,23 +12,28 @@ import { fetchWithAuth, DEFAULT_PAGE_SIZE } from './client';
 export interface SubmissionResponse {
   id: string;
   asset_id: string;
-  employee_id: string;
-  status: string;
+  user_id: string;
   device_confirmed: boolean;
   photos?: Record<string, string>;
   functional_checks?: Record<string, unknown>;
-  declaration_accepted: boolean;
-  created_at: string;
+  cosmetic_checklist?: Record<string, unknown> | null;
+  accessories?: Record<string, unknown> | null;
+  location?: Record<string, unknown> | null;
+  declaration?: Record<string, unknown> | null;
   submitted_at?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface SubmissionCreateRequest {
   asset_id: string;
   device_confirmed?: boolean;
-  photos?: Record<string, string>;
+  photos?: Record<string, unknown>;
   functional_checks?: Record<string, unknown>;
-  declaration_accepted?: boolean;
-  condition_data?: Record<string, unknown>;
+  cosmetic_checklist?: Record<string, unknown> | null;
+  accessories?: Record<string, unknown> | null;
+  location?: Record<string, unknown> | null;
+  declaration: Record<string, unknown>;
 }
 
 export interface SubmissionListParams {
@@ -53,6 +58,19 @@ export const submissionsApi = {
   },
 
   get: (id: string) => fetchWithAuth<SubmissionResponse>(`/submissions/${id}`),
+
+  getByAsset: async (assetId: string) => {
+    // Use list endpoint and find the matching submission
+    const listResult = await fetchWithAuth<SubmissionResponse[]>(`/submissions?page_size=100`);
+    if (!listResult.success || !listResult.data) {
+      return { success: false, error: listResult.error } as { success: false; data?: undefined; error?: { message: string } };
+    }
+    const match = (listResult.data as SubmissionResponse[]).find(s => s.asset_id === assetId);
+    if (match) {
+      return { success: true, data: match } as { success: true; data: SubmissionResponse };
+    }
+    return { success: false, error: { message: 'No submission found for this asset' } } as { success: false; data?: undefined; error: { message: string } };
+  },
 
   create: (data: SubmissionCreateRequest) =>
     fetchWithAuth<SubmissionResponse>('/submissions', {

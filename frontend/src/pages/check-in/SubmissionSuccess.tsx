@@ -69,7 +69,7 @@ export function SubmissionSuccess() {
                 <div className="text-left">
                   <p className={`font-display font-bold text-sm uppercase ${text.primary}`}>Remote Review (24-48 hrs)</p>
                   <p className={`font-mono text-xs mt-1 ${text.muted}`}>
-                    Technicians review your answers and agent diagnostics. We'll update you on the result.
+                    Our review team checks your answers and agent diagnostics. We'll update you on the result.
                   </p>
                 </div>
               </div>

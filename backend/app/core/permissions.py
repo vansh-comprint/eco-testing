@@ -35,7 +35,7 @@ class Permission(str, Enum):
     USER_CREATE = "user_create"
     USER_UPDATE = "user_update"
     USER_DELETE = "user_delete"
-    MANAGE_TECHNICIANS = "manage_technicians"
+    MANAGE_REVIEWERS = "manage_reviewers"
     MANAGE_IT_ADMINS = "manage_it_admins"
     MANAGE_LOGISTICS_USERS = "manage_logistics_users"
     LOGISTICS_MANAGE = "logistics_manage"
@@ -201,20 +201,10 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.NOTIFICATION_CREATE,
         Permission.DISPUTE_VIEW,
         Permission.DISPUTE_MANAGE,
-    },
-    UserRole.TECHNICIAN: {
+        # Review/QC permissions
         Permission.REMOTE_REVIEW,
         Permission.FACILITY_QC,
         Permission.HANDLE_DISPUTES,
-        Permission.ASSET_READ,
-        Permission.BATCH_READ,
-        Permission.DISPUTE_VIEW,
-        Permission.DISPUTE_MANAGE,
-        # Review permissions
-        Permission.REVIEW_VIEW,
-        Permission.REVIEW_CREATE,
-        Permission.REVIEW_UPDATE,
-        Permission.SUBMISSION_VIEW,
     },
     UserRole.IT_ADMIN: {
         Permission.MANAGE_ASSETS,
@@ -238,9 +228,12 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.BATCH_UPDATE,
         Permission.BATCH_DELETE,
         Permission.BRANCH_READ,
+        Permission.BRANCH_CREATE,  # IT Admin can create branches (auto-assigned to them)
         Permission.ENTERPRISE_READ,
         # Submission, Pickup permissions
         Permission.SUBMISSION_VIEW,
+        Permission.SUBMISSION_CREATE,  # IT Admin can submit self-evaluations
+        Permission.SUBMISSION_UPDATE,
         Permission.PICKUP_VIEW,
         Permission.PICKUP_CREATE,
         # Payout, Dispute permissions
@@ -326,7 +319,6 @@ ROLE_HIERARCHY: Dict[UserRole, int] = {
     UserRole.OPS_ADMIN: 4,
     UserRole.ORG_ADMIN: 3,
     UserRole.IT_ADMIN: 2,
-    UserRole.TECHNICIAN: 2,
     UserRole.LOGISTICS_ADMIN: 2,
     UserRole.LOGISTICS_USER: 1,
     UserRole.EMPLOYEE: 0,

@@ -19,9 +19,9 @@ class ReviewDecision(str, enum.Enum):
 
 class RemoteReview(BaseModel):
     """
-    Remote review model for technician review of submissions.
+    Remote review model for OPS Admin review of submissions.
 
-    Technicians review photos and checklists to make initial assessment.
+    Reviewers assess photos and checklists to make initial assessment.
     """
 
     __tablename__ = "remote_reviews"
@@ -79,7 +79,7 @@ class FacilityQC(BaseModel):
     asset_id = Column(
         String, ForeignKey("assets.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
     )
-    technician_id = Column(
+    reviewer_id = Column(
         String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
@@ -104,7 +104,7 @@ class FacilityQC(BaseModel):
     qc_completed_at = Column(DateTime(timezone=True), nullable=False, server_default="NOW()")
 
     # Relationships
-    technician = relationship("User")
+    reviewer = relationship("User")
 
     def __repr__(self) -> str:
         return f"<FacilityQC(id={self.id}, asset_id={self.asset_id}, decision={self.decision})>"

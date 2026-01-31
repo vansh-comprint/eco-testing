@@ -8,7 +8,8 @@
  * - Shows employee details (name, email, employee ID, department)
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -23,7 +24,7 @@ import {
   Check,
   UserPlus,
 } from 'lucide-react';
-import { useSubUsers, useCreateSubUser, type CreateSubUserInput } from '@/hooks/useSubUsers';
+import { useSubUsers, useCreateSubUser, type CreateSubUserInput } from '@/hooks/useEmployees';
 import { Modal, ModalFooter } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
@@ -70,7 +71,22 @@ export function EmployeeSelector({
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  // Calculate menu position relative to viewport for portal rendering
+  const updateMenuPosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, []);
 
   // Fetch employees
   const { data: employees = [], isLoading, refetch } = useSubUsers(enterpriseId);
@@ -94,16 +110,32 @@ export function EmployeeSelector({
     [employees, value]
   );
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click (check both trigger and portal menu)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const isInsideDropdown = dropdownRef.current?.contains(target);
+      const isInsideMenu = menuRef.current?.contains(target);
+      if (!isInsideDropdown && !isInsideMenu) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update position on scroll/resize when open
+  useEffect(() => {
+    if (isOpen) {
+      updateMenuPosition();
+      window.addEventListener('scroll', updateMenuPosition, true);
+      window.addEventListener('resize', updateMenuPosition);
+      return () => {
+        window.removeEventListener('scroll', updateMenuPosition, true);
+        window.removeEventListener('resize', updateMenuPosition);
+      };
+    }
+  }, [isOpen, updateMenuPosition]);
 
   // Focus search on open
   useEffect(() => {
@@ -147,10 +179,12 @@ export function EmployeeSelector({
       {/* Trigger Button */}
       <div ref={dropdownRef}>
         <button
+          ref={buttonRef}
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) {
+              if (!isOpen) updateMenuPosition();
               setIsOpen(!isOpen);
             }
           }}
@@ -202,118 +236,130 @@ export function EmployeeSelector({
           </div>
         </button>
 
-        {/* Dropdown */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-              className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl max-h-80 overflow-hidden"
-            >
-              {/* Search */}
-              <div className="p-2 border-b border-slate-200 dark:border-white/10">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Search employees..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
-                  />
-                </div>
-              </div>
-
-              {/* Employee List */}
-              <div className="max-h-48 overflow-y-auto">
-                {isLoading ? (
-                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">
-                    Loading employees...
-                  </div>
-                ) : filteredEmployees.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">
-                    {searchQuery ? 'No employees found' : 'No employees yet'}
-                  </div>
-                ) : (
-                  filteredEmployees.map((employee: Employee) => (
-                    <button
-                      key={employee.id}
-                      type="button"
-                      onClick={() => handleSelect(employee)}
-                      className={cn(
-                        'w-full px-4 py-3 flex items-center gap-3 text-left',
-                        'hover:bg-slate-100 dark:hover:bg-white/5 transition-colors',
-                        value === employee.id && 'bg-ecotribe-primary/10'
-                      )}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-zinc-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-900 dark:text-white font-medium truncate">
-                          {employee.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                          <span className="truncate">{employee.email}</span>
-                          {employee.department && (
-                            <>
-                              <span>·</span>
-                              <span className="truncate">{employee.department}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {value === employee.id && (
-                        <Check className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {/* Add New Button */}
-              {showAddNew && (
-                <div className="border-t border-slate-200 dark:border-white/10">
-                  <button
-                    type="button"
-                    onClick={handleAddNewClick}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-ecotribe-primary/10 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-ecotribe-primary/20 flex items-center justify-center">
-                      <Plus className="w-4 h-4 text-ecotribe-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-ecotribe-primary font-medium">
-                        Add New Employee
-                      </p>
-                      <p className="text-[10px] text-zinc-500">
-                        Create a new employee record
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Dropdown - rendered via portal to escape overflow constraints */}
+      {isOpen && createPortal(
+        <AnimatePresence>
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+            }}
+            className="z-[9999] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl max-h-80 overflow-hidden"
+          >
+            {/* Search */}
+            <div className="p-2 border-b border-slate-200 dark:border-white/10">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search employees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
+                />
+              </div>
+            </div>
+
+            {/* Employee List */}
+            <div className="max-h-48 overflow-y-auto">
+              {isLoading ? (
+                <div className="px-4 py-8 text-center text-zinc-500 text-sm">
+                  Loading employees...
+                </div>
+              ) : filteredEmployees.length === 0 ? (
+                <div className="px-4 py-8 text-center text-zinc-500 text-sm">
+                  {searchQuery ? 'No employees found' : 'No employees yet'}
+                </div>
+              ) : (
+                filteredEmployees.map((employee: Employee) => (
+                  <button
+                    key={employee.id}
+                    type="button"
+                    onClick={() => handleSelect(employee)}
+                    className={cn(
+                      'w-full px-4 py-3 flex items-center gap-3 text-left',
+                      'hover:bg-slate-100 dark:hover:bg-white/5 transition-colors',
+                      value === employee.id && 'bg-ecotribe-primary/10'
+                    )}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-zinc-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-900 dark:text-white font-medium truncate">
+                        {employee.name}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                        <span className="truncate">{employee.email}</span>
+                        {employee.department && (
+                          <>
+                            <span>·</span>
+                            <span className="truncate">{employee.department}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {value === employee.id && (
+                      <Check className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Add New Button */}
+            {showAddNew && (
+              <div className="border-t border-slate-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={handleAddNewClick}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-ecotribe-primary/10 transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-ecotribe-primary/20 flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-ecotribe-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-ecotribe-primary font-medium">
+                      Add New Employee
+                    </p>
+                    <p className="text-[10px] text-zinc-500">
+                      Create a new employee record
+                    </p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Error Message */}
       {error && (
         <p className="mt-1 text-xs text-red-400">{error}</p>
       )}
 
-      {/* Add Employee Modal */}
-      <AddEmployeeModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        enterpriseId={enterpriseId}
-        branchId={branchId}
-        onCreated={handleEmployeeCreated}
-      />
+      {/* Add Employee Modal - rendered via portal to escape stacking contexts */}
+      {showAddModal && createPortal(
+        <AddEmployeeModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          enterpriseId={enterpriseId}
+          branchId={branchId}
+          onCreated={handleEmployeeCreated}
+        />,
+        document.body
+      )}
     </div>
   );
 }

@@ -717,10 +717,10 @@ export const usePickupStore = create<PickupState>()(
           `${request.location?.name || 'Location'}: ${pickedAssetIds.length} picked, ${failedAssetIds.length} failed QC`
         );
 
-        // 5. Notify Main Admin (OPS) for oversight
+        // 5. Notify OPS Admin for oversight
         triggerNotification(
           'info',
-          'main_admin',
+          'ops_admin',
           'Pickup Update',
           `Pickup at ${request.location?.name || 'location'} ${statusText}. ${pickedAssetIds.length} devices now in transit.`
         );

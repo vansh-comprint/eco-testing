@@ -1,6 +1,6 @@
 """Asset repository for database operations"""
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -132,3 +132,28 @@ class AssetRepository:
             select(func.count(Asset.id)).where(Asset.batch_id == batch_id)
         )
         return result.scalar() or 0
+
+    async def get_asset_status_counts(self, batch_id: str) -> Dict[str, int]:
+        """Get asset status counts for a single batch"""
+        result = await self.db.execute(
+            select(Asset.status, func.count(Asset.id))
+            .where(Asset.batch_id == batch_id)
+            .group_by(Asset.status)
+        )
+        return {row[0]: row[1] for row in result.all()}
+
+    async def get_bulk_asset_status_counts(self, batch_ids: List[str]) -> Dict[str, Dict[str, int]]:
+        """Get asset status counts for multiple batches (avoids N+1)"""
+        if not batch_ids:
+            return {}
+        result = await self.db.execute(
+            select(Asset.batch_id, Asset.status, func.count(Asset.id))
+            .where(Asset.batch_id.in_(batch_ids))
+            .group_by(Asset.batch_id, Asset.status)
+        )
+        counts: Dict[str, Dict[str, int]] = {}
+        for batch_id, status, count in result.all():
+            if batch_id not in counts:
+                counts[batch_id] = {}
+            counts[batch_id][status] = count
+        return counts

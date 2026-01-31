@@ -16,14 +16,10 @@ interface CreateAssetInput {
   model: string;
   asset_tag?: string;
   specs?: Record<string, unknown>;
-  assigned_sub_user_id?: string;
-  assigned_user_id?: string;  // V3.2: For IT Admin/Org Admin self-assignment
-  is_self_assigned?: boolean; // V3.2: Flag for self-assigned assets
+  assigned_to_user_id?: string;
   assigned_email?: string;
   assigned_name?: string;
   assigned_department?: string;
-  status?: string;
-  assigned_at?: Date;
 }
 
 // V3: Input type for creating sub users with snake_case
@@ -159,11 +155,7 @@ export function UploadAssets() {
           model: asset.model,
           asset_tag: asset.asset_tag,
           specs: asset.specs,
-          assigned_user_id: adminData.id,
-          is_self_assigned: adminData.isSelf,
-          assigned_sub_user_id: undefined as string | undefined,
-          status: 'assigned' as const,
-          assigned_at: new Date().toISOString(),
+          assigned_to_user_id: adminData.id,
         };
       }
 
@@ -179,12 +171,7 @@ export function UploadAssets() {
         model: asset.model,
         asset_tag: asset.asset_tag,
         specs: asset.specs,
-        assigned_sub_user_id: subUserId,
-        assigned_user_id: undefined as string | undefined,
-        is_self_assigned: undefined as boolean | undefined,
-        // Set status to 'assigned' if sub-user is linked
-        status: subUserId ? 'assigned' as const : undefined,
-        assigned_at: subUserId ? new Date().toISOString() : undefined,
+        assigned_to_user_id: subUserId,
       };
     });
 
@@ -192,7 +179,7 @@ export function UploadAssets() {
     const createdAssets = await bulkCreateAssetsMutation.mutateAsync(assetsWithAssignments);
 
     // Count IT Admin assignments for tracking
-    const itAdminAssignments = assetsWithAssignments.filter(a => a.assigned_user_id).length;
+    const itAdminAssignments = assetsWithAssignments.filter(a => a.assigned_to_user_id).length;
 
     // Step 6: Bulk upload tracking metadata
     // TODO: Add bulk_uploads REST API endpoint when needed for audit trail

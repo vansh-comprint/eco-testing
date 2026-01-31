@@ -16,14 +16,14 @@ interface TransitionParams {
 
 interface QCParams {
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   decision: 'final_accept' | 'final_reject';
   grade?: AssetGrade;
 }
 
 interface ReviewParams {
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   decision: 'conditionally_accepted' | 'rejected';
   notes?: string;
   reason?: string;
@@ -65,7 +65,7 @@ export async function handleRemoteReview(input: ReviewParams) {
 
   await reviewStore.createRemoteReview({
     assetId: input.assetId,
-    technicianId: input.technicianId,
+    reviewerId: input.reviewerId,
     decision: decision === 'conditionally_accepted' ? 'conditionally_accepted' : 'rejected',
     notes: input.notes,
     reason: input.reason,
@@ -74,7 +74,7 @@ export async function handleRemoteReview(input: ReviewParams) {
   await transitionAssetStatus({
     assetId: input.assetId,
     nextStatus: decision,
-    actorId: input.technicianId,
+    actorId: input.reviewerId,
     metadata: { decision },
   });
 }
@@ -84,7 +84,7 @@ export async function handleFacilityQC(input: QCParams) {
 
   await reviewStore.createFacilityQC({
     assetId: input.assetId,
-    technicianId: input.technicianId,
+    reviewerId: input.reviewerId,
     checklistData: {
       verifyPhotos: { name: 'Photos', items: [] },
       cosmeticInspection: { name: 'Cosmetic', items: [] },
@@ -102,21 +102,21 @@ export async function handleFacilityQC(input: QCParams) {
     await transitionAssetStatus({
       assetId: input.assetId,
       nextStatus: 'final_accepted',
-      actorId: input.technicianId,
+      actorId: input.reviewerId,
       grade: input.grade,
       metadata: { qc: 'accept' },
     });
     await transitionAssetStatus({
       assetId: input.assetId,
       nextStatus: 'payout_pending',
-      actorId: input.technicianId,
+      actorId: input.reviewerId,
       metadata: { qc: 'payout_ready' },
     });
   } else {
     await transitionAssetStatus({
       assetId: input.assetId,
       nextStatus: 'final_rejected',
-      actorId: input.technicianId,
+      actorId: input.reviewerId,
       metadata: { qc: 'reject' },
     });
   }
@@ -295,10 +295,10 @@ export async function handleAssetArrivedAtWarehouse(params: {
     );
   }
 
-  // Notify OPS Manager (main_admin)
+  // Notify OPS Manager (ops_admin)
   triggerNotification(
     'info',
-    'main_admin',
+    'ops_admin',
     'Asset Ready for QC',
     `Asset ${asset.serialNumber} (${asset.brand} ${asset.model}) is ready for facility QC.`
   );
@@ -382,7 +382,7 @@ export async function notifyPickupStatusChange(params: {
  */
 export async function handleConditionallyAccepted(params: {
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   itAdminId?: string;
 }) {
   const assetStore = useAssetStore.getState();
@@ -401,7 +401,7 @@ export async function handleConditionallyAccepted(params: {
     action: 'approved_for_pickup',
     fromStatus: 'conditionally_accepted',
     toStatus: 'ready_for_pickup',
-    actorId: params.technicianId,
+    actorId: params.reviewerId,
   });
 
   // Notify IT Admin that asset is ready for pickup

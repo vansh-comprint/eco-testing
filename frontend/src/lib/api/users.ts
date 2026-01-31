@@ -36,6 +36,7 @@ export interface UserCreateRequest {
 export interface UserUpdateRequest {
   name?: string;
   phone?: string;
+  role?: string;
   status?: string;
   branch_id?: string;
 }

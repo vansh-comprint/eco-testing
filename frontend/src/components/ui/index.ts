@@ -72,9 +72,6 @@ export { MeshToggleCompact } from './MeshToggle';
 // NotificationDropdown
 export { NotificationDropdown, NotificationDropdownMobile } from './NotificationDropdown';
 
-// DatabaseStatus
-export { DatabaseStatus } from './DatabaseStatus';
-
 // DeleteBatchModal
 export { DeleteBatchModal } from './DeleteBatchModal';
 

@@ -76,7 +76,7 @@ class FacilityQCRepository(BaseRepository[FacilityQC]):
     async def list_with_filters(
         self,
         enterprise_id: Optional[str] = None,
-        technician_id: Optional[str] = None,
+        reviewer_id: Optional[str] = None,
         decision: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
@@ -87,8 +87,8 @@ class FacilityQCRepository(BaseRepository[FacilityQC]):
 
         if enterprise_id:
             conditions.append(Asset.enterprise_id == enterprise_id)
-        if technician_id:
-            conditions.append(FacilityQC.technician_id == technician_id)
+        if reviewer_id:
+            conditions.append(FacilityQC.reviewer_id == reviewer_id)
         if decision:
             conditions.append(FacilityQC.decision == decision)
 

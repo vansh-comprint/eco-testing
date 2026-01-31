@@ -102,7 +102,7 @@ export const enterpriseApplicationsApi = {
   approve: (id: string, notes?: string) =>
     fetchWithAuth<EnterpriseApplicationResponse>(`/enterprises/applications/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ review_notes: notes }),
     }),
 
   reject: (id: string, reason: string) =>

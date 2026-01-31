@@ -8,7 +8,7 @@ export type DisputeResolution = 'overturned' | 'upheld';
 export interface RemoteReview {
   id: string;
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   decision: RemoteReviewDecision;
   reason?: string;
   notes?: string;
@@ -17,7 +17,7 @@ export interface RemoteReview {
 
 export interface CreateRemoteReviewInput {
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   decision: RemoteReviewDecision;
   reason?: string;
   notes?: string;
@@ -45,7 +45,7 @@ export interface FacilityQCChecklist {
 export interface FacilityQC {
   id: string;
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   checklistData: FacilityQCChecklist;
   grade?: AssetGrade;
   decision: FacilityQCDecision;
@@ -56,7 +56,7 @@ export interface FacilityQC {
 
 export interface CreateFacilityQCInput {
   assetId: string;
-  technicianId: string;
+  reviewerId: string;
   checklistData: FacilityQCChecklist;
   grade?: AssetGrade;
   decision: FacilityQCDecision;

@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.batch import Batch, BatchStatus
 from app.models.user import User, UserRole
+from app.repositories.asset_repository import AssetRepository
 from app.repositories.batch_repository import BatchRepository
 from app.schemas.batch import (
     BatchCreate,
     BatchUpdate,
     BatchResponse,
+    BatchProgressStats,
     BatchSubmitForApproval,
     BatchApprovalAction,
 )
@@ -35,25 +37,6 @@ PROTECTED_STATUSES = {
 
 # Statuses that require specific roles to transition TO
 STATUS_ROLE_REQUIREMENTS = {
-    # Only OPS Admin / Super Admin can mark as pickup_scheduled
-    BatchStatus.PICKUP_SCHEDULED.value: [
-        UserRole.SUPER_ADMIN.value,
-        UserRole.OPS_ADMIN.value,
-    ],
-    # Only logistics can mark as picked_up
-    BatchStatus.PICKED_UP.value: [
-        UserRole.SUPER_ADMIN.value,
-        UserRole.OPS_ADMIN.value,
-        UserRole.LOGISTICS_ADMIN.value,
-        UserRole.LOGISTICS_USER.value,
-    ],
-    # Only logistics/ops can mark as in_transit
-    BatchStatus.IN_TRANSIT.value: [
-        UserRole.SUPER_ADMIN.value,
-        UserRole.OPS_ADMIN.value,
-        UserRole.LOGISTICS_ADMIN.value,
-        UserRole.LOGISTICS_USER.value,
-    ],
     # Only ops can mark as completed
     BatchStatus.COMPLETED.value: [
         UserRole.SUPER_ADMIN.value,
@@ -65,16 +48,54 @@ STATUS_ROLE_REQUIREMENTS = {
 class BatchService:
     """Service for Batch business logic"""
 
+    # Mapping from raw asset statuses to progress buckets
+    STATUS_BUCKETS = {
+        "pending_assignment": "pending_assignment",
+        "assigned": "assigned",
+        "check_in_started": "assigned",
+        "submitted": "in_review",
+        "remote_review": "in_review",
+        "conditionally_accepted": "verified",
+        "ready_for_pickup": "verified",
+        "pickup_requested": "in_pickup",
+        "pickup_scheduled": "in_pickup",
+        "pickup_failed_qc": "in_pickup",
+        "picked_up": "picked_up",
+        "in_transit": "picked_up",
+        "facility_qc": "picked_up",
+        "final_accepted": "completed",
+        "payout_pending": "completed",
+        "completed": "completed",
+        "remote_rejected": "rejected",
+        "final_rejected": "rejected",
+        "disputed": "in_review",
+    }
+
     def __init__(self, db: AsyncSession):
         self.repository = BatchRepository(db)
+        self.asset_repository = AssetRepository(db)
         self.db = db
+
+    @classmethod
+    def _build_progress(cls, status_counts: dict) -> BatchProgressStats:
+        """Build BatchProgressStats from raw status counts"""
+        stats = BatchProgressStats()
+        for status, count in status_counts.items():
+            bucket = cls.STATUS_BUCKETS.get(status)
+            if bucket:
+                setattr(stats, bucket, getattr(stats, bucket) + count)
+            stats.total += count
+        return stats
 
     async def get_batch(self, batch_id: str) -> BatchResponse:
         """Get batch by ID"""
         batch = await self.repository.get_by_id(batch_id)
         if not batch:
             raise NotFoundError("Batch", batch_id)
-        return BatchResponse.model_validate(batch)
+        response = BatchResponse.model_validate(batch)
+        status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
+        response.progress = self._build_progress(status_counts)
+        return response
 
     async def list_batches(
         self,
@@ -96,7 +117,15 @@ class BatchService:
             created_by=created_by,
             search=search,
         )
-        return [BatchResponse.model_validate(b) for b in batches], total
+        responses = [BatchResponse.model_validate(b) for b in batches]
+
+        # Bulk fetch progress stats to avoid N+1
+        batch_ids = [b.id for b in batches]
+        bulk_counts = await self.asset_repository.get_bulk_asset_status_counts(batch_ids)
+        for resp in responses:
+            resp.progress = self._build_progress(bulk_counts.get(resp.id, {}))
+
+        return responses, total
 
     async def list_pending_approval(
         self,
@@ -110,7 +139,14 @@ class BatchService:
             skip=skip,
             limit=limit,
         )
-        return [BatchResponse.model_validate(b) for b in batches], total
+        responses = [BatchResponse.model_validate(b) for b in batches]
+
+        batch_ids = [b.id for b in batches]
+        bulk_counts = await self.asset_repository.get_bulk_asset_status_counts(batch_ids)
+        for resp in responses:
+            resp.progress = self._build_progress(bulk_counts.get(resp.id, {}))
+
+        return responses, total
 
     async def create_batch(self, batch_data: BatchCreate, created_by: str) -> BatchResponse:
         """Create a new batch"""

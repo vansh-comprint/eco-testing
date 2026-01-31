@@ -148,7 +148,7 @@ def _facility_qc_to_dict(qc) -> dict:
     return {
         "id": qc.id,
         "asset_id": qc.asset_id,
-        "technician_id": qc.technician_id,
+        "reviewer_id": qc.reviewer_id,
         "decision": qc.decision,
         "grade": qc.grade,
         "final_value": float(qc.final_value) if qc.final_value else None,

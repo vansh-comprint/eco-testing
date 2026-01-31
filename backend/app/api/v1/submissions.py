@@ -125,6 +125,22 @@ async def create_submission(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/by-asset/{asset_id}")
+async def get_submission_by_asset(
+    asset_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.SUBMISSION_VIEW)),
+):
+    """Get a submission by asset ID"""
+    service = SubmissionService(db)
+
+    submission = await service.get_by_asset(asset_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="No submission found for this asset")
+
+    return success_response(data=_to_response(submission))
+
+
 @router.get("/{submission_id}")
 async def get_submission(
     submission_id: str,

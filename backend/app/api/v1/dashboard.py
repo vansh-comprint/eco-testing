@@ -1,6 +1,7 @@
 """Dashboard endpoints - badge counts and summary data"""
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,6 +15,7 @@ router = APIRouter()
 
 @router.get("/badges", response_model=dict)
 async def get_badges(
+    branch_id: Optional[str] = Query(None, description="Filter badges by branch"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -25,5 +27,5 @@ async def get_badges(
 
     **Authentication:** Required (any authenticated user)
     """
-    badges = await get_badge_counts(current_user, db)
+    badges = await get_badge_counts(current_user, db, branch_id=branch_id)
     return success_response(data=badges)

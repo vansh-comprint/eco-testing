@@ -292,7 +292,7 @@ export function PayoutProcessing() {
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
             ₹{(payoutAssets
               .filter(a => a.status === 'completed')
-              .reduce((sum, a) => sum + (a.final_price || 0), 0) / 1000).toFixed(0)}K
+              .reduce((sum, a) => sum + getPayoutValue(a), 0) / 1000).toFixed(0)}K
           </p>
         </div>
 
@@ -312,7 +312,7 @@ export function PayoutProcessing() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            ₹{(payoutAssets.reduce((sum, a) => sum + (a.final_price || calculatePayout(a).finalAmount), 0) / 1000).toFixed(0)}K
+            ₹{(payoutAssets.reduce((sum, a) => sum + getPayoutValue(a), 0) / 1000).toFixed(0)}K
           </p>
         </div>
       </motion.div>
@@ -658,7 +658,7 @@ export function PayoutProcessing() {
                               </span>
                             </td>
                             <td className="py-2 text-right font-mono text-sm text-slate-900">
-                              {(asset.final_price || payout.finalAmount).toLocaleString()}
+                              {getPayoutValue(asset).toLocaleString()}
                             </td>
                           </tr>
                         );
@@ -671,7 +671,7 @@ export function PayoutProcessing() {
                         </td>
                         <td className="py-3 text-right font-brand font-bold text-xl text-slate-900">
                           ₹{certificateEnterprise.assets.reduce((sum, a) =>
-                            sum + (a.final_price || calculatePayout(a).finalAmount), 0
+                            sum + getPayoutValue(a), 0
                           ).toLocaleString()}
                         </td>
                       </tr>

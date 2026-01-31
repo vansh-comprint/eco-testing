@@ -63,7 +63,7 @@ export function AllUsers() {
   const getRoleBadgeVariant = (role: string) => {
     const variants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
       super_admin: 'danger',
-      main_admin: 'warning',
+      ops_admin: 'warning',
       it_admin: 'info',
       org_admin: 'success',
       logistics_admin: 'warning',
@@ -75,10 +75,10 @@ export function AllUsers() {
   const formatRole = (role: string) => {
     const roleLabels: Record<string, string> = {
       super_admin: 'Super Admin',
-      main_admin: 'Main Admin',
+      ops_admin: 'OPS Admin',
       it_admin: 'IT Admin',
       org_admin: 'Org Admin',
-      ops_manager: 'OPS Manager',
+      employee: 'Employee',
       logistics_admin: 'Logistics Admin',
       logistics_user: 'Logistics User',
     };
@@ -99,10 +99,9 @@ export function AllUsers() {
   const stats = {
     total: users.length,
     superAdmins: users.filter(u => u.role === 'super_admin').length,
-    mainAdmins: users.filter(u => u.role === 'main_admin').length,
+    opsAdmins: users.filter(u => u.role === 'ops_admin').length,
     itAdmins: users.filter(u => u.role === 'it_admin').length,
     orgAdmins: users.filter(u => u.role === 'org_admin').length,
-    cfos: users.filter(u => u.role === 'org_admin').length, // CFO = Org Admin role
     logistics: users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
   };
 
@@ -155,16 +154,16 @@ export function AllUsers() {
           <p className={`font-brand text-2xl font-bold text-red-500 mt-1`}>{stats.superAdmins}</p>
         </Card>
         <Card className="p-4">
-          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Main</p>
-          <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.mainAdmins}</p>
+          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>OPS Admin</p>
+          <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.opsAdmins}</p>
         </Card>
         <Card className="p-4">
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>IT Admin</p>
           <p className={`font-brand text-2xl font-bold text-blue-500 mt-1`}>{stats.itAdmins}</p>
         </Card>
         <Card className="p-4">
-          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>CFO</p>
-          <p className={`font-brand text-2xl font-bold text-emerald-500 mt-1`}>{stats.cfos}</p>
+          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Org Admin</p>
+          <p className={`font-brand text-2xl font-bold text-emerald-500 mt-1`}>{stats.orgAdmins}</p>
         </Card>
         <Card className="p-4">
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Logistics</p>
@@ -196,9 +195,10 @@ export function AllUsers() {
               >
                 <option value="all">All Roles</option>
                 <option value="super_admin">Super Admin</option>
-                <option value="main_admin">Main Admin</option>
-                <option value="it_admin">IT Admin</option>
+                <option value="ops_admin">OPS Admin</option>
                 <option value="org_admin">Org Admin</option>
+                <option value="it_admin">IT Admin</option>
+                <option value="employee">Employee</option>
                 <option value="logistics_admin">Logistics Admin</option>
                 <option value="logistics_user">Logistics User</option>
               </select>

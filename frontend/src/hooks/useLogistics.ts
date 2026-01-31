@@ -1,8 +1,6 @@
 /**
  * useLogistics - React Query hook replacing logisticsStore
  * Handles logistics admins and logistics users (drivers)
- *
- * MIGRATED: Now uses REST API instead of direct Supabase calls
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

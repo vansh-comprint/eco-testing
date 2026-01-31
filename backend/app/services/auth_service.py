@@ -51,7 +51,7 @@ class AuthService:
         """
         Check if user's branch and enterprise are active.
         
-        Platform users (Super Admin, OPS Admin, Technician) bypass these checks
+        Platform users (Super Admin, OPS Admin) bypass these checks
         since they don't belong to enterprises/branches.
         
         Raises:
@@ -61,7 +61,6 @@ class AuthService:
         platform_roles = [
             UserRole.SUPER_ADMIN.value,
             UserRole.OPS_ADMIN.value,
-            UserRole.TECHNICIAN.value,
             UserRole.LOGISTICS_ADMIN.value,
             UserRole.LOGISTICS_USER.value,
         ]
@@ -360,7 +359,6 @@ class AuthService:
             if user.role not in [
                 UserRole.SUPER_ADMIN.value,
                 UserRole.OPS_ADMIN.value,
-                UserRole.TECHNICIAN.value,
             ]:
                 if user.enterprise_id != required_enterprise_id:
                     return False
@@ -370,7 +368,6 @@ class AuthService:
             if user.role not in [
                 UserRole.SUPER_ADMIN.value,
                 UserRole.OPS_ADMIN.value,
-                UserRole.TECHNICIAN.value,
                 UserRole.ORG_ADMIN.value,
             ]:
                 if user.branch_id != required_branch_id:

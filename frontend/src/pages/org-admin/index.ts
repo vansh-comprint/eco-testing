@@ -1,6 +1,6 @@
 /**
  * Org Admin Pages Index
- * V3: Replaces CFO pages with new Org Admin portal
+ * V3: All pages unified under org-admin portal
  */
 
 export { BranchManagement } from './BranchManagement';
@@ -12,6 +12,8 @@ export { EPRCertificates } from './EPRCertificates';
 export { ITAdminManagement } from './ITAdminManagement';
 export { BulkITAdminUpload } from './BulkITAdminUpload';
 export { ITAdminInvite } from './ITAdminInvite';
-// Re-export CFO pages that are still being migrated
-export { CFODashboard as OrgAdminDashboard } from '../cfo/CFODashboard';
-export { FinancialReports } from '../cfo/FinancialReports';
+export { OrgAdminDashboard } from './OrgAdminDashboard';
+export { OrgAdminSimpleDashboard } from './Dashboard';
+export { BatchApprovals } from './BatchApprovals';
+export { FinancialReports } from './FinancialReports';
+export { AddITAdminModal } from './AddITAdminModal';

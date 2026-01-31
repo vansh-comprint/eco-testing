@@ -1,6 +1,6 @@
 """Dashboard service for badge/pending-count queries."""
 
-from typing import Dict
+from typing import Dict, Optional
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,45 +17,61 @@ async def _count(db: AsyncSession, query) -> int:
     return result.scalar() or 0
 
 
-async def get_badge_counts(user: User, db: AsyncSession) -> Dict[str, int]:
+async def get_badge_counts(
+    user: User, db: AsyncSession, *, branch_id: Optional[str] = None
+) -> Dict[str, int]:
     """
     Return role-specific pending/action-required counts for sidebar badges.
 
     Uses efficient COUNT(*) queries scoped by the user's role and context.
+    If branch_id is provided, IT Admin badges are filtered to that branch.
     """
     badges: Dict[str, int] = {}
     role = user.role
 
     if role == UserRole.IT_ADMIN.value:
-        # Draft batches in user's branch ready for submission
+        # Use explicit branch_id filter if provided, else fall back to user's branch
+        effective_branch_id = branch_id or user.branch_id
+
+        # Draft batches in branch ready for submission
         q = select(func.count()).select_from(Batch).where(
             and_(
                 Batch.status == BatchStatus.DRAFT.value,
-                Batch.branch_id == user.branch_id,
+                Batch.branch_id == effective_branch_id,
+            )
+        ) if effective_branch_id else select(func.count()).select_from(Batch).where(
+            and_(
+                Batch.status == BatchStatus.DRAFT.value,
+                Batch.enterprise_id == user.enterprise_id,
             )
         )
         batches = await _count(db, q)
         if batches:
             badges["batches"] = batches
 
-        # Assets pending assignment in user's branch
+        # Assets pending assignment in branch
         q = select(func.count()).select_from(Asset).where(
             and_(
                 Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
-                Asset.branch_id == user.branch_id,
+                Asset.branch_id == effective_branch_id,
+            )
+        ) if effective_branch_id else select(func.count()).select_from(Asset).where(
+            and_(
+                Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
+                Asset.enterprise_id == user.enterprise_id,
             )
         )
         assets = await _count(db, q)
         if assets:
             badges["assets"] = assets
 
-        # Pickup requests pending for user's enterprise
-        q = select(func.count()).select_from(PickupRequest).where(
-            and_(
-                PickupRequest.status == PickupStatus.PENDING.value,
-                PickupRequest.enterprise_id == user.enterprise_id,
-            )
-        )
+        # Pickup requests pending for branch or enterprise
+        pickup_conditions = [PickupRequest.status == PickupStatus.PENDING.value]
+        if effective_branch_id:
+            pickup_conditions.append(PickupRequest.branch_id == effective_branch_id)
+        else:
+            pickup_conditions.append(PickupRequest.enterprise_id == user.enterprise_id)
+        q = select(func.count()).select_from(PickupRequest).where(and_(*pickup_conditions))
         pickups = await _count(db, q)
         if pickups:
             badges["pickups"] = pickups
@@ -153,31 +169,6 @@ async def get_badge_counts(user: User, db: AsyncSession) -> Dict[str, int]:
         pickups = await _count(db, q)
         if pickups:
             badges["opsPickups"] = pickups
-
-    elif role == UserRole.TECHNICIAN.value:
-        # Assets awaiting remote review
-        q = select(func.count()).select_from(Asset).where(
-            Asset.status == AssetStatus.REMOTE_REVIEW.value
-        )
-        reviews = await _count(db, q)
-        if reviews:
-            badges["reviews"] = reviews
-
-        # Assets awaiting facility QC
-        q = select(func.count()).select_from(Asset).where(
-            Asset.status == AssetStatus.FACILITY_QC.value
-        )
-        qc = await _count(db, q)
-        if qc:
-            badges["qc"] = qc
-
-        # Open disputes assigned to technicians
-        q = select(func.count()).select_from(Dispute).where(
-            Dispute.status == DisputeStatus.OPEN.value
-        )
-        disputes = await _count(db, q)
-        if disputes:
-            badges["disputes"] = disputes
 
     elif role == UserRole.LOGISTICS_ADMIN.value:
         # Pickups assigned to this logistics admin but not yet assigned to a field user

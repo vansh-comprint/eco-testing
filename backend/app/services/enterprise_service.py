@@ -16,6 +16,7 @@ from app.repositories.enterprise_repository import (
     EnterpriseRepository,
     EnterpriseApplicationRepository,
 )
+from app.repositories.user_repository import UserRepository
 from app.schemas.enterprise import (
     EnterpriseCreate,
     EnterpriseUpdate,
@@ -63,22 +64,27 @@ class EnterpriseService:
         self, enterprise_data: EnterpriseCreate, created_by: str
     ) -> EnterpriseResponse:
         """Create a new enterprise"""
+        # Normalize empty strings to None for unique-constrained fields
+        gst_number = enterprise_data.gst_number.strip().upper() if enterprise_data.gst_number and enterprise_data.gst_number.strip() else None
+        pan_number = enterprise_data.pan_number.strip().upper() if enterprise_data.pan_number and enterprise_data.pan_number.strip() else None
+
         # Check if GST number already exists
-        if enterprise_data.gst_number:
-            existing = await self.repository.get_by_gst(enterprise_data.gst_number)
+        if gst_number:
+            existing = await self.repository.get_by_gst(gst_number)
             if existing:
                 raise ConflictError(
-                    f"Enterprise with GST number {enterprise_data.gst_number} already exists"
+                    f"Enterprise with GST number {gst_number} already exists"
                 )
 
         enterprise = Enterprise(
             id=str(uuid4()),
             name=enterprise_data.name,
-            legal_name=enterprise_data.legal_name,
-            gst_number=enterprise_data.gst_number,
-            pan_number=enterprise_data.pan_number,
+            legal_name=enterprise_data.legal_name or None,
+            gst_number=gst_number,
+            pan_number=pan_number,
             address=enterprise_data.address,
-            industry=enterprise_data.industry,
+            industry=enterprise_data.industry or None,
+            company_size=enterprise_data.company_size or None,
             employee_count=enterprise_data.employee_count,
             contact_person=enterprise_data.contact_person,
             contact_email=enterprise_data.contact_email,
@@ -131,6 +137,7 @@ class EnterpriseApplicationService:
     def __init__(self, db: AsyncSession):
         self.repository = EnterpriseApplicationRepository(db)
         self.enterprise_repo = EnterpriseRepository(db)
+        self.user_repo = UserRepository(db)
         self.db = db
 
     def _generate_application_ref(self) -> str:
@@ -231,7 +238,23 @@ class EnterpriseApplicationService:
         if application.status != EnterpriseApplicationStatus.PENDING.value:
             raise ValidationError(f"Application is not pending (status: {application.status})")
 
+        # Check for duplicate email
+        existing_user = await self.user_repo.get_by_email(application.org_admin_email)
+        if existing_user:
+            raise ConflictError(f"A user with email '{application.org_admin_email}' already exists")
+
+        # Check for duplicate GST number
+        if application.gst_number:
+            existing_enterprise = await self.enterprise_repo.get_by_gst(application.gst_number)
+            if existing_enterprise:
+                raise ConflictError(f"An enterprise with GST number '{application.gst_number}' already exists")
+
         # Create the enterprise
+        # Map address from application (stored as text) into structured JSON
+        address_data = None
+        if application.registered_address:
+            address_data = {"full": application.registered_address}
+
         enterprise = Enterprise(
             id=str(uuid4()),
             name=application.company_name,
@@ -239,6 +262,11 @@ class EnterpriseApplicationService:
             gst_number=application.gst_number,
             pan_number=application.pan_number,
             industry=application.industry_type,
+            company_size=application.company_size,
+            contact_person=application.org_admin_name,
+            contact_email=application.org_admin_email,
+            contact_phone=application.org_admin_phone,
+            address=address_data,
             status=EnterpriseStatus.ACTIVE.value,
             created_by=reviewed_by,
             updated_by=reviewed_by,
@@ -267,7 +295,12 @@ class EnterpriseApplicationService:
         application.review_notes = review_notes
         application.enterprise_id = enterprise.id
 
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except Exception as e:
+            await self.db.rollback()
+            raise RuntimeError(f"Database commit failed during approval: {e}") from e
+
         await self.db.refresh(application)
 
         # Send approval email notification to the org admin

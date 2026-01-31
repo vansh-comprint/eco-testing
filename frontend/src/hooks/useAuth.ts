@@ -7,7 +7,7 @@ import type { UserRole } from '@/types';
  * Custom hook for authentication utilities
  * Wraps the API-based auth store with navigation and convenience methods
  *
- * Updated for REST API migration - uses authStoreApi instead of direct Supabase
+ * Uses authStoreApi for REST API authentication
  */
 export function useAuth() {
   const navigate = useNavigate();
@@ -42,14 +42,14 @@ export function useAuth() {
     return role ? roles.includes(role) : false;
   }, [role]);
 
-  // Check if user is admin (super_admin or main_admin)
+  // Check if user is admin (super_admin or ops_admin)
   const isAdmin = useCallback(() => {
-    return hasRole('super_admin', 'main_admin');
+    return hasRole('super_admin', 'ops_admin');
   }, [hasRole]);
 
-  // Check if user is enterprise user (it_admin or sub_user)
+  // Check if user is enterprise user (it_admin or employee)
   const isEnterpriseUser = useCallback(() => {
-    return hasRole('it_admin', 'sub_user');
+    return hasRole('it_admin', 'employee');
   }, [hasRole]);
 
   return {
@@ -72,14 +72,13 @@ function getRoleDefaultPath(role?: UserRole): string {
   switch (role) {
     case 'super_admin':
       return '/super';
-    case 'main_admin':
     case 'ops_admin':
       return '/ops';
     case 'org_admin':
       return '/org-admin';
     case 'it_admin':
       return '/admin';
-    case 'sub_user':
+    case 'employee':
       return '/check-in';
     case 'logistics_admin':
       return '/logistics-admin';

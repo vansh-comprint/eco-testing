@@ -73,7 +73,7 @@ export function useAllDisputes() {
   return useQuery({
     queryKey: disputeKeys.lists(),
     queryFn: async () => {
-      const result = await disputesApi.list({ limit: 1000 });
+      const result = await disputesApi.list({ page_size: 100 });
       if (!result.success) throw new Error(result.error?.message || 'Failed to fetch disputes');
       return (result.data || []).map(mapDisputeResponse);
     },
@@ -102,7 +102,7 @@ export function useDisputesByEnterprise(enterpriseId: string) {
     queryKey: disputeKeys.byEnterprise(enterpriseId),
     queryFn: async () => {
       // Fetch all disputes and filter by enterprise's assets
-      const result = await disputesApi.list({ limit: 1000 });
+      const result = await disputesApi.list({ page_size: 100 });
       if (!result.success) throw new Error(result.error?.message || 'Failed to fetch disputes');
 
       // Note: Server-side filtering by enterprise would be better
@@ -135,7 +135,7 @@ export function useDisputeByAsset(assetId: string) {
     queryFn: async () => {
       // Fetch all disputes and filter by asset_id client-side
       // Note: A dedicated API endpoint would be better
-      const result = await disputesApi.list({ limit: 1000 });
+      const result = await disputesApi.list({ page_size: 100 });
       if (!result.success) throw new Error(result.error?.message || 'Failed to fetch disputes');
       const dispute = result.data?.find(d => d.asset_id === assetId);
       return dispute ? mapDisputeResponse(dispute) : null;
@@ -196,7 +196,7 @@ export function usePendingDisputes() {
   return useQuery({
     queryKey: [...disputeKeys.lists(), { status: 'pending' }],
     queryFn: async () => {
-      const result = await disputesApi.list({ status: 'pending', limit: 1000 });
+      const result = await disputesApi.list({ status: 'pending', page_size: 100 });
       if (!result.success) throw new Error(result.error?.message || 'Failed to fetch pending disputes');
       return (result.data || []).map(mapDisputeResponse);
     },

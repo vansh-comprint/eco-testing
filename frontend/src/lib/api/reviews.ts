@@ -26,7 +26,7 @@ export interface RemoteReviewResponse {
 export interface FacilityQCResponse {
   id: string;
   asset_id: string;
-  technician_id: string;
+  reviewer_id: string;
   decision: string;
   physical_grade?: string;
   functional_grade?: string;

@@ -3,7 +3,7 @@
  * Dispute management and resolution endpoints
  */
 
-import { fetchWithAuth, DEFAULT_PAGE_SIZE } from './client';
+import { fetchWithAuth } from './client';
 
 // ============================================================================
 // Types
@@ -27,8 +27,8 @@ export interface DisputeResponse {
 }
 
 export interface DisputeListParams {
-  skip?: number;
-  limit?: number;
+  page?: number;
+  page_size?: number;
   status?: string;
   dispute_type?: string;
 }
@@ -47,8 +47,8 @@ export interface DisputeCreateRequest {
 export const disputesApi = {
   list: (params: DisputeListParams = {}) => {
     const query = new URLSearchParams();
-    if (params.skip) query.set('skip', params.skip.toString());
-    query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page', (params.page ?? 1).toString());
+    query.set('page_size', (params.page_size ?? 100).toString());
     if (params.status) query.set('status', params.status);
     if (params.dispute_type) query.set('dispute_type', params.dispute_type);
     return fetchWithAuth<DisputeResponse[]>(`/disputes?${query.toString()}`);

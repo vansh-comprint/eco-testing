@@ -48,19 +48,17 @@ function getRoleDefaultPath(role: UserRole): string {
   switch (role) {
     case 'super_admin':
       return '/super';
-    case 'main_admin':
+    case 'ops_admin':
       return '/ops';
     case 'org_admin':
       return '/org-admin';
     case 'it_admin':
       return '/admin';
-    case 'ops_manager':
-      return '/ops';
     case 'logistics_admin':
       return '/logistics-admin';
     case 'logistics_user':
       return '/logistics';
-    case 'sub_user':
+    case 'employee':
       return '/check-in';
     default:
       return '/login';

@@ -35,6 +35,7 @@ class BranchRepository:
         skip: int = 0,
         limit: int = 100,
         enterprise_id: Optional[str] = None,
+        it_admin_id: Optional[str] = None,
         status: Optional[BranchStatus] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[Branch], int]:
@@ -46,6 +47,10 @@ class BranchRepository:
         if enterprise_id:
             query = query.where(Branch.enterprise_id == enterprise_id)
             count_query = count_query.where(Branch.enterprise_id == enterprise_id)
+
+        if it_admin_id:
+            query = query.where(Branch.it_admin_id == it_admin_id)
+            count_query = count_query.where(Branch.it_admin_id == it_admin_id)
 
         if status:
             query = query.where(Branch.status == status.value)

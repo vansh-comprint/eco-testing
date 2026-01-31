@@ -53,10 +53,8 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const onSubmit = async (data: AddUserForm) => {
     setIsSubmitting(true);
     try {
-      console.log('➕ Creating new user:', data.email);
-
       // Call the backend API to create user
-      await usersApi.create({
+      const result = await usersApi.create({
         name: data.name,
         email: data.email,
         phone: data.phone || undefined,
@@ -64,7 +62,9 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         password: data.password,
       });
 
-      console.log('✅ User created successfully');
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to create user');
+      }
 
       addToast({
         type: 'success',
@@ -99,7 +99,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
 
   const roles = [
     { value: 'super_admin', label: 'Super Admin' },
-    { value: 'main_admin', label: 'Main Admin' },
+    { value: 'ops_admin', label: 'OPS Admin' },
     { value: 'it_admin', label: 'IT Admin' },
     { value: 'org_admin', label: 'Org Admin' },
     { value: 'logistics_admin', label: 'Logistics Admin' },

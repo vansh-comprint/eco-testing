@@ -15,7 +15,7 @@ class UserRepository:
     Repository for unified User model database operations.
 
     Supports all user roles:
-    - Platform: SUPER_ADMIN, OPS_ADMIN, TECHNICIAN
+    - Platform: SUPER_ADMIN, OPS_ADMIN
     - Enterprise: ORG_ADMIN, IT_ADMIN, EMPLOYEE
     - Logistics: LOGISTICS_ADMIN, LOGISTICS_USER
     """
@@ -234,11 +234,11 @@ class UserRepository:
         )
 
     async def get_platform_users(self, skip: int = 0, limit: int = 100) -> Tuple[List[User], int]:
-        """Get all platform-level users (Super Admin, OPS Admin, Technician)"""
+        """Get all platform-level users (Super Admin, OPS Admin)"""
         return await self.get_all(
             skip=skip,
             limit=limit,
-            roles=[UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN, UserRole.TECHNICIAN],
+            roles=[UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN],
         )
 
     async def get_logistics_admins(self, skip: int = 0, limit: int = 100) -> Tuple[List[User], int]:

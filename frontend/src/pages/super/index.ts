@@ -1,6 +1,6 @@
 export { SuperAdminDashboard } from './Dashboard';
 export { CreateEnterprise } from './CreateEnterprise';
-export { CreateMainAdminModal } from './CreateMainAdminModal';
+export { CreateOpsAdminModal } from './CreateOpsAdminModal';
 export { CreateLogisticsAdminModal } from './CreateLogisticsAdminModal';
 export { CreateLogisticsUserModal } from './CreateLogisticsUserModal';
 export { CreateEnterpriseUserModal } from './CreateEnterpriseUserModal';

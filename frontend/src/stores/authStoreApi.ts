@@ -1,13 +1,9 @@
 /**
  * Auth Store (API-based)
  *
- * This store uses the REST API for authentication instead of direct Supabase calls.
- * Part of the backend migration from BaaS to REST API architecture.
+ * This store uses the REST API for authentication.
  *
- * To migrate:
- * 1. Replace imports from 'authStore' with 'authStoreApi'
- * 2. Update components to handle the new auth flow
- * 3. Configure VITE_API_URL environment variable
+ * Configure VITE_API_URL environment variable
  */
 
 import { create } from 'zustand';
@@ -54,17 +50,17 @@ interface AuthState {
 function mapRole(backendRole: string): UserRole {
   const roleMap: Record<string, UserRole> = {
     super_admin: 'super_admin',
-    main_admin: 'main_admin',
-    ops_admin: 'main_admin', // Map ops_admin to main_admin
-    technician: 'technician',
+    ops_admin: 'ops_admin',
+    main_admin: 'ops_admin',       // Backwards compat: old cached main_admin maps to ops_admin
+    technician: 'ops_admin',       // Backwards compat: old technician users map to ops_admin
     org_admin: 'org_admin',
     it_admin: 'it_admin',
-    employee: 'sub_user',
-    sub_user: 'sub_user',
+    employee: 'employee',
+    sub_user: 'employee',          // Backwards compat: old sub_user maps to employee
     logistics_admin: 'logistics_admin',
     logistics_user: 'logistics_user',
   };
-  return roleMap[backendRole.toLowerCase()] || ('sub_user' as UserRole);
+  return roleMap[backendRole.toLowerCase()] || ('employee' as UserRole);
 }
 
 // Convert API response to User type
@@ -361,14 +357,14 @@ export const useAuthStoreApi = create<AuthState>()(
        * Check if user is any admin type
        */
       isAdmin: (): boolean => {
-        return get().hasRole('super_admin', 'main_admin', 'org_admin', 'it_admin', 'logistics_admin');
+        return get().hasRole('super_admin', 'ops_admin', 'org_admin', 'it_admin', 'logistics_admin');
       },
 
       /**
-       * Check if user is platform admin (super_admin or main_admin)
+       * Check if user is platform admin (super_admin or ops_admin)
        */
       isPlatformAdmin: (): boolean => {
-        return get().hasRole('super_admin', 'main_admin');
+        return get().hasRole('super_admin', 'ops_admin');
       },
 
       /**

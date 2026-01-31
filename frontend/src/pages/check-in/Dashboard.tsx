@@ -26,7 +26,7 @@ export function SubUserDashboard() {
   const { data: assets = [] } = useAllAssets();
 
   // Get assets assigned to this sub-user
-  const myAssets = assets.filter(a => a.assigned_to_user_id === user?.id || a.assigned_sub_user_id === user?.id);
+  const myAssets = assets.filter(a => a.assigned_to_user_id === user?.id);
   const pendingAssets = myAssets.filter(a => a.status === 'assigned' || a.status === 'check_in_started');
   const submittedAssets = myAssets.filter(a => !['pending_assignment', 'assigned', 'check_in_started'].includes(a.status));
 

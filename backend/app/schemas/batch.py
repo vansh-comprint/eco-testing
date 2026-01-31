@@ -54,6 +54,20 @@ class BatchApprovalAction(BaseModel):
     rejection_reason: Optional[str] = None
 
 
+class BatchProgressStats(BaseModel):
+    """Progress breakdown of assets in a batch"""
+
+    total: int = 0
+    pending_assignment: int = 0
+    assigned: int = 0          # assigned + check_in_started
+    in_review: int = 0         # submitted + remote_review
+    verified: int = 0          # conditionally_accepted + ready_for_pickup
+    in_pickup: int = 0         # pickup_requested + pickup_scheduled
+    picked_up: int = 0         # picked_up + in_transit + facility_qc
+    completed: int = 0         # final_accepted + payout_pending + completed
+    rejected: int = 0          # remote_rejected + final_rejected
+
+
 class BatchResponse(BaseModel):
     """Schema for batch response"""
 
@@ -98,6 +112,9 @@ class BatchResponse(BaseModel):
     # Timestamps
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    # Progress (computed, not from DB)
+    progress: Optional[BatchProgressStats] = None
 
 
 class BatchListResponse(BaseModel):

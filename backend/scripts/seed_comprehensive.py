@@ -75,17 +75,6 @@ async def create_users_and_enterprises():
             )
             db.add(ops_admin)
 
-            technician = User(
-                id=str(uuid.uuid4()),
-                email="tech@ecotribe.io",
-                name="Tech Reviewer",
-                role=UserRole.TECHNICIAN,
-                status=UserStatus.ACTIVE,
-                password_hash=get_password_hash("password123"),
-                created_by="system",
-            )
-            db.add(technician)
-
             # ==================== Logistics ====================
 
             logistics_admin = User(
@@ -244,7 +233,6 @@ async def create_users_and_enterprises():
             return {
                 "super_admin": super_admin,
                 "ops_admin": ops_admin,
-                "technician": technician,
                 "logistics_admin": logistics_admin,
                 "logistics_user": logistics_user,
                 "enterprise1": enterprise1,
@@ -478,7 +466,7 @@ async def create_submissions_and_reviews(context: dict, assets: list):
                         id=str(uuid.uuid4()),
                         submission_id=submission.id,
                         asset_id=asset.id,
-                        reviewer_id=context["technician"].id,
+                        reviewer_id=context["ops_admin"].id,
                         decision=(
                             ReviewDecision.CONDITIONALLY_ACCEPTED.value
                             if asset.status == AssetStatus.CONDITIONALLY_ACCEPTED
@@ -586,7 +574,6 @@ async def main():
     print("\n   Platform Roles:")
     print("   • Super Admin:     superadmin@ecotribe.io")
     print("   • OPS Admin:       admin@ecotribe.io")
-    print("   • Technician:      tech@ecotribe.io")
     print("\n   Enterprise Roles (TechCorp India):")
     print("   • Org Admin:       orgadmin@techcorp.com")
     print("   • IT Admin (MUM):  it@techcorp.com")

@@ -14,10 +14,10 @@ import type {
   Declaration,
 } from '@/types';
 import type { Address } from '@/types/common';
-import { useAssetStore } from './assetStore';
 import { triggerNotification } from './notificationStore';
 import { useAuditStore } from './auditStore';
-import { db } from '@/lib/database';
+import { updateAssetStatus as apiUpdateAssetStatus, fetchAssetById } from '@/lib/db/api-queries';
+import { submissionsApi } from '@/lib/api/submissions';
 
 interface SubmissionState {
   submissions: Submission[];
@@ -49,8 +49,6 @@ interface SubmissionState {
   submitDevice: (input: CreateSubmissionInput) => Promise<Submission>;
 }
 
-const generateId = () => `sub-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
 export const useSubmissionStore = create<SubmissionState>()(
   persist(
     (set, get) => ({
@@ -69,8 +67,8 @@ export const useSubmissionStore = create<SubmissionState>()(
       },
 
       startSubmission: async (assetId: string) => {
-        // Update asset status to check_in_started - AWAIT to ensure it completes
-        await useAssetStore.getState().updateAssetStatus(assetId, 'check_in_started');
+        // Update asset status to check_in_started via REST API
+        await apiUpdateAssetStatus(assetId, 'check_in_started');
 
         set({
           currentDraft: {
@@ -222,36 +220,31 @@ export const useSubmissionStore = create<SubmissionState>()(
         set({ isLoading: true });
 
         try {
-          const submissionId = generateId();
-
-          // Check if asset is self-assigned (IT Admin/Org Admin submitting their own asset)
-          const assetResult = await db.queryById('assets', input.assetId);
-          const assetData = assetResult.data as { is_self_assigned?: boolean; assigned_user_id?: string } | null;
-          const isSelfAssigned = assetData?.is_self_assigned && assetData?.assigned_user_id === input.submittedBy;
-
-          console.log('[SubmissionStore] Asset self-assigned:', isSelfAssigned, 'assigned_user_id:', assetData?.assigned_user_id);
-
-          // Insert into database - use user_id for self-assigned, sub_user_id for sub-users
-          const result = await db.insert('submissions', {
-            id: submissionId,
+          // Create submission via REST API (backend handles asset validation,
+          // self-assignment detection, and status transition to 'submitted')
+          const apiResponse = await submissionsApi.create({
             asset_id: input.assetId,
-            // V3.2: Support both sub-user and IT Admin submissions
-            ...(isSelfAssigned
-              ? { user_id: input.submittedBy, sub_user_id: null }
-              : { sub_user_id: input.submittedBy, user_id: null }),
-            device_confirmed: input.deviceConfirmed,
-            photos: input.photos || {},
-            functional_checks: input.functionalChecks || {},
-            cosmetic_checklist: input.cosmeticChecklist || null,
-            accessories: input.accessories || null,
-            location: input.location || null,
-            declaration: input.declaration,
-            submitted_at: new Date().toISOString(),
+            device_confirmed: input.deviceConfirmed ?? true,
+            photos: (input.photos || {}) as Record<string, unknown>,
+            functional_checks: (input.functionalChecks || {}) as Record<string, unknown>,
+            cosmetic_checklist: (input.cosmeticChecklist || null) as Record<string, unknown> | null,
+            accessories: (input.accessories || null) as Record<string, unknown> | null,
+            location: (input.location || null) as Record<string, unknown> | null,
+            declaration: (input.declaration || { accepted: true, timestamp: new Date().toISOString() }) as Record<string, unknown>,
           });
 
-          if (result.error) {
-            throw new Error(`Database error: ${result.error.message}`);
+          if (!apiResponse.success) {
+            throw new Error(apiResponse.error?.message || 'Failed to create submission');
           }
+
+          const submissionData = apiResponse.data;
+          const submissionId = submissionData?.id || `sub-${Date.now()}`;
+
+          console.log('[SubmissionStore] Submission created via API:', submissionId);
+
+          // Backend sets status to 'submitted'; now advance to 'remote_review'
+          await apiUpdateAssetStatus(input.assetId, 'remote_review');
+          console.log('[SubmissionStore] Asset status updated to remote_review via API');
 
           const newSubmission: Submission = {
             id: submissionId,
@@ -260,60 +253,54 @@ export const useSubmissionStore = create<SubmissionState>()(
             submittedAt: new Date(),
           };
 
-          console.log('[SubmissionStore] Created submission object:', newSubmission.id);
-          console.log('[SubmissionStore] Updating asset status to submitted -> remote_review...');
+          set(state => ({
+            submissions: [...state.submissions, newSubmission],
+            currentDraft: null,
+            isLoading: false,
+          }));
 
-        const assetStore = useAssetStore.getState();
-        const audit = useAuditStore.getState();
-        const asset = assetStore.getAssetById(input.assetId);
+          // Record audit trail
+          const audit = useAuditStore.getState();
+          audit.record({
+            entityType: 'asset',
+            entityId: input.assetId,
+            action: 'submission_created',
+            fromStatus: 'check_in_started',
+            toStatus: 'remote_review',
+            actorId: input.submittedBy,
+            metadata: {
+              submissionId,
+            },
+          });
 
-        await assetStore.updateAssetStatus(input.assetId, 'submitted', undefined, true);
-        await assetStore.updateAssetStatus(input.assetId, 'remote_review', undefined, true);
+          // Fetch asset data for notification info
+          let asset: Record<string, unknown> | null = null;
+          try {
+            asset = await fetchAssetById(input.assetId);
+          } catch {
+            // Non-critical — notifications will use fallback values
+          }
 
-        console.log('[SubmissionStore] Asset status now:',
-          assetStore.assets.find(a => a.id === input.assetId)?.status
-        );
+          const enterpriseId = asset?.enterprise_id as string | undefined;
+          const brand = (asset?.brand as string) || 'Unknown';
+          const model = (asset?.model as string) || 'Unknown';
+          const serialNumber = (asset?.serial_number as string) || '';
 
-        set(state => ({
-          submissions: [...state.submissions, newSubmission],
-          currentDraft: null,
-          isLoading: false,
-        }));
+          if (enterpriseId) {
+            triggerNotification(
+              'info',
+              `it-admin-${enterpriseId}`,
+              'New Device Submission',
+              `A new device evaluation has been submitted for ${brand} ${model} (${serialNumber}). It is now in remote review queue.`
+            );
+          }
 
-        // Record audit trail
-        audit.record({
-          entityType: 'asset',
-          entityId: input.assetId,
-          action: 'submission_created',
-          fromStatus: 'check_in_started',
-          toStatus: 'remote_review',
-          actorId: input.subUserId,
-          metadata: {
-            submissionId: newSubmission.id,
-          },
-        });
-
-        // Notify IT Admin that a new submission is ready for review
-        if (asset?.enterpriseId) {
           triggerNotification(
             'info',
-            `it-admin-${asset.enterpriseId}`,
-            'New Device Submission',
-            `A new device evaluation has been submitted for ${asset.brand} ${asset.model} (${asset.serialNumber}). It is now in remote review queue.`
+            'ops_admin',
+            'Submission Awaiting Review',
+            `New device submission (${brand} ${model}) is awaiting remote review.`
           );
-        }
-
-        // Notify Technician/Main Admin that there's work in the queue
-        triggerNotification(
-          'info',
-          'main_admin',
-          'Submission Awaiting Review',
-          `New device submission (${asset?.brand} ${asset?.model}) is awaiting remote review.`
-        );
-
-        console.log('[SubmissionStore] Updated submissions array, cleared draft');
-
-        await new Promise(resolve => setTimeout(resolve, 100));
 
           return newSubmission;
         } catch (error) {

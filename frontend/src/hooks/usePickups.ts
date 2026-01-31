@@ -1,8 +1,6 @@
 /**
  * usePickups - React Query hook replacing pickupStore
  * Handles pickup requests and logistics coordination
- *
- * MIGRATED: Now uses REST API instead of direct Supabase calls
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -131,7 +129,7 @@ export function usePickupsByITAdmin(userId: string) {
 
 export interface CreatePickupRequestInput {
   enterprise_id?: string;
-  batch_id?: string;
+  batch_id: string;  // Required — pickup must go through a batch
   branch_id: string; // V3.2: Use branch_id instead of location_id
   asset_ids: string[];
   preferred_date?: string;

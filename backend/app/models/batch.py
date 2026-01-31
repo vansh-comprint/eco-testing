@@ -20,17 +20,13 @@ from app.models.base import BaseModel
 
 
 class BatchStatus(str, enum.Enum):
-    """Batch status enumeration - V3 updated"""
+    """Batch status enumeration - simplified approval + pickup flow"""
 
     DRAFT = "draft"
-    PENDING_APPROVAL = "pending_approval"  # V3: Was pending_cfo_approval
-    APPROVED = "approved"  # V3: Was cfo_approved
-    REJECTED = "rejected"  # V3: Was cfo_rejected
-    ACTIVE = "active"
-    IN_PROGRESS = "in_progress"
-    PICKUP_SCHEDULED = "pickup_scheduled"  # V3: New
-    PICKED_UP = "picked_up"  # V3: New
-    IN_TRANSIT = "in_transit"  # V3: New - assets in transit to facility
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PICKUP_IN_PROGRESS = "pickup_in_progress"  # At least one pickup created
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 

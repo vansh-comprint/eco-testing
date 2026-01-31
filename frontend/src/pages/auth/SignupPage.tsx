@@ -262,7 +262,7 @@ export function SignupPage() {
                           Skip initial admin account
                         </p>
                         <p className="font-mono text-xs text-slate-600 dark:text-zinc-400 mt-1">
-                          Create enterprise only. Admin users (IT Admin/CFO) can be added later by Super Admin.
+                          Create enterprise only. Admin users (IT Admin/Org Admin) can be added later by Super Admin.
                         </p>
                       </div>
                     </label>
@@ -313,7 +313,7 @@ export function SignupPage() {
                         ℹ️ No admin account will be created
                       </p>
                       <p className="font-mono text-xs text-amber-700 dark:text-amber-300">
-                        After enterprise approval, Super Admin can add IT Admin, CFO, or other users to this enterprise.
+                        After enterprise approval, Super Admin can add IT Admin, Org Admin, or other users to this enterprise.
                       </p>
                     </div>
                   )}

@@ -52,7 +52,7 @@ export function BulkUserUpload() {
             <div>
               <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">Bulk</span>
               <h1 className="font-brand font-bold text-2xl md:text-3xl text-white uppercase tracking-tight">
-                Import Sub-Users
+                Import Employees
               </h1>
               <p className="font-display text-zinc-500 text-sm mt-1 uppercase tracking-wide">
                 Upload multiple users via CSV
@@ -96,7 +96,7 @@ export function BulkUserUpload() {
         <CSVUserUpload
           enterpriseId={enterprise.id}
           onUpload={handleUpload}
-          onCancel={() => navigate(`${basePath}/sub-users`)}
+          onCancel={() => navigate(`${basePath}/employees`)}
         />
       </motion.div>
     </div>

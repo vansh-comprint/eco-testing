@@ -146,7 +146,7 @@ export function DeleteBatchModal({
                     />
                   </div>
 
-                  {/* Sub-Users (Optional) */}
+                  {/* Employees (Optional) */}
                   <div
                     onClick={() => !isDeleting && setDeleteSubUsers(!deleteSubUsers)}
                     className={`flex items-start gap-3 p-4 border transition-all cursor-pointer ${
@@ -164,10 +164,10 @@ export function DeleteBatchModal({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-display font-bold text-sm uppercase tracking-wide text-black dark:text-white mb-1">
-                        Sub-Users (Employees)
+                        Employees
                       </p>
                       <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                        All employees/sub-users from this enterprise will be deleted
+                        All employees from this enterprise will be deleted
                       </p>
                     </div>
                     <Checkbox
@@ -183,7 +183,7 @@ export function DeleteBatchModal({
                   <div className="bg-red-500/10 border border-red-500/30 p-4 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                     <p className="font-mono text-xs text-red-600 dark:text-red-400">
-                      <strong>Warning:</strong> Deleting {deleteAssets && 'assets'}{deleteAssets && deleteSubUsers && ' and '}{deleteSubUsers && 'sub-users'} will permanently remove all related data. This cannot be undone.
+                      <strong>Warning:</strong> Deleting {deleteAssets && 'assets'}{deleteAssets && deleteSubUsers && ' and '}{deleteSubUsers && 'employees'} will permanently remove all related data. This cannot be undone.
                     </p>
                   </div>
                 )}

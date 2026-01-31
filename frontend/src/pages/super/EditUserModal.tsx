@@ -18,11 +18,18 @@ interface UserData {
   created_at: string;
 }
 
+interface RoleOption {
+  value: string;
+  label: string;
+}
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   user: UserData;
+  allowedRoles?: RoleOption[];
+  hideRole?: boolean;
 }
 
 // Validation schemas
@@ -45,7 +52,17 @@ const passwordResetSchema = z.object({
 type UserDetailsForm = z.infer<typeof userDetailsSchema>;
 type PasswordResetForm = z.infer<typeof passwordResetSchema>;
 
-export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
+const ALL_ROLES: RoleOption[] = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'ops_admin', label: 'OPS Admin' },
+  { value: 'it_admin', label: 'IT Admin' },
+  { value: 'org_admin', label: 'Org Admin' },
+  { value: 'logistics_admin', label: 'Logistics Admin' },
+  { value: 'logistics_user', label: 'Logistics User' },
+  { value: 'employee', label: 'Employee' },
+];
+
+export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, hideRole }: EditUserModalProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'password'>('details');
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,11 +100,16 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
       console.log('📝 Updating user details:', user.id);
 
       // Update user via API
-      await usersApi.update(user.id, {
+      const result = await usersApi.update(user.id, {
         name: data.name,
         phone: data.phone || undefined,
+        role: data.role,
         status: data.status,
       });
+
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to update user');
+      }
 
       console.log('✅ User details updated successfully');
 
@@ -162,15 +184,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
     }
   };
 
-  const roles = [
-    { value: 'super_admin', label: 'Super Admin' },
-    { value: 'main_admin', label: 'Main Admin' },
-    { value: 'it_admin', label: 'IT Admin' },
-    { value: 'org_admin', label: 'Org Admin' },
-    { value: 'logistics_admin', label: 'Logistics Admin' },
-    { value: 'logistics_user', label: 'Logistics User' },
-    { value: 'sub_user', label: 'Sub User' },
-  ];
+  const roles = allowedRoles || ALL_ROLES;
 
   const statuses = [
     { value: 'active', label: 'Active' },
@@ -256,24 +270,26 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
               placeholder="+91-9876543210"
             />
 
-            <div>
-              <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
-                Role
-              </label>
-              <select
-                {...registerDetails('role')}
-                className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
-              >
-                {roles.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-              {detailsErrors.role && (
-                <p className="mt-1 text-xs text-red-500">{detailsErrors.role.message}</p>
-              )}
-            </div>
+            {!hideRole && (
+              <div>
+                <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                  Role
+                </label>
+                <select
+                  {...registerDetails('role')}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                >
+                  {roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                {detailsErrors.role && (
+                  <p className="mt-1 text-xs text-red-500">{detailsErrors.role.message}</p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>

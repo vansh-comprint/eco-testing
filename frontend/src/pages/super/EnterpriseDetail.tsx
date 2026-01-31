@@ -49,6 +49,7 @@ interface Enterprise {
   contactEmail?: string;
   contactPhone?: string;
   industry?: string;
+  companySize?: string;
   employeeCount?: number;
   createdAt: Date;
   updatedAt?: Date;
@@ -102,7 +103,7 @@ export function SuperEnterpriseDetail() {
   const [documents, setDocuments] = useState<EnterpriseDocuments | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'sub_user'>('sub_user');
+  const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'employee'>('employee');
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -115,6 +116,7 @@ export function SuperEnterpriseDetail() {
     contactEmail: '',
     contactPhone: '',
     industry: '',
+    companySize: '',
     employeeCount: '',
     addressLine1: '',
     addressLine2: '',
@@ -182,6 +184,7 @@ export function SuperEnterpriseDetail() {
           contactEmail: row.contact_email,
           contactPhone: row.contact_phone,
           industry: row.industry,
+          companySize: row.company_size,
           employeeCount: row.employee_count,
           createdAt: new Date(row.created_at),
           updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
@@ -198,6 +201,7 @@ export function SuperEnterpriseDetail() {
           contactEmail: enterpriseData.contactEmail || '',
           contactPhone: enterpriseData.contactPhone || '',
           industry: enterpriseData.industry || '',
+          companySize: enterpriseData.companySize || '',
           employeeCount: enterpriseData.employeeCount?.toString() || '',
           addressLine1: enterpriseData.address?.line1 || '',
           addressLine2: enterpriseData.address?.line2 || '',
@@ -236,7 +240,7 @@ export function SuperEnterpriseDetail() {
 
         // Sub-users (employees) are also in users table with role 'employee'
         const subUsersList = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
+          .filter((u) => u.role === 'employee' || u.role === 'employee')
           .map((u) => ({
             id: u.id,
             name: u.name,
@@ -254,7 +258,7 @@ export function SuperEnterpriseDetail() {
     }
   };
 
-  const handleAddUser = (role: 'it_admin' | 'org_admin' | 'sub_user') => {
+  const handleAddUser = (role: 'it_admin' | 'org_admin' | 'employee') => {
     setSelectedRole(role);
     setIsUserModalOpen(true);
   };
@@ -279,6 +283,7 @@ export function SuperEnterpriseDetail() {
         contact_email: editForm.contactEmail || undefined,
         contact_phone: editForm.contactPhone || undefined,
         industry: editForm.industry || undefined,
+        company_size: editForm.companySize || undefined,
         employee_count: editForm.employeeCount ? parseInt(editForm.employeeCount) : undefined,
         address: {
           line1: editForm.addressLine1,
@@ -314,6 +319,7 @@ export function SuperEnterpriseDetail() {
         contactEmail: enterprise.contactEmail || '',
         contactPhone: enterprise.contactPhone || '',
         industry: enterprise.industry || '',
+        companySize: enterprise.companySize || '',
         employeeCount: enterprise.employeeCount?.toString() || '',
         addressLine1: enterprise.address?.line1 || '',
         addressLine2: enterprise.address?.line2 || '',
@@ -370,7 +376,7 @@ export function SuperEnterpriseDetail() {
     const roleColors: Record<string, string> = {
       it_admin: 'border-blue-400/30 bg-blue-400/10 text-blue-400',
       org_admin: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
-      sub_user: 'border-purple-400/30 bg-purple-400/10 text-purple-400',
+      employee: 'border-purple-400/30 bg-purple-400/10 text-purple-400',
     };
     return roleColors[role] || 'border-slate-400/30 bg-slate-400/10 text-slate-400';
   };
@@ -379,7 +385,7 @@ export function SuperEnterpriseDetail() {
     const labels: Record<string, string> = {
       it_admin: 'IT Admin',
       org_admin: 'Org Admin',
-      sub_user: 'Sub User',
+      employee: 'Employee',
     };
     return labels[role] || role;
   };
@@ -571,6 +577,19 @@ export function SuperEnterpriseDetail() {
                     </div>
                     <div>
                       <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
+                        Company Size
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.companySize}
+                        onChange={(e) => setEditForm({ ...editForm, companySize: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
                         Employee Count
                       </label>
                       <input
@@ -694,6 +713,14 @@ export function SuperEnterpriseDetail() {
                         Industry
                       </label>
                       <p className={`font-display text-sm ${text.primary}`}>{enterprise.industry}</p>
+                    </div>
+                  )}
+                  {enterprise.companySize && (
+                    <div>
+                      <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
+                        Company Size
+                      </label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.companySize}</p>
                     </div>
                   )}
                   {enterprise.employeeCount && (
@@ -876,7 +903,7 @@ export function SuperEnterpriseDetail() {
               <div className="flex items-center gap-3">
                 <Briefcase className={`${iconSize.lg} text-emerald-500`} />
                 <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
-                  Org Admin (CFO) {orgAdmins.length > 0 && `(${orgAdmins.length})`}
+                  Org Admin {orgAdmins.length > 0 && `(${orgAdmins.length})`}
                 </h2>
               </div>
               <button
@@ -924,7 +951,7 @@ export function SuperEnterpriseDetail() {
             <div className="p-12 text-center">
               <Briefcase className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
               <p className={`font-mono text-sm ${text.muted}`}>No Org Admin assigned yet</p>
-              <p className={`font-mono text-xs ${text.muted} mt-2`}>The Org Admin (CFO) manages finance and approvals</p>
+              <p className={`font-mono text-xs ${text.muted} mt-2`}>The Org Admin manages finance and approvals</p>
             </div>
           )}
         </Card>
@@ -1002,7 +1029,7 @@ export function SuperEnterpriseDetail() {
         </Card>
       </motion.div>
 
-      {/* Sub Users Card */}
+      {/* Employees Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1014,15 +1041,15 @@ export function SuperEnterpriseDetail() {
               <div className="flex items-center gap-3">
                 <Users className={`${iconSize.lg} text-purple-500`} />
                 <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
-                  Sub Users ({subUsers.length})
+                  Employees ({subUsers.length})
                 </h2>
               </div>
               <button
-                onClick={() => handleAddUser('sub_user')}
+                onClick={() => handleAddUser('employee')}
                 className="px-3 py-2 border border-purple-400/30 bg-purple-400/10 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
               >
                 <UserPlus className={iconSize.sm} />
-                Add Sub User
+                Add Employee
               </button>
             </div>
           </div>
@@ -1034,8 +1061,8 @@ export function SuperEnterpriseDetail() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className={`font-display font-bold ${text.primary}`}>{u.name || u.email}</h3>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('sub_user')}`}>
-                          Sub User
+                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('employee')}`}>
+                          Employee
                         </span>
                         <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(u.status)}`}>
                           {u.status}
@@ -1067,8 +1094,8 @@ export function SuperEnterpriseDetail() {
           ) : (
             <div className="p-12 text-center">
               <Users className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
-              <p className={`font-mono text-sm ${text.muted}`}>No sub users found for this enterprise</p>
-              <p className={`font-mono text-xs ${text.muted} mt-2`}>Sub users are employees who submit devices for evaluation</p>
+              <p className={`font-mono text-sm ${text.muted}`}>No employees found for this enterprise</p>
+              <p className={`font-mono text-xs ${text.muted} mt-2`}>Employees are users who submit devices for evaluation</p>
             </div>
           )}
         </Card>

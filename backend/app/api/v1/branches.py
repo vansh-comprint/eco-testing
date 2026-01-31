@@ -7,13 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.enterprise import BranchStatus
 from app.schemas.branch import BranchCreate, BranchUpdate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
-from app.utils.scoping import get_scoped_filters, auto_fill_context
+from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin
 
 router = APIRouter()
 
@@ -27,6 +27,9 @@ async def list_branches(
     enterprise_id: Optional[str] = Query(
         None, description="Filter by enterprise ID (Super Admin only)"
     ),
+    it_admin_id: Optional[str] = Query(
+        None, description="Filter by IT Admin ID"
+    ),
     current_user: User = Depends(require_permission(Permission.BRANCH_READ)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -34,9 +37,9 @@ async def list_branches(
     List branches with automatic role-based scoping.
 
     Data is automatically scoped based on user's role:
-    - Super Admin / OPS Admin: All branches (can filter by enterprise_id)
+    - Super Admin / OPS Admin: All branches (can filter by enterprise_id, it_admin_id)
     - Org Admin: Branches in their enterprise
-    - IT Admin: Only their assigned branch
+    - IT Admin: Only branches assigned to them (via it_admin_id)
 
     **Permissions:** BRANCH_READ
     """
@@ -45,11 +48,17 @@ async def list_branches(
     # Use explicit enterprise_id if provided (for Super Admin), otherwise use scoped filter
     filter_enterprise_id = enterprise_id or scoped_filters.get("enterprise_id")
 
+    # For IT Admin: auto-scope to their branches via it_admin_id
+    filter_it_admin_id = it_admin_id
+    if current_user.role == UserRole.IT_ADMIN.value and not filter_it_admin_id:
+        filter_it_admin_id = current_user.id
+
     service = BranchService(db)
     branches, total = await service.list_branches(
         skip=skip,
         limit=limit,
         enterprise_id=filter_enterprise_id,
+        it_admin_id=filter_it_admin_id,
         status=status,
         search=search,
     )
@@ -72,11 +81,16 @@ async def create_branch(
     Create a new branch.
 
     Enterprise context is automatically derived from current user's role.
+    For IT Admin creators, it_admin_id is auto-set to their own ID.
 
     **Permissions:** BRANCH_CREATE
     """
     # Auto-fill enterprise_id from current user if not provided
     branch_data.enterprise_id, _ = auto_fill_context(current_user, branch_data.enterprise_id, None)
+
+    # IT Admin creating a branch: auto-assign to themselves
+    if current_user.role == UserRole.IT_ADMIN.value:
+        branch_data.it_admin_id = current_user.id
 
     try:
         service = BranchService(db)
@@ -93,13 +107,40 @@ async def get_branch(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get branch by ID.
+    Get branch by ID with access control.
+
+    - Platform admins: can access any branch
+    - Org Admin: can access branches in their enterprise
+    - IT Admin: can only access branches assigned to them
 
     **Permissions:** BRANCH_READ
     """
     try:
         service = BranchService(db)
         branch = await service.get_branch(branch_id)
+
+        # Access control based on role
+        if not is_platform_admin(current_user):
+            if current_user.role == UserRole.ORG_ADMIN.value:
+                if branch.enterprise_id != current_user.enterprise_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: branch belongs to a different enterprise",
+                    )
+            elif current_user.role == UserRole.IT_ADMIN.value:
+                if branch.it_admin_id != current_user.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: branch is not assigned to you",
+                    )
+            else:
+                # Other roles: check enterprise match
+                if current_user.enterprise_id and branch.enterprise_id != current_user.enterprise_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied",
+                    )
+
         return success_response(data=branch.model_dump())
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

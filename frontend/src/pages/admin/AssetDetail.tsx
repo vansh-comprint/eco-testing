@@ -62,7 +62,7 @@ export function AssetDetail() {
 
   // Determine context
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const isOpsAdmin = user?.role === 'main_admin' || location.pathname.startsWith('/ops');
+  const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
 
   // Fetch single asset by ID (works for all portal contexts including OPS Admin)
   const { data: directAsset } = useAsset(assetId || '');
@@ -99,8 +99,12 @@ export function AssetDetail() {
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showBatchSelectModal, setShowBatchSelectModal] = useState(false);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [isAddingToBatch, setIsAddingToBatch] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
+  const [disputeType, setDisputeType] = useState('condition_dispute');
   const [selectedSubUserId, setSelectedSubUserId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUnassigning, setIsUnassigning] = useState(false);
@@ -126,6 +130,15 @@ export function AssetDetail() {
   // Use direct fetch as primary for OPS Admin, fallback to list-based lookup for IT/Org Admin
   const asset = assets.find(a => a.id === assetId) || directAsset || null;
   const batch = asset?.batch_id ? batches.find(b => b.id === asset.batch_id) : null;
+
+  // Resolve assigned user from sub-users list or current user (for self-assignment)
+  const assignedUser = useMemo(() => {
+    if (!asset?.assigned_to_user_id) return null;
+    const fromSubUsers = subUsers.find((u: { id: string }) => u.id === asset.assigned_to_user_id);
+    if (fromSubUsers) return { name: fromSubUsers.name, email: fromSubUsers.email };
+    if (user && user.id === asset.assigned_to_user_id) return { name: user.name || user.email, email: user.email };
+    return null;
+  }, [asset?.assigned_to_user_id, subUsers, user]);
 
   // Build comprehensive timeline from all sources
   // IMPORTANT: This useMemo must be called before any early return to maintain
@@ -164,13 +177,12 @@ export function AssetDetail() {
     });
 
     // Add assignment event (use snake_case from database)
-    if (asset.assigned_sub_user_id && asset.assigned_at) {
-      const assignedUser = subUsers.find(u => u.id === asset.assigned_sub_user_id);
+    if (asset.assigned_to_user_id && asset.assigned_at) {
       events.push({
         type: 'assigned',
         status: 'Assigned to User',
         date: new Date(asset.assigned_at),
-        description: `Assigned to ${assignedUser?.name || assignedUser?.email || 'sub-user'}`,
+        description: `Assigned to ${assignedUser?.name || assignedUser?.email || 'user'}`,
         icon: UserPlus,
       });
     }
@@ -195,7 +207,7 @@ export function AssetDetail() {
         type: 'remote_review',
         status: review.decision === 'conditionally_accepted' ? 'Remote Review: Accepted' : 'Remote Review: Rejected',
         date: review.reviewedAt,
-        description: review.notes || review.reason || `Reviewed by technician - ${review.decision}`,
+        description: review.notes || review.reason || `Reviewed by reviewer - ${review.decision}`,
         icon: ClipboardCheck,
         metadata: review,
       });
@@ -260,7 +272,7 @@ export function AssetDetail() {
       const dateB = b.date instanceof Date ? b.date : new Date(b.date);
       return dateB.getTime() - dateA.getTime();
     });
-  }, [asset, getByEntity, subUsers, submissions, remoteReviews, pickupRequests, facilityQCs]);
+  }, [asset, getByEntity, assignedUser, submissions, remoteReviews, pickupRequests, facilityQCs]);
 
   if (!asset) {
     return (
@@ -300,8 +312,7 @@ export function AssetDetail() {
         await updateAssetMutation.mutateAsync({
           assetId: asset.id,
           updates: {
-            assigned_user_id: user.id,
-            is_self_assigned: true,
+            assigned_to_user_id: user.id,
             status: 'assigned',
           },
         });
@@ -422,7 +433,7 @@ export function AssetDetail() {
       await createDisputeMutation.mutateAsync({
         asset_id: asset.id,
         raised_by: user.id,
-        reason: disputeReason.trim(),
+        reason: disputeType,
         description: disputeReason.trim(),
       });
 
@@ -585,6 +596,15 @@ export function AssetDetail() {
                   Assign
                 </button>
               )}
+              {!isEditing && ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'].includes(asset.status) && (
+                <button
+                  onClick={() => setShowBatchSelectModal(true)}
+                  className="interactive px-5 py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2"
+                >
+                  <Package className="w-4 h-4" />
+                  {asset.batch_id ? 'Change Batch' : 'Add to Batch'}
+                </button>
+              )}
               {['remote_rejected', 'final_rejected'].includes(asset.status) && !isEditing && (
                 <button
                   onClick={() => setShowDisputeModal(true)}
@@ -609,7 +629,11 @@ export function AssetDetail() {
         <Badge variant={statusConfig.variant} size="lg">
           {statusConfig.label}
         </Badge>
-        <p className="font-display text-sm text-slate-700 dark:text-white/60">{statusConfig.description}</p>
+        <p className="font-display text-sm text-slate-700 dark:text-white/60">
+          {asset.status === 'assigned' && assignedUser
+            ? `Assigned to ${assignedUser.name || assignedUser.email} for check-in`
+            : statusConfig.description}
+        </p>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -907,16 +931,16 @@ export function AssetDetail() {
               {/* QC Notes */}
               {asset.qcReport.notes && (
                 <div className="p-6 border-t border-emerald-500/10">
-                  <h3 className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest mb-2">Technician Notes</h3>
+                  <h3 className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest mb-2">Reviewer Notes</h3>
                   <p className="font-display text-sm text-zinc-400">{asset.qcReport.notes}</p>
                 </div>
               )}
 
               {/* QC Meta */}
               <div className="p-6 border-t border-emerald-500/10 flex items-center justify-between text-xs">
-                {asset.qcReport.technician && (
+                {asset.qcReport.reviewer && (
                   <span className="font-mono text-slate-500 dark:text-white/50">
-                    Reviewed by: <span className="text-zinc-400">{asset.qcReport.technician}</span>
+                    Reviewed by: <span className="text-zinc-400">{asset.qcReport.reviewer}</span>
                   </span>
                 )}
                 {asset.qcReport.completedAt && (
@@ -990,7 +1014,7 @@ export function AssetDetail() {
           </motion.div>
 
           {/* Assignment Info */}
-          {asset.assigned_sub_user_id && (
+          {asset.assigned_to_user_id && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1020,10 +1044,10 @@ export function AssetDetail() {
                   </div>
                   <div>
                     <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
-                      {subUsers.find(u => u.id === asset.assigned_sub_user_id)?.name || 'Assigned User'}
+                      {assignedUser?.name || 'Assigned User'}
                     </p>
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                      {subUsers.find(u => u.id === asset.assigned_sub_user_id)?.email || asset.assigned_sub_user_id}
+                      {assignedUser?.email || asset.assigned_to_user_id}
                     </p>
                   </div>
                 </div>
@@ -1061,6 +1085,108 @@ export function AssetDetail() {
       </div>
 
       {/* Assignment Modal */}
+      {/* Add to Batch Modal */}
+      {showBatchSelectModal && asset && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
+          >
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Add to Batch</h3>
+              <button
+                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); }}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="font-display text-sm text-slate-600 dark:text-white/60">
+                Select a draft batch to add <span className="font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</span> to:
+              </p>
+
+              {(() => {
+                const eligibleBatches = batches.filter((b: any) =>
+                  b.status === 'draft' && b.branch_id === asset.branch_id
+                );
+
+                if (eligibleBatches.length === 0) {
+                  return (
+                    <div className="p-6 text-center border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                      <Package className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
+                      <p className="font-mono text-xs text-zinc-500 uppercase tracking-wide">No draft batches available</p>
+                      <p className="font-display text-xs text-zinc-400 mt-1">Create a new batch first from the Batches page</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {eligibleBatches.map((b: any) => (
+                      <button
+                        key={b.id}
+                        onClick={() => setSelectedBatchId(b.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 border transition-all text-left ${
+                          selectedBatchId === b.id
+                            ? 'border-ecotribe-primary bg-ecotribe-primary/10'
+                            : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
+                        }`}
+                      >
+                        <Package className={`w-5 h-5 ${selectedBatchId === b.id ? 'text-ecotribe-primary' : 'text-zinc-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-display font-bold text-sm truncate ${selectedBatchId === b.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
+                            {b.name}
+                          </p>
+                          <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
+                            {b.asset_count || 0} assets
+                          </p>
+                        </div>
+                        {selectedBatchId === b.id && <CheckCircle className="w-4 h-4 text-ecotribe-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3">
+              <button
+                onClick={() => { setShowBatchSelectModal(false); setSelectedBatchId(''); }}
+                className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedBatchId) return;
+                  setIsAddingToBatch(true);
+                  try {
+                    await updateAssetMutation.mutateAsync({
+                      assetId: asset.id,
+                      updates: { batch_id: selectedBatchId } as any,
+                    });
+                    addToast({ type: 'success', title: 'Added to Batch', message: `Asset added to batch successfully` });
+                    setShowBatchSelectModal(false);
+                    setSelectedBatchId('');
+                  } catch (error) {
+                    addToast({ type: 'error', title: 'Error', message: 'Failed to add asset to batch' });
+                  } finally {
+                    setIsAddingToBatch(false);
+                  }
+                }}
+                disabled={!selectedBatchId || isAddingToBatch}
+                className="flex-1 px-4 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isAddingToBatch ? 'Adding...' : 'Add to Batch'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <motion.div
@@ -1103,7 +1229,7 @@ export function AssetDetail() {
                       : 'text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  Sub-User
+                  Employee
                 </button>
                 <button
                   onClick={() => setAssignMode('create')}
@@ -1138,7 +1264,7 @@ export function AssetDetail() {
                 <>
                   <div>
                     <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
-                      Select Sub-User
+                      Select Employee
                     </label>
                     {enterpriseSubUsers.length > 0 ? (
                       <select
@@ -1146,7 +1272,7 @@ export function AssetDetail() {
                         onChange={(e) => setSelectedSubUserId(e.target.value)}
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none cursor-pointer"
                       >
-                        <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a sub-user...</option>
+                        <option value="" className="bg-white dark:bg-[#0a0a0a]">Select an employee...</option>
                         {enterpriseSubUsers.map(user => (
                           <option key={user.id} value={user.id} className="bg-white dark:bg-[#0a0a0a]">
                             {user.name || user.email} {user.department ? `(${user.department})` : ''}
@@ -1155,12 +1281,12 @@ export function AssetDetail() {
                       </select>
                     ) : (
                       <div className="text-center py-4 border border-white/10 bg-white/[0.02]">
-                        <p className="font-display text-zinc-500 text-sm mb-3">No sub-users found</p>
+                        <p className="font-display text-zinc-500 text-sm mb-3">No employees found</p>
                         <button
                           onClick={() => setAssignMode('create')}
                           className="text-xs text-ecotribe-primary hover:underline font-mono uppercase tracking-widest"
                         >
-                          Create New Sub-User
+                          Create New Employee
                         </button>
                       </div>
                     )}
@@ -1305,7 +1431,23 @@ export function AssetDetail() {
               </div>
               <div>
                 <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
-                  Reason for Dispute <span className="text-red-400">*</span>
+                  Dispute Type <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={disputeType}
+                  onChange={(e) => setDisputeType(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50"
+                >
+                  <option value="condition_dispute">Condition Dispute</option>
+                  <option value="grading_dispute">Grading Dispute</option>
+                  <option value="pricing_dispute">Pricing Dispute</option>
+                  <option value="missing_item">Missing Item</option>
+                  <option value="damage_dispute">Damage Dispute</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Description <span className="text-red-400">*</span>
                 </label>
                 <textarea
                   value={disputeReason}

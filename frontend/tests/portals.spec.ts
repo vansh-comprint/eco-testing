@@ -64,7 +64,7 @@ test.describe('OPS Admin Portal', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAuthState(page);
-    await loginAs(page, 'main_admin');
+    await loginAs(page, 'ops_admin');
     await waitForPageReady(page);
   });
 
@@ -225,7 +225,7 @@ test.describe.skip('Sub-User (Employee) Portal', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearAuthState(page);
-    await loginAs(page, 'sub_user');
+    await loginAs(page, 'employee');
     await waitForPageReady(page);
   });
 

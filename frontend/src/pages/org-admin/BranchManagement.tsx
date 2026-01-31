@@ -102,14 +102,21 @@ export function BranchManagement() {
   const branches = isOrgAdmin ? orgBranches : itBranches;
   const isLoading = isOrgAdmin ? orgLoading : itLoading;
   
-  const { data: branchSummaries = [] } = useBranchSummary(enterpriseId);
+  const { data: allBranchSummaries = [] } = useBranchSummary(enterpriseId);
   const { data: itAdmins = [] } = useActiveITAdmins(enterpriseId); // Only show active admins in dropdown
+
+  // V3.2: Scope branch summaries to IT Admin's branches
+  const myBranchIds = new Set(branches.map((b: Branch) => b.id));
+  const branchSummaries = isOrgAdmin
+    ? allBranchSummaries
+    : allBranchSummaries.filter((s: BranchSummary) => myBranchIds.has(s.branch_id));
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const deleteBranch = useDeleteBranch();
   
-  // IT Admin cannot create/edit/delete branches - only Org Admin can
+  // Org Admin can fully manage branches; IT Admin can only create new ones
   const canManageBranches = isOrgAdmin;
+  const canCreateBranches = true; // Both Org Admin and IT Admin can create branches
 
   // Filter branches by search
   const filteredBranches = branches.filter((branch: Branch) =>
@@ -177,16 +184,18 @@ export function BranchManagement() {
         title="Branch Management"
         subtitle={isOrgAdmin ? "Manage your enterprise branches and IT Admin assignments" : "View your assigned branches"}
         actions={
-          canManageBranches ? (
+          canCreateBranches ? (
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleBulkUpload}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
-              >
-                <Upload className={iconSize.md} />
-                Bulk Upload
-              </button>
+              {canManageBranches && (
+                <button
+                  type="button"
+                  onClick={handleBulkUpload}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
+                >
+                  <Upload className={iconSize.md} />
+                  Bulk Upload
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleAddBranch}
@@ -249,6 +258,7 @@ export function BranchManagement() {
           onBulkUpload={handleBulkUpload}
           hasSearch={searchQuery.length > 0}
           canManage={canManageBranches}
+          canCreate={canCreateBranches}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -286,6 +296,7 @@ export function BranchManagement() {
         branch={editingBranch}
         enterpriseId={enterpriseId}
         itAdmins={itAdmins}
+        isOrgAdmin={isOrgAdmin}
         onSubmit={async (data) => {
           if (editingBranch) {
             await updateBranch.mutateAsync({ branchId: editingBranch.id, updates: data });
@@ -477,30 +488,32 @@ function BranchCard({
 }
 
 // Empty State Component
-function EmptyState({ onAddBranch, onBulkUpload, hasSearch, canManage = true }: { onAddBranch: () => void; onBulkUpload: () => void; hasSearch: boolean; canManage?: boolean }) {
+function EmptyState({ onAddBranch, onBulkUpload, hasSearch, canManage = true, canCreate = true }: { onAddBranch: () => void; onBulkUpload: () => void; hasSearch: boolean; canManage?: boolean; canCreate?: boolean }) {
   return (
     <div className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 py-16 text-center">
       <Building2 className={`${iconSize['2xl']} mx-auto mb-4 ${text.muted}`} />
       <h3 className={`font-display font-bold text-lg mb-2 ${text.primary}`}>
-        {hasSearch ? 'No branches found' : canManage ? 'No branches yet' : 'No branches assigned'}
+        {hasSearch ? 'No branches found' : (canManage || canCreate) ? 'No branches yet' : 'No branches assigned'}
       </h3>
       <p className={`text-sm mb-6 ${text.muted}`}>
         {hasSearch
           ? 'Try adjusting your search criteria'
-          : canManage 
-            ? 'Create your first branch to start organizing IT Admins and assets'
+          : canCreate
+            ? 'Create your first branch to start managing assets'
             : 'Contact your Org Admin to get assigned to a branch'}
       </p>
-      {!hasSearch && canManage && (
+      {!hasSearch && canCreate && (
         <div className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={onBulkUpload}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
-          >
-            <Upload className={iconSize.md} />
-            Bulk Upload CSV
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={onBulkUpload}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
+            >
+              <Upload className={iconSize.md} />
+              Bulk Upload CSV
+            </button>
+          )}
           <button
             type="button"
             onClick={onAddBranch}
@@ -522,6 +535,7 @@ function BranchFormModal({
   branch,
   enterpriseId,
   itAdmins,
+  isOrgAdmin = true,
   onSubmit,
   isLoading
 }: {
@@ -530,6 +544,7 @@ function BranchFormModal({
   branch: Branch | null;
   enterpriseId: string;
   itAdmins: ITAdmin[];
+  isOrgAdmin?: boolean;
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   isLoading: boolean;
 }) {
@@ -788,29 +803,31 @@ function BranchFormModal({
           </div>
         </div>
 
-        {/* IT Admin Assignment */}
-        <div>
-          <label className={`block text-sm font-medium mb-1.5 ${text.primary}`}>
-            Assign IT Admin
-            <span className={`font-normal ml-1 ${text.muted}`}>(Optional)</span>
-          </label>
-          <select
-            name="it_admin_id"
-            value={formData.it_admin_id || ''}
-            onChange={handleChange}
-            className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
-          >
-            <option value="">No IT Admin (needs_admin status)</option>
-            {itAdmins.map((admin: ITAdmin) => (
-              <option key={admin.id} value={admin.id}>
-                {admin.name} ({admin.email})
-              </option>
-            ))}
-          </select>
-          <p className={`text-xs mt-1 ${text.muted}`}>
-            Branches without an IT Admin will be marked as "Needs Admin"
-          </p>
-        </div>
+        {/* IT Admin Assignment - Only shown to Org Admin */}
+        {isOrgAdmin && (
+          <div>
+            <label className={`block text-sm font-medium mb-1.5 ${text.primary}`}>
+              Assign IT Admin
+              <span className={`font-normal ml-1 ${text.muted}`}>(Optional)</span>
+            </label>
+            <select
+              name="it_admin_id"
+              value={formData.it_admin_id || ''}
+              onChange={handleChange}
+              className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
+            >
+              <option value="">No IT Admin (needs_admin status)</option>
+              {itAdmins.map((admin: ITAdmin) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.name} ({admin.email})
+                </option>
+              ))}
+            </select>
+            <p className={`text-xs mt-1 ${text.muted}`}>
+              Branches without an IT Admin will be marked as "Needs Admin"
+            </p>
+          </div>
+        )}
 
         {/* Address */}
         <div className="space-y-4">

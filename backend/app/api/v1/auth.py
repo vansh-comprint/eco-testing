@@ -43,7 +43,7 @@ async def login(
     Rate limited to 5 attempts per minute per IP address.
 
     **Roles:** All admin roles (Super Admin, OPS Admin, Org Admin, IT Admin,
-    Technician, Logistics Admin, Logistics User)
+    Logistics Admin, Logistics User)
     """
     auth_service = AuthService(db)
     access_token, refresh_token, user = await auth_service.login(request)

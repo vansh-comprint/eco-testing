@@ -73,7 +73,7 @@ export {
   itAdminKeys,
 } from './useBranches';
 
-// Sub Users
+// Employees (formerly Sub Users)
 export {
   useSubUsers,
   useAllSubUsers,
@@ -87,13 +87,13 @@ export {
   useSendSubUserInvitation,
   useBulkSendInvitations,
   subUserKeys,
-} from './useSubUsers';
+} from './useEmployees';
 
-// Pickups (partially MIGRATED to REST API - pickup locations still use Supabase)
+// Pickups
 export {
   usePickupRequests,
   usePickupRequest,
-  usePickupLocations, // Legacy: Supabase
+  usePickupLocations,
   useAllPickupRequests,
   usePendingPickups,
   useMyAssignments,
@@ -104,10 +104,10 @@ export {
   useAssignToLogisticsUser,
   useStartPickup,
   useUpdatePickupStatus,
-  useCreatePickupLocation, // Legacy: Supabase
-  useUpdatePickupLocation, // Legacy: Supabase
-  useDeletePickupLocation, // Legacy: Supabase
-  useSetDefaultPickupLocation, // Legacy: Supabase
+  useCreatePickupLocation,
+  useUpdatePickupLocation,
+  useDeletePickupLocation,
+  useSetDefaultPickupLocation,
   useCompletePickup,
   useCancelPickup,
   pickupKeys,
@@ -188,7 +188,7 @@ export type { SidebarBadges } from './useSidebarBadges';
 export type { CreateAssetInput } from './useAssets';
 export type { CreateBatchInput, SubmitForApprovalInput, ApproveBatchInput, ApproveBatchWithPricesInput, RejectBatchInput } from './useBatches';
 export type { CreateBranchInput } from './useBranches';
-export type { CreateSubUserInput } from './useSubUsers';
+export type { CreateSubUserInput } from './useEmployees';
 export type { CreatePickupRequestInput } from './usePickups';
 export type { CreateLogisticsAdminInput, CreateLogisticsUserInput } from './useLogistics';
 export type { CreateEnterpriseApplicationInput } from './useEnterpriseApplications';

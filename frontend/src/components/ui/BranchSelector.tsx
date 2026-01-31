@@ -8,7 +8,8 @@
  * - Shows branch details (name, code, city)
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2,
@@ -71,7 +72,22 @@ export function BranchSelector({
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  // Calculate menu position relative to viewport for portal rendering
+  const updateMenuPosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, []);
 
   // Fetch branches - use IT Admin filter if userId provided
   const { data: allBranches = [], isLoading, refetch } = userId
@@ -101,16 +117,32 @@ export function BranchSelector({
     [branches, value]
   );
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click (check both trigger and portal menu)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const isInsideDropdown = dropdownRef.current?.contains(target);
+      const isInsideMenu = menuRef.current?.contains(target);
+      if (!isInsideDropdown && !isInsideMenu) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update position on scroll/resize when open
+  useEffect(() => {
+    if (isOpen) {
+      updateMenuPosition();
+      window.addEventListener('scroll', updateMenuPosition, true);
+      window.addEventListener('resize', updateMenuPosition);
+      return () => {
+        window.removeEventListener('scroll', updateMenuPosition, true);
+        window.removeEventListener('resize', updateMenuPosition);
+      };
+    }
+  }, [isOpen, updateMenuPosition]);
 
   // Focus search on open
   useEffect(() => {
@@ -152,10 +184,12 @@ export function BranchSelector({
       {/* Trigger Button */}
       <div ref={dropdownRef}>
         <button
+          ref={buttonRef}
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) {
+              if (!isOpen) updateMenuPosition();
               setIsOpen(!isOpen);
             }
           }}
@@ -206,113 +240,125 @@ export function BranchSelector({
           </div>
         </button>
 
-        {/* Dropdown */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-              className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl max-h-80 overflow-hidden"
-            >
-              {/* Search */}
-              <div className="p-2 border-b border-slate-200 dark:border-white/10">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Search branches..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
-                  />
-                </div>
-              </div>
-
-              {/* Branch List */}
-              <div className="max-h-48 overflow-y-auto">
-                {isLoading ? (
-                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">
-                    Loading branches...
-                  </div>
-                ) : filteredBranches.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">
-                    {searchQuery ? 'No branches found' : 'No branches yet'}
-                  </div>
-                ) : (
-                  filteredBranches.map((branch: Branch) => (
-                    <button
-                      key={branch.id}
-                      type="button"
-                      onClick={() => handleSelect(branch)}
-                      className={cn(
-                        'w-full px-4 py-3 flex items-center gap-3 text-left',
-                        'hover:bg-slate-100 dark:hover:bg-white/5 transition-colors',
-                        value === branch.id && 'bg-ecotribe-primary/10'
-                      )}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-4 h-4 text-zinc-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-900 dark:text-white font-medium truncate">
-                          {branch.branch_name}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                          <span className="font-mono">{branch.branch_code}</span>
-                          <span>·</span>
-                          <span className="truncate">{branch.city}, {branch.state}</span>
-                        </div>
-                      </div>
-                      {value === branch.id && (
-                        <Check className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {/* Add New Button */}
-              {showAddNew && (
-                <div className="border-t border-slate-200 dark:border-white/10">
-                  <button
-                    type="button"
-                    onClick={handleAddNewClick}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-ecotribe-primary/10 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-ecotribe-primary/20 flex items-center justify-center">
-                      <Plus className="w-4 h-4 text-ecotribe-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-ecotribe-primary font-medium">
-                        Add New Branch
-                      </p>
-                      <p className="text-[10px] text-zinc-500">
-                        Create a new branch location
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Dropdown - rendered via portal to escape overflow constraints */}
+      {isOpen && createPortal(
+        <AnimatePresence>
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+            }}
+            className="z-[9999] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 shadow-xl max-h-80 overflow-hidden"
+          >
+            {/* Search */}
+            <div className="p-2 border-b border-slate-200 dark:border-white/10">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search branches..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-ecotribe-primary/50"
+                />
+              </div>
+            </div>
+
+            {/* Branch List */}
+            <div className="max-h-48 overflow-y-auto">
+              {isLoading ? (
+                <div className="px-4 py-8 text-center text-zinc-500 text-sm">
+                  Loading branches...
+                </div>
+              ) : filteredBranches.length === 0 ? (
+                <div className="px-4 py-8 text-center text-zinc-500 text-sm">
+                  {searchQuery ? 'No branches found' : 'No branches yet'}
+                </div>
+              ) : (
+                filteredBranches.map((branch: Branch) => (
+                  <button
+                    key={branch.id}
+                    type="button"
+                    onClick={() => handleSelect(branch)}
+                    className={cn(
+                      'w-full px-4 py-3 flex items-center gap-3 text-left',
+                      'hover:bg-slate-100 dark:hover:bg-white/5 transition-colors',
+                      value === branch.id && 'bg-ecotribe-primary/10'
+                    )}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <Building2 className="w-4 h-4 text-zinc-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-900 dark:text-white font-medium truncate">
+                        {branch.branch_name}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                        <span className="font-mono">{branch.branch_code}</span>
+                        <span>·</span>
+                        <span className="truncate">{branch.city}, {branch.state}</span>
+                      </div>
+                    </div>
+                    {value === branch.id && (
+                      <Check className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Add New Button */}
+            {showAddNew && (
+              <div className="border-t border-slate-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={handleAddNewClick}
+                  className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-ecotribe-primary/10 transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-ecotribe-primary/20 flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-ecotribe-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-ecotribe-primary font-medium">
+                      Add New Branch
+                    </p>
+                    <p className="text-[10px] text-zinc-500">
+                      Create a new branch location
+                    </p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Error Message */}
       {error && (
         <p className="mt-1 text-xs text-red-400">{error}</p>
       )}
 
-      {/* Add Branch Modal */}
-      <AddBranchModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        enterpriseId={enterpriseId}
-        onCreated={handleBranchCreated}
-      />
+      {/* Add Branch Modal - rendered via portal to escape stacking contexts */}
+      {showAddModal && createPortal(
+        <AddBranchModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          enterpriseId={enterpriseId}
+          onCreated={handleBranchCreated}
+        />,
+        document.body
+      )}
     </div>
   );
 }

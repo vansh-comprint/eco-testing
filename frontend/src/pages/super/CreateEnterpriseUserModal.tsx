@@ -28,11 +28,11 @@ const createEnterpriseUserSchema = z.object({
   phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
   password: z.string().optional(),
   enterpriseId: z.string().min(1, 'Enterprise is required'),
-  role: z.enum(['it_admin', 'org_admin', 'sub_user']),
+  role: z.enum(['it_admin', 'org_admin', 'employee']),
   branchId: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Password required for it_admin and org_admin
-  if (data.role !== 'sub_user' && (!data.password || data.password.length < 8)) {
+  if (data.role !== 'employee' && (!data.password || data.password.length < 8)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Password must be at least 8 characters',
@@ -57,7 +57,7 @@ interface CreateEnterpriseUserModalProps {
   onSuccess?: () => void;
   enterpriseId?: string;
   enterpriseName?: string;
-  defaultRole?: 'it_admin' | 'org_admin' | 'sub_user';
+  defaultRole?: 'it_admin' | 'org_admin' | 'employee';
 }
 
 export function CreateEnterpriseUserModal({
@@ -143,10 +143,10 @@ export function CreateEnterpriseUserModal({
   const onSubmit = async (data: CreateEnterpriseUserForm) => {
     setIsSubmitting(true);
     try {
-      const roleLabel = data.role === 'it_admin' ? 'IT Admin' : data.role === 'org_admin' ? 'Org Admin' : 'Sub User';
+      const roleLabel = data.role === 'it_admin' ? 'IT Admin' : data.role === 'org_admin' ? 'Org Admin' : 'Employee';
 
-      // Map frontend role to backend role: sub_user → employee
-      const backendRole = data.role === 'sub_user' ? 'employee' : data.role;
+      // Role is already 'employee' for the backend
+      const backendRole = data.role;
 
       // Create user via REST API
       const result = await usersApi.create({
@@ -154,7 +154,7 @@ export function CreateEnterpriseUserModal({
         email: data.email,
         name: data.name,
         phone: data.phone || '',
-        password: data.role === 'sub_user' ? undefined : data.password,
+        password: data.role === 'employee' ? undefined : data.password,
         role: backendRole,
         branch_id: data.role === 'it_admin' ? data.branchId : undefined,
       });
@@ -169,7 +169,7 @@ export function CreateEnterpriseUserModal({
       addToast({
         type: 'success',
         title: `${roleLabel} Created Successfully`,
-        message: data.role === 'sub_user'
+        message: data.role === 'employee'
           ? `${data.name} (${data.email}) at ${displayEnterpriseName} can now log in via OTP`
           : `${data.name} (${data.email}) at ${displayEnterpriseName} can now log in with their password`,
         duration: 5000,
@@ -179,7 +179,7 @@ export function CreateEnterpriseUserModal({
       onClose();
       onSuccess?.();
     } catch (error) {
-      const roleLabel = selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User';
+      const roleLabel = selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Employee';
       console.error(`Error creating ${roleLabel}:`, error);
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -214,7 +214,7 @@ export function CreateEnterpriseUserModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="Add Enterprise User"
-      description="Create IT Admin or CFO for an enterprise"
+      description="Create IT Admin or Org Admin for an enterprise"
       size="md"
     >
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -266,7 +266,7 @@ export function CreateEnterpriseUserModal({
             >
               <option value="it_admin">IT Admin</option>
               <option value="org_admin">Org Admin</option>
-              <option value="sub_user">Sub User (Employee)</option>
+              <option value="employee">Employee</option>
             </select>
             {errors.role && (
               <p className="mt-1 text-xs text-red-500">{errors.role.message}</p>
@@ -319,8 +319,8 @@ export function CreateEnterpriseUserModal({
             required
           />
 
-          {/* Password — hidden for sub_user (employees use OTP) */}
-          {selectedRole !== 'sub_user' && (
+          {/* Password — hidden for employee (employees use OTP) */}
+          {selectedRole !== 'employee' && (
             <Input
               label="Password"
               type="password"
@@ -341,14 +341,14 @@ export function CreateEnterpriseUserModal({
           <div className="pt-2 p-4 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded">
             <p className={`font-mono text-xs ${text.muted}`}>
               <span className="font-bold">Creating:</span>{' '}
-              {selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User (Employee)'}
+              {selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Employee'}
             </p>
             <p className={`font-mono text-xs ${text.muted} mt-1`}>
               {selectedRole === 'it_admin'
                 ? 'IT Admins can manage assets, batches, and employees for their enterprise.'
                 : selectedRole === 'org_admin'
                 ? 'Org Admins can approve pickups, manage branches, and view financial reports for their enterprise.'
-                : 'Sub Users can submit device information and track their asset submissions. They will use OTP-based login.'}
+                : 'Employees can submit device information and track their asset submissions. They will use OTP-based login.'}
             </p>
           </div>
         </div>
@@ -368,7 +368,7 @@ export function CreateEnterpriseUserModal({
             disabled={isSubmitting}
             leftIcon={<UserPlus className="w-4 h-4" />}
           >
-            {isSubmitting ? 'Creating...' : `Create ${selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Sub User'}`}
+            {isSubmitting ? 'Creating...' : `Create ${selectedRole === 'it_admin' ? 'IT Admin' : selectedRole === 'org_admin' ? 'Org Admin' : 'Employee'}`}
           </Button>
         </ModalFooter>
       </form>

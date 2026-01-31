@@ -70,8 +70,8 @@ export function EnterpriseDetail() {
   const [branches, setBranches] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'sub_user'>('sub_user');
-  const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'sub_user' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'employee'>('employee');
+  const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'employee' | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -135,7 +135,7 @@ export function EnterpriseDetail() {
 
         // Sub-users (employees)
         const subUsersList = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
+          .filter((u) => u.role === 'employee' || u.role === 'employee')
           .map((u) => ({
             id: u.id,
             name: u.name,
@@ -153,7 +153,7 @@ export function EnterpriseDetail() {
     }
   };
 
-  const handleAddUser = (role: 'it_admin' | 'org_admin' | 'sub_user') => {
+  const handleAddUser = (role: 'it_admin' | 'org_admin' | 'employee') => {
     setSelectedRole(role);
     setIsUserModalOpen(true);
   };
@@ -239,7 +239,7 @@ export function EnterpriseDetail() {
     const roleColors: Record<string, string> = {
       it_admin: 'border-blue-400/30 bg-blue-400/10 text-blue-400',
       org_admin: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
-      sub_user: 'border-purple-400/30 bg-purple-400/10 text-purple-400',
+      employee: 'border-purple-400/30 bg-purple-400/10 text-purple-400',
     };
     return roleColors[role] || 'border-slate-400/30 bg-slate-400/10 text-slate-400';
   };
@@ -248,7 +248,7 @@ export function EnterpriseDetail() {
     const labels: Record<string, string> = {
       it_admin: 'IT Admin',
       org_admin: 'Org Admin',
-      sub_user: 'Sub User',
+      employee: 'Employee',
     };
     return labels[role] || role;
   };
@@ -417,7 +417,7 @@ export function EnterpriseDetail() {
               <div className="flex items-center gap-3">
                 <Briefcase className={`${iconSize.lg} text-emerald-500`} />
                 <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
-                  Org Admin (CFO) {orgAdmins.length > 0 && `(${orgAdmins.length})`}
+                  Org Admin {orgAdmins.length > 0 && `(${orgAdmins.length})`}
                 </h2>
               </div>
               <button
@@ -465,7 +465,7 @@ export function EnterpriseDetail() {
             <div className="p-12 text-center">
               <Briefcase className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
               <p className={`font-mono text-sm ${text.muted}`}>No Org Admin assigned yet</p>
-              <p className={`font-mono text-xs ${text.muted} mt-2`}>The Org Admin (CFO) manages finance and approvals</p>
+              <p className={`font-mono text-xs ${text.muted} mt-2`}>The Org Admin manages finance and approvals</p>
             </div>
           )}
         </Card>
@@ -552,7 +552,7 @@ export function EnterpriseDetail() {
         </Card>
       </motion.div>
 
-      {/* Sub Users Card */}
+      {/* Employees Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -564,23 +564,23 @@ export function EnterpriseDetail() {
               <div className="flex items-center gap-3">
                 <Users className={`${iconSize.lg} text-purple-500`} />
                 <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
-                  Sub Users ({subUsers.length})
+                  Employees ({subUsers.length})
                 </h2>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setBulkImportType('sub_user')}
+                  onClick={() => setBulkImportType('employee')}
                   className="px-3 py-2 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
                 >
                   <Upload className={iconSize.sm} />
                   Bulk Import
                 </button>
                 <button
-                  onClick={() => handleAddUser('sub_user')}
+                  onClick={() => handleAddUser('employee')}
                   className="px-3 py-2 border border-purple-400/30 bg-purple-400/10 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
                 >
                   <UserPlus className={iconSize.sm} />
-                  Add Sub User
+                  Add Employee
                 </button>
               </div>
             </div>
@@ -593,8 +593,8 @@ export function EnterpriseDetail() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className={`font-display font-bold ${text.primary}`}>{user.name || user.email}</h3>
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('sub_user')}`}>
-                          Sub User
+                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge('employee')}`}>
+                          Employee
                         </span>
                         <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
                           {user.status}
@@ -626,8 +626,8 @@ export function EnterpriseDetail() {
           ) : (
             <div className="p-12 text-center">
               <Users className={`w-12 h-12 mx-auto mb-4 ${text.muted}`} />
-              <p className={`font-mono text-sm ${text.muted}`}>No sub users found for this enterprise</p>
-              <p className={`font-mono text-xs ${text.muted} mt-2`}>Sub users are employees who submit devices for evaluation</p>
+              <p className={`font-mono text-sm ${text.muted}`}>No employees found for this enterprise</p>
+              <p className={`font-mono text-xs ${text.muted} mt-2`}>Employees are users who submit devices for evaluation</p>
             </div>
           )}
         </Card>
@@ -649,11 +649,11 @@ export function EnterpriseDetail() {
       <BulkImportModal
         isOpen={bulkImportType !== null}
         onClose={() => setBulkImportType(null)}
-        title={bulkImportType === 'it_admin' ? 'Bulk Import IT Admins' : 'Bulk Import Sub Users'}
+        title={bulkImportType === 'it_admin' ? 'Bulk Import IT Admins' : 'Bulk Import Employees'}
         description={
           bulkImportType === 'it_admin'
             ? 'Upload a CSV file to create multiple IT Admin accounts at once.'
-            : 'Upload a CSV file to create multiple employee (sub-user) accounts at once.'
+            : 'Upload a CSV file to create multiple employee accounts at once.'
         }
         columns={bulkImportType === 'it_admin' ? itAdminBulkColumns : subUserBulkColumns}
         onImport={handleBulkImport}

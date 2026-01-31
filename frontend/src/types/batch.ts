@@ -2,15 +2,24 @@
 
 export type BatchStatus =
   | 'draft'
-  | 'pending_approval'        // V3: Was 'pending_cfo_approval' - awaits Org Admin approval
-  | 'approved'                // V3: Was 'cfo_approved'
-  | 'rejected'                // V3: Was 'cfo_rejected'
-  | 'active'
-  | 'in_progress'
-  | 'pickup_scheduled'        // V3: New - after approval, pickup is scheduled
-  | 'picked_up'               // V3: New - devices collected
+  | 'pending_approval'        // Awaits Org Admin approval
+  | 'approved'                // Org Admin approved
+  | 'rejected'                // Org Admin rejected
+  | 'pickup_in_progress'      // At least one pickup created
   | 'completed'
   | 'cancelled';
+
+export interface BatchProgressStats {
+  total: number;
+  pending_assignment: number;
+  assigned: number;
+  in_review: number;
+  verified: number;
+  in_pickup: number;
+  picked_up: number;
+  completed: number;
+  rejected: number;
+}
 
 export interface Batch {
   id: string;
@@ -34,7 +43,7 @@ export interface Batch {
   itAdminNotes?: string;
   logisticsInstructions?: string;
 
-  // V3: Approval fields (was CFO approval)
+  // Approval fields (Org Admin approval)
   requiresApproval: boolean;
   submittedForApprovalAt?: Date;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
@@ -48,6 +57,9 @@ export interface Batch {
   // EPR tracking
   eprCertificateId?: string;
   eprStatus?: 'not_started' | 'pending' | 'issued';
+
+  // Progress (computed by backend)
+  progress?: BatchProgressStats;
 
   createdBy: string;
   createdAt: Date;
@@ -79,7 +91,7 @@ export interface UpdateBatchInput {
   completedAt?: Date;
 }
 
-// V3: Pickup approval input (was CFOApprovalInput)
+// Pickup approval input
 export interface PickupApprovalInput {
   batchId: string;
   approved: boolean;
@@ -87,18 +99,14 @@ export interface PickupApprovalInput {
   notes?: string;
 }
 
-// Deprecated: Use PickupApprovalInput instead
-export interface CFOApprovalInput extends PickupApprovalInput {}
+// Migration: Legacy CFOApprovalInput removed. Use PickupApprovalInput instead.
 
 export const batchStatusLabels: Record<BatchStatus, string> = {
   draft: 'Draft',
-  pending_approval: 'Pending Approval',     // V3: Was 'Pending CFO Approval'
-  approved: 'Approved',                     // V3: Was 'CFO Approved'
-  rejected: 'Rejected',                     // V3: Was 'CFO Rejected'
-  active: 'Active',
-  in_progress: 'In Progress',
-  pickup_scheduled: 'Pickup Scheduled',     // V3: New
-  picked_up: 'Picked Up',                   // V3: New
+  pending_approval: 'Pending Approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  pickup_in_progress: 'Pickup In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
 };
@@ -112,5 +120,4 @@ export function requiresOrgAdminApproval(assetCount: number, estimatedValue: num
   return assetCount >= thresholds.batchSize || estimatedValue >= thresholds.batchValue;
 }
 
-// Deprecated: Use requiresOrgAdminApproval instead
-export const requiresCfoApproval = requiresOrgAdminApproval;
+// Migration: Legacy requiresCfoApproval removed. Use requiresOrgAdminApproval instead.

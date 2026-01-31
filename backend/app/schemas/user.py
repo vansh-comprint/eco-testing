@@ -101,6 +101,7 @@ class UserUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     phone: Optional[str] = Field(None, max_length=20)
+    role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
     branch_id: Optional[str] = None
 

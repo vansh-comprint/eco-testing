@@ -221,7 +221,7 @@ export function BulkUploadDetail() {
               {uploadedAssets.map((asset, index) => {
                 const statusConfig = getStatusConfig(asset.status);
                 // V3: Use snake_case field names
-                const subUser = asset.assigned_sub_user_id ? getSubUserById(asset.assigned_sub_user_id) : null;
+                const subUser = asset.assigned_to_user_id ? getSubUserById(asset.assigned_to_user_id) : null;
 
                 return (
                   <motion.tr

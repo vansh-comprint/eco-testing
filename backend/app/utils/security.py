@@ -29,7 +29,6 @@ ROLE_HIERARCHY = {
     UserRole.OPS_ADMIN.value: 4,
     UserRole.ORG_ADMIN.value: 3,
     UserRole.IT_ADMIN.value: 2,
-    UserRole.TECHNICIAN.value: 2,
     UserRole.LOGISTICS_ADMIN.value: 2,
     UserRole.LOGISTICS_USER.value: 1,
     UserRole.EMPLOYEE.value: 0,

@@ -15,13 +15,12 @@ class UserRole(str, enum.Enum):
 
     Platform Roles:
     - SUPER_ADMIN: Platform oversight, pricing config
-    - OPS_ADMIN: Operations management (was MAIN_ADMIN)
-    - TECHNICIAN: Remote review and facility QC
+    - OPS_ADMIN: Operations management, remote review, facility QC
 
     Enterprise Roles:
-    - ORG_ADMIN: Enterprise admin, branches, finances, approvals (was CFO)
+    - ORG_ADMIN: Enterprise admin, branches, finances, approvals
     - IT_ADMIN: Branch-level asset & batch management
-    - EMPLOYEE: Enterprise employees who submit devices (was SUB_USER)
+    - EMPLOYEE: Enterprise employees who submit devices
 
     Logistics Roles:
     - LOGISTICS_ADMIN: Logistics partner company admin
@@ -31,7 +30,6 @@ class UserRole(str, enum.Enum):
     # Platform roles
     SUPER_ADMIN = "super_admin"
     OPS_ADMIN = "ops_admin"
-    TECHNICIAN = "technician"
 
     # Enterprise roles
     ORG_ADMIN = "org_admin"
@@ -62,7 +60,7 @@ class User(BaseModel):
     Unified User model for ALL user types in EcoTribe V3.
 
     Represents:
-    - Platform: Super Admin, OPS Admin, Technician
+    - Platform: Super Admin, OPS Admin
     - Enterprise: Org Admin, IT Admin, Employee
     - Logistics: Logistics Admin, Logistics User
 
@@ -78,7 +76,7 @@ class User(BaseModel):
     enterprise_id = Column(
         String,
         ForeignKey("enterprises.id", ondelete="CASCADE"),
-        nullable=True,  # Null for platform roles (super_admin, ops_admin, technician)
+        nullable=True,  # Null for platform roles (super_admin, ops_admin)
         index=True,
     )
     branch_id = Column(
@@ -139,7 +137,7 @@ class User(BaseModel):
     # ==================== Relationships ====================
     # Enterprise relationships
     enterprise = relationship("Enterprise", back_populates="users")
-    branch = relationship("Branch", back_populates="it_admins")
+    branch = relationship("Branch", back_populates="it_admins", foreign_keys=[branch_id])
 
     # Self-referential for logistics hierarchy
     parent_user = relationship("User", remote_side=[id], backref="child_users")
@@ -200,7 +198,6 @@ class User(BaseModel):
         return self.role in [
             UserRole.SUPER_ADMIN.value,
             UserRole.OPS_ADMIN.value,
-            UserRole.TECHNICIAN.value,
         ]
 
     @property

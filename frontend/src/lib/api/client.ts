@@ -62,8 +62,22 @@ export interface PaginationMeta {
   total_pages: number;
 }
 
-// Refresh access token
+// Refresh access token (with mutex to prevent concurrent refresh race conditions)
+let refreshPromise: Promise<boolean> | null = null;
+
 async function refreshAccessToken(): Promise<boolean> {
+  // If a refresh is already in progress, wait for it instead of firing another
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = doRefreshAccessToken();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+async function doRefreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
@@ -76,7 +90,11 @@ async function refreshAccessToken(): Promise<boolean> {
 
     if (response.ok) {
       const data = await response.json();
-      setTokens(data.data.access_token, refreshToken);
+      const newAccess = data.data?.access_token;
+      const newRefresh = data.data?.refresh_token;
+      if (!newAccess) return false;
+      // Use rotated refresh token if provided, otherwise keep current one
+      setTokens(newAccess, newRefresh || refreshToken);
       return true;
     }
   } catch {

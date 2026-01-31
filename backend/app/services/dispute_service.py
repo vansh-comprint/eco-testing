@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Dispute, DisputeStatus, User, UserRole
+from app.models import Dispute, DisputeStatus, User, UserRole, Asset, AssetStatus
 from app.repositories.dispute_repository import DisputeRepository
+from app.repositories.asset_repository import AssetRepository
 from app.schemas.dispute import DisputeCreate, DisputeUpdate, DisputeResolve
 from app.utils.security import (
     strip_dangerous_content,
@@ -33,6 +34,7 @@ class DisputeService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.repo = DisputeRepository(session)
+        self.asset_repo = AssetRepository(session)
 
     async def create_dispute(self, data: DisputeCreate, user: User) -> Dispute:
         """
@@ -66,6 +68,22 @@ class DisputeService:
                 validate_no_injection(url, "evidence_url")  # Check for injection payloads
                 evidence_urls.append(url)
 
+        # Verify asset exists and is in a rejectable state
+        asset = await self.asset_repo.get_by_id(data.asset_id)
+        if not asset:
+            raise ValueError("Asset not found")
+
+        disputable_statuses = [
+            AssetStatus.REMOTE_REJECTED.value,
+            AssetStatus.FINAL_REJECTED.value,
+            AssetStatus.PICKUP_FAILED_QC.value,
+        ]
+        if asset.status not in disputable_statuses:
+            raise ValueError(
+                f"Asset must be in a rejected status to dispute. "
+                f"Current status: {asset.status}"
+            )
+
         dispute = Dispute(
             id=f"dispute-{uuid.uuid4()}",
             asset_id=data.asset_id,
@@ -77,6 +95,10 @@ class DisputeService:
         )
 
         await self.repo.create(dispute)
+
+        # Update asset status to disputed
+        asset.status = AssetStatus.DISPUTED.value
+
         await self.session.flush()
         return dispute
 
@@ -139,6 +161,18 @@ class DisputeService:
         dispute.resolved_at = datetime.now(timezone.utc)
         dispute.resolved_by_user_id = user.id
 
+        # Update asset status based on resolution outcome
+        asset = await self.asset_repo.get_by_id(dispute.asset_id)
+        if asset and asset.status == AssetStatus.DISPUTED.value:
+            if data.status == DisputeStatus.RESOLVED.value:
+                # Dispute upheld: asset goes back to review for re-evaluation
+                # The OPS admin already made a final decision via the review flow
+                # If resolved without a new review, accept the device
+                asset.status = AssetStatus.CONDITIONALLY_ACCEPTED.value
+            elif data.status == DisputeStatus.REJECTED.value:
+                # Dispute rejected: original rejection stands
+                asset.status = AssetStatus.REMOTE_REJECTED.value
+
         await self.session.flush()
         return dispute
 
@@ -157,9 +191,6 @@ class DisputeService:
         # Employees see only their disputes
         if user.role == UserRole.EMPLOYEE.value:
             raised_by_user_id = user.id
-        # Technicians see disputes assigned to them
-        elif user.role == UserRole.TECHNICIAN.value:
-            assigned_to_user_id = user.id
         # Admins see all
 
         return await self.repo.list_with_filters(
@@ -178,7 +209,6 @@ class DisputeService:
         if user.role not in [
             UserRole.SUPER_ADMIN.value,
             UserRole.OPS_ADMIN.value,
-            UserRole.TECHNICIAN.value,
         ]:
             raise ValueError("Only admins can view all open disputes")
 

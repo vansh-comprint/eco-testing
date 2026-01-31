@@ -42,14 +42,11 @@ export function BatchCreate() {
     description: '',
     branchId: '',
     estimatedAssets: '',
-    estimatedValue: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [createdBatch, setCreatedBatch] = useState<{ id: string; name: string } | null>(null);
   const [submitError, setSubmitError] = useState<string>('');
-
-  const estimatedValue = parseInt(formData.estimatedValue) || 0;
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -110,7 +107,6 @@ export function BatchCreate() {
         branch_id: selectedBranchId,
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        estimated_value: estimatedValue,
         created_by: user.id,
       });
       console.log('✅ Batch created with id:', batch.id, 'created_by:', batch.created_by, 'branch_id:', batch.branch_id);
@@ -296,34 +292,19 @@ export function BatchCreate() {
               />
             </div>
 
-            {/* Estimates Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
-                  Estimated Assets
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g., 25"
-                  value={formData.estimatedAssets}
-                  onChange={(e) => handleChange('estimatedAssets', e.target.value)}
-                  min={0}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
-                  Estimated Value (₹)
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g., 250000"
-                  value={formData.estimatedValue}
-                  onChange={(e) => handleChange('estimatedValue', e.target.value)}
-                  min={0}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                />
-              </div>
+            {/* Estimated Assets */}
+            <div>
+              <label className="block font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
+                Estimated Assets
+              </label>
+              <input
+                type="number"
+                placeholder="e.g., 25"
+                value={formData.estimatedAssets}
+                onChange={(e) => handleChange('estimatedAssets', e.target.value)}
+                min={0}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+              />
             </div>
           </div>
         </motion.div>
@@ -344,7 +325,7 @@ export function BatchCreate() {
               <ul className="font-mono text-xs text-zinc-500 space-y-1">
                 <li>• Add assets manually one at a time</li>
                 <li>• Upload a CSV file for bulk import</li>
-                <li>• Assign sub-users to devices in the batch</li>
+                <li>• Assign employees to devices in the batch</li>
               </ul>
             </div>
           </div>

@@ -43,8 +43,8 @@ ASSET_TRANSITIONS: Dict[str, Set[str]] = {
     # Employee started evaluation - must complete submission
     "check_in_started": {"submitted"},
 
-    # Submitted - auto-transitions to review
-    "submitted": {"remote_review"},
+    # Submitted - reviewer can start review or accept directly
+    "submitted": {"remote_review", "conditionally_accepted", "remote_rejected"},
 
     # Under remote review - tech decides accept/reject
     "remote_review": {"conditionally_accepted", "remote_rejected"},
@@ -167,29 +167,20 @@ def get_allowed_asset_transitions(current_status: str) -> Set[str]:
 # =============================================================================
 
 BATCH_TRANSITIONS: Dict[str, Set[str]] = {
-    # Draft - can be submitted or cancelled
+    # Draft - can be submitted for approval or cancelled
     "draft": {"pending_approval", "cancelled"},
 
     # Pending approval - Org Admin decides
     "pending_approval": {"approved", "rejected"},
 
-    # Approved - pickup creation initiated
-    "approved": {"active", "pickup_scheduled"},
+    # Approved - pickup can be initiated
+    "approved": {"pickup_in_progress", "cancelled"},
 
     # Rejected - can be revised back to draft
     "rejected": {"draft"},
 
-    # Active - pickup in progress
-    "active": {"pickup_scheduled", "completed"},
-
-    # Pickup scheduled
-    "pickup_scheduled": {"picked_up"},
-
-    # Picked up - all assets collected
-    "picked_up": {"in_transit", "completed"},
-
-    # In transit
-    "in_transit": {"completed"},
+    # Pickup in progress - at least one pickup created
+    "pickup_in_progress": {"completed"},
 
     # Cancelled - terminal
     "cancelled": set(),

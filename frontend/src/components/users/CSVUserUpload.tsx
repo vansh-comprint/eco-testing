@@ -371,7 +371,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
   const downloadTemplate = async () => {
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Sub-Users');
+    const worksheet = workbook.addWorksheet('Employees');
 
     // Add headers
     worksheet.columns = [
@@ -487,8 +487,8 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     const tips = [
       '1. Delete the example rows (rows 2-5) before uploading your data',
       '2. Email addresses must be unique - duplicates will be rejected',
-      '3. Sub-users will receive an email invitation to check in their devices',
-      '4. Use the department dropdown in the Sub-Users sheet',
+      '3. Employees will receive an email invitation to check in their devices',
+      '4. Use the department dropdown in the Employees sheet',
       '5. Unknown departments will show a warning but still upload',
       '6. You can also use CSV format (.csv) for upload'
     ];
@@ -562,7 +562,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
               onClick={onCancel}
               className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
             >
-              View Sub-Users
+              View Employees
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

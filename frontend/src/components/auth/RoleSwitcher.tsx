@@ -7,10 +7,10 @@ import type { UserRole } from '@/types';
 
 const roles: { role: UserRole; label: string; icon: React.ReactNode; color: string; path: string }[] = [
   { role: 'super_admin', label: 'Super Admin', icon: <Crown className="w-4 h-4" />, color: 'bg-purple-500', path: '/super' },
-  { role: 'main_admin', label: 'Main Admin', icon: <Shield className="w-4 h-4" />, color: 'bg-blue-500', path: '/ops' },
+  { role: 'ops_admin', label: 'OPS Admin', icon: <Shield className="w-4 h-4" />, color: 'bg-blue-500', path: '/ops' },
   { role: 'org_admin', label: 'Org Admin', icon: <DollarSign className="w-4 h-4" />, color: 'bg-yellow-500', path: '/org-admin' },
   { role: 'it_admin', label: 'IT Admin', icon: <Briefcase className="w-4 h-4" />, color: 'bg-ecotribe-primary', path: '/admin' },
-  { role: 'sub_user', label: 'Sub User', icon: <User className="w-4 h-4" />, color: 'bg-orange-500', path: '/check-in' },
+  { role: 'employee', label: 'Employee', icon: <User className="w-4 h-4" />, color: 'bg-orange-500', path: '/check-in' },
   { role: 'logistics_admin', label: 'Logistics Admin', icon: <Truck className="w-4 h-4" />, color: 'bg-teal-500', path: '/logistics-admin' },
   { role: 'logistics_user', label: 'Logistics User', icon: <MapPin className="w-4 h-4" />, color: 'bg-cyan-500', path: '/logistics' },
 ];

@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { safeNumber } from '@/utils/formatters';
 import {
   Laptop,
   Clock,
@@ -19,7 +20,8 @@ import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin
 import { formatDistanceToNow } from 'date-fns';
 import { Badge, PageHeader, ConnectedSection } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
-import { useMemo } from 'react';
+import { useMemo, useContext } from 'react';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { iconSize, text, hover as hoverStyles } from '@/lib/design-tokens';
 
 export function ITAdminDashboard() {
@@ -43,11 +45,33 @@ export function ITAdminDashboard() {
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
   const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
 
-  const assets = isOrgAdmin ? orgAssets : itAssets;
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || null;
+
+  const allAssets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
-  const batches = isOrgAdmin ? orgBatches : itBatches;
+  const allBatches = isOrgAdmin ? orgBatches : itBatches;
   const batchesLoading = isOrgAdmin ? orgBatchesLoading : itBatchesLoading;
   const myBranches = isOrgAdmin ? orgBranches : itBranches;
+
+  // Apply branch filter from ITAdminBranchContext
+  const assets = useMemo(() => {
+    if (activeBranchFilter) return allAssets.filter((a: { branch_id?: string }) => a.branch_id === activeBranchFilter);
+    return allAssets;
+  }, [allAssets, activeBranchFilter]);
+
+  const batches = useMemo(() => {
+    if (activeBranchFilter) return allBatches.filter((b: { branch_id?: string }) => b.branch_id === activeBranchFilter);
+    return allBatches;
+  }, [allBatches, activeBranchFilter]);
+
+  // V3.2: Scope sub-users to IT Admin's branches
+  const myBranchIds = useMemo(() => new Set(myBranches.map((b: { id: string }) => b.id)), [myBranches]);
+  const scopedSubUsers = useMemo(() => {
+    if (activeBranchFilter) return subUsers.filter((su: { branch_id?: string }) => su.branch_id === activeBranchFilter);
+    if (isOrgAdmin) return subUsers;
+    return subUsers.filter((su: { branch_id?: string }) => su.branch_id && myBranchIds.has(su.branch_id));
+  }, [isOrgAdmin, subUsers, myBranchIds, activeBranchFilter]);
 
   const isLoading = assetsLoading || batchesLoading || subUsersLoading;
 
@@ -65,7 +89,7 @@ export function ITAdminDashboard() {
     const total = batches.length;
     const completed = batches.filter(b => b.status === 'completed').length;
     const active = batches.filter(b => !['completed', 'cancelled'].includes(b.status)).length;
-    const totalValue = batches.reduce((sum, b) => sum + (b.estimated_value || 0), 0);
+    const totalValue = batches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
     return { total, completed, active, totalValue };
   }, [batches]);
   // Assets and batches are already filtered by enterpriseId from the hooks
@@ -98,11 +122,11 @@ export function ITAdminDashboard() {
     ['remote_rejected', 'final_rejected'].includes(a.status)
   );
 
-  // V3: pending_cfo_approval → pending_approval
+  // V3: Batches awaiting Org Admin approval
   const pendingApprovalBatches = enterpriseBatches.filter(b => b.status === 'pending_approval');
 
   // Helper to find sub-user by ID
-  const getSubUserById = (id: string) => subUsers.find(su => su.id === id);
+  const getSubUserById = (id: string) => scopedSubUsers.find(su => su.id === id);
 
   // Generate recent activity from asset and batch data
   const recentActivity = useMemo(() => {
@@ -120,7 +144,7 @@ export function ITAdminDashboard() {
       const time = asset.updated_at || asset.created_at;
 
       if (['submitted', 'remote_review'].includes(asset.status)) {
-        const subUser = asset.assigned_sub_user_id ? getSubUserById(asset.assigned_sub_user_id) : null;
+        const subUser = asset.assigned_to_user_id ? getSubUserById(asset.assigned_to_user_id) : null;
         activities.push({
           type: 'submission',
           asset: assetName,
@@ -148,7 +172,7 @@ export function ITAdminDashboard() {
           id: asset.id
         });
       } else if (asset.status === 'assigned' && asset.assigned_at) {
-        const subUser = asset.assigned_sub_user_id ? getSubUserById(asset.assigned_sub_user_id) : null;
+        const subUser = asset.assigned_to_user_id ? getSubUserById(asset.assigned_to_user_id) : null;
         activities.push({
           type: 'assigned',
           asset: assetName,
@@ -183,7 +207,7 @@ export function ITAdminDashboard() {
     return activities
       .sort((a, b) => b.time.getTime() - a.time.getTime())
       .slice(0, 6);
-  }, [enterpriseAssets, enterpriseBatches, subUsers]);
+  }, [enterpriseAssets, enterpriseBatches, scopedSubUsers]);
 
   const activityIcons: Record<string, React.ReactNode> = {
     submission: <Upload className={`${iconSize.md} text-blue-500`} />,
@@ -344,7 +368,7 @@ export function ITAdminDashboard() {
                 icon={<Clock className={iconSize.md} />}
                 iconColor="text-amber-500"
                 title={`${stalledAssets.length} assets pending assignment for 7+ days`}
-                description="Assign sub-users to begin the check-in process"
+                description="Assign employees to begin the check-in process"
                 action="Assign Now"
                 onClick={() => navigate(`${basePath}/assets?status=pending_assignment`)}
               />
@@ -404,8 +428,8 @@ export function ITAdminDashboard() {
             />
             <QuickAction
               icon={<Users className={iconSize.md} />}
-              label="Invite Sub-Users"
-              onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/sub-users/invite`)}
+              label="Invite Employees"
+              onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/employees/invite`)}
             />
             <QuickAction
               icon={<Package className={iconSize.md} />}

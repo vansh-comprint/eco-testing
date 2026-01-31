@@ -1,47 +1,21 @@
 /**
- * Database Abstraction Layer - Main Export
+ * Database stub
  *
- * Import the database from here in your stores and services.
- *
- * @example
- * ```typescript
- * import { db } from '@/lib/database';
- *
- * // Query assets
- * const result = await db.query('assets', {
- *   filters: [{ field: 'enterprise_id', operator: 'eq', value: 'ent-123' }]
- * });
- *
- * // Insert asset
- * const newAsset = await db.insert('assets', {
- *   id: 'ast-123',
- *   serial_number: 'SN12345',
- *   // ...
- * });
- *
- * // Subscribe to changes
- * const subscription = await db.subscribe('assets', null, (payload) => {
- *   console.log('Asset changed:', payload);
- * });
- * ```
+ * Legacy stores still import `db` from here. This stub provides no-op methods
+ * so the stores can load without errors. All real data fetching uses REST API
+ * hooks from @/hooks instead.
  */
 
-export { db, databaseProvider } from './provider';
-export type { IDatabase, DatabaseConfig } from './interface';
-export type {
-  QueryOptions,
-  QueryFilter,
-  InsertOptions,
-  UpdateOptions,
-  DatabaseResult,
-  DatabaseListResult,
-  DatabaseError,
-  RealtimePayload,
-  RealtimeCallback,
-  RealtimeSubscription,
-  RealtimeEventType,
-} from './types';
+const noop = async () => ({ data: null, error: null });
 
-// Adapter exports (for advanced use cases)
-export { SupabaseAdapter } from './adapters/supabase';
-export { LocalStorageAdapter } from './adapters/localStorage';
+export const db = {
+  query: async (_table: string, _options?: unknown) => ({ data: [], error: null }),
+  insert: async (_table: string, _data: unknown) => noop(),
+  update: async (_table: string, _id: string, _data: unknown) => noop(),
+  delete: async (_table: string, _id: string) => noop(),
+  getById: async (_table: string, _id: string) => noop(),
+};
+
+export const databaseProvider = {
+  getStatus: () => ({ isConnected: false, provider: 'none' as const }),
+};

@@ -74,6 +74,14 @@ class AssetService:
         if not asset_data.enterprise_id:
             raise ValidationError("Enterprise ID is required")
 
+        # If assigned_to_user_id is provided, mark as assigned immediately
+        if asset_data.assigned_to_user_id:
+            initial_status = AssetStatus.ASSIGNED.value
+            assigned_at = datetime.now(timezone.utc)
+        else:
+            initial_status = AssetStatus.PENDING_ASSIGNMENT.value
+            assigned_at = None
+
         asset = Asset(
             id=str(uuid4()),
             serial_number=asset_data.serial_number,
@@ -86,7 +94,8 @@ class AssetService:
             branch_id=asset_data.branch_id,
             batch_id=asset_data.batch_id,
             assigned_to_user_id=asset_data.assigned_to_user_id,
-            status=AssetStatus.PENDING_ASSIGNMENT.value,
+            assigned_at=assigned_at,
+            status=initial_status,
             created_by=created_by,
             updated_by=created_by,
         )
@@ -115,6 +124,14 @@ class AssetService:
                     )
                     continue
 
+                # Auto-set status and assigned_at based on user assignment
+                if item.assigned_to_user_id:
+                    asset_status = AssetStatus.ASSIGNED.value
+                    assigned_at = datetime.now(timezone.utc)
+                else:
+                    asset_status = AssetStatus.PENDING_ASSIGNMENT.value
+                    assigned_at = None
+
                 asset = Asset(
                     id=str(uuid4()),
                     serial_number=item.serial_number,
@@ -127,7 +144,8 @@ class AssetService:
                     branch_id=bulk_data.branch_id,
                     batch_id=bulk_data.batch_id,
                     assigned_to_user_id=item.assigned_to_user_id,
-                    status=AssetStatus.PENDING_ASSIGNMENT.value,
+                    assigned_at=assigned_at,
+                    status=asset_status,
                     created_by=created_by,
                     updated_by=created_by,
                 )

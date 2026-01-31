@@ -80,7 +80,7 @@ Authorization: Bearer <your_token>
 ## Roles & Permissions
 
 - **Super Admin**: Platform-wide access, pricing configuration
-- **OPS Admin**: Operations management, technician reviews
+- **OPS Admin**: Operations management, reviews, QC
 - **Org Admin**: Enterprise-level management, branch oversight, approvals
 - **IT Admin**: Branch-level asset and batch management
 - **Employee**: Device submission and tracking
@@ -97,7 +97,7 @@ Authorization: Bearer <your_token>
         {"name": "Assets", "description": "IT asset tracking and management"},
         {"name": "Batches", "description": "Asset batch creation and approval workflow"},
         {"name": "Submissions", "description": "Employee device self-evaluation submissions"},
-        {"name": "Reviews", "description": "Technician remote and facility QC reviews"},
+        {"name": "Reviews", "description": "Remote and facility QC reviews"},
         {"name": "Pickups", "description": "Logistics pickup requests and assignments"},
         {"name": "Payouts", "description": "Financial payouts and wallet management"},
         {"name": "Files", "description": "File upload and management"},
@@ -137,7 +137,8 @@ if settings.debug:
         "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
         "http://localhost:5173",
         "http://172.20.0.25:3000", "http://172.20.0.25:3001", "http://172.20.0.25:3002",
-        "http://172.27.32.1:3001", "http://172.19.224.1:3001",
+        "http://172.19.224.1:3000", "http://172.19.224.1:3001", "http://172.19.224.1:3002",
+        "http://172.28.160.1:3000", "http://172.28.160.1:3001", "http://172.28.160.1:3002",
     ]
     _cors_origins = list(set(_cors_origins + _dev_origins))
 if settings.cors_allow_credentials:

@@ -505,7 +505,10 @@ function AddITAdminModal({
     if (!validateForm()) return;
     await onSubmit({
       enterprise_id: enterpriseId,
-      ...formData,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || undefined,
+      password: formData.password,
       branch_id: formData.branch_id || undefined,
     });
     setFormData({ name: '', email: '', phone: '', password: '', branch_id: '' });
@@ -589,7 +592,7 @@ function AddITAdminModal({
               <option value="">Select a branch...</option>
               {branches.map((branch: any) => (
                 <option key={branch.id} value={branch.id}>
-                  {branch.name} {branch.code ? `(${branch.code})` : ''}
+                  {branch.branch_name} {branch.branch_code ? `(${branch.branch_code})` : ''}
                 </option>
               ))}
             </select>

@@ -161,139 +161,8 @@ async def create_pickup(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{pickup_id}")
-async def get_pickup(
-    pickup_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_VIEW)),
-):
-    """Get a pickup request by ID"""
-    service = PickupService(db)
-
-    pickup = await service.get_pickup(pickup_id)
-    if not pickup:
-        raise HTTPException(status_code=404, detail="Pickup request not found")
-
-    return success_response(data=_to_response(pickup))
-
-
-@router.put("/{pickup_id}")
-async def update_pickup(
-    pickup_id: str,
-    data: PickupRequestUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
-):
-    """Update a pickup request"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.update_pickup(pickup_id, data, current_user)
-        if not pickup:
-            raise HTTPException(status_code=404, detail="Pickup request not found")
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup updated")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{pickup_id}/assign-admin")
-async def assign_to_logistics_admin(
-    pickup_id: str,
-    data: PickupAssignToLogisticsAdmin,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_ASSIGN)),
-):
-    """Assign pickup to logistics admin (OPS Admin action)"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.assign_to_logistics_admin(pickup_id, data, current_user)
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Assigned to logistics admin")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{pickup_id}/assign-user")
-async def assign_to_logistics_user(
-    pickup_id: str,
-    data: PickupAssignToLogisticsUser,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_ASSIGN)),
-):
-    """Assign pickup to logistics user (Logistics Admin action)"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.assign_to_logistics_user(pickup_id, data, current_user)
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Assigned to logistics user")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{pickup_id}/start")
-async def start_pickup(
-    pickup_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
-):
-    """Start a pickup (Logistics User action)"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.start_pickup(pickup_id, current_user)
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup started")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{pickup_id}/complete")
-async def complete_pickup(
-    pickup_id: str,
-    data: PickupComplete,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
-):
-    """Complete a pickup (Logistics User action)"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.complete_pickup(pickup_id, data, current_user)
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup completed")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{pickup_id}/cancel")
-async def cancel_pickup(
-    pickup_id: str,
-    data: PickupCancel,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
-):
-    """Cancel a pickup request"""
-    service = PickupService(db)
-
-    try:
-        pickup = await service.cancel_pickup(pickup_id, data.reason, current_user)
-        await db.commit()
-        return success_response(data=_to_response(pickup), message="Pickup cancelled")
-    except ValueError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 # ============================================================================
-# PICKUP LOCATIONS
+# PICKUP LOCATIONS (must be declared before /{pickup_id} catch-all)
 # ============================================================================
 
 
@@ -447,6 +316,142 @@ async def set_default_pickup_location(
             data=_location_to_response(location),
             message="Default location updated"
         )
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# PICKUP BY ID (catch-all /{pickup_id} routes must come after /locations)
+# ============================================================================
+
+
+@router.get("/{pickup_id}")
+async def get_pickup(
+    pickup_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_VIEW)),
+):
+    """Get a pickup request by ID"""
+    service = PickupService(db)
+
+    pickup = await service.get_pickup(pickup_id)
+    if not pickup:
+        raise HTTPException(status_code=404, detail="Pickup request not found")
+
+    return success_response(data=_to_response(pickup))
+
+
+@router.put("/{pickup_id}")
+async def update_pickup(
+    pickup_id: str,
+    data: PickupRequestUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Update a pickup request"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.update_pickup(pickup_id, data, current_user)
+        if not pickup:
+            raise HTTPException(status_code=404, detail="Pickup request not found")
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Pickup updated")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{pickup_id}/assign-admin")
+async def assign_to_logistics_admin(
+    pickup_id: str,
+    data: PickupAssignToLogisticsAdmin,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_ASSIGN)),
+):
+    """Assign pickup to logistics admin (OPS Admin action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.assign_to_logistics_admin(pickup_id, data, current_user)
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Assigned to logistics admin")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{pickup_id}/assign-user")
+async def assign_to_logistics_user(
+    pickup_id: str,
+    data: PickupAssignToLogisticsUser,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_ASSIGN)),
+):
+    """Assign pickup to logistics user (Logistics Admin action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.assign_to_logistics_user(pickup_id, data, current_user)
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Assigned to logistics user")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{pickup_id}/start")
+async def start_pickup(
+    pickup_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Start a pickup (Logistics User action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.start_pickup(pickup_id, current_user)
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Pickup started")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{pickup_id}/complete")
+async def complete_pickup(
+    pickup_id: str,
+    data: PickupComplete,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Complete a pickup (Logistics User action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.complete_pickup(pickup_id, data, current_user)
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Pickup completed")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{pickup_id}/cancel")
+async def cancel_pickup(
+    pickup_id: str,
+    data: PickupCancel,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Cancel a pickup request"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.cancel_pickup(pickup_id, data.reason, current_user)
+        await db.commit()
+        return success_response(data=_to_response(pickup), message="Pickup cancelled")
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

@@ -362,7 +362,7 @@ export function BulkITAdminUpload() {
         email: row.email.toLowerCase(),
         name: row.name || row.email.split('@')[0],
         phone: row.phone || undefined,
-        password: row.password, // Auto-generated (for Supabase Auth requirement)
+        password: row.password, // Auto-generated
       }));
 
       const result = await bulkCreate.mutateAsync(admins);

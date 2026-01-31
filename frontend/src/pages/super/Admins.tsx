@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Search, ArrowLeft, UserPlus, Mail, Phone, Edit2 } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
-import { CreateMainAdminModal, EditUserModal } from '@/pages/super';
+import { CreateOpsAdminModal, EditUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
@@ -24,7 +24,7 @@ export function Admins() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [isMainAdminModalOpen, setIsMainAdminModalOpen] = useState(false);
+  const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
 
@@ -38,7 +38,7 @@ export function Admins() {
       const result = await usersApi.list({ limit: 1000 });
       if (result.success && result.data) {
         // Filter for admin roles
-        const adminRoles = ['super_admin', 'ops_admin', 'main_admin'];
+        const adminRoles = ['super_admin', 'ops_admin'];
         const adminUsers = result.data
           .filter(u => adminRoles.includes(u.role))
           .map(u => ({
@@ -63,7 +63,7 @@ export function Admins() {
   const getRoleBadgeVariant = (role: string) => {
     const variants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
       super_admin: 'danger',
-      main_admin: 'warning',
+      ops_admin: 'warning',
     };
     return variants[role] || 'default';
   };
@@ -71,7 +71,7 @@ export function Admins() {
   const formatRole = (role: string) => {
     const roleLabels: Record<string, string> = {
       super_admin: 'Super Admin',
-      main_admin: 'Main Admin',
+      ops_admin: 'OPS Admin',
     };
     return roleLabels[role] || role;
   };
@@ -89,7 +89,7 @@ export function Admins() {
   const stats = {
     total: admins.length,
     superAdmins: admins.filter(a => a.role === 'super_admin').length,
-    mainAdmins: admins.filter(a => a.role === 'main_admin' || a.role === 'ops_admin').length,
+    opsAdmins: admins.filter(a => a.role === 'ops_admin').length,
     active: admins.filter(a => a.status === 'active').length,
   };
 
@@ -111,10 +111,10 @@ export function Admins() {
             </Button>
             <Button
               variant="primary"
-              onClick={() => setIsMainAdminModalOpen(true)}
+              onClick={() => setIsOpsAdminModalOpen(true)}
               leftIcon={<UserPlus className={iconSize.sm} />}
             >
-              Add Main Admin
+              Add OPS Admin
             </Button>
           </div>
         }
@@ -136,8 +136,8 @@ export function Admins() {
           <p className={`font-brand text-2xl font-bold text-red-500 mt-1`}>{stats.superAdmins}</p>
         </Card>
         <Card className="p-4">
-          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Main Admin</p>
-          <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.mainAdmins}</p>
+          <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>OPS Admin</p>
+          <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.opsAdmins}</p>
         </Card>
         <Card className="p-4">
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Active</p>
@@ -169,7 +169,7 @@ export function Admins() {
               >
                 <option value="all">All Admin Roles</option>
                 <option value="super_admin">Super Admin</option>
-                <option value="main_admin">Main Admin</option>
+                <option value="ops_admin">OPS Admin</option>
               </select>
             </div>
           </div>
@@ -299,12 +299,12 @@ export function Admins() {
       </motion.div>
 
       {/* Modals */}
-      <CreateMainAdminModal
-        isOpen={isMainAdminModalOpen}
-        onClose={() => setIsMainAdminModalOpen(false)}
+      <CreateOpsAdminModal
+        isOpen={isOpsAdminModalOpen}
+        onClose={() => setIsOpsAdminModalOpen(false)}
         onSuccess={() => {
           fetchAdmins();
-          setIsMainAdminModalOpen(false);
+          setIsOpsAdminModalOpen(false);
         }}
       />
       {selectedAdmin && (
@@ -318,6 +318,10 @@ export function Admins() {
             fetchAdmins();
           }}
           user={selectedAdmin}
+          allowedRoles={[
+            { value: 'super_admin', label: 'Super Admin' },
+            { value: 'ops_admin', label: 'OPS Admin' },
+          ]}
         />
       )}
     </div>

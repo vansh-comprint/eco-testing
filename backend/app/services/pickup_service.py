@@ -6,6 +6,8 @@ from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PickupRequest, PickupStatus, Asset, AssetStatus, User, UserRole
+from app.models.batch import Batch, BatchStatus
+from app.repositories.batch_repository import BatchRepository
 from app.repositories.pickup_repository import PickupRepository
 from app.repositories.asset_repository import AssetRepository
 from app.schemas.pickup import (
@@ -21,13 +23,17 @@ from app.services.audit_service import AuditService
 class PickupService:
     """Service for handling pickup request business logic"""
 
+    # Asset statuses eligible for pickup
+    PICKUPABLE_STATUSES = {"conditionally_accepted", "ready_for_pickup"}
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.repo = PickupRepository(session)
         self.asset_repo = AssetRepository(session)
+        self.batch_repo = BatchRepository(session)
 
     async def create_pickup(self, data: PickupRequestCreate, user: User) -> PickupRequest:
-        """Create a pickup request"""
+        """Create a pickup request — batch is mandatory and must be approved"""
         # Auto-fill enterprise_id for scoped users
         enterprise_id = data.enterprise_id
         if user.role in [UserRole.ORG_ADMIN.value, UserRole.IT_ADMIN.value]:
@@ -36,20 +42,46 @@ class PickupService:
         if not enterprise_id:
             raise ValueError("Enterprise ID is required")
 
-        # Build assets summary
+        # --- Batch validation ---
+        batch = await self.batch_repo.get_by_id(data.batch_id)
+        if not batch:
+            raise ValueError(f"Batch '{data.batch_id}' not found")
+
+        if batch.status != BatchStatus.APPROVED.value:
+            raise ValueError(
+                f"Batch must be approved before pickup. Current status: '{batch.status}'"
+            )
+
+        # --- Asset validation ---
         assets_summary = []
+        errors = []
         for asset_id in data.asset_ids:
             asset = await self.asset_repo.get_by_id(asset_id)
-            if asset:
-                assets_summary.append(
-                    {
-                        "id": asset.id,
-                        "serial_number": asset.serial_number,
-                        "device_type": asset.device_type,
-                        "brand": asset.brand,
-                        "model": asset.model,
-                    }
+            if not asset:
+                errors.append(f"Asset '{asset_id}' not found")
+                continue
+            if asset.batch_id != data.batch_id:
+                errors.append(
+                    f"Asset '{asset_id}' does not belong to batch '{data.batch_id}'"
                 )
+                continue
+            if asset.status not in self.PICKUPABLE_STATUSES:
+                errors.append(
+                    f"Asset '{asset_id}' is not eligible for pickup (status: '{asset.status}')"
+                )
+                continue
+            assets_summary.append(
+                {
+                    "id": asset.id,
+                    "serial_number": asset.serial_number,
+                    "device_type": asset.device_type,
+                    "brand": asset.brand,
+                    "model": asset.model,
+                }
+            )
+
+        if errors:
+            raise ValueError("; ".join(errors))
 
         pickup = PickupRequest(
             id=f"pr-{uuid.uuid4()}",
@@ -72,7 +104,13 @@ class PickupService:
             if asset:
                 asset.status = AssetStatus.PICKUP_REQUESTED.value
 
-        await self.session.flush()
+        # Auto-advance batch to pickup_in_progress if still approved
+        if batch.status == BatchStatus.APPROVED.value:
+            batch.status = BatchStatus.PICKUP_IN_PROGRESS.value
+            await self.session.flush()
+        else:
+            await self.session.flush()
+
         return pickup
 
     async def get_pickup(self, pickup_id: str) -> Optional[PickupRequest]:

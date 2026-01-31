@@ -1,13 +1,9 @@
 /**
  * AuthContext (API-based)
  *
- * This context provides authentication using the REST API instead of direct Supabase calls.
- * Part of the backend migration from BaaS to REST API architecture.
+ * This context provides authentication using the REST API.
  *
- * To migrate:
- * 1. Replace <AuthProvider> with <AuthProviderApi>
- * 2. Replace useAuthContext with useAuthContextApi
- * 3. Configure VITE_API_URL environment variable
+ * Configure VITE_API_URL environment variable
  */
 
 import { createContext, useContext, useEffect, useCallback, type ReactNode } from 'react';

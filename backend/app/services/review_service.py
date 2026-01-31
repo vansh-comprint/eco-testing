@@ -43,13 +43,20 @@ class RemoteReviewService:
 
         # Check if review already exists
         existing = await self.repo.get_by_asset_id(data.asset_id)
-        if existing:
-            raise ValueError("Remote review already exists for this asset")
 
-        # Verify asset is in valid status for review (submitted or remote_review)
-        valid_statuses = [AssetStatus.SUBMITTED.value, AssetStatus.REMOTE_REVIEW.value]
+        # Verify asset is in valid status for review
+        valid_statuses = [AssetStatus.SUBMITTED.value, AssetStatus.REMOTE_REVIEW.value, AssetStatus.DISPUTED.value]
         if asset.status not in valid_statuses:
             raise ValueError(f"Asset must be in {valid_statuses} status for review")
+
+        # For disputed assets, delete the old review to allow a fresh re-review
+        if asset.status == AssetStatus.DISPUTED.value and existing:
+            await self.session.delete(existing)
+            await self.session.flush()
+            existing = None
+
+        if existing:
+            raise ValueError("Remote review already exists for this asset")
 
         # Validate decision
         valid_decisions = [d.value for d in ReviewDecision]
@@ -156,7 +163,7 @@ class FacilityQCService:
         self.repo = FacilityQCRepository(session)
         self.asset_repo = AssetRepository(session)
 
-    async def create_qc(self, data: FacilityQCCreate, technician: User) -> FacilityQC:
+    async def create_qc(self, data: FacilityQCCreate, reviewer: User) -> FacilityQC:
         """Create a facility QC record"""
         asset = await self.asset_repo.get_by_id(data.asset_id)
         if not asset:
@@ -169,7 +176,7 @@ class FacilityQCService:
         qc = FacilityQC(
             id=f"fqc-{uuid.uuid4()}",
             asset_id=data.asset_id,
-            technician_id=technician.id,
+            reviewer_id=reviewer.id,
             decision=data.decision,
             grade=data.grade,
             final_value=data.final_value,

@@ -1,5 +1,6 @@
 """Enterprise management endpoints"""
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,8 @@ from app.services.enterprise_service import EnterpriseService, EnterpriseApplica
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.utils.scoping import get_scoped_filters
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -100,6 +103,13 @@ async def create_enterprise(
         )
     except (ValidationError, ConflictError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to create enterprise: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create enterprise: {str(e)}",
+        )
 
 
 # ============================================================================
@@ -293,6 +303,15 @@ async def approve_enterprise_application(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except ConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to approve application {application_id}: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to approve application: {str(e)}",
+        )
 
 
 @router.post("/applications/{application_id}/reject", response_model=dict)

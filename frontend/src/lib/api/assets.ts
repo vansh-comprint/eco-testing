@@ -55,7 +55,9 @@ export interface AssetCreateRequest {
   enterprise_id?: string;
   branch_id?: string;
   batch_id?: string;
-  assigned_user_id?: string;
+  specs?: Record<string, unknown>;
+  purchase_date?: string;
+  assigned_to_user_id?: string;
 }
 
 export interface AssetUpdateRequest {
@@ -64,13 +66,16 @@ export interface AssetUpdateRequest {
   model?: string;
   status?: string;
   batch_id?: string;
-  assigned_user_id?: string;
+  assigned_to_user_id?: string;
   condition_grade?: string;
   estimated_value?: number;
   final_value?: number;
 }
 
 export interface AssetBulkCreateRequest {
+  enterprise_id?: string;
+  branch_id?: string;
+  batch_id?: string;
   assets: AssetCreateRequest[];
 }
 

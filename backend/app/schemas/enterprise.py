@@ -21,6 +21,7 @@ class EnterpriseCreate(BaseModel):
 
     # Business details
     industry: Optional[str] = Field(None, max_length=100)
+    company_size: Optional[str] = Field(None, max_length=50)
     employee_count: Optional[int] = Field(None, ge=0)
 
     # Contact information
@@ -76,6 +77,7 @@ class EnterpriseUpdate(BaseModel):
 
     # Business details
     industry: Optional[str] = Field(None, max_length=100)
+    company_size: Optional[str] = Field(None, max_length=50)
     employee_count: Optional[int] = Field(None, ge=0)
 
     # Contact information
@@ -136,6 +138,7 @@ class EnterpriseResponse(BaseModel):
 
     # Business details
     industry: Optional[str] = None
+    company_size: Optional[str] = None
     employee_count: Optional[int] = None
 
     # Contact information
