@@ -274,10 +274,13 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.BRANCH_DELETE,
         Permission.ENTERPRISE_READ,
         Permission.ENTERPRISE_UPDATE,
-        # Submission, Pickup permissions
+        # Submission, Review, Pickup permissions
         Permission.SUBMISSION_VIEW,
         Permission.SUBMISSION_CREATE,
         Permission.SUBMISSION_UPDATE,
+        Permission.REVIEW_VIEW,
+        Permission.REVIEW_CREATE,
+        Permission.REVIEW_UPDATE,
         Permission.PICKUP_VIEW,
         Permission.PICKUP_CREATE,
         Permission.PICKUP_UPDATE,
@@ -291,6 +294,8 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.VIEW_ASSIGNED_ASSETS,
         Permission.SUBMIT_DEVICE_EVALUATION,
         Permission.ASSET_READ,  # Can view their assigned assets
+        Permission.ASSET_UPDATE,  # Needed for startSubmission (check_in_started status)
+        Permission.ENTERPRISE_READ,  # Needed to fetch enterprise details on login
         Permission.DISPUTE_VIEW,
         Permission.DISPUTE_CREATE,
         # Submission permissions
