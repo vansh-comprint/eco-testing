@@ -20,8 +20,9 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Pencil,
 } from 'lucide-react';
-import { useAuth, useITAdmins, useITAdminBranches, useBranches, useCreateITAdmin, useUpdateITAdminStatus } from '@/hooks';
+import { useAuth, useITAdmins, useITAdminBranches, useBranches, useCreateITAdmin, useUpdateITAdmin, useUpdateITAdminStatus } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { USER_STATUS_DISPLAY } from '@/lib/status-display';
 import { ConfirmationModal } from '@/components/ui';
@@ -37,14 +38,14 @@ interface ITAdmin {
   created_at: string;
 }
 
-interface ITAdminBranch {
-  it_admin_id: string;
-  it_admin_name: string;
-  it_admin_email: string;
-  enterprise_id: string;
+interface ITAdminBranchInfo {
+  id: string;
   branch_count: number;
-  branch_names: string[];
-  branch_ids: string[];
+  branches?: Array<{
+    id: string;
+    branch_name: string;
+    branch_code: string;
+  }>;
 }
 
 export function ITAdminManagement() {
@@ -56,20 +57,23 @@ export function ITAdminManagement() {
   const { data: itAdmins = [], isLoading } = useITAdmins(enterpriseId);
   const { data: itAdminBranches = [] } = useITAdminBranches(enterpriseId);
   const createITAdmin = useCreateITAdmin();
+  const updateITAdmin = useUpdateITAdmin();
   const updateStatus = useUpdateITAdminStatus();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'' | ITAdminStatus>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<ITAdmin | null>(null);
   const [expandedAdminId, setExpandedAdminId] = useState<string | null>(null);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [pendingAdmin, setPendingAdmin] = useState<ITAdmin | null>(null);
 
-  // Create a map of IT admin branch info (keyed by it_admin_id)
+  // Create a map of IT admin branch info (keyed by admin id)
   const branchInfoMap = useMemo(() => {
-    const map = new Map<string, ITAdminBranch>();
-    itAdminBranches.forEach((item: ITAdminBranch) => {
-      map.set(item.it_admin_id, item);
+    const map = new Map<string, ITAdminBranchInfo>();
+    itAdminBranches.forEach((item: ITAdminBranchInfo) => {
+      map.set(item.id, item);
     });
     return map;
   }, [itAdminBranches]);
@@ -240,7 +244,7 @@ export function ITAdminManagement() {
               const statusConfig = getStatusConfig(admin.status);
               const branchInfo = branchInfoMap.get(admin.id);
               const branchCount = branchInfo?.branch_count || 0;
-              const branchNames = branchInfo?.branch_names || [];
+              const branchNames = branchInfo?.branches?.map(b => b.branch_name) || [];
               const isExpanded = expandedAdminId === admin.id;
 
               return (
@@ -301,8 +305,19 @@ export function ITAdminManagement() {
                       )}
                     </div>
 
-                    {/* Actions - V3.2: Removed branch assignment button (done via BranchManagement) */}
+                    {/* Actions */}
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAdmin(admin);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="interactive p-2.5 border border-slate-200 dark:border-white/10 hover:border-blue-400/30 hover:bg-blue-400/5 transition-all"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-blue-400 transition-colors" />
+                      </button>
                       {admin.status === 'active' ? (
                         <button
                           type="button"
@@ -411,6 +426,26 @@ export function ITAdminManagement() {
         }}
         isLoading={createITAdmin.isPending}
       />
+
+      {/* Edit IT Admin Modal */}
+      {editingAdmin && (
+        <EditITAdminModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingAdmin(null);
+          }}
+          admin={editingAdmin}
+          enterpriseId={enterpriseId}
+          currentBranchIds={branchInfoMap.get(editingAdmin.id)?.branches?.map(b => b.id) || []}
+          onSubmit={async (data) => {
+            await updateITAdmin.mutateAsync({ userId: editingAdmin.id, data });
+            setIsEditModalOpen(false);
+            setEditingAdmin(null);
+          }}
+          isLoading={updateITAdmin.isPending}
+        />
+      )}
 
       {/* Deactivate IT Admin Confirmation Modal */}
       <ConfirmationModal
@@ -623,6 +658,147 @@ function AddITAdminModal({
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               Add IT Admin
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// Edit IT Admin Modal
+function EditITAdminModal({
+  isOpen,
+  onClose,
+  admin,
+  enterpriseId,
+  currentBranchIds,
+  onSubmit,
+  isLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  admin: ITAdmin;
+  enterpriseId: string;
+  currentBranchIds: string[];
+  onSubmit: (data: { name?: string; phone?: string; branch_id?: string }) => Promise<void>;
+  isLoading: boolean;
+}) {
+  const { data: branches = [] } = useBranches(enterpriseId);
+  const [formData, setFormData] = useState({
+    name: admin.name || '',
+    phone: admin.phone || '',
+    branch_id: currentBranchIds[0] || '',
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    await onSubmit({
+      name: formData.name,
+      phone: formData.phone || undefined,
+      branch_id: formData.branch_id || undefined,
+    });
+    setFormErrors({});
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md shadow-xl"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
+          <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Edit IT Admin</h2>
+          <button type="button" onClick={onClose} className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+            <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Full Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value })); setFormErrors(prev => ({ ...prev, name: '' })); }}
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
+            />
+            {formErrors.name && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.name}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Email</label>
+            <input
+              type="email"
+              value={admin.email}
+              disabled
+              className="w-full px-3 py-2.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-white/50 text-sm cursor-not-allowed"
+            />
+            <p className="mt-1 text-xs text-slate-400 dark:text-white/30 font-mono">Email cannot be changed</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Phone Number</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+91 9876543210"
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">
+              Primary Branch
+            </label>
+            <select
+              value={formData.branch_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, branch_id: e.target.value }))}
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 appearance-none select-themed cursor-pointer"
+            >
+              <option value="">No branch assigned</option>
+              {branches.map((branch: any) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.branch_name} {branch.branch_code ? `(${branch.branch_code})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-400 dark:text-white/30 font-mono">
+              Additional branches can be managed via Branch Management.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
+            >
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save Changes
             </button>
           </div>
         </form>

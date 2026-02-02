@@ -421,13 +421,21 @@ export function BatchDetail() {
                   Add Asset
                 </button>
               )}
-              {batch.status === 'draft' && verifiedAssets.length > 0 && (
+              {batch.status === 'draft' && batchAssets.length > 0 && (
                 <button
-                  onClick={() => setShowSubmitModal(true)}
-                  className="interactive px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
+                  onClick={() => verifiedAssets.length > 0 && setShowSubmitModal(true)}
+                  disabled={verifiedAssets.length === 0}
+                  title={verifiedAssets.length === 0 ? 'No verified assets yet. Assets must be reviewed and accepted before submitting.' : `Submit ${verifiedAssets.length} verified asset(s) for approval`}
+                  className={`interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    verifiedAssets.length > 0
+                      ? 'bg-amber-500 text-black hover:bg-amber-400'
+                      : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 cursor-not-allowed'
+                  }`}
                 >
                   <Send className="w-4 h-4" />
-                  Submit for Approval ({verifiedAssets.length})
+                  {verifiedAssets.length > 0
+                    ? `Submit for Approval (${verifiedAssets.length})`
+                    : 'Submit for Approval (0 verified)'}
                 </button>
               )}
               {batch.status === 'approved' && pickupableAssets.length > 0 && (

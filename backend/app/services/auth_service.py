@@ -103,9 +103,11 @@ class AuthService:
         if not user:
             raise AuthenticationError("Invalid email or password")
 
-        # Employees must use OTP login, not password
+        # Employees must use OTP login in production; allow password in debug mode for testing
         if user.role == UserRole.EMPLOYEE.value:
-            raise AuthenticationError("Employees must use OTP login")
+            from app.core.config import settings
+            if not settings.debug:
+                raise AuthenticationError("Employees must use OTP login")
 
         # Verify password
         if not user.password_hash or not verify_password(request.password, user.password_hash):

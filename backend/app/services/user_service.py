@@ -4,7 +4,10 @@ from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from app.models.user import User, UserRole, UserStatus
+from app.models.enterprise import Branch
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError, AuthorizationError
@@ -159,6 +162,17 @@ class UserService:
         )
 
         user = await self.repository.create(user)
+
+        # If IT admin was assigned to a branch, also update the branch's it_admin_id
+        if user_data.role == UserRole.IT_ADMIN and user_data.branch_id:
+            result = await self.db.execute(
+                select(Branch).where(Branch.id == user_data.branch_id)
+            )
+            branch = result.scalar_one_or_none()
+            if branch:
+                branch.it_admin_id = user.id
+                await self.db.commit()
+
         return UserResponse.model_validate(user)
 
     async def create_users_bulk(
@@ -264,11 +278,39 @@ class UserService:
         if "status" in update_data and update_data["status"]:
             update_data["status"] = update_data["status"].value
 
+        # Track if branch_id is changing for an IT admin
+        old_branch_id = user.branch_id
+        new_branch_id = update_data.get("branch_id")
+        is_it_admin = user.role == UserRole.IT_ADMIN.value
+
         for key, value in update_data.items():
             setattr(user, key, value)
 
         user.updated_by = updated_by
         user = await self.repository.update(user)
+
+        # Sync branch.it_admin_id when IT admin's branch assignment changes
+        if is_it_admin and "branch_id" in update_data and new_branch_id != old_branch_id:
+            # Remove IT admin from old branch
+            if old_branch_id:
+                result = await self.db.execute(
+                    select(Branch).where(Branch.id == old_branch_id)
+                )
+                old_branch = result.scalar_one_or_none()
+                if old_branch and old_branch.it_admin_id == user.id:
+                    old_branch.it_admin_id = None
+
+            # Assign IT admin to new branch
+            if new_branch_id:
+                result = await self.db.execute(
+                    select(Branch).where(Branch.id == new_branch_id)
+                )
+                new_branch = result.scalar_one_or_none()
+                if new_branch:
+                    new_branch.it_admin_id = user.id
+
+            await self.db.commit()
+
         return UserResponse.model_validate(user)
 
     async def delete_user(self, user_id: str, actor: Optional[User] = None) -> bool:

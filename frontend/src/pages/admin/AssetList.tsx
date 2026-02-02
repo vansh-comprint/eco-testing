@@ -21,7 +21,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Badge, Dropdown, useToast } from '@/components/ui';
-import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
@@ -79,6 +79,7 @@ export function AssetList() {
   const assignAssetMutation = useAssignAssetToSubUser();
   const updateAssetMutation = useUpdateAsset();
   const deleteAssetMutation = useDeleteAsset();
+  const createBatchMutation = useCreateBatch();
 
   const isLoading = assetsLoading || batchesLoading;
 
@@ -101,6 +102,8 @@ export function AssetList() {
   const [showBulkBatchModal, setShowBulkBatchModal] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [isAddingToBatch, setIsAddingToBatch] = useState(false);
+  const [batchMode, setBatchMode] = useState<'existing' | 'new'>('existing');
+  const [newBatchName, setNewBatchName] = useState('');
 
   // V3: Data is already filtered by enterpriseId from the hooks
   const enterpriseSubUsers = subUsers;
@@ -306,11 +309,30 @@ export function AssetList() {
 
   // Bulk add to batch handler
   const handleBulkAddToBatch = async () => {
-    if (selectedBatchable.length === 0 || !selectedBatchId) return;
+    if (selectedBatchable.length === 0) return;
+
     setIsAddingToBatch(true);
     try {
+      let targetBatchId = selectedBatchId;
+
+      // If creating a new batch, do that first
+      if (batchMode === 'new') {
+        if (!newBatchName.trim()) return;
+        // Determine branch_id from selected assets (use first asset's branch)
+        const firstAsset = batchableAssets.find(a => selectedBatchable.includes(a.id));
+        const newBatch = await createBatchMutation.mutateAsync({
+          enterprise_id: enterpriseId,
+          branch_id: firstAsset?.branch_id || undefined,
+          name: newBatchName.trim(),
+        });
+        if (!newBatch?.id) throw new Error('Failed to create batch');
+        targetBatchId = newBatch.id;
+      }
+
+      if (!targetBatchId) return;
+
       for (const assetId of selectedBatchable) {
-        await updateAssetMutation.mutateAsync({ assetId, updates: { batch_id: selectedBatchId } });
+        await updateAssetMutation.mutateAsync({ assetId, updates: { batch_id: targetBatchId } });
       }
       addToast({
         type: 'success',
@@ -319,6 +341,8 @@ export function AssetList() {
       });
       setShowBulkBatchModal(false);
       setSelectedBatchId('');
+      setNewBatchName('');
+      setBatchMode('existing');
       setSelectedAssets(new Set());
     } catch (error) {
       console.error('Failed to add assets to batch:', error);
@@ -920,7 +944,7 @@ export function AssetList() {
                 </div>
               </div>
               <button
-                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); }}
+                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); setNewBatchName(''); setBatchMode('existing'); }}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 <X className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
@@ -935,58 +959,104 @@ export function AssetList() {
                 </p>
               </div>
 
-              {/* Batch Selection */}
-              <div>
-                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
-                  Select Batch *
-                </label>
-                {(() => {
-                  // Get branch IDs of selected batchable assets
-                  const selectedBranchIds = new Set(
-                    selectedBatchable
-                      .map(id => batchableAssets.find(a => a.id === id)?.branch_id)
-                      .filter(Boolean)
-                  );
-                  const eligibleBatches = batches.filter(b =>
-                    b.status === 'draft' &&
-                    (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
-                  );
+              {/* Batch Mode Toggle */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setBatchMode('existing'); setNewBatchName(''); }}
+                  className={`flex-1 px-3 py-2 font-mono font-bold text-xs uppercase tracking-widest border transition-all ${
+                    batchMode === 'existing'
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                      : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 hover:border-blue-500/20'
+                  }`}
+                >
+                  Existing Batch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBatchMode('new'); setSelectedBatchId(''); }}
+                  className={`flex-1 px-3 py-2 font-mono font-bold text-xs uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 ${
+                    batchMode === 'new'
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                      : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 hover:border-blue-500/20'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Batch
+                </button>
+              </div>
 
-                  return eligibleBatches.length > 0 ? (
-                    <select
-                      value={selectedBatchId}
-                      onChange={(e) => setSelectedBatchId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none select-themed cursor-pointer"
-                    >
-                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
-                      {eligibleBatches.map(batch => (
-                        <option key={batch.id} value={batch.id} className="bg-white dark:bg-[#0a0a0a]">
-                          {batch.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                      <Package className="w-8 h-8 text-slate-500 dark:text-zinc-600 mx-auto mb-2" />
-                      <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-1">No draft batches available</p>
-                      <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
-                        Create a batch first from the Batches page
-                      </p>
-                    </div>
-                  );
-                })()}
+              {/* Batch Selection / Creation */}
+              <div>
+                {batchMode === 'existing' ? (
+                  <>
+                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
+                      Select Batch *
+                    </label>
+                    {(() => {
+                      const selectedBranchIds = new Set(
+                        selectedBatchable
+                          .map(id => batchableAssets.find(a => a.id === id)?.branch_id)
+                          .filter(Boolean)
+                      );
+                      const eligibleBatches = batches.filter(b =>
+                        b.status === 'draft' &&
+                        (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
+                      );
+
+                      return eligibleBatches.length > 0 ? (
+                        <select
+                          value={selectedBatchId}
+                          onChange={(e) => setSelectedBatchId(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none select-themed cursor-pointer"
+                        >
+                          <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
+                          {eligibleBatches.map(batch => (
+                            <option key={batch.id} value={batch.id} className="bg-white dark:bg-[#0a0a0a]">
+                              {batch.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                          <Package className="w-8 h-8 text-slate-500 dark:text-zinc-600 mx-auto mb-2" />
+                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-1">No draft batches available</p>
+                          <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
+                            Switch to "New Batch" to create one
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
+                      Batch Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newBatchName}
+                      onChange={(e) => setNewBatchName(e.target.value)}
+                      placeholder="e.g. January Batch - Branch A"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50"
+                    />
+                    <p className="mt-1.5 font-mono text-[10px] text-slate-400 dark:text-zinc-600">
+                      A new draft batch will be created and the selected assets will be added to it.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
               <button
-                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); }}
+                onClick={() => { setShowBulkBatchModal(false); setSelectedBatchId(''); setNewBatchName(''); setBatchMode('existing'); }}
                 className="px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkAddToBatch}
-                disabled={!selectedBatchId || isAddingToBatch}
+                disabled={(batchMode === 'existing' ? !selectedBatchId : !newBatchName.trim()) || isAddingToBatch}
                 className="px-5 py-2.5 bg-blue-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isAddingToBatch ? (

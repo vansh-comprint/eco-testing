@@ -399,9 +399,35 @@ export function useCreateITAdmin() {
       return response.data;
     },
     onSuccess: (data) => {
-      if (data) {
+      if (data && data.enterprise_id) {
         queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
+        // Also invalidate branch queries so branch pages reflect the new IT admin assignment
+        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
+      }
+    },
+  });
+}
+
+/**
+ * Update IT Admin details (name, phone, branch)
+ */
+export function useUpdateITAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: { name?: string; phone?: string; branch_id?: string } }) => {
+      const response = await usersApi.update(userId, data);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data && data.enterprise_id) {
+        queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
+        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
+        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
       }
     },
   });

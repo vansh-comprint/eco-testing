@@ -68,6 +68,7 @@ export {
   useBulkCreateBranches,
   useCreateITAdmin,
   useBulkCreateITAdmins,
+  useUpdateITAdmin,
   useUpdateITAdminStatus,
   branchKeys,
   itAdminKeys,

@@ -281,6 +281,7 @@ export function BranchManagement() {
                     onDelete={canManageBranches ? () => handleDeleteClick(branch) : undefined}
                     onClick={() => navigate(`${basePath}/branches/${branch.id}`)}
                     canManage={canManageBranches}
+                    currentUserId={user?.id}
                   />
                 </motion.div>
               );
@@ -297,6 +298,7 @@ export function BranchManagement() {
         enterpriseId={enterpriseId}
         itAdmins={itAdmins}
         isOrgAdmin={isOrgAdmin}
+        currentUser={user ? { id: user.id, name: user.name } : undefined}
         onSubmit={async (data) => {
           if (editingBranch) {
             await updateBranch.mutateAsync({ branchId: editingBranch.id, updates: data });
@@ -359,6 +361,7 @@ function BranchCard({
   onDelete,
   onClick,
   canManage = true,
+  currentUserId,
 }: {
   branch: Branch;
   summary?: BranchSummary;
@@ -366,6 +369,7 @@ function BranchCard({
   onDelete?: () => void;
   onClick: () => void;
   canManage?: boolean;
+  currentUserId?: string;
 }) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -420,9 +424,13 @@ function BranchCard({
 
           {/* IT Admin - hidden on mobile */}
           <div className="hidden md:flex items-center gap-2 min-w-0 flex-1">
-            <User className={`w-3.5 h-3.5 ${branch.it_admin ? 'text-lime-600 dark:text-lime-400' : text.muted} flex-shrink-0`} />
+            <User className={`w-3.5 h-3.5 ${branch.it_admin ? (branch.it_admin_id === currentUserId ? 'text-emerald-600 dark:text-emerald-400' : 'text-lime-600 dark:text-lime-400') : text.muted} flex-shrink-0`} />
             {branch.it_admin ? (
-              <span className={`text-xs ${text.primary} truncate`}>{branch.it_admin.name}</span>
+              branch.it_admin_id === currentUserId ? (
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold truncate">You</span>
+              ) : (
+                <span className={`text-xs ${text.primary} truncate`}>{branch.it_admin.name}</span>
+              )
             ) : (
               <span className="text-xs text-amber-600 dark:text-amber-400">No Admin</span>
             )}
@@ -536,6 +544,7 @@ function BranchFormModal({
   enterpriseId,
   itAdmins,
   isOrgAdmin = true,
+  currentUser,
   onSubmit,
   isLoading
 }: {
@@ -545,6 +554,7 @@ function BranchFormModal({
   enterpriseId: string;
   itAdmins: ITAdmin[];
   isOrgAdmin?: boolean;
+  currentUser?: { id: string; name: string };
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   isLoading: boolean;
 }) {
@@ -629,7 +639,7 @@ function BranchFormModal({
           closing_hours: '',
           pickup_point_description: '',
           special_instructions: '',
-          it_admin_id: '',
+          it_admin_id: isOrgAdmin && currentUser ? currentUser.id : '',
         });
       }
       setCodeError(null);
@@ -816,7 +826,10 @@ function BranchFormModal({
               onChange={handleChange}
               className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
             >
-              <option value="">No IT Admin (needs_admin status)</option>
+              <option value="">No Admin (needs_admin status)</option>
+              {currentUser && (
+                <option value={currentUser.id}>Myself ({currentUser.name})</option>
+              )}
               {itAdmins.map((admin: ITAdmin) => (
                 <option key={admin.id} value={admin.id}>
                   {admin.name} ({admin.email})
@@ -824,7 +837,7 @@ function BranchFormModal({
               ))}
             </select>
             <p className={`text-xs mt-1 ${text.muted}`}>
-              Branches without an IT Admin will be marked as "Needs Admin"
+              Select "Myself" to manage this branch directly, or assign an IT Admin
             </p>
           </div>
         )}

@@ -749,6 +749,29 @@ export function EnterpriseDetail() {
           fetchEnterpriseDetails();
         }}
       />
+
+      {/* Edit User Modal (with password reset) */}
+      {editingUser && (
+        <EditUserModal
+          isOpen={isEditUserModalOpen}
+          onClose={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}
+          onSuccess={() => { fetchEnterpriseDetails(); }}
+          user={{
+            id: editingUser.id,
+            email: editingUser.email,
+            name: editingUser.name,
+            phone: editingUser.phone,
+            role: editingUser.role,
+            status: editingUser.status,
+            enterprise_id: id,
+            created_at: '',
+          }}
+          allowedRoles={[
+            { value: 'org_admin', label: 'Org Admin' },
+            { value: 'it_admin', label: 'IT Admin' },
+          ]}
+        />
+      )}
     </div>
   );
 }
