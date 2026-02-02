@@ -303,13 +303,15 @@ export function BatchDetail() {
 
   const canAddAssets = batch.status === 'draft';
 
-  // Verified assets: eligible for approval submission and pickup
+  // Verified assets: eligible for approval submission
   const verifiedAssets = batchAssets.filter(a =>
     a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
   );
 
-  // Alias for pickup flow (same set)
-  const pickupableAssets = verifiedAssets;
+  // Pickupable assets: only those explicitly approved/ready for pickup (not just verified)
+  const pickupableAssets = batchAssets.filter(a =>
+    a.status === 'ready_for_pickup'
+  );
 
   // Open pickup modal: auto-select all pickupable assets
   const openPickupModal = () => {

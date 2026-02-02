@@ -25,7 +25,7 @@ import {
   Building2,
   Key,
 } from 'lucide-react';
-import { useAuth, useBranches, useBulkCreateITAdmins, useUpdateBranch } from '@/hooks';
+import { useAuth, useBranches, useITAdmins, useBulkCreateITAdmins, useUpdateBranch } from '@/hooks';
 
 interface ParsedRow {
   name: string;
@@ -77,8 +77,14 @@ export function BulkITAdminUpload() {
   const enterpriseId = enterprise?.id || '';
 
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { data: existingITAdmins = [] } = useITAdmins(enterpriseId);
   const bulkCreate = useBulkCreateITAdmins();
   const updateBranch = useUpdateBranch();
+
+  // Build set of existing IT admin emails for duplicate detection
+  const existingEmails = new Set(
+    (existingITAdmins as any[]).map((a: any) => a.email?.toLowerCase()).filter(Boolean)
+  );
 
   // Filter to branches without IT admin (available for assignment)
   const availableBranches = (branches as any[]).filter(b => !b.it_admin_id);
@@ -174,6 +180,8 @@ export function BulkITAdminUpload() {
         row.errors.push('Invalid email format');
       } else if (seenEmails.has(row.email.toLowerCase())) {
         row.errors.push('Duplicate email in file');
+      } else if (existingEmails.has(row.email.toLowerCase())) {
+        row.errors.push('IT Admin with this email already exists');
       } else {
         seenEmails.add(row.email.toLowerCase());
       }
@@ -198,7 +206,7 @@ export function BulkITAdminUpload() {
 
     setParsedData(rows);
     setUploadStatus('ready');
-  }, [branches]);
+  }, [branches, existingEmails]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];

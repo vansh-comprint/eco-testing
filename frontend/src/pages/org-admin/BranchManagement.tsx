@@ -25,9 +25,10 @@ import {
   X,
   Upload,
   AlertTriangle,
-  User
+  User,
+  Power
 } from 'lucide-react';
-import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists } from '@/hooks';
+import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists } from '@/hooks';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { validateBranchCode } from '@/lib/validations/branch';
@@ -112,11 +113,26 @@ export function BranchManagement() {
     : allBranchSummaries.filter((s: BranchSummary) => myBranchIds.has(s.branch_id));
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
+  const updateBranchStatus = useUpdateBranchStatus();
   const deleteBranch = useDeleteBranch();
   
   // Org Admin can fully manage branches; IT Admin can only create new ones
   const canManageBranches = isOrgAdmin;
   const canCreateBranches = true; // Both Org Admin and IT Admin can create branches
+
+  // Handle edit redirect from BranchDetail page
+  useEffect(() => {
+    const editBranchId = (location.state as { editBranch?: string })?.editBranch;
+    if (editBranchId && branches.length > 0) {
+      const branchToEdit = branches.find((b: Branch) => b.id === editBranchId);
+      if (branchToEdit) {
+        setEditingBranch(branchToEdit);
+        setIsModalOpen(true);
+      }
+      // Clear the state so it doesn't re-trigger
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, branches]);
 
   // Filter branches by search
   const filteredBranches = branches.filter((branch: Branch) =>
@@ -279,6 +295,10 @@ export function BranchManagement() {
                     summary={summary}
                     onEdit={canManageBranches ? () => handleEditBranch(branch) : undefined}
                     onDelete={canManageBranches ? () => handleDeleteClick(branch) : undefined}
+                    onToggleStatus={canManageBranches ? () => {
+                      const newStatus = branch.status === 'active' ? 'inactive' : 'active';
+                      updateBranchStatus.mutate({ branchId: branch.id, status: newStatus });
+                    } : undefined}
                     onClick={() => navigate(`${basePath}/branches/${branch.id}`)}
                     canManage={canManageBranches}
                     currentUserId={user?.id}
@@ -359,6 +379,7 @@ function BranchCard({
   summary,
   onEdit,
   onDelete,
+  onToggleStatus,
   onClick,
   canManage = true,
   currentUserId,
@@ -367,6 +388,7 @@ function BranchCard({
   summary?: BranchSummary;
   onEdit?: () => void;
   onDelete?: () => void;
+  onToggleStatus?: () => void;
   onClick: () => void;
   canManage?: boolean;
   currentUserId?: string;
@@ -456,7 +478,7 @@ function BranchCard({
           </Badge>
           
           {canManage && (
-            <div className="relative" onClick={e => e.stopPropagation()}>
+            <div className="relative" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <button
                 type="button"
                 onClick={() => setShowMenu(!showMenu)}
@@ -466,8 +488,8 @@ function BranchCard({
               </button>
               {showMenu && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-lg z-20">
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-lg z-50 py-1">
                     <button
                       type="button"
                       onClick={() => { onEdit?.(); setShowMenu(false); }}
@@ -476,6 +498,25 @@ function BranchCard({
                       <Edit className={iconSize.sm} />
                       Edit
                     </button>
+                    {branch.status === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={() => { onToggleStatus?.(); setShowMenu(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                      >
+                        <Power className={iconSize.sm} />
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { onToggleStatus?.(); setShowMenu(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                      >
+                        <Power className={iconSize.sm} />
+                        Activate
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => { onDelete?.(); setShowMenu(false); }}
@@ -568,12 +609,16 @@ function BranchFormModal({
     pin_code: '',
     site_contact_person: '',
     site_contact_phone: '',
+    opening_day: 'Monday',
+    closing_day: 'Saturday',
     opening_hours: '',
     closing_hours: '',
     pickup_point_description: '',
     special_instructions: '',
     it_admin_id: '' as string | null,
   });
+
+  const dayOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   // Generate time options in 30-minute intervals (6:00 AM - 11:00 PM)
   const timeOptions = (() => {
@@ -595,19 +640,31 @@ function BranchFormModal({
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  // Parse operating_hours string (e.g., "09:00 - 18:00") into opening/closing
+  // Parse operating_hours string (e.g., "Mon-Sat 09:00 - 18:00" or "09:00 - 18:00") into parts
   const parseOperatingHours = (hours: string | undefined) => {
-    if (!hours) return { opening: '', closing: '' };
-    const match = hours.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
-    if (match) return { opening: match[1], closing: match[2] };
-    return { opening: '', closing: '' };
+    if (!hours) return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
+    // Try "Day-Day HH:MM - HH:MM" format first
+    const dayMatch = hours.match(/^(\w+)-(\w+)\s+(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+    if (dayMatch) {
+      const dayMap: Record<string, string> = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+      return {
+        openingDay: dayMap[dayMatch[1]] || dayMatch[1],
+        closingDay: dayMap[dayMatch[2]] || dayMatch[2],
+        opening: dayMatch[3],
+        closing: dayMatch[4],
+      };
+    }
+    // Fallback: "HH:MM - HH:MM" format
+    const timeMatch = hours.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+    if (timeMatch) return { openingDay: 'Monday', closingDay: 'Saturday', opening: timeMatch[1], closing: timeMatch[2] };
+    return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
   };
 
   // Reset form when modal opens or branch changes
   useEffect(() => {
     if (isOpen) {
       if (branch) {
-        const { opening, closing } = parseOperatingHours(branch.operating_hours);
+        const { openingDay, closingDay, opening, closing } = parseOperatingHours(branch.operating_hours);
         setFormData({
           branch_name: branch.branch_name || '',
           branch_code: branch.branch_code || '',
@@ -618,6 +675,8 @@ function BranchFormModal({
           pin_code: branch.pin_code || '',
           site_contact_person: branch.site_contact_person || '',
           site_contact_phone: branch.site_contact_phone || '',
+          opening_day: openingDay,
+          closing_day: closingDay,
           opening_hours: opening,
           closing_hours: closing,
           pickup_point_description: branch.pickup_point_description || '',
@@ -635,6 +694,8 @@ function BranchFormModal({
           pin_code: '',
           site_contact_person: '',
           site_contact_phone: '',
+          opening_day: 'Monday',
+          closing_day: 'Saturday',
           opening_hours: '',
           closing_hours: '',
           pickup_point_description: '',
@@ -753,12 +814,13 @@ function BranchFormModal({
       return;
     }
 
-    // Combine opening/closing hours into operating_hours string
+    // Combine days and times into operating_hours string (e.g., "Mon-Sat 09:00 - 18:00")
+    const dayShort: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
     const operating_hours = formData.opening_hours && formData.closing_hours
-      ? `${formData.opening_hours} - ${formData.closing_hours}`
+      ? `${dayShort[formData.opening_day] || formData.opening_day}-${dayShort[formData.closing_day] || formData.closing_day} ${formData.opening_hours} - ${formData.closing_hours}`
       : '';
 
-    const { opening_hours, closing_hours, ...rest } = formData;
+    const { opening_hours, closing_hours, opening_day, closing_day, ...rest } = formData;
     const submitData = {
       ...rest,
       operating_hours,
@@ -954,6 +1016,34 @@ function BranchFormModal({
               {validationErrors.site_contact_phone && (
                 <p className="text-xs text-red-500 mt-1">{validationErrors.site_contact_phone}</p>
               )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-xs font-medium mb-1.5 ${text.muted}`}>Start Day</label>
+              <select
+                name="opening_day"
+                value={formData.opening_day}
+                onChange={handleChange}
+                className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
+              >
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-xs font-medium mb-1.5 ${text.muted}`}>End Day</label>
+              <select
+                name="closing_day"
+                value={formData.closing_day}
+                onChange={handleChange}
+                className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
+              >
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

@@ -240,7 +240,7 @@ export function CreateEnterprise() {
     }, 300);
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      const { API_BASE_URL: apiBaseUrl } = await import('@/lib/api/client');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('document_type', docType);

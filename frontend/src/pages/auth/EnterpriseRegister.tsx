@@ -365,7 +365,7 @@ export function EnterpriseRegister() {
     }, 300);
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      const { API_BASE_URL: apiBaseUrl } = await import('@/lib/api/client');
       const docType = fieldToDocType[field] || 'gst';
       const formDataUpload = new window.FormData();
       formDataUpload.append('file', file);

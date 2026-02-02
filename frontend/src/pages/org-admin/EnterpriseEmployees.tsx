@@ -41,10 +41,10 @@ export function EnterpriseEmployees() {
   const [branchFilter, setBranchFilter] = useState('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
-  // Branch lookup
+  // Branch lookup (API returns branch_name, fallback to name for safety)
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name));
+    branches.forEach((b: any) => map.set(b.id, b.branch_name || b.name || ''));
     return map;
   }, [branches]);
 
@@ -116,8 +116,9 @@ export function EnterpriseEmployees() {
       name: e.name || '',
       email: e.email,
       phone: e.phone || '',
+      role: (e.role || 'employee').replace(/_/g, ' '),
       department: e.department || '',
-      branch: branchMap.get(e.branch_id || '') || '—',
+      branch: branchMap.get(e.branch_id || '') || '',
       status: e.status,
       assets_assigned: employeeAssetCounts.get(e.id)?.assigned || 0,
       assets_submitted: employeeAssetCounts.get(e.id)?.submitted || 0,
@@ -196,11 +197,11 @@ export function EnterpriseEmployees() {
         </div>
         <div className="flex gap-3">
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Filter className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${statusFilter !== 'all' ? 'text-ecotribe-primary' : 'text-slate-400'}`} />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="pl-9 pr-8 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer"
+              className={`pl-9 pr-8 py-3 border bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer ${statusFilter !== 'all' ? 'border-ecotribe-primary/50' : 'border-slate-200 dark:border-white/10'}`}
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -209,15 +210,15 @@ export function EnterpriseEmployees() {
             </select>
           </div>
           <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Building2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${branchFilter !== 'all' ? 'text-ecotribe-primary' : 'text-slate-400'}`} />
             <select
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
-              className="pl-9 pr-8 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer"
+              className={`pl-9 pr-8 py-3 border bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer ${branchFilter !== 'all' ? 'border-ecotribe-primary/50' : 'border-slate-200 dark:border-white/10'}`}
             >
               <option value="all">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+              {branches.map((b: any) => (
+                <option key={b.id} value={b.id}>{b.branch_name || b.name}</option>
               ))}
             </select>
           </div>
@@ -243,10 +244,20 @@ export function EnterpriseEmployees() {
         </div>
       </motion.div>
 
-      {/* Results count */}
-      <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest">
-        {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''}
-      </p>
+      {/* Results count + clear filters */}
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest">
+          {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''}
+        </p>
+        {(statusFilter !== 'all' || branchFilter !== 'all' || searchQuery) && (
+          <button
+            onClick={() => { setStatusFilter('all'); setBranchFilter('all'); setSearchQuery(''); }}
+            className="font-mono text-xs text-ecotribe-primary hover:text-ecotribe-primary/70 uppercase tracking-widest transition-colors"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
 
       {/* Employee List */}
       <motion.div
@@ -283,9 +294,10 @@ export function EnterpriseEmployees() {
           /* Flat List */
           <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_120px_80px_80px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
+            <div className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Employee</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Branch</p>
+              <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Role</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Status</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-center">Assigned</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-center">Submitted</p>
@@ -296,7 +308,7 @@ export function EnterpriseEmployees() {
                   const counts = employeeAssetCounts.get(emp.id);
                   const badge = getStatusBadge(emp.status);
                   return (
-                    <div key={emp.id} className="grid grid-cols-[1fr_1fr_120px_80px_80px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors">
+                    <div key={emp.id} className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
                           <span className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
@@ -317,6 +329,9 @@ export function EnterpriseEmployees() {
                           {branchMap.get(emp.branch_id || '') || '—'}
                         </p>
                       </div>
+                      <p className="font-mono text-xs text-slate-600 dark:text-zinc-400 capitalize truncate">
+                        {(emp.role || 'employee').replace(/_/g, ' ')}
+                      </p>
                       <span className={`inline-flex items-center gap-1 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest w-fit ${badge.color}`}>
                         {badge.icon}
                         {emp.status === 'pending_invite' ? 'Pending' : emp.status}

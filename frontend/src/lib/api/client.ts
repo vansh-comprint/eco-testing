@@ -3,11 +3,31 @@
  * Core utilities for REST API communication with the FastAPI backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
-    : `${window.location.protocol}//${window.location.host}/api/v1`
-);
+// Resolve API base URL:
+// 1. Explicit VITE_API_URL always wins (set at build time)
+// 2. Localhost/127.0.0.1 → same host, backend port 8000
+// 3. Production → same origin + /api/v1 (reverse proxy routes to backend)
+const resolveApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    // If the page is HTTPS but the env var is HTTP, upgrade to HTTPS
+    // to prevent mixed content errors in production
+    if (window.location.protocol === 'https:' && envUrl.startsWith('http://')) {
+      return envUrl.replace('http://', 'https://');
+    }
+    return envUrl;
+  }
+
+  const { protocol, hostname, host } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//${hostname}:8000/api/v1`;
+  }
+
+  // Production: use same origin (reverse proxy must route /api/v1 → backend)
+  return `${protocol}//${host}/api/v1`;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 // Page unload detection — prevents token clearing during hard refresh / navigation
 let isPageUnloading = false;

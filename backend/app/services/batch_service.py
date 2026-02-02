@@ -361,8 +361,18 @@ class BatchService:
             }
         )
 
-        # --- Auto-create pickup on approval ---
+        # --- On approval: transition verified assets to ready_for_pickup, then auto-create pickup ---
         if action_data.action == "approve":
+            # Promote conditionally_accepted assets to ready_for_pickup
+            verified_assets = await self.asset_repository.get_assets_by_batch_and_statuses(
+                batch_id, [AssetStatus.CONDITIONALLY_ACCEPTED.value]
+            )
+            for asset in verified_assets:
+                asset.status = AssetStatus.READY_FOR_PICKUP.value
+                asset.updated_by = processed_by
+            if verified_assets:
+                await self.db.flush()
+
             await self._auto_create_pickup(batch, processed_by)
 
         response = BatchResponse.model_validate(batch)
@@ -379,7 +389,6 @@ class BatchService:
         the batch to pickup_in_progress.
         """
         PICKUPABLE_STATUSES = {
-            AssetStatus.CONDITIONALLY_ACCEPTED.value,
             AssetStatus.READY_FOR_PICKUP.value,
         }
 
