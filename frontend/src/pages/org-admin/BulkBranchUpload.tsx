@@ -457,18 +457,25 @@ export function BulkBranchUpload() {
     try {
       const result = await bulkCreate.mutateAsync(inputs);
 
-      // Map results
+      // Map results back to inputs by index
+      const createdCodes = new Set(
+        (result.created || []).map((r: any) => r.branch_code)
+      );
+      const errorsByIndex = new Map(
+        (result.errors || []).map((e: any) => [e.index, e.error])
+      );
+
       const uploadResults: UploadResult[] = inputs.map((input, index) => {
-        const success = result.results.find((r: any) => r.branch?.branch_code === input.branch_code);
-        const error = result.errors.find((e: any) => e.branch_code === input.branch_code);
+        const isSuccess = createdCodes.has(input.branch_code);
+        const errorMsg = errorsByIndex.get(index);
 
         return {
           branch_name: input.branch_name,
           branch_code: input.branch_code,
-          success: !!success,
-          error: error?.error,
-          it_admin_created: success?.it_admin_created,
-          generated_password: success?.generated_password,
+          success: isSuccess,
+          error: errorMsg,
+          it_admin_created: false,
+          generated_password: undefined,
         };
       });
 

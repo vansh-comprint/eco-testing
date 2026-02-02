@@ -111,6 +111,34 @@ class BranchResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
 
+class BranchBulkCreateItem(BaseModel):
+    """Schema for a single branch in bulk create"""
+
+    branch_name: str = Field(..., min_length=1, max_length=200)
+    branch_code: str = Field(..., min_length=1, max_length=50)
+
+    address_line1: str = Field(..., min_length=1, max_length=500)
+    address_line2: Optional[str] = Field(None, max_length=500)
+    city: str = Field(..., min_length=1, max_length=100)
+    state: str = Field(..., min_length=1, max_length=100)
+    pin_code: str = Field(..., min_length=1, max_length=10)
+
+    pickup_point_description: Optional[str] = None
+    site_contact_person: Optional[str] = None
+    site_contact_phone: Optional[str] = None
+    operating_hours: Optional[str] = None
+    special_instructions: Optional[str] = None
+
+    it_admin_email: Optional[str] = None
+
+
+class BranchBulkCreate(BaseModel):
+    """Schema for bulk branch creation"""
+
+    branches: List[BranchBulkCreateItem]
+    enterprise_id: Optional[str] = None
+
+
 class BranchListResponse(BaseModel):
     """Schema for paginated branch list response"""
 

@@ -348,12 +348,17 @@ export function useBulkCreateBranches() {
         })),
       });
 
-      if (response.error_count > 0 && response.created_count === 0) {
-        const errorMsg = response.errors.map(e => `Row ${e.index}: ${e.error}`).join(', ');
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to create branches');
+      }
+      const result = response.data as any;
+
+      if (result.error_count > 0 && result.created_count === 0) {
+        const errorMsg = result.errors.map((e: any) => `Row ${e.index + 1}: ${e.error}`).join(', ');
         throw new Error(`Failed to create branches: ${errorMsg}`);
       }
 
-      return { created: response.created, errors: response.errors };
+      return { created: result.created || [], errors: result.errors || [] };
     },
     onSuccess: (_, variables) => {
       if (variables.length > 0) {
@@ -458,12 +463,17 @@ export function useBulkCreateITAdmins() {
 
       const response = await usersApi.bulkCreate({ users, role: 'it_admin' });
 
-      if (response.error_count > 0 && response.created_count === 0) {
-        const errorMsg = response.errors.map(e => `${e.email}: ${e.error}`).join(', ');
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to create IT admins');
+      }
+      const result = response.data as any;
+
+      if (result.error_count > 0 && result.created_count === 0) {
+        const errorMsg = result.errors.map((e: any) => `${e.email}: ${e.error}`).join(', ');
         throw new Error(`Failed to create IT admins: ${errorMsg}`);
       }
 
-      return { results: response.created, errors: response.errors };
+      return { results: result.created || [], errors: result.errors || [] };
     },
     onSuccess: (_, variables) => {
       if (variables.length > 0) {

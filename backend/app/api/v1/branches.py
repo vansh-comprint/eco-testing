@@ -11,7 +11,7 @@ from app.core.permissions import Permission
 from app.models.user import User, UserRole
 from app.models.enterprise import Branch, BranchStatus
 from app.models.asset import Asset
-from app.schemas.branch import BranchCreate, BranchUpdate
+from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
@@ -163,6 +163,40 @@ async def get_branches_summary(
         })
 
     return success_response(data=data)
+
+
+@router.post("/bulk", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def bulk_create_branches(
+    bulk_data: BranchBulkCreate,
+    enterprise_id: str = Query(..., description="Enterprise ID"),
+    current_user: User = Depends(require_permission(Permission.BRANCH_CREATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Bulk create branches for an enterprise.
+
+    Accepts a list of branches with optional IT admin email for auto-assignment.
+    Returns created branches and any errors.
+
+    **Permissions:** BRANCH_CREATE
+    """
+    bulk_data.enterprise_id = enterprise_id
+
+    service = BranchService(db)
+    branches, errors = await service.bulk_create_branches(bulk_data, current_user.id)
+
+    response_data = {
+        "created": [b.model_dump() for b in branches],
+        "errors": errors,
+        "created_count": len(branches),
+        "error_count": len(errors),
+    }
+
+    return success_response(
+        data=response_data,
+        message=f"{len(branches)} branches created successfully"
+        + (f", {len(errors)} errors" if errors else ""),
+    )
 
 
 @router.get("/{branch_id}", response_model=dict)

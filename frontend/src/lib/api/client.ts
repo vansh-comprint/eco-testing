@@ -3,7 +3,11 @@
  * Core utilities for REST API communication with the FastAPI backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
+    : `${window.location.protocol}//${window.location.host}/api/v1`
+);
 
 // Page unload detection — prevents token clearing during hard refresh / navigation
 let isPageUnloading = false;

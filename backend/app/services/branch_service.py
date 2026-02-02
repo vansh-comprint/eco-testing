@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.asset import Asset
 from app.models.batch import Batch
 from app.repositories.branch_repository import BranchRepository
-from app.schemas.branch import BranchCreate, BranchUpdate, BranchResponse, ITAdminInfo
+from app.schemas.branch import BranchCreate, BranchUpdate, BranchResponse, BranchBulkCreate, ITAdminInfo
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 
 
@@ -208,4 +208,79 @@ class BranchService:
             )
 
         return await self.repository.delete(branch_id)
+
+    async def bulk_create_branches(
+        self, bulk_data: BranchBulkCreate, created_by: str
+    ) -> Tuple[List[BranchResponse], List[dict]]:
+        """Bulk create branches with optional IT admin assignment by email."""
+        if not bulk_data.enterprise_id:
+            raise ValidationError("Enterprise ID is required")
+
+        created_branches = []
+        errors = []
+
+        for idx, item in enumerate(bulk_data.branches):
+            try:
+                # Check for duplicate branch code
+                existing = await self.repository.get_by_code(
+                    bulk_data.enterprise_id, item.branch_code
+                )
+                if existing:
+                    errors.append({
+                        "index": idx,
+                        "error": f"Branch code '{item.branch_code}' already exists",
+                    })
+                    continue
+
+                # Resolve IT admin by email if provided
+                it_admin_id = None
+                if item.it_admin_email:
+                    result = await self.db.execute(
+                        select(User).where(
+                            User.email == item.it_admin_email,
+                            User.enterprise_id == bulk_data.enterprise_id,
+                        )
+                    )
+                    admin = result.scalar_one_or_none()
+                    if admin:
+                        it_admin_id = admin.id
+                    else:
+                        errors.append({
+                            "index": idx,
+                            "error": f"IT admin with email '{item.it_admin_email}' not found",
+                        })
+                        continue
+
+                branch = Branch(
+                    id=str(uuid4()),
+                    enterprise_id=bulk_data.enterprise_id,
+                    branch_name=item.branch_name,
+                    branch_code=item.branch_code,
+                    address_line1=item.address_line1,
+                    address_line2=item.address_line2,
+                    city=item.city,
+                    state=item.state,
+                    pin_code=item.pin_code,
+                    pickup_point_description=item.pickup_point_description,
+                    site_contact_person=item.site_contact_person,
+                    site_contact_phone=item.site_contact_phone,
+                    operating_hours=item.operating_hours,
+                    special_instructions=item.special_instructions,
+                    it_admin_id=it_admin_id,
+                    status=BranchStatus.ACTIVE.value,
+                    created_by=created_by,
+                    updated_by=created_by,
+                )
+                self.db.add(branch)
+                await self.db.flush()
+                created_branches.append(branch)
+
+            except Exception as e:
+                errors.append({"index": idx, "error": str(e)})
+
+        if created_branches:
+            await self.db.commit()
+
+        enriched = [await self._enrich_branch_response(b) for b in created_branches]
+        return enriched, errors
 
