@@ -258,10 +258,15 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.EMPLOYEE_CREATE,
         Permission.EMPLOYEE_UPDATE,
         Permission.EMPLOYEE_DELETE,
-        # CRUD permissions
+        # CRUD permissions (includes IT Admin ops for Branch Ops mode)
         Permission.ASSET_READ,
-        Permission.ASSET_UPDATE,  # Org Admin sets asset prices during batch approval
+        Permission.ASSET_CREATE,
+        Permission.ASSET_UPDATE,
+        Permission.ASSET_DELETE,
         Permission.BATCH_READ,
+        Permission.BATCH_CREATE,
+        Permission.BATCH_UPDATE,
+        Permission.BATCH_DELETE,
         Permission.BATCH_APPROVE,
         Permission.BRANCH_READ,
         Permission.BRANCH_CREATE,
@@ -271,6 +276,8 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.ENTERPRISE_UPDATE,
         # Submission, Pickup permissions
         Permission.SUBMISSION_VIEW,
+        Permission.SUBMISSION_CREATE,
+        Permission.SUBMISSION_UPDATE,
         Permission.PICKUP_VIEW,
         Permission.PICKUP_CREATE,
         Permission.PICKUP_UPDATE,
