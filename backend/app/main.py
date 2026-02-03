@@ -209,6 +209,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     """Handle all other exceptions with standardized format"""
+    import traceback
+    print(f"[UNHANDLED] {request.method} {request.url.path}: {exc}", flush=True)
+    traceback.print_exc()
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -51,6 +51,9 @@ async def error_handler_middleware(request: Request, call_next: Callable) -> Res
         
     except SQLAlchemyError as exc:
         # Handle database errors
+        import traceback
+        print(f"[DB ERROR] {request.method} {request.url.path}: {exc}", flush=True)
+        traceback.print_exc()
         logger.error(
             f"Database error: {str(exc)}",
             extra={
@@ -86,6 +89,9 @@ async def error_handler_middleware(request: Request, call_next: Callable) -> Res
         
     except Exception as exc:
         # Handle unexpected errors
+        import traceback
+        print(f"[ERROR] {request.method} {request.url.path}: {exc}", flush=True)
+        traceback.print_exc()
         logger.error(
             f"Unexpected error: {str(exc)}",
             extra={
