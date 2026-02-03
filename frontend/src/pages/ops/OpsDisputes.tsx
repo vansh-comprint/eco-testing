@@ -132,7 +132,7 @@ export function OpsDisputes() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
       >
         {(() => {
           // Get enterprise-filtered disputes for stats
@@ -387,7 +387,7 @@ export function OpsDisputes() {
                       <p className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3">
                         Your Decision
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button
                           onClick={() => setResolution('overturned')}
                           className={`interactive p-4 border transition-all ${

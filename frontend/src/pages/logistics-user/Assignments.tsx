@@ -285,7 +285,7 @@ export function LogisticsAssignments() {
       {activeRequest && (
         <div className="border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-md">
           {/* Header */}
-          <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-start justify-between">
+          <div className="p-4 border-b border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="flex-1">
               <p className="font-display font-bold text-lg text-slate-900 dark:text-white">
                 {(activeRequest as any).branches?.branch_name || activeRequest.pickup_locations?.name || 'Pickup Location'}
@@ -304,7 +304,7 @@ export function LogisticsAssignments() {
               <button
                 onClick={() => startPickup(activeRequest.id)}
                 disabled={isLoading}
-                className="px-4 py-2 bg-ecotribe-primary text-black font-mono text-xs uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 sm:px-4 sm:py-2 bg-ecotribe-primary text-black font-mono text-sm sm:text-xs font-bold uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               >
                 {isLoading ? 'Starting...' : 'Start Pickup'}
               </button>
@@ -654,7 +654,7 @@ export function LogisticsAssignments() {
                   type="button"
                   disabled={isLoading}
                   onClick={finishPickup}
-                  className="px-6 py-3 bg-ecotribe-primary text-black font-mono text-xs uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-4 sm:py-3 bg-ecotribe-primary text-black font-mono text-sm sm:text-xs font-bold uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Processing...' : 'Complete Pickup'}
                 </button>

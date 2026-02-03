@@ -1,2 +1,2 @@
-export { DashboardLayout } from './DashboardLayout';
+export { DashboardLayout, type NavItem } from './DashboardLayout';
 export { OpsLayout } from './OpsLayout';

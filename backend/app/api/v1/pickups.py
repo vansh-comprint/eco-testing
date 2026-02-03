@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
-from app.models import User
+from app.models import User, Asset
 from app.models.enterprise import PickupLocation, Branch
 from app.schemas.pickup import (
     PickupRequestCreate,
@@ -32,8 +32,22 @@ def _to_response(
     pickup,
     location: Optional[PickupLocation] = None,
     branch: Optional[Branch] = None,
+    asset_status_map: Optional[Dict[str, str]] = None,
+    asset_details: Optional[List[dict]] = None,
 ) -> dict:
     """Convert pickup model to response dict with optional joined data"""
+    # Enrich embedded assets with live status from DB
+    enriched_assets = pickup.assets or []
+    if asset_status_map and enriched_assets:
+        enriched_assets = [
+            {**a, "status": asset_status_map.get(a.get("id", ""), a.get("status"))}
+            for a in enriched_assets
+        ]
+
+    # Use full asset details from DB when available (Bug #32 fix)
+    # asset_details provides complete, live asset info fetched via asset_ids
+    resolved_asset_details = asset_details if asset_details is not None else enriched_assets
+
     resp = {
         "id": pickup.id,
         "enterprise_id": pickup.enterprise_id,
@@ -42,7 +56,8 @@ def _to_response(
         "logistics_admin_id": pickup.logistics_admin_id,
         "logistics_user_id": pickup.logistics_user_id,
         "asset_ids": pickup.asset_ids,
-        "assets": pickup.assets,
+        "assets": enriched_assets,
+        "assetDetails": resolved_asset_details,
         "preferred_date": pickup.preferred_date,
         "preferred_time_slot": pickup.preferred_time_slot,
         "scheduled_date": pickup.scheduled_date,
@@ -88,10 +103,36 @@ def _to_response(
     return resp
 
 
+async def _fetch_asset_details(asset_ids: list, db: AsyncSession) -> List[dict]:
+    """Fetch full asset details from DB for a list of asset IDs."""
+    if not asset_ids:
+        return []
+    result = await db.execute(
+        select(Asset).where(Asset.id.in_(asset_ids))
+    )
+    assets = result.scalars().all()
+    return [
+        {
+            "id": a.id,
+            "serial_number": a.serial_number,
+            "brand": a.brand,
+            "model": a.model,
+            "asset_tag": a.asset_tag,
+            "status": a.status,
+            "grade": a.grade if hasattr(a, "grade") else None,
+            "specs": a.specs if hasattr(a, "specs") else None,
+            "enterprise_id": a.enterprise_id,
+            "branch_id": a.branch_id,
+            "batch_id": a.batch_id,
+        }
+        for a in assets
+    ]
+
+
 async def _enrich_pickups(
     pickups: list, db: AsyncSession
 ) -> List[dict]:
-    """Bulk-enrich pickups with location data."""
+    """Bulk-enrich pickups with location + full asset details."""
     if not pickups:
         return []
 
@@ -107,16 +148,58 @@ async def _enrich_pickups(
         for loc in result.scalars().all():
             locations_map[loc.id] = loc
 
-    return [
-        _to_response(p, location=locations_map.get(p.location_id))
-        for p in pickups
-    ]
+    # Batch-fetch full asset details for all pickups
+    all_asset_ids: set = set()
+    for p in pickups:
+        if p.asset_ids:
+            all_asset_ids.update(p.asset_ids)
+
+    asset_status_map: Dict[str, str] = {}
+    all_asset_details_map: Dict[str, dict] = {}
+    if all_asset_ids:
+        result = await db.execute(
+            select(Asset).where(Asset.id.in_(all_asset_ids))
+        )
+        for a in result.scalars().all():
+            asset_status_map[a.id] = a.status
+            all_asset_details_map[a.id] = {
+                "id": a.id,
+                "serial_number": a.serial_number,
+                "brand": a.brand,
+                "model": a.model,
+                "asset_tag": a.asset_tag,
+                "status": a.status,
+                "grade": a.grade if hasattr(a, "grade") else None,
+                "specs": a.specs if hasattr(a, "specs") else None,
+                "enterprise_id": a.enterprise_id,
+                "branch_id": a.branch_id,
+                "batch_id": a.batch_id,
+            }
+
+    enriched = []
+    for p in pickups:
+        per_pickup_details = [
+            all_asset_details_map[aid]
+            for aid in (p.asset_ids or [])
+            if aid in all_asset_details_map
+        ]
+        enriched.append(
+            _to_response(
+                p,
+                location=locations_map.get(p.location_id),
+                asset_status_map=asset_status_map,
+                asset_details=per_pickup_details,
+            )
+        )
+    return enriched
 
 
 async def _enrich_single(pickup, db: AsyncSession) -> dict:
-    """Enrich a single pickup with location + branch data."""
+    """Enrich a single pickup with location + branch + full asset details."""
     location = None
     branch = None
+    asset_status_map: Dict[str, str] = {}
+    asset_details: List[dict] = []
 
     if pickup.location_id:
         result = await db.execute(
@@ -134,7 +217,18 @@ async def _enrich_single(pickup, db: AsyncSession) -> dict:
             )
             branch = result.scalar_one_or_none()
 
-    return _to_response(pickup, location=location, branch=branch)
+    # Fetch full asset details (not just statuses) for the pickup
+    if pickup.asset_ids:
+        asset_details = await _fetch_asset_details(pickup.asset_ids, db)
+        asset_status_map = {a["id"]: a["status"] for a in asset_details}
+
+    return _to_response(
+        pickup,
+        location=location,
+        branch=branch,
+        asset_status_map=asset_status_map,
+        asset_details=asset_details,
+    )
 
 
 @router.get("")

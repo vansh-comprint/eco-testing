@@ -1,7 +1,7 @@
 """Security utilities for authentication and authorization"""
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any, Set
+from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 import bcrypt
 import hashlib
@@ -37,8 +37,11 @@ class TokenBlacklist:
 
     def _cleanup_expired(self) -> None:
         """Remove expired tokens from blacklist."""
-        now = datetime.utcnow()
-        expired = [h for h, exp in self._blacklist.items() if exp < now]
+        now = datetime.now(timezone.utc)
+        expired = [
+            h for h, exp in self._blacklist.items()
+            if (exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp) < now
+        ]
         for h in expired:
             del self._blacklist[h]
 
@@ -49,7 +52,15 @@ class TokenBlacklist:
             token_hash = self._hash_token(token)
             # Default expiry: 24 hours (covers max token lifetime)
             if expires_at is None:
-                expires_at = datetime.utcnow() + timedelta(days=1)
+                expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+            self._blacklist[token_hash] = expires_at
+
+    def add_hash(self, token_hash: str, expires_at: Optional[datetime] = None) -> None:
+        """Add an already-hashed token to the blacklist (used by SessionLimiter)."""
+        with self._lock:
+            self._cleanup_expired()
+            if expires_at is None:
+                expires_at = datetime.now(timezone.utc) + timedelta(days=1)
             self._blacklist[token_hash] = expires_at
 
     def is_blacklisted(self, token: str) -> bool:
@@ -102,7 +113,7 @@ class SessionLimiter:
         """
         with self._lock:
             token_hash = self._hash_token(refresh_token)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             if user_id not in self._sessions:
                 self._sessions[user_id] = []
@@ -115,8 +126,8 @@ class SessionLimiter:
             while len(sessions) > self.MAX_SESSIONS_PER_USER:
                 oldest = sessions.pop(0)
                 invalidated_tokens.append(oldest[0])
-                # Add to token blacklist
-                token_blacklist.add(oldest[0])
+                # Add to token blacklist (already hashed, use add_hash)
+                token_blacklist.add_hash(oldest[0])
 
             return invalidated_tokens
 
@@ -152,9 +163,9 @@ class SessionLimiter:
             if user_id not in self._sessions:
                 return 0
             count = len(self._sessions[user_id])
-            # Blacklist all tokens
+            # Blacklist all tokens (already hashed, use add_hash)
             for token_hash, _ in self._sessions[user_id]:
-                token_blacklist.add(token_hash)
+                token_blacklist.add_hash(token_hash)
             del self._sessions[user_id]
             return count
 
@@ -210,9 +221,9 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
 
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
@@ -230,7 +241,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         str: Encoded JWT refresh token
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.jwt_refresh_token_expire_days)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_token_expire_days)
 
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
@@ -280,7 +291,7 @@ def blacklist_token(token: str) -> None:
         )
         exp = payload.get("exp")
         if exp:
-            expires_at = datetime.fromtimestamp(exp)
+            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
         else:
             expires_at = None
         token_blacklist.add(token, expires_at)

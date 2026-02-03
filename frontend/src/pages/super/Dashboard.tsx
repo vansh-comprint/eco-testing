@@ -174,6 +174,8 @@ export function SuperAdminDashboard() {
             </h2>
           </div>
           {/* Column Headers */}
+          <div className="overflow-x-auto">
+          <div className="min-w-[500px]">
           <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-4 py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
             <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Name</span>
             <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Email</span>
@@ -212,6 +214,8 @@ export function SuperAdminDashboard() {
               ))
             )}
           </div>
+          </div>{/* min-w */}
+          </div>{/* overflow-x-auto */}
           {/* Pagination */}
           {admins.length > ADMIN_PAGE_SIZE && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">

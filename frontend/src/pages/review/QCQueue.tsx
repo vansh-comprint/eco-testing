@@ -137,29 +137,31 @@ export function QCQueue() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className="p-5 flex items-center gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
               >
-                <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
-                  <Laptop className="w-8 h-8 text-zinc-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white uppercase truncate">
-                    {asset.brand} {asset.model}
-                  </h3>
-                  <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="font-mono text-xs text-zinc-600 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Received {new Date(asset.created_at).toLocaleDateString()}
-                    </span>
-                    {asset.enterprises?.name && (
-                      <span className="font-mono text-xs text-zinc-600">
-                        {asset.enterprises.name}
+                <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <Laptop className="w-6 h-6 sm:w-8 sm:h-8 text-zinc-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white uppercase truncate">
+                      {asset.brand} {asset.model}
+                    </h3>
+                    <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
+                    <div className="flex items-center gap-4 mt-1 sm:mt-2">
+                      <span className="font-mono text-xs text-zinc-600 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(asset.created_at).toLocaleDateString()}
                       </span>
-                    )}
+                      {asset.enterprises?.name && (
+                        <span className="font-mono text-xs text-zinc-600 truncate">
+                          {asset.enterprises.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 self-end sm:self-auto">
                   <span className={`px-3 py-1.5 border font-mono font-bold text-xs uppercase tracking-widest ${
                     asset.status === 'in_transit'
                       ? 'border-amber-400/30 bg-amber-400/10 text-amber-400'
@@ -178,7 +180,7 @@ export function QCQueue() {
                     <button
                       onClick={() => markAsArrived(asset.id)}
                       disabled={updateAssetMutation.isPending}
-                      className="interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50"
+                      className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50"
                     >
                       {updateAssetMutation.isPending ? 'Updating...' : 'Mark Arrived'}
                       <CheckCircle className="w-4 h-4" />
@@ -186,7 +188,7 @@ export function QCQueue() {
                   ) : (
                     <button
                       onClick={() => navigate(`${location.pathname}/${asset.id}`)}
-                      className="interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-emerald-500 text-white hover:bg-emerald-400"
+                      className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-emerald-500 text-white hover:bg-emerald-400"
                     >
                       Inspect
                       <ClipboardCheck className="w-4 h-4" />

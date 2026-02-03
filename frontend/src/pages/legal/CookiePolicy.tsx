@@ -6,20 +6,20 @@ export function CookiePolicy() {
     <div className="min-h-screen bg-white dark:bg-black">
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-white/10">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-lime-500 transition-colors font-mono text-sm uppercase tracking-widest mb-6"
+            className="inline-flex items-center gap-2 min-h-[44px] text-slate-500 dark:text-white/50 hover:text-lime-500 transition-colors font-mono text-sm uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-lime-500/10 border border-lime-500/30 flex items-center justify-center">
-              <Cookie className="w-7 h-7 text-lime-500" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-lime-500/10 border border-lime-500/30 flex items-center justify-center flex-shrink-0">
+              <Cookie className="w-5 h-5 sm:w-7 sm:h-7 text-lime-500" />
             </div>
             <div>
-              <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
+              <h1 className="font-brand font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
                 Cookie Policy
               </h1>
               <p className="font-mono text-sm text-slate-500 dark:text-white/50 mt-1">
@@ -31,7 +31,7 @@ export function CookiePolicy() {
       </header>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="prose prose-slate dark:prose-invert max-w-none">
           <section className="mb-12">
             <h2 className="font-display font-bold text-xl text-slate-900 dark:text-white uppercase tracking-wide mb-4">

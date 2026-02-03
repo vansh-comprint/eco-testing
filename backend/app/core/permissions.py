@@ -258,22 +258,29 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.EMPLOYEE_CREATE,
         Permission.EMPLOYEE_UPDATE,
         Permission.EMPLOYEE_DELETE,
+        Permission.MANAGE_EMPLOYEES,
         # CRUD permissions (includes IT Admin ops for Branch Ops mode)
         Permission.ASSET_READ,
         Permission.ASSET_CREATE,
         Permission.ASSET_UPDATE,
         Permission.ASSET_DELETE,
+        Permission.MANAGE_ASSETS,  # Legacy alias — must match IT Admin for Branch Ops mode
+        Permission.VIEW_ALL_ASSETS,
         Permission.BATCH_READ,
         Permission.BATCH_CREATE,
         Permission.BATCH_UPDATE,
         Permission.BATCH_DELETE,
         Permission.BATCH_APPROVE,
+        Permission.MANAGE_BATCHES,  # Legacy alias — must match IT Admin for Branch Ops mode
+        Permission.SUBMIT_PICKUP_FOR_APPROVAL,
         Permission.BRANCH_READ,
         Permission.BRANCH_CREATE,
         Permission.BRANCH_UPDATE,
         Permission.BRANCH_DELETE,
         Permission.ENTERPRISE_READ,
         Permission.ENTERPRISE_UPDATE,
+        Permission.MANAGE_ENTERPRISE_SETTINGS,
+        Permission.MANAGE_PICKUP_LOCATIONS,
         # Submission, Review, Pickup permissions
         Permission.SUBMISSION_VIEW,
         Permission.SUBMISSION_CREATE,
@@ -287,8 +294,11 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         # Payout, Dispute permissions
         Permission.PAYOUT_VIEW,
         Permission.PAYOUT_CREATE,
+        Permission.VIEW_PAYOUTS,  # Legacy alias
         Permission.DISPUTE_VIEW,
+        Permission.DISPUTE_CREATE,
         Permission.DISPUTE_MANAGE,
+        Permission.SUBMIT_DISPUTES,  # Legacy alias
     },
     UserRole.EMPLOYEE: {
         Permission.VIEW_ASSIGNED_ASSETS,

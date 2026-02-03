@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -26,7 +26,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui';
 import { useAuth, usePickupRequest, useAssets, useLogisticsUsers, useCancelPickup, useAssignToLogisticsUser, useUpdatePickupStatus, useCreateLogisticsUser } from '@/hooks';
-import type { PickupRequestStatus, AssetPickupStatus } from '@/types';
+import type { PickupRequestStatus } from '@/types';
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
 const getStatusConfig = (status: string) => {
@@ -43,15 +43,30 @@ const getStatusConfig = (status: string) => {
   return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', variant: 'default' as const, icon: <Clock className="w-4 h-4" /> };
 };
 
-const getAssetStatusConfig = (status: AssetPickupStatus) => {
-  const configs: Record<AssetPickupStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info' }> = {
+const getAssetStatusConfig = (status: string) => {
+  const configs: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info' }> = {
     pending: { label: 'Pending', variant: 'warning' },
+    pending_assignment: { label: 'Pending Assignment', variant: 'warning' },
+    assigned: { label: 'Assigned', variant: 'info' },
+    check_in_started: { label: 'Check-In Started', variant: 'info' },
+    submitted: { label: 'Submitted', variant: 'info' },
+    remote_review: { label: 'Remote Review', variant: 'info' },
+    conditionally_accepted: { label: 'Conditionally Accepted', variant: 'success' },
+    ready_for_pickup: { label: 'Ready for Pickup', variant: 'success' },
+    pickup_requested: { label: 'Pickup Requested', variant: 'info' },
+    pickup_scheduled: { label: 'Pickup Scheduled', variant: 'info' },
     picked_up: { label: 'Picked Up', variant: 'success' },
+    in_transit: { label: 'In Transit', variant: 'info' },
+    facility_qc: { label: 'Facility QC', variant: 'info' },
+    final_accepted: { label: 'Final Accepted', variant: 'success' },
+    remote_rejected: { label: 'Rejected', variant: 'error' },
+    final_rejected: { label: 'Final Rejected', variant: 'error' },
+    completed: { label: 'Completed', variant: 'success' },
     no_show: { label: 'No Show', variant: 'error' },
     qc_failed: { label: 'QC Failed', variant: 'error' },
     removed: { label: 'Removed', variant: 'default' },
   };
-  return configs[status];
+  return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', variant: 'default' as const };
 };
 
 // Timeline step component
@@ -107,6 +122,7 @@ function TimelineStep({
 
 export function PickupRequestDetail() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { requestId } = useParams<{ requestId: string }>();
   const { enterprise, user } = useAuth();
   const enterpriseId = enterprise?.id || '';
@@ -135,8 +151,18 @@ export function PickupRequestDetail() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
 
-  // Determine base path based on user role
-  const basePath = isLogisticsAdminRole ? '/logistics-admin' : '/admin';
+  // Derive base path from current URL (e.g. /org-admin/pickups/pr-xxx → /org-admin)
+  const basePath = useMemo(() => {
+    const match = location.pathname.match(/^(\/[^/]+)/);
+    return match ? match[1] : '/admin';
+  }, [location.pathname]);
+
+  // Back-navigation target: logistics portals don't have /pickups list route
+  const pickupsListPath = basePath === '/logistics-admin'
+    ? '/logistics-admin/assignments'
+    : basePath === '/logistics'
+    ? '/logistics'
+    : `${basePath}/pickups`;
 
   // IMPORTANT: All hooks must be called before any early returns
   // Move useMemo BEFORE the conditional return to follow React's rules of hooks
@@ -158,7 +184,7 @@ export function PickupRequestDetail() {
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Request Not Found</h2>
           <p className="text-slate-500 dark:text-white/50 mb-6">This pickup request may have been deleted.</p>
           <button
-            onClick={() => navigate(isLogisticsAdminRole ? '/logistics-admin' : `${basePath}/pickups`)}
+            onClick={() => navigate(pickupsListPath)}
             className="px-6 py-3 bg-ecotribe-primary text-black font-bold text-sm"
           >
             Back to {isLogisticsAdminRole ? 'Dashboard' : 'Pickup Requests'}
@@ -186,7 +212,7 @@ export function PickupRequestDetail() {
     setIsCancelling(true);
     try {
       await cancelMutation.mutateAsync(request.id);
-      navigate(isLogisticsAdminRole ? '/logistics-admin' : `${basePath}/pickups`);
+      navigate(pickupsListPath);
     } finally {
       setIsCancelling(false);
     }
@@ -255,7 +281,7 @@ export function PickupRequestDetail() {
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-white/10 pb-6">
         <button
-          onClick={() => navigate(isLogisticsAdminRole ? '/logistics-admin' : `${basePath}/pickups`)}
+          onClick={() => navigate(pickupsListPath)}
           className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -288,7 +314,7 @@ export function PickupRequestDetail() {
                 )}
               </div>
               <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                Request ID: {request.id} &bull; Created {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+                Created {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
               </p>
             </div>
           </div>
@@ -346,7 +372,7 @@ export function PickupRequestDetail() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+            className="grid grid-cols-1 sm:grid-cols-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
           >
             <div className="p-5 border-r border-slate-200 dark:border-white/10">
               <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Total Devices</p>
@@ -378,14 +404,15 @@ export function PickupRequestDetail() {
             </div>
 
             <div className="divide-y divide-slate-200 dark:divide-white/5">
-              {(request.assets || []).map((assetRecord) => {
-                const asset = assets.find(a => a.id === assetRecord.asset_id);
+              {(request.assets || []).map((assetRecord, idx) => {
+                const assetId = assetRecord.asset_id || assetRecord.id;
+                const asset = assets.find(a => a.id === assetId);
                 const assetStatusConfig = getAssetStatusConfig(assetRecord.status);
 
                 return (
                   <div
-                    key={assetRecord.asset_id}
-                    onClick={() => navigate(`${basePath}/assets/${assetRecord.asset_id}`)}
+                    key={assetId || idx}
+                    onClick={() => navigate(`${basePath}/assets/${assetId}`)}
                     className="p-4 hover:bg-slate-50 dark:hover:bg-white/[0.05] cursor-pointer transition-colors group flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4">
@@ -394,10 +421,10 @@ export function PickupRequestDetail() {
                       </div>
                       <div>
                         <p className="font-display font-bold text-sm text-slate-900 dark:text-white">
-                          {asset?.brand} {asset?.model}
+                          {asset?.brand || assetRecord.brand} {asset?.model || assetRecord.model}
                         </p>
                         <p className="font-mono text-[10px] text-slate-500 dark:text-white/50">
-                          S/N: {asset?.serial_number}
+                          S/N: {asset?.serial_number || assetRecord.serial_number}
                         </p>
                       </div>
                     </div>
@@ -584,12 +611,12 @@ export function PickupRequestDetail() {
       {/* Assignment Modal */}
       <AnimatePresence>
         {showAssignModal && isLogisticsAdminRole && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-none sm:max-w-2xl max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">

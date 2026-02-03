@@ -91,6 +91,12 @@ class Settings(BaseSettings):
         default="", description="Path to GCP service account JSON"
     )
 
+    # Frontend URL (for password reset links etc.)
+    frontend_url: str = Field(
+        default="http://localhost:5173",
+        description="Frontend application URL for email links",
+    )
+
     # Email Configuration (SMTP)
     smtp_host: str = Field(default="", description="SMTP server host")
     smtp_port: int = Field(default=587, description="SMTP server port")

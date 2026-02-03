@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronDown, Menu, X, LogOut, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -8,13 +8,18 @@ import { ThemeToggleCompact, NotificationDropdown, NotificationDropdownMobile } 
 import { OrgBranchProvider, ITAdminBranchProvider } from '@/contexts';
 import { BranchSelector } from '@/components/org-admin';
 import { ITAdminBranchSelector } from '@/components/admin/ITAdminBranchSelector';
+import { usePermission, type PermissionValue } from '@/permissions';
 import type { UserRole } from '@/types';
 
-interface NavItem {
+export interface NavItem {
   label: string;
   path: string;
   icon: React.ReactNode;
   badge?: number;
+  /** If set, nav item only shown when user has this permission */
+  permission?: PermissionValue;
+  /** If set, nav item only shown when user has any of these permissions */
+  anyPermission?: PermissionValue[];
   children?: NavItem[];
 }
 
@@ -32,6 +37,30 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
     return sessionStorage.getItem('org_branch_ops_enabled') === 'true';
   });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Permission-based nav item filtering
+  const { hasPermission, hasAnyPermission } = usePermission();
+
+  const filterNavItems = (items: NavItem[]): NavItem[] => {
+    return items.reduce<NavItem[]>((acc, item) => {
+      // Check permission gate on this item
+      if (item.permission && !hasPermission(item.permission)) return acc;
+      if (item.anyPermission && !hasAnyPermission(item.anyPermission)) return acc;
+      // Filter children recursively
+      const filtered = { ...item };
+      if (filtered.children) {
+        filtered.children = filterNavItems(filtered.children);
+      }
+      acc.push(filtered);
+      return acc;
+    }, []);
+  };
+
+  const filteredNavItems = useMemo(() => filterNavItems(navItems), [navItems, hasPermission, hasAnyPermission]);
+  const filteredItViewNavItems = useMemo(
+    () => (itViewNavItems ? filterNavItems(itViewNavItems) : undefined),
+    [itViewNavItems, hasPermission, hasAnyPermission]
+  );
 
   // Persist Branch Ops toggle state
   useEffect(() => {
@@ -148,7 +177,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const hasChildren = item.children && item.children.length > 0;
 
               if (hasChildren) {
@@ -252,7 +281,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
             })}
 
             {/* Branch Operations Toggle - Only for Org Admin */}
-            {role === 'org_admin' && itViewNavItems && sidebarOpen && (
+            {role === 'org_admin' && filteredItViewNavItems && sidebarOpen && (
               <>
                 <div className="my-3 border-t border-black/10 dark:border-white/10" />
                 <button
@@ -301,7 +330,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                       transition={{ duration: 0.2 }}
                       className="ml-2 pl-2 border-l-2 border-ecotribe-primary/30 space-y-1"
                     >
-                      {itViewNavItems.map((item) => {
+                      {filteredItViewNavItems.map((item) => {
                         const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
                         return (
                           <Link
@@ -421,7 +450,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
               </div>
 
               <nav className="p-3 space-y-1">
-                {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
                   const hasChildren = item.children && item.children.length > 0;
 
                   if (hasChildren) {
@@ -496,7 +525,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
               </nav>
 
               {/* Mobile Branch Ops Toggle - Only for Org Admin */}
-              {role === 'org_admin' && itViewNavItems && (
+              {role === 'org_admin' && filteredItViewNavItems && (
                 <div className="px-3 pb-3">
                   <div className="my-2 border-t border-black/10 dark:border-white/10" />
                   <button
@@ -526,7 +555,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                         </div>
                       </div>
                       <div className="ml-2 pl-2 border-l-2 border-ecotribe-primary/30 space-y-1">
-                        {itViewNavItems.map((item) => {
+                        {filteredItViewNavItems.map((item) => {
                           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
                           return (
                             <Link

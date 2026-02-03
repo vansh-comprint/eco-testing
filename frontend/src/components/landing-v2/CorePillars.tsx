@@ -43,6 +43,14 @@ const CorePillars: React.FC = () => {
           <p className="text-black/60 dark:text-white/60 max-w-2xl mx-auto">
             Three core pillars that make enterprise IT sustainability achievable and measurable.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 mr-1">We handle:</span>
+            {['Servers', 'Storage', 'Networking', 'Laptops', 'Desktops', 'Workstations', 'Mobile Devices'].map((category) => (
+              <span key={category} className="px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 border border-black/10 dark:border-white/10">
+                {category}
+              </span>
+            ))}
+          </div>
         </motion.div>
 
         {/* Pillars Grid - Border-based layout */}

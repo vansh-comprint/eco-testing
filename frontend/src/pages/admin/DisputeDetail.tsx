@@ -240,7 +240,7 @@ export function DisputeDetail() {
                   </Badge>
                 )}
               </div>
-              <div className="p-6 grid grid-cols-2 gap-6">
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <InfoRow label="Brand" value={asset.brand} />
                 <InfoRow label="Model" value={asset.model} />
                 <InfoRow label="Serial Number" value={asset.serial_number} mono />
@@ -455,14 +455,7 @@ export function DisputeDetail() {
             className="border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6 shadow-sm"
           >
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">Dispute ID</span>
-                <span className="font-mono text-xs text-slate-700 dark:text-white/70">{dispute.id}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">Asset ID</span>
-                <span className="font-mono text-xs text-slate-700 dark:text-white/70">{dispute.asset_id}</span>
-              </div>
+              {/* Dispute ID and Asset ID hidden for cleaner UX */}
               <div className="flex items-center justify-between">
                 <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">Submitted</span>
                 <span className="font-display text-sm text-slate-700 dark:text-white/70">

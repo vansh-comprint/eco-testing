@@ -163,15 +163,15 @@ export function RemoteReviewQueue() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * index }}
               onClick={() => navigate(`/ops/submissions/${item.id}`)}
-              className="interactive bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-5 hover:border-ecotribe-primary dark:hover:border-ecotribe-primary transition-all cursor-pointer group"
+              className="interactive bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-4 sm:p-5 hover:border-ecotribe-primary dark:hover:border-ecotribe-primary transition-all cursor-pointer group active:scale-[0.99]"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center flex-shrink-0">
-                  <Laptop className="w-7 h-7 text-ecotribe-primary" />
+              <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center flex-shrink-0">
+                  <Laptop className="w-5 h-5 sm:w-7 sm:h-7 text-ecotribe-primary" />
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-ecotribe-primary transition-colors truncate mb-1">
+                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white group-hover:text-ecotribe-primary transition-colors truncate mb-1">
                     {item.brand} {item.model}
                   </h3>
                   <p className="text-xs font-mono text-slate-500 dark:text-white/50 mb-2">
@@ -208,14 +208,14 @@ export function RemoteReviewQueue() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 self-center">
                   {item.status === 'disputed' && (
-                    <span className="px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="px-2 py-1 sm:px-2.5 sm:py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
                       <ShieldAlert className="w-3.5 h-3.5" />
                       Disputed
                     </span>
                   )}
-                  <span className="px-3 py-2 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary font-mono text-[11px] font-bold uppercase tracking-widest">
+                  <span className="hidden sm:inline px-3 py-2 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary font-mono text-[11px] font-bold uppercase tracking-widest">
                     Review
                   </span>
                   <ArrowRight className="w-5 h-5 text-slate-500 dark:text-white/50 group-hover:text-ecotribe-primary transition-colors" />

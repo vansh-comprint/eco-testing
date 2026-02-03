@@ -231,17 +231,9 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
           <div className="space-y-4">
             <div className="p-4 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded">
               <p className={`font-mono text-xs ${text.muted}`}>
-                <span className="font-bold">User ID:</span> {user.id}
-              </p>
-              <p className={`font-mono text-xs ${text.muted} mt-1`}>
                 <span className="font-bold">Created:</span>{' '}
                 {new Date(user.created_at).toLocaleDateString()}
               </p>
-              {user.enterprise_id && (
-                <p className={`font-mono text-xs ${text.muted} mt-1`}>
-                  <span className="font-bold">Enterprise ID:</span> {user.enterprise_id}
-                </p>
-              )}
             </div>
 
             <Input

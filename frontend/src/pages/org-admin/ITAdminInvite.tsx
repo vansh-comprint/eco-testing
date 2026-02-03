@@ -84,11 +84,6 @@ export function ITAdminInvite() {
         isValid = false;
       }
 
-      if (!invite.branch_id) {
-        fieldErrors.branch_id = 'Branch assignment is required for IT Admins';
-        isValid = false;
-      }
-
       if (Object.keys(fieldErrors).length > 0) {
         newErrors[index] = fieldErrors;
       }
@@ -427,7 +422,7 @@ export function ITAdminInvite() {
               {/* Branch Assignment */}
               <div>
                 <label className="block font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">
-                  Assign to Branch *
+                  Assign to Branch (Optional)
                 </label>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-white/30" />

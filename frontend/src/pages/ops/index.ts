@@ -14,3 +14,4 @@ export { PickupQueue } from './PickupQueue';
 export { RemoteReviewQueue } from './RemoteReviewQueue';
 export { OpsLogistics } from './OpsLogistics';
 export { OpsBranches } from './OpsBranches';
+export { OpsSettings } from './OpsSettings';

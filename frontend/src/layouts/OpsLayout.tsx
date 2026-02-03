@@ -223,10 +223,10 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-black/10 dark:border-white/10">
-        <div className="h-full flex items-center justify-between px-4">
+        <div className="h-full flex items-center justify-between px-3">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="interactive p-2 -ml-2 text-black/60 dark:text-zinc-500 hover:text-black dark:hover:text-white"
+            className="interactive p-2.5 -ml-2 text-black/60 dark:text-zinc-500 hover:text-black dark:hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -354,7 +354,7 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
           </header>
 
           {/* Page Content */}
-          <div className="p-6 lg:p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <Outlet />
           </div>
         </div>

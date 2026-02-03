@@ -417,7 +417,7 @@ export function RemoteReview() {
                 type="button"
                 onClick={() => setShowConfirmModal(true)}
                 disabled={!decision || (decision === 'rejected' && !rejectionReason) || (decision === 'conditionally_accepted' && !grade) || isLoading}
-                className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                className={`w-full interactive py-4 sm:py-3 font-mono font-bold text-sm sm:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                   decision
                     ? decision === 'conditionally_accepted'
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400'

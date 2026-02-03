@@ -215,9 +215,9 @@ export function SignupPage() {
           ))}
         </div>
 
-        <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
-          <div className="text-center mb-8">
-            <h2 className="font-brand font-bold text-2xl text-black dark:text-white uppercase mb-2">{steps[step - 1].title}</h2>
+        <div className="p-5 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="font-brand font-bold text-xl sm:text-2xl text-black dark:text-white uppercase mb-2">{steps[step - 1].title}</h2>
             <p className="text-black/60 dark:text-zinc-400 font-mono text-xs uppercase tracking-wider">
               {step === 1 && (skipAdminCreation ? 'Skipping initial admin account' : 'Create your IT Admin account (Optional)')}
               {step === 2 && 'Tell us about your company'}
@@ -375,7 +375,7 @@ export function SignupPage() {
                     value={formData.street}
                     onChange={(e) => updateField('street', e.target.value)}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
                       label="City"
                       placeholder="San Francisco"
@@ -391,7 +391,7 @@ export function SignupPage() {
                       error={errors.state}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
                       label="ZIP Code"
                       placeholder="94102"

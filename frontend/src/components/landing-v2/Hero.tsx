@@ -57,7 +57,7 @@ const Hero: React.FC = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-brand font-bold text-black dark:text-white leading-[1.1] tracking-tight"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-brand font-bold text-black dark:text-white leading-[1.1] tracking-tight"
             >
               Turn IT{' '}
               <span className="font-accent line-through decoration-ecotribe-primary decoration-4 italic text-black/40 dark:text-white/40">
@@ -146,14 +146,13 @@ const Hero: React.FC = () => {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="hidden lg:block"
           >
             <div className="relative">
-              {/* Corner decorations */}
-              <div className="absolute -top-4 -left-4 w-8 h-8 border-l-2 border-t-2 border-ecotribe-primary" />
-              <div className="absolute -bottom-4 -right-4 w-8 h-8 border-r-2 border-b-2 border-ecotribe-primary" />
+              {/* Corner decorations - hidden on mobile for cleaner look */}
+              <div className="hidden lg:block absolute -top-4 -left-4 w-8 h-8 border-l-2 border-t-2 border-ecotribe-primary" />
+              <div className="hidden lg:block absolute -bottom-4 -right-4 w-8 h-8 border-r-2 border-b-2 border-ecotribe-primary" />
 
-              {/* Stats Grid */}
+              {/* Stats Grid - 2x2 on all screens, compact on mobile */}
               <div className="grid grid-cols-2 gap-px bg-ecotribe-primary/10 border border-ecotribe-primary/10">
                 {stats.map((stat, i) => (
                   <motion.div
@@ -161,15 +160,15 @@ const Hero: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
-                    className="group p-8 bg-white dark:bg-[#050505] hover:bg-ecotribe-primary/5 transition-all"
+                    className="group p-4 sm:p-6 lg:p-8 bg-white dark:bg-[#050505] hover:bg-ecotribe-primary/5 transition-all"
                   >
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2 lg:mb-3">
                       <span className="text-ecotribe-primary">{stat.icon}</span>
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
+                      <span className="font-mono text-[9px] sm:text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
                         {stat.label}
                       </span>
                     </div>
-                    <span className="font-brand font-bold text-3xl md:text-4xl text-black dark:text-white group-hover:text-ecotribe-primary transition-colors">
+                    <span className="font-brand font-bold text-2xl sm:text-3xl md:text-4xl text-black dark:text-white group-hover:text-ecotribe-primary transition-colors">
                       {stat.value}
                     </span>
                   </motion.div>
@@ -181,7 +180,7 @@ const Hero: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1 }}
-                className="mt-6 text-center"
+                className="mt-4 lg:mt-6 text-center"
               >
                 <p className="font-mono text-xs uppercase tracking-widest text-black/30 dark:text-white/30">
                   Trusted by enterprises across India

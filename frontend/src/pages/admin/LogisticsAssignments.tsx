@@ -225,12 +225,12 @@ export function ITAdminLogisticsAssignments() {
       {/* Assignment Modal */}
       <AnimatePresence>
         {showAssignModal && selectedPickup && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-none sm:max-w-2xl max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">

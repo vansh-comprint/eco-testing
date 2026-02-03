@@ -26,7 +26,7 @@ export function PendingApproval() {
           </Link>
         </div>
 
-        <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+        <div className="p-5 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
           {/* Success Icon */}
           <div className="text-center mb-6">
             <motion.div

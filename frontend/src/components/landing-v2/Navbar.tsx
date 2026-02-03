@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
               {/* Theme Toggle - Sharp Square */}
               <motion.button
                 onClick={toggleTheme}
-                className="w-9 h-9 flex items-center justify-center border border-black/10 dark:border-white/10 text-black/60 dark:text-white/60 hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-all"
+                className="w-11 h-11 flex items-center justify-center border border-black/10 dark:border-white/10 text-black/60 dark:text-white/60 hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-all"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -164,7 +164,7 @@ const Navbar: React.FC = () => {
               {/* Mobile Menu Toggle - Sharp */}
               <motion.button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden w-9 h-9 flex items-center justify-center border border-black/10 dark:border-white/10"
+                className="lg:hidden w-11 h-11 flex items-center justify-center border border-black/10 dark:border-white/10"
                 whileTap={{ scale: 0.95 }}
               >
                 <AnimatePresence mode="wait">
@@ -239,7 +239,7 @@ const Navbar: React.FC = () => {
                     setMobileMenuOpen(false);
                     navigate('/login');
                   }}
-                  className="flex-1 py-3 border border-black/10 dark:border-white/10 text-black/70 dark:text-white/70 font-mono text-sm uppercase tracking-widest"
+                  className="flex-1 py-3 min-h-[44px] border border-black/10 dark:border-white/10 text-black/70 dark:text-white/70 font-mono text-sm uppercase tracking-widest"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.35 }}
@@ -251,7 +251,7 @@ const Navbar: React.FC = () => {
                     setMobileMenuOpen(false);
                     navigate('/signup');
                   }}
-                  className="flex-1 py-3 border border-ecotribe-primary/30 bg-ecotribe-primary/10 text-ecotribe-primary font-mono text-sm uppercase tracking-widest"
+                  className="flex-1 py-3 min-h-[44px] border border-ecotribe-primary/30 bg-ecotribe-primary/10 text-ecotribe-primary font-mono text-sm uppercase tracking-widest"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}

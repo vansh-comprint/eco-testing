@@ -183,7 +183,7 @@ export function OrgAdminDashboard() {
       {(pendingApprovals.length > 0 || branchesWithoutAdmin > 0 || stalledBatches > 0) && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
           {pendingApprovals.length > 0 && (
-            <div className="border border-amber-500/40 bg-amber-50/80 dark:bg-amber-500/10 p-4 flex items-center gap-4">
+            <div className="border border-amber-500/40 bg-amber-50/80 dark:bg-amber-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 border border-amber-500/50 bg-amber-100/80 dark:bg-amber-500/20 flex items-center justify-center animate-pulse flex-shrink-0">
                 <AlertCircle className={`${iconSize.lg} text-amber-500`} />
               </div>
@@ -198,14 +198,14 @@ export function OrgAdminDashboard() {
               </div>
               <button
                 onClick={() => navigate('/org-admin/approvals')}
-                className="px-4 py-2 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-2 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all flex items-center justify-center gap-2"
               >
                 Review <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
           {branchesWithoutAdmin > 0 && (
-            <div className="border border-red-500/30 bg-red-50/60 dark:bg-red-500/5 p-4 flex items-center gap-4">
+            <div className="border border-red-500/30 bg-red-50/60 dark:bg-red-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 border border-red-500/30 bg-red-100/80 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className={`${iconSize.lg} text-red-500`} />
               </div>
@@ -219,7 +219,7 @@ export function OrgAdminDashboard() {
               </div>
               <button
                 onClick={() => navigate('/org-admin/branches')}
-                className="px-4 py-2 border border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+                className="w-full sm:w-auto px-4 py-2 border border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-500/20 transition-all text-center"
               >
                 Manage
               </button>
@@ -252,7 +252,7 @@ export function OrgAdminDashboard() {
           </button>
         </div>
         <div className="p-5">
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
               { label: 'Draft', count: pipeline.draft, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-white/5' },
               { label: 'Pending', count: pipeline.pending, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },

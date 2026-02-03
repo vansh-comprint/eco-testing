@@ -252,11 +252,11 @@ export function EmployeeList() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer min-w-[140px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[140px]"
             >
               {STATUS_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
@@ -265,7 +265,7 @@ export function EmployeeList() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer min-w-[160px]"
+              className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
             >
               {DEPARTMENT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
@@ -374,7 +374,15 @@ export function EmployeeList() {
                   </div>
 
                   {/* Last Active */}
-                  <div className="mt-3 ml-17 font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                  {/* Mobile-only stats row */}
+                  <div className="flex md:hidden items-center gap-4 mt-3 ml-[4.25rem] font-mono text-xs text-slate-500 dark:text-white/50">
+                    <span>{user.assignedAssets} assigned</span>
+                    <span className="text-ecotribe-primary">{user.submittedAssets} submitted</span>
+                    {user.department !== 'Unassigned' && (
+                      <span className="sm:hidden px-2 py-0.5 border border-slate-200 dark:border-white/10 text-[10px] uppercase">{user.department}</span>
+                    )}
+                  </div>
+                  <div className="mt-2 sm:mt-3 ml-[4.25rem] font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
                     {user.lastActive
                       ? `Last active ${formatDistanceToNow(user.lastActive, { addSuffix: true })}`
                       : 'Never logged in'}

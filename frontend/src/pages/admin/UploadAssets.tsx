@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Upload, Info } from 'lucide-react';
+import { ArrowLeft, Upload, Info, AlertTriangle } from 'lucide-react';
 import { CSVUpload, type BulkUploadMetadata } from '@/components/assets';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -61,9 +61,11 @@ export function UploadAssets() {
 
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 
-  // V3.2: Determine branch_id - from batch, org branch context, or first active branch
+  // V3.2: Determine branch_id - from batch or org branch context
+  // Do NOT silently fall back to first branch — require explicit selection
   const orgBranchCtx = useOrgBranchSafe();
-  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || (activeBranches.length > 0 ? activeBranches[0].id : undefined);
+  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || undefined;
+  const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
 
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata) => {
     if (!enterprise || !user) return;
@@ -254,11 +256,34 @@ export function UploadAssets() {
         </div>
       </motion.div>
 
+      {/* Branch Warning */}
+      {needsBranchSelection && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="border border-amber-400/20 bg-amber-400/5 p-5"
+        >
+          <div className="flex gap-4">
+            <div className="w-10 h-10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">Branch Selection Required</p>
+              <p className="font-mono text-xs text-zinc-400">
+                Please select a specific branch before uploading assets. Go back and choose a branch from the branch filter, or select a batch that is associated with a branch.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* CSV Upload Component */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
+        className={needsBranchSelection ? 'opacity-50 pointer-events-none' : ''}
       >
         <CSVUpload
           enterpriseId={enterprise.id}

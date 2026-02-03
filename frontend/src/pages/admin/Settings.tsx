@@ -1,3 +1,9 @@
+/**
+ * STATUS: COMPLETE
+ * Consolidated: admin/Settings.tsx (IT Admin settings — profile, enterprise, pickup locations, notifications, bank)
+ * Verified: [ ] visual regression [ ] permissions
+ * Permission-gated sections: Pickup Locations (MANAGE_PICKUP_LOCATIONS), Enterprise (MANAGE_ENTERPRISE_SETTINGS), Bank (VIEW_PAYOUTS)
+ */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -7,7 +13,6 @@ import {
   CreditCard,
   Mail,
   Phone,
-  Shield,
   Save,
   CheckCircle,
   MapPin,
@@ -16,8 +21,8 @@ import {
   Trash2,
   Star,
   Clock,
-  X,
-  Loader2
+  Shield,
+  X
 } from 'lucide-react';
 import {
   useAuth,
@@ -29,6 +34,8 @@ import {
 } from '@/hooks';
 import { useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { PermissionGate, Permission } from '@/permissions';
+import { PasswordChange } from '@/components/settings';
 
 // Operating hours options for dropdown
 const OPERATING_HOURS_OPTIONS = [
@@ -44,7 +51,7 @@ const OPERATING_HOURS_OPTIONS = [
   { value: 'custom', label: 'Custom Hours' },
 ];
 
-type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'bank' | 'locations';
+type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'bank' | 'locations' | 'security';
 
 // V3: Pickup location type with snake_case
 interface PickupLocationData {
@@ -78,10 +85,6 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
-  const [passwordSaving, setPasswordSaving] = useState(false);
-
   // Pickup locations modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<PickupLocationData | null>(null);
@@ -181,6 +184,7 @@ export function Settings() {
 
   const tabs = [
     { id: 'profile' as const, label: 'Profile', icon: <User className="w-4 h-4" /> },
+    { id: 'security' as const, label: 'Security', icon: <Shield className="w-4 h-4" /> },
     { id: 'enterprise' as const, label: 'Enterprise', icon: <Building className="w-4 h-4" /> },
     { id: 'locations' as const, label: 'Pickup Locations', icon: <MapPin className="w-4 h-4" /> },
     { id: 'notifications' as const, label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
@@ -385,100 +389,19 @@ export function Settings() {
                   </div>
                 </div>
 
-                <div className="pt-5 border-t border-slate-200 dark:border-white/10">
-                  <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Security</h4>
-                  <div className="p-4 border border-slate-200 dark:border-white/10 bg-white/85 dark:bg-black/30 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 flex items-center justify-center">
-                          <Shield className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
-                        </div>
-                        <div>
-                          <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">Password</p>
-                          <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">Change your account password</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowPasswordForm(!showPasswordForm);
-                          setPasswordForm({ newPassword: '', confirmPassword: '' });
-                        }}
-                        className="interactive px-4 py-2 text-slate-600 dark:text-zinc-500 hover:text-ecotribe-primary font-mono font-bold text-xs uppercase tracking-widest transition-colors"
-                      >
-                        {showPasswordForm ? 'Cancel' : 'Change'}
-                      </button>
-                    </div>
-                    {showPasswordForm && (
-                      <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-white/10">
-                        <div>
-                          <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">New Password</label>
-                          <input
-                            type="password"
-                            placeholder="Minimum 6 characters"
-                            value={passwordForm.newPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Confirm New Password</label>
-                          <input
-                            type="password"
-                            placeholder="Re-enter new password"
-                            value={passwordForm.confirmPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                          />
-                        </div>
-                        <button
-                          onClick={async () => {
-                            if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
-                              addToast({ type: 'error', title: 'Invalid Password', message: 'Password must be at least 6 characters.' });
-                              return;
-                            }
-                            if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-                              addToast({ type: 'error', title: 'Passwords Do Not Match', message: 'Please ensure both passwords match.' });
-                              return;
-                            }
-                            if (!user?.id) return;
-                            setPasswordSaving(true);
-                            try {
-                              const response = await usersApi.resetPassword(user.id, { new_password: passwordForm.newPassword });
-                              if (!response.success) {
-                                throw new Error(response.error?.message || 'Failed to change password');
-                              }
-                              addToast({ type: 'success', title: 'Password Changed', message: 'Your password has been updated successfully.' });
-                              setShowPasswordForm(false);
-                              setPasswordForm({ newPassword: '', confirmPassword: '' });
-                            } catch (error) {
-                              addToast({
-                                type: 'error',
-                                title: 'Password Change Failed',
-                                message: error instanceof Error ? error.message : 'An unexpected error occurred.',
-                              });
-                            } finally {
-                              setPasswordSaving(false);
-                            }
-                          }}
-                          disabled={passwordSaving || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                          className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {passwordSaving ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Updating...
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-4 h-4" />
-                              Update Password
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
+              <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
+                <Shield className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
+                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Security</h2>
+              </div>
+              <div className="p-5">
+                <PasswordChange />
               </div>
             </div>
           )}
@@ -577,8 +500,9 @@ export function Settings() {
             </div>
           )}
 
-          {/* Pickup Locations Tab */}
+          {/* Pickup Locations Tab — gated by MANAGE_PICKUP_LOCATIONS */}
           {activeTab === 'locations' && (
+            <PermissionGate permission={Permission.MANAGE_PICKUP_LOCATIONS}>
             <div className="space-y-6">
               <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
                 <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
@@ -691,6 +615,7 @@ export function Settings() {
                 </p>
               </div>
             </div>
+            </PermissionGate>
           )}
 
           {/* Notifications Tab */}

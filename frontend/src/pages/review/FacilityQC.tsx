@@ -260,7 +260,7 @@ export function FacilityQC() {
                         <div className="flex items-start gap-4">
                           <button
                             onClick={() => toggleItem(sectionKey, itemIdx)}
-                            className={`flex-shrink-0 w-8 h-8 border flex items-center justify-center transition-all ${
+                            className={`flex-shrink-0 w-10 h-10 sm:w-8 sm:h-8 border flex items-center justify-center transition-all ${
                               item.passed
                                 ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
                                 : 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5 text-zinc-500 hover:border-slate-400 dark:hover:border-white/30'
@@ -470,7 +470,7 @@ export function FacilityQC() {
               <button
                 onClick={handleSubmitQC}
                 disabled={!decision || isLoading || !isChecklistComplete()}
-                className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                className={`w-full interactive py-4 sm:py-3 font-mono font-bold text-sm sm:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                   decision
                     ? decision === 'final_accept'
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400'

@@ -421,7 +421,7 @@ export function AssetList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
       >
         <StatBox label="Total" value={stats.total} icon={<Laptop className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Unassigned" value={stats.pending} icon={<Clock className="w-4 h-4" />} highlight={stats.pending > 0} onClick={() => handleStatClick('pending_assignment')} active={statusFilter === 'pending_assignment'} />
@@ -452,8 +452,8 @@ export function AssetList() {
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <div className="w-40">
+          <div className="flex flex-wrap gap-3">
+            <div className="w-full sm:w-auto sm:min-w-[140px]">
               <Dropdown
                 options={STATUS_OPTIONS}
                 value={statusFilter}
@@ -461,7 +461,7 @@ export function AssetList() {
                 placeholder="Status"
               />
             </div>
-            <div className="w-40">
+            <div className="w-[calc(50%-6px)] sm:w-auto sm:min-w-[140px]">
               <Dropdown
                 options={batchOptions}
                 value={batchFilter}
@@ -469,7 +469,7 @@ export function AssetList() {
                 placeholder="Batch"
               />
             </div>
-            <div className="w-40">
+            <div className="w-[calc(50%-6px)] sm:w-auto sm:min-w-[140px]">
               <Dropdown
                 options={branchOptions}
                 value={branchFilter}
@@ -477,7 +477,7 @@ export function AssetList() {
                 placeholder="Branch"
               />
             </div>
-            <div className="w-36">
+            <div className="w-full sm:w-auto sm:min-w-[130px]">
               <Dropdown
                 options={SORT_OPTIONS}
                 value={sortBy}
@@ -496,18 +496,26 @@ export function AssetList() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-xl px-6 py-4 flex items-center gap-6"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-xl px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-[calc(100%-2rem)] sm:w-auto max-w-2xl"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
-                <Check className="w-4 h-4 text-ecotribe-primary" />
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-ecotribe-primary" />
+                </div>
+                <span className="font-mono font-bold text-sm text-black dark:text-white">
+                  {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
+                </span>
               </div>
-              <span className="font-mono font-bold text-sm text-black dark:text-white">
-                {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
-              </span>
+              <button
+                onClick={clearSelection}
+                className="sm:hidden interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
+              >
+                <X className="w-4 h-4 text-slate-500 dark:text-zinc-500" />
+              </button>
             </div>
-            <div className="h-6 w-px bg-black/10 dark:bg-white/10" />
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:block h-6 w-px bg-black/10 dark:bg-white/10" />
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               {selectedAssignable.length > 0 && (
                 <button
                   onClick={() => setShowBulkAssignModal(true)}
@@ -535,7 +543,7 @@ export function AssetList() {
               </button>
               <button
                 onClick={clearSelection}
-                className="interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
+                className="hidden sm:flex interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
               >
                 <X className="w-4 h-4 text-slate-500 dark:text-zinc-500 hover:text-red-400" />
               </button>
@@ -552,7 +560,61 @@ export function AssetList() {
         className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm shadow-slate-900/[0.03] dark:shadow-none"
       >
         {filteredAssets.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile Card Layout */}
+          <div className="md:hidden divide-y divide-slate-200 dark:divide-white/5">
+            {filteredAssets.map((asset, index) => {
+              const statusConfig = getStatusConfig(asset.status);
+              const batch = batches.find(b => b.id === asset.batch_id);
+              const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted' || asset.status === 'assigned' || asset.status === 'check_in_started' || asset.status === 'submitted' || asset.status === 'remote_review';
+              const isSelected = selectedAssets.has(asset.id);
+
+              return (
+                <div
+                  key={asset.id}
+                  onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
+                  className={`p-4 cursor-pointer active:bg-slate-50 dark:active:bg-white/[0.03] transition-colors ${isSelected ? 'bg-ecotribe-primary/5' : ''}`}
+                >
+                  <div className="flex items-start gap-3">
+                    {isSelectable && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleAssetSelection(asset.id); }}
+                        className={`mt-1 w-5 h-5 border flex items-center justify-center transition-all flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-ecotribe-primary border-ecotribe-primary'
+                            : 'border-slate-300 dark:border-white/20'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-black" />}
+                      </button>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase truncate">
+                          {asset.brand} {asset.model}
+                        </p>
+                        <Badge variant={statusConfig.variant} size="sm">
+                          {statusConfig.label}
+                        </Badge>
+                      </div>
+                      <p className="font-mono text-xs text-slate-500 dark:text-zinc-400 mb-2">{asset.serial_number}</p>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-500">
+                        {batch && <span className="truncate">{batch.name}</span>}
+                        <span>
+                          {asset.created_at
+                            ? formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table Layout */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
@@ -674,6 +736,7 @@ export function AssetList() {
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <div className="py-20 text-center">
             <Laptop className="w-12 h-12 text-slate-400 dark:text-zinc-700 mx-auto mb-4" />
@@ -714,11 +777,11 @@ export function AssetList() {
 
       {/* Bulk Assign Modal */}
       {showBulkAssignModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">
@@ -864,11 +927,11 @@ export function AssetList() {
 
       {/* Bulk Delete Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="font-brand font-bold text-lg text-red-400 uppercase tracking-wide">
@@ -925,11 +988,11 @@ export function AssetList() {
 
       {/* Bulk Add to Batch Modal */}
       {showBulkBatchModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">

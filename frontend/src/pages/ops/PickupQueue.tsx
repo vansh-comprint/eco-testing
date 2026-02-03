@@ -193,7 +193,7 @@ export function PickupQueue() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
       >
         <div className="border border-amber-400/30 bg-amber-400/5 p-5">
           <div className="flex items-center gap-2 mb-2">
@@ -611,7 +611,7 @@ export function PickupQueue() {
                           </div>
 
                           <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <input
                                 type="text"
                                 placeholder="Contact Name *"
@@ -627,7 +627,7 @@ export function PickupQueue() {
                                 className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <input
                                 type="email"
                                 placeholder="Email *"

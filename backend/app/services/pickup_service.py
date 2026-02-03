@@ -85,6 +85,7 @@ class PickupService:
                     "serial_number": asset.serial_number,
                     "brand": asset.brand,
                     "model": asset.model,
+                    "status": asset.status,
                 }
             )
 
@@ -157,10 +158,18 @@ class PickupService:
         if not pickup:
             raise ValueError("Pickup request not found")
 
-        if pickup.status != PickupStatus.PENDING.value:
-            raise ValueError("Can only assign pending pickup requests")
+        # Allow assign for pending pickups, and reassign for already-assigned pickups
+        assignable_statuses = {
+            PickupStatus.PENDING.value,
+            PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value,
+        }
+        if pickup.status not in assignable_statuses:
+            raise ValueError("Can only assign pending or reassign logistics-admin-assigned pickup requests")
 
         old_status = pickup.status
+        is_reassign = pickup.status == PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value
+        old_admin_id = pickup.logistics_admin_id if is_reassign else None
+
         pickup.logistics_admin_id = data.logistics_admin_id
         pickup.status = PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value
         pickup.assigned_at = datetime.now(timezone.utc)
@@ -170,6 +179,11 @@ class PickupService:
 
         # Log to audit trail
         audit = AuditService(self.session)
+        detail_msg = (
+            f"Reassigned from logistics admin {old_admin_id} to {data.logistics_admin_id}"
+            if is_reassign
+            else f"Assigned to logistics admin {data.logistics_admin_id}"
+        )
         await audit.log_status_change(
             entity_type="pickup_request",
             entity_id=pickup_id,
@@ -177,8 +191,8 @@ class PickupService:
             new_status=pickup.status,
             user_id=user.id,
             enterprise_id=pickup.enterprise_id,
-            details=f"Assigned to logistics admin {data.logistics_admin_id}",
-            metadata={"logistics_admin_id": data.logistics_admin_id}
+            details=detail_msg,
+            metadata={"logistics_admin_id": data.logistics_admin_id, "reassigned": is_reassign}
         )
 
         return pickup

@@ -143,7 +143,7 @@ export function AllUsers() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-6 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"
       >
         <Card className="p-4">
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total</p>
@@ -288,7 +288,7 @@ export function AllUsers() {
                       </td>
                       <td className="px-6 py-4">
                         <p className={`font-mono text-xs ${text.muted}`}>
-                          {user.enterprise_name || user.enterprise_id || '-'}
+                          {user.enterprise_name || '-'}
                         </p>
                       </td>
                       <td className="px-6 py-4">

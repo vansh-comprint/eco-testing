@@ -292,7 +292,8 @@ export function EnterpriseEmployees() {
           </div>
         ) : (
           /* Flat List */
-          <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75">
+          <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto">
+            <div className="min-w-[700px]">
             {/* Header */}
             <div className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Employee</p>
@@ -345,6 +346,7 @@ export function EnterpriseEmployees() {
                 <EmptyState searchQuery={searchQuery} />
               )}
             </div>
+            </div>{/* min-w-[700px] */}
           </div>
         )}
       </motion.div>

@@ -209,7 +209,7 @@ export function BatchList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
       >
         <StatBox label="Total" value={stats.total} icon={<Package className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Draft" value={stats.draft} icon={<Clock className="w-4 h-4" />} onClick={() => handleStatClick('draft')} active={statusFilter === 'draft'} />
@@ -239,8 +239,8 @@ export function BatchList() {
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <div className="w-40">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <div className="w-full sm:w-40">
               <Dropdown
                 options={STATUS_OPTIONS}
                 value={statusFilter}
@@ -248,7 +248,7 @@ export function BatchList() {
                 placeholder="Status"
               />
             </div>
-            <div className="w-36">
+            <div className="w-full sm:w-36">
               <Dropdown
                 options={SORT_OPTIONS}
                 value={sortBy}
@@ -281,75 +281,87 @@ export function BatchList() {
                 onClick={() => navigate(`${basePath}/batches/${batch.id}`)}
                 className="interactive bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/30 cursor-pointer transition-all group shadow-sm shadow-slate-900/[0.02] dark:shadow-none"
               >
-                <div className="p-6 flex items-center gap-6">
-                  {/* Icon */}
-                  <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
-                    <Package className="w-7 h-7 text-ecotribe-primary" />
-                  </div>
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+                    {/* Icon */}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-6 h-6 sm:w-7 sm:h-7 text-ecotribe-primary" />
+                    </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white group-hover:text-ecotribe-primary transition-colors uppercase">
-                        {batch.name}
-                      </h3>
-                      <Badge variant={statusConfig.variant} size="sm">
-                        {statusConfig.label}
-                      </Badge>
-                      {batch.requires_approval && batch.status === 'draft' && (
-                        <span className="font-mono font-bold text-[10px] text-amber-400 px-2 py-0.5 bg-amber-500/10 uppercase tracking-widest">
-                          Requires Approval
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white group-hover:text-ecotribe-primary transition-colors uppercase">
+                          {batch.name}
+                        </h3>
+                        <Badge variant={statusConfig.variant} size="sm">
+                          {statusConfig.label}
+                        </Badge>
+                        {batch.requires_approval && batch.status === 'draft' && (
+                          <span className="font-mono font-bold text-[10px] text-amber-400 px-2 py-0.5 bg-amber-500/10 uppercase tracking-widest">
+                            Requires Approval
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 font-mono text-xs text-slate-500 dark:text-white/50">
+                        <span className="flex items-center gap-1.5">
+                          <Laptop className="w-3.5 h-3.5" />
+                          {batchAssets.length} assets
                         </span>
+                        <span>
+                          Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
+                        </span>
+                        {/* Value inline on mobile */}
+                        <span className="sm:hidden font-brand font-bold text-ecotribe-primary">
+                          ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
+                        </span>
+                      </div>
+                      {batch.progress && batch.progress.total > 0 && (
+                        <div className="mt-2">
+                          <BatchProgressBar progress={batch.progress} compact />
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 font-mono text-xs text-slate-500 dark:text-white/50">
-                      <span className="flex items-center gap-1.5">
-                        <Laptop className="w-3.5 h-3.5" />
-                        {batchAssets.length} assets
-                      </span>
-                      <span>
-                        Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
-                      </span>
+
+                    {/* Value - desktop only */}
+                    <div className="hidden sm:block text-right flex-shrink-0">
+                      <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+                        ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
+                      </p>
+                      <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
                     </div>
-                    {batch.progress && batch.progress.total > 0 && (
-                      <div className="mt-2">
-                        <BatchProgressBar progress={batch.progress} compact />
-                      </div>
-                    )}
+
+                    {/* Arrow - desktop */}
+                    <ArrowRight className="hidden sm:block w-5 h-5 text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0" />
                   </div>
 
-                  {/* Value */}
-                  <div className="hidden sm:block text-right">
-                    <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-                      ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
-                    </p>
-                    <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-3">
-                    {batch.status === 'draft' && (
-                      <button
-                        onClick={(e) => handleSubmitForApproval(batch.id, e)}
-                        disabled={batchAssets.length === 0}
-                        title={batchAssets.length === 0 ? 'Add assets to this batch before submitting' : undefined}
-                        className={`interactive px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${batchAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
-                      >
-                        <Send className="w-3 h-3" />
-                        Submit for Approval
-                      </button>
-                    )}
-                    {batch.status === 'pending_approval' && (
-                      <button
-                        onClick={(e) => handleNudgeOrgAdmin(batch.id, e)}
-                        className="interactive px-4 py-2 font-mono font-bold text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400 hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
-                      >
-                        <Bell className="w-3 h-3" />
-                        Send Reminder
-                      </button>
-                    )}
-                    <ArrowRight className="w-5 h-5 text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
-                  </div>
+                  {/* Actions - full width row on mobile */}
+                  {(batch.status === 'draft' || batch.status === 'pending_approval') && (
+                    <div className="flex items-center gap-3 mt-3 sm:mt-0 sm:pl-[4.5rem]">
+                      {batch.status === 'draft' && (
+                        <button
+                          onClick={(e) => handleSubmitForApproval(batch.id, e)}
+                          disabled={batchAssets.length === 0}
+                          title={batchAssets.length === 0 ? 'Add assets to this batch before submitting' : undefined}
+                          className={`interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${batchAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
+                        >
+                          <Send className="w-3 h-3" />
+                          <span className="hidden sm:inline">Submit for Approval</span>
+                          <span className="sm:hidden">Submit</span>
+                        </button>
+                      )}
+                      {batch.status === 'pending_approval' && (
+                        <button
+                          onClick={(e) => handleNudgeOrgAdmin(batch.id, e)}
+                          className="interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400 hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
+                        >
+                          <Bell className="w-3 h-3" />
+                          <span className="hidden sm:inline">Send Reminder</span>
+                          <span className="sm:hidden">Remind</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Approval Info - V3: Use snake_case from database */}

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
     verify_password,
+    get_password_hash,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -306,6 +307,122 @@ class AuthService:
         session_limiter.add_session(user.id, refresh_token)
 
         return access_token, refresh_token, user
+
+    async def change_password(self, user: User, current_password: str, new_password: str) -> None:
+        """
+        Change password for the currently authenticated user (self-service).
+
+        Verifies the current password before updating. Invalidates all other
+        sessions after the change for security.
+
+        Args:
+            user: The authenticated user requesting the change
+            current_password: User's current password for verification
+            new_password: New password (min 8 characters)
+
+        Raises:
+            AuthenticationError: If current password is incorrect
+        """
+        # Employees use OTP, not passwords
+        if user.role == UserRole.EMPLOYEE.value:
+            raise AuthenticationError("Employees use OTP-based authentication and cannot change passwords")
+
+        # Verify current password
+        if not user.password_hash or not verify_password(current_password, user.password_hash):
+            raise AuthenticationError("Current password is incorrect")
+
+        # Hash and set new password
+        user.password_hash = get_password_hash(new_password)
+        user.updated_by = user.id
+        await self.user_repo.update(user)
+
+        # Invalidate all other sessions for security
+        session_limiter.clear_all_sessions(user.id)
+
+    async def request_password_reset(self, email: str) -> Optional[str]:
+        """
+        Request a password reset. Generates a reset token and sends an email.
+
+        Uses timing-safe responses to prevent user enumeration —
+        always returns success regardless of whether the email exists.
+
+        Args:
+            email: User's email address
+
+        Returns:
+            The reset token if a valid user was found (for debug/dev use), else None.
+        """
+        import secrets
+        from app.core.config import settings
+        from app.services.email_service import EmailService
+
+        user = await self.user_repo.get_by_email(email)
+
+        # Always return success to prevent enumeration
+        if not user:
+            return None
+
+        # Employees use OTP, not passwords
+        if user.role == UserRole.EMPLOYEE.value:
+            return None
+
+        # Check if user is active
+        if user.status != UserStatus.ACTIVE.value:
+            return None
+
+        # Generate a secure random token (URL-safe, 48 bytes = 64 chars)
+        reset_token = secrets.token_urlsafe(48)
+
+        # Store token with 1-hour expiration (reuse OTP fields)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        await self.user_repo.set_otp(user.id, reset_token, expires_at)
+
+        # Build reset URL
+        frontend_url = settings.frontend_url.rstrip("/")
+        reset_url = f"{frontend_url}/reset-password?token={reset_token}"
+
+        # Send email (falls back to logging if SMTP not configured)
+        EmailService.send_password_reset_email(user.email, reset_url)
+
+        return reset_token
+
+    async def reset_password_with_token(self, token: str, new_password: str) -> None:
+        """
+        Reset password using a token from the forgot-password email.
+
+        Args:
+            token: Password reset token
+            new_password: New password
+
+        Raises:
+            AuthenticationError: If token is invalid or expired
+        """
+        from sqlalchemy import select
+
+        # Find user by reset token
+        query = select(User).where(User.otp_token == token)
+        result = await self.db.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise AuthenticationError("Invalid or expired reset token")
+
+        # Check expiration
+        if not user.otp_expires_at or user.otp_expires_at < datetime.now(timezone.utc):
+            # Clear expired token
+            await self.user_repo.clear_otp(user.id)
+            raise AuthenticationError("Reset token has expired. Please request a new one.")
+
+        # Update password
+        user.password_hash = get_password_hash(new_password)
+        user.updated_by = user.id
+        await self.user_repo.update(user)
+
+        # Clear the reset token
+        await self.user_repo.clear_otp(user.id)
+
+        # Invalidate all sessions
+        session_limiter.clear_all_sessions(user.id)
 
     async def get_current_user(self, token: str) -> Optional[User]:
         """

@@ -239,7 +239,7 @@ export function PickupApprovals() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         <div
           className={`border p-5 cursor-pointer transition-all ${
@@ -398,7 +398,7 @@ export function PickupApprovals() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                        <div className="grid grid-cols-3 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
                           <div>
                             <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">
                               {batchAssetsCount}
@@ -521,7 +521,7 @@ export function PickupApprovals() {
                 )}
 
                 {/* Batch Summary */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                     <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase mb-1">Total Assets</p>
                     <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{batchAssets.length}</p>
@@ -551,7 +551,8 @@ export function PickupApprovals() {
                   <p className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3">
                     Verified Assets for Pickup ({verifiedAssets.length})
                   </p>
-                  <div className="border border-slate-200 dark:border-white/10 overflow-hidden">
+                  <div className="border border-slate-200 dark:border-white/10 overflow-x-auto">
+                    <div className="min-w-[400px]">
                     {/* Table Header */}
                     <div className="grid grid-cols-[1fr_1fr_120px] gap-2 p-3 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
                       <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Asset</p>
@@ -612,6 +613,7 @@ export function PickupApprovals() {
                       </div>
                     )}
                   </div>
+                  </div>{/* min-w-[400px] */}
                 </div>
 
                 {selectedBatchData.status === 'pending_approval' ? (

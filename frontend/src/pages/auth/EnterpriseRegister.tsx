@@ -475,9 +475,9 @@ export function EnterpriseRegister() {
           </div>
 
           {/* Document Requirements Card */}
-          <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+          <div className="p-5 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
             <div className="text-center mb-6">
-              <h2 className="font-brand font-bold text-2xl text-black dark:text-white uppercase">Documents Required</h2>
+              <h2 className="font-brand font-bold text-xl sm:text-2xl text-black dark:text-white uppercase">Documents Required</h2>
               <p className="text-black/60 dark:text-zinc-400 mt-2 font-mono text-xs uppercase tracking-wider">
                 Please ensure you have the following ready
               </p>
@@ -541,11 +541,11 @@ export function EnterpriseRegister() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="flex-1 px-4 py-3 bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 text-black/70 dark:text-white/70 hover:border-ecotribe-primary/40 transition-all font-brand font-bold text-xs uppercase tracking-wider"
+                className="flex-1 px-4 py-3 min-h-[44px] bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 text-black/70 dark:text-white/70 hover:border-ecotribe-primary/40 transition-all font-brand font-bold text-xs uppercase tracking-wider"
               >
                 Cancel
               </button>
@@ -553,7 +553,7 @@ export function EnterpriseRegister() {
                 type="button"
                 onClick={() => setShowRequirementsModal(false)}
                 disabled={!documentsConfirmed}
-                className="flex-1 px-4 py-3 bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 min-h-[44px] bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 Proceed
                 <ArrowRight className="w-4 h-4" />
@@ -596,8 +596,8 @@ export function EnterpriseRegister() {
         </div>
 
         {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-8 overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[320px]">
             {steps.map((step, index) => {
               const StepIcon = step.icon;
               const isCompleted = currentStep > step.number;
@@ -607,7 +607,7 @@ export function EnterpriseRegister() {
                 <div key={step.number} className="flex items-center">
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-10 h-10 flex items-center justify-center transition-all border ${
+                      className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-all border ${
                         isCompleted
                           ? 'bg-ecotribe-primary border-ecotribe-primary text-black'
                           : isCurrent
@@ -622,7 +622,7 @@ export function EnterpriseRegister() {
                       )}
                     </div>
                     <span
-                      className={`mt-2 font-mono text-[10px] uppercase tracking-widest ${
+                      className={`mt-2 font-mono text-[8px] sm:text-[10px] uppercase tracking-widest ${
                         isCurrent
                           ? 'text-black dark:text-white font-bold'
                           : isCompleted
@@ -635,7 +635,7 @@ export function EnterpriseRegister() {
                   </div>
                   {index < steps.length - 1 && (
                     <div
-                      className={`w-12 md:w-20 h-0.5 mx-1 ${
+                      className={`w-6 sm:w-12 md:w-20 h-0.5 mx-1 ${
                         isCompleted ? 'bg-ecotribe-primary' : 'bg-black/10 dark:bg-white/10'
                       }`}
                     />
@@ -647,7 +647,7 @@ export function EnterpriseRegister() {
         </div>
 
         {/* Form Card */}
-        <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+        <div className="p-4 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
             <AnimatePresence mode="wait">
               {/* Step 1: Company Details */}
               {currentStep === 1 && (
@@ -682,7 +682,7 @@ export function EnterpriseRegister() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50">
                         GST Number *
@@ -725,7 +725,7 @@ export function EnterpriseRegister() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50">
                         Industry *
@@ -794,7 +794,7 @@ export function EnterpriseRegister() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <input
                         type="text"
@@ -901,7 +901,7 @@ export function EnterpriseRegister() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50">
                         Phone Number *
@@ -965,7 +965,7 @@ export function EnterpriseRegister() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <DocumentUpload
                       label="GST Certificate *"
                       field="docGstCertificate"
@@ -1130,11 +1130,11 @@ export function EnterpriseRegister() {
             </AnimatePresence>
 
           {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-black/10 dark:border-white/10">
+          <div className="flex items-center justify-between mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-black/10 dark:border-white/10">
             <button
               type="button"
               onClick={currentStep === 1 ? () => navigate('/login') : handlePrev}
-              className="flex items-center gap-2 px-4 py-2.5 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors font-mono text-xs"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2.5 min-h-[44px] text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors font-mono text-xs"
             >
               <ArrowLeft className="w-4 h-4" />
               {currentStep === 1 ? 'Back to Login' : 'Previous'}
@@ -1144,7 +1144,7 @@ export function EnterpriseRegister() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2.5 bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors"
+                className="flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors"
               >
                 Next
                 <ArrowRight className="w-4 h-4" />
@@ -1154,7 +1154,7 @@ export function EnterpriseRegister() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">

@@ -200,7 +200,7 @@ export function BulkImportModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 max-sm:p-0"
           onClick={handleClose}
         >
           <motion.div
@@ -208,7 +208,7 @@ export function BulkImportModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-slate-900 border border-white/10 w-full max-w-2xl max-h-[85vh] overflow-auto"
+            className="bg-slate-900 border border-white/10 w-full max-w-2xl max-h-[85vh] max-sm:max-h-full max-sm:h-full max-sm:max-w-none overflow-auto"
           >
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -226,7 +226,7 @@ export function BulkImportModal({
             {/* Content */}
             <div className="p-6 space-y-6">
               {/* Template download */}
-              <div className="flex items-center justify-between border border-white/10 p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-white/10 p-4">
                 <div>
                   <p className="font-display text-sm text-white">Download CSV Template</p>
                   <p className="font-mono text-xs text-white/50 mt-1">
@@ -235,7 +235,7 @@ export function BulkImportModal({
                 </div>
                 <button
                   onClick={downloadTemplate}
-                  className="px-4 py-2 border border-white/20 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 border border-white/20 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Template

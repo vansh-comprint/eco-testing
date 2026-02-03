@@ -303,3 +303,26 @@ async def rate_limit_otp_send(request: Request) -> None:
     """Rate limit dependency for OTP send."""
     client_ip = get_client_ip(request)
     check_rate_limit(client_ip, OTP_SEND_RATE_LIMIT, "OTP send")
+
+
+async def rate_limit_forgot_password(request: Request) -> None:
+    """
+    Rate limit dependency for forgot-password endpoint.
+
+    Limits by both IP and email address (3 per hour per email).
+    Caches the parsed body on request.state so downstream doesn't break.
+    """
+    client_ip = get_client_ip(request)
+    # IP-based limit (same as OTP send)
+    check_rate_limit(client_ip, OTP_SEND_RATE_LIMIT, "password reset")
+
+    # Email-based limit (3 per hour) — peek at body to extract email
+    try:
+        body_bytes = await request.body()
+        import json
+        body = json.loads(body_bytes)
+        email = body.get("email", "").lower().strip()
+        if email:
+            check_rate_limit(email, PASSWORD_RESET_RATE_LIMIT, "password reset")
+    except Exception:
+        pass  # If body can't be parsed, IP limit still applies

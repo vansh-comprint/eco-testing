@@ -190,111 +190,164 @@ export function OpsAssets() {
         </div>
       </motion.div>
 
-      {/* Assets Table */}
+      {/* Assets Table (desktop) / Cards (mobile) */}
       {filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] overflow-hidden"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10">
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Device
-                  </th>
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Enterprise
-                  </th>
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Status
-                  </th>
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Grade
-                  </th>
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Value
-                  </th>
-                  <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Date
-                  </th>
-                  <th className="p-4 text-right font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-                {filteredAssets.map((asset, idx) => (
-                  <motion.tr
-                    key={asset.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.02 }}
-                    className="hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
-                          <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
+          {/* Mobile Card Layout */}
+          <div className="md:hidden space-y-3">
+            {filteredAssets.map((asset, idx) => (
+              <motion.div
+                key={asset.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.02 }}
+                onClick={() => navigate(`/ops/assets/${asset.id}`)}
+                className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4 cursor-pointer active:scale-[0.98] transition-all"
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-bold text-slate-900 dark:text-white truncate">{asset.brand} {asset.model}</p>
+                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
+                  </div>
+                  {asset.grade && (
+                    <span className={`font-brand font-bold text-lg flex-shrink-0 ${
+                      asset.grade === 'A' ? 'text-emerald-400' :
+                      asset.grade === 'B' ? 'text-blue-400' :
+                      asset.grade === 'C' ? 'text-amber-400' :
+                      'text-red-400'
+                    }`}>
+                      {asset.grade}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status)}`}>
+                    {assetStatusLabels[asset.status]}
+                  </span>
+                  <span className="font-mono text-sm font-bold text-ecotribe-primary">
+                    ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-2 text-xs">
+                  <span className="font-mono text-slate-500 dark:text-white/50 flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    {getEnterpriseName(asset.enterprise_id)}
+                  </span>
+                  <span className="font-mono text-slate-500 dark:text-white/50">
+                    {new Date(asset.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Desktop Table Layout */}
+          <div className="hidden md:block border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-white/10">
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Device
+                    </th>
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Enterprise
+                    </th>
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Status
+                    </th>
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Grade
+                    </th>
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Value
+                    </th>
+                    <th className="p-4 text-left font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Date
+                    </th>
+                    <th className="p-4 text-right font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+                  {filteredAssets.map((asset, idx) => (
+                    <motion.tr
+                      key={asset.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.02 }}
+                      className="hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
+                            <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
+                          </div>
+                          <div>
+                            <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
+                            <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
-                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-slate-500 dark:text-white/50" />
+                          <span className="font-display text-sm text-slate-500 dark:text-white/50">
+                            {getEnterpriseName(asset.enterprise_id)}
+                          </span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-slate-500 dark:text-white/50" />
-                        <span className="font-display text-sm text-slate-500 dark:text-white/50">
-                          {getEnterpriseName(asset.enterprise_id)}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status)}`}>
+                          {assetStatusLabels[asset.status]}
                         </span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status)}`}>
-                        {assetStatusLabels[asset.status]}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {asset.grade ? (
-                        <span className={`font-brand font-bold text-lg ${
-                          asset.grade === 'A' ? 'text-emerald-400' :
-                          asset.grade === 'B' ? 'text-blue-400' :
-                          asset.grade === 'C' ? 'text-amber-400' :
-                          'text-red-400'
-                        }`}>
-                          {asset.grade}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-slate-500 dark:text-white/50">-</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <p className="font-mono text-ecotribe-primary">
-                        ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                        {new Date(asset.created_at).toLocaleDateString()}
-                      </p>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => navigate(`/ops/assets/${asset.id}`)}
-                        className="interactive px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white transition-all inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3 h-3" />
-                        View
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="p-4">
+                        {asset.grade ? (
+                          <span className={`font-brand font-bold text-lg ${
+                            asset.grade === 'A' ? 'text-emerald-400' :
+                            asset.grade === 'B' ? 'text-blue-400' :
+                            asset.grade === 'C' ? 'text-amber-400' :
+                            'text-red-400'
+                          }`}>
+                            {asset.grade}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-xs text-slate-500 dark:text-white/50">-</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <p className="font-mono text-ecotribe-primary">
+                          ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+                          {new Date(asset.created_at).toLocaleDateString()}
+                        </p>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => navigate(`/ops/assets/${asset.id}`)}
+                          className="interactive px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white transition-all inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View
+                        </button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </motion.div>
       ) : (
@@ -320,7 +373,7 @@ export function OpsAssets() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"
       >
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
           <div className="flex items-center gap-2 mb-2">

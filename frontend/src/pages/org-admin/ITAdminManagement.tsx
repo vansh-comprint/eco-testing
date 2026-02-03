@@ -528,9 +528,6 @@ function AddITAdminModal({
     if (!formData.password || formData.password.length < 8) {
       errors.password = 'Password must be at least 8 characters';
     }
-    if (!formData.branch_id) {
-      errors.branch_id = 'Branch assignment is required';
-    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -617,7 +614,7 @@ function AddITAdminModal({
 
           <div>
             <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">
-              Assign to Branch *
+              Assign to Branch
             </label>
             <select
               value={formData.branch_id}
@@ -640,7 +637,7 @@ function AddITAdminModal({
           </div>
 
           <p className="text-xs text-slate-500 dark:text-white/50 font-mono">
-            Additional branches can be assigned via Branch Management after creation.
+            Branch assignment is optional. You can assign branches later via Branch Management.
           </p>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
@@ -653,7 +650,7 @@ function AddITAdminModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !formData.branch_id}
+              disabled={isLoading}
               className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}

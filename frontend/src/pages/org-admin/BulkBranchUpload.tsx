@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bulk Branch Upload Page - Org Admin Portal
  * V3.2: Upload CSV/Excel to create multiple branches with optional IT Admin creation
  */
@@ -597,19 +597,19 @@ export function BulkBranchUpload() {
       '5. Re-upload the corrected file',
       '',
       'COMMON ERRORS:',
-      '• "Branch name is required" - Add a unique branch name',
-      '• "Branch code is required" - Add a code (3-10 characters, uppercase)',
-      '• "Branch code already exists" - Use a different unique code',
-      '• "Duplicate branch code in file" - Each code must be unique',
-      '• "PIN code must be 6 digits" - Use a valid 6-digit PIN code',
-      '• "Invalid IT admin email format" - Check the email address',
+      'â€¢ "Branch name is required" - Add a unique branch name',
+      'â€¢ "Branch code is required" - Add a code (3-10 characters, uppercase)',
+      'â€¢ "Branch code already exists" - Use a different unique code',
+      'â€¢ "Duplicate branch code in file" - Each code must be unique',
+      'â€¢ "PIN code must be 6 digits" - Use a valid 6-digit PIN code',
+      'â€¢ "Invalid IT admin email format" - Check the email address',
       '',
       'REQUIRED FIELDS:',
-      '• branch_name, branch_code, address_line1, city, state, pin_code',
+      'â€¢ branch_name, branch_code, address_line1, city, state, pin_code',
       '',
       'OPTIONAL FIELDS:',
-      '• address_line2, site_contact_person, site_contact_phone, operating_hours',
-      '• it_admin_email, it_admin_name (if provided, IT Admin account will be created)',
+      'â€¢ address_line2, site_contact_person, site_contact_phone, operating_hours',
+      'â€¢ it_admin_email, it_admin_name (if provided, IT Admin account will be created)',
     ];
 
     instructions.forEach((text, index) => {
@@ -741,7 +741,7 @@ export function BulkBranchUpload() {
           className="space-y-6"
         >
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-500/10 flex items-center justify-center">
@@ -849,7 +849,7 @@ export function BulkBranchUpload() {
                     {errorCount} row{errorCount > 1 ? 's have' : ' has'} errors that need to be fixed
                   </p>
                   <p className={`text-xs text-red-600/70 dark:text-red-400/70 mt-1`}>
-                    💡 Click <strong>"Download Errors"</strong> above to get an Excel file with all errors. Fix the issues in your original file, then re-upload.
+                    ðŸ’¡ Click <strong>"Download Errors"</strong> above to get an Excel file with all errors. Fix the issues in your original file, then re-upload.
                   </p>
                 </div>
               </div>
@@ -894,7 +894,7 @@ export function BulkBranchUpload() {
           className="space-y-6"
         >
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-500/10 flex items-center justify-center">
@@ -982,7 +982,7 @@ export function BulkBranchUpload() {
                           {result.generated_password && (
                             <div className="flex items-center gap-1">
                               <span className={`text-xs font-mono ${text.muted}`}>
-                                {showPasswords ? result.generated_password : '••••••••'}
+                                {showPasswords ? result.generated_password : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢'}
                               </span>
                               <button
                                 type="button"

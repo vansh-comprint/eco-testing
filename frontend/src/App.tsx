@@ -20,11 +20,11 @@ const queryClient = new QueryClient({
 
 // Pages
 import { LandingPage } from '@/pages/LandingPage';
-import { LoginPage, PendingApproval, EnterpriseRegister, ForgotPassword } from '@/pages/auth';
+import { LoginPage, PendingApproval, EnterpriseRegister } from '@/pages/auth';
 import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, EmployeeList, EmployeeDetail, EmployeeInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
 import { ReviewDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/review';
-import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications } from '@/pages/ops';
+import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications, OpsSettings } from '@/pages/ops';
 // V3: Org Admin pages
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite, EnterpriseAssets, EnterpriseBatches, EnterpriseEmployees, EnterprisePickups, EnterpriseDisputes, OrgAdminSettings } from '@/pages/org-admin';
 import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Enterprises, Admins, Logistics, Pickups as SuperPickups, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
@@ -64,6 +64,7 @@ const opsAdminNavItems = [
   { label: 'Applications', path: '/ops/applications', icon: <DocumentIcon /> },
   { label: 'Enterprises', path: '/ops/enterprises', icon: <EnterpriseIcon /> },
   { label: 'Logistics', path: '/ops/logistics', icon: <TruckIcon /> },
+  { label: 'Settings', path: '/ops/settings', icon: <SettingsIcon /> },
 ];
 
 // OPS Admin - Enterprise Section (filtered when enterprise is selected)
@@ -102,18 +103,14 @@ const orgAdminNavItems = [
   ]},
 ];
 
-// Branch Operations toggle - full IT Admin capabilities scoped to selected branch
+// Branch Operations toggle - IT Admin capabilities scoped to selected branch
 const orgAdminITViewNavItems = [
-  { label: 'Branch Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
-  { label: 'Add Asset', path: '/org-admin/assets/new', icon: <SubmitIcon /> },
-  { label: 'Upload Assets', path: '/org-admin/assets/upload', icon: <AssetIcon /> },
-  { label: 'Branch Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
-  { label: 'Create Batch', path: '/org-admin/batches/new', icon: <BatchIcon /> },
-  { label: 'Branch Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
-  { label: 'Branch Pickups', path: '/org-admin/pickups', icon: <TruckIcon /> },
-  { label: 'Branch Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
-  { label: 'My Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon /> },
-  { label: 'Payouts', path: '/org-admin/payouts', icon: <PayoutIcon /> },
+  { label: 'Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
+  { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
+  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
+  { label: 'Pickups', path: '/org-admin/pickups', icon: <TruckIcon /> },
+  { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
+  { label: 'Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon /> },
 ];
 
 const superAdminNavItems = [
@@ -195,7 +192,6 @@ function AppRoutes() {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/signup" element={<EnterpriseRegister />} />
           <Route path="/signup/pending-approval" element={<PendingApproval />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -300,6 +296,7 @@ function AppRoutes() {
             <Route path="logistics" element={<OpsLogistics />} />
             <Route path="qc" element={<QCQueue />} />
             <Route path="qc/:assetId" element={<FacilityQC />} />
+            <Route path="settings" element={<OpsSettings />} />
           </Route>
 
           {/* Org Admin Routes */}

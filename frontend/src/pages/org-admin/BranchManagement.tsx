@@ -3,7 +3,7 @@
  * V3.2: 1 Branch → 1 IT Admin, 1 IT Admin → Multiple Branches
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -415,8 +415,8 @@ function BranchCard({
   };
 
   return (
-    <div 
-      className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden group hover:border-lime-500/50 transition-colors cursor-pointer"
+    <div
+      className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm group hover:border-lime-500/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
       {/* Horizontal Layout */}
@@ -636,6 +636,52 @@ function BranchFormModal({
     return options;
   })();
 
+  const DRAFT_STORAGE_KEY = 'branch_form_draft';
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Save form draft to sessionStorage (debounced)
+  const saveDraft = useCallback((data: typeof formData) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+      } catch { /* ignore quota errors */ }
+    }, 300);
+  }, []);
+
+  // Load saved draft from sessionStorage
+  const loadDraft = useCallback((): typeof formData | null => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Expire drafts older than 30 minutes
+      if (parsed.timestamp && Date.now() - parsed.timestamp > 30 * 60 * 1000) {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+        return null;
+      }
+      return parsed.data || null;
+    } catch {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      return null;
+    }
+  }, []);
+
+  // Clear saved draft
+  const clearDraft = useCallback(() => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+  }, []);
+
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
+
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -660,10 +706,11 @@ function BranchFormModal({
     return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
   };
 
-  // Reset form when modal opens or branch changes
+  // Reset form when modal opens or branch changes; restore draft for new branches
   useEffect(() => {
     if (isOpen) {
       if (branch) {
+        // Editing existing branch — load from branch data, no draft restore
         const { openingDay, closingDay, opening, closing } = parseOperatingHours(branch.operating_hours);
         setFormData({
           branch_name: branch.branch_name || '',
@@ -684,24 +731,32 @@ function BranchFormModal({
           it_admin_id: branch.it_admin_id || '',
         });
       } else {
-        setFormData({
-          branch_name: '',
-          branch_code: '',
-          address_line1: '',
-          address_line2: '',
-          city: '',
-          state: '',
-          pin_code: '',
-          site_contact_person: '',
-          site_contact_phone: '',
-          opening_day: 'Monday',
-          closing_day: 'Saturday',
-          opening_hours: '',
-          closing_hours: '',
-          pickup_point_description: '',
-          special_instructions: '',
-          it_admin_id: isOrgAdmin && currentUser ? currentUser.id : '',
-        });
+        // New branch — try to restore draft from sessionStorage
+        const draft = loadDraft();
+        if (draft) {
+          setFormData(draft);
+          setHasDraft(true);
+        } else {
+          setHasDraft(false);
+          setFormData({
+            branch_name: '',
+            branch_code: '',
+            address_line1: '',
+            address_line2: '',
+            city: '',
+            state: '',
+            pin_code: '',
+            site_contact_person: '',
+            site_contact_phone: '',
+            opening_day: 'Monday',
+            closing_day: 'Saturday',
+            opening_hours: '',
+            closing_hours: '',
+            pickup_point_description: '',
+            special_instructions: '',
+            it_admin_id: isOrgAdmin && currentUser ? currentUser.id : '',
+          });
+        }
       }
       setCodeError(null);
       setValidationErrors({});
@@ -763,7 +818,12 @@ function BranchFormModal({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      // Save draft for new branches only
+      if (!branch) saveDraft(updated);
+      return updated;
+    });
 
     // Real-time validation
     let error: string | null = null;
@@ -780,7 +840,11 @@ function BranchFormModal({
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-    setFormData(prev => ({ ...prev, branch_code: value }));
+    setFormData(prev => {
+      const updated = { ...prev, branch_code: value };
+      if (!branch) saveDraft(updated);
+      return updated;
+    });
 
     // Validate format
     const validation = validateBranchCode(value);
@@ -828,6 +892,8 @@ function BranchFormModal({
     };
 
     await onSubmit(submitData);
+    // Clear draft on successful submission
+    clearDraft();
   };
 
   if (!isOpen) return null;
@@ -835,6 +901,44 @@ function BranchFormModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={branch ? 'Edit Branch' : 'Add New Branch'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Draft restored banner */}
+        {hasDraft && !branch && (
+          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-sm">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <span className="text-amber-800 dark:text-amber-300">Draft restored from your previous session.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                clearDraft();
+                setHasDraft(false);
+                setFormData({
+                  branch_name: '',
+                  branch_code: '',
+                  address_line1: '',
+                  address_line2: '',
+                  city: '',
+                  state: '',
+                  pin_code: '',
+                  site_contact_person: '',
+                  site_contact_phone: '',
+                  opening_day: 'Monday',
+                  closing_day: 'Saturday',
+                  opening_hours: '',
+                  closing_hours: '',
+                  pickup_point_description: '',
+                  special_instructions: '',
+                  it_admin_id: isOrgAdmin && currentUser ? currentUser.id : '',
+                });
+              }}
+              className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 underline underline-offset-2 whitespace-nowrap"
+            >
+              Discard Draft
+            </button>
+          </div>
+        )}
+
         {/* Basic Info */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -928,7 +1032,7 @@ function BranchFormModal({
               className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <input
                 type="text"

@@ -94,7 +94,7 @@ const Footer: React.FC = () => {
                   <motion.a
                     key={social.label}
                     href={social.href}
-                    className="w-10 h-10 border border-ecotribe-primary/20 flex items-center justify-center text-black/60 dark:text-white/60 hover:bg-ecotribe-primary hover:border-ecotribe-primary hover:text-black transition-all"
+                    className="w-11 h-11 border border-ecotribe-primary/20 flex items-center justify-center text-black/60 dark:text-white/60 hover:bg-ecotribe-primary hover:border-ecotribe-primary hover:text-black transition-all"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     aria-label={social.label}
@@ -118,13 +118,13 @@ const Footer: React.FC = () => {
               <h3 className="font-mono text-xs uppercase tracking-widest text-ecotribe-primary/60 mb-4">
                 {title}
               </h3>
-              <ul className="space-y-3">
+              <ul className="space-y-1">
                 {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
                       onClick={(e) => handleLinkClick(e, link.href)}
-                      className="group flex items-center gap-1 text-sm text-black/60 dark:text-white/60 hover:text-ecotribe-primary transition-colors"
+                      className="group flex items-center gap-1 text-sm py-1.5 min-h-[44px] text-black/60 dark:text-white/60 hover:text-ecotribe-primary transition-colors"
                     >
                       {link.label}
                       <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />

@@ -447,24 +447,26 @@ export function EnterpriseDetail() {
                 {orgAdmins.slice((orgAdminPage - 1) * PAGE_SIZE, orgAdminPage * PAGE_SIZE).map((user) => (
                   <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
                           <h3 className={`font-display font-bold ${text.primary}`}>{user.name}</h3>
-                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
-                            {getRoleLabel(user.role)}
-                          </span>
-                          <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
-                            {user.status}
-                          </span>
+                          <div className="flex gap-1.5">
+                            <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getRoleBadge(user.role)}`}>
+                              {getRoleLabel(user.role)}
+                            </span>
+                            <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusBadge(user.status)}`}>
+                              {user.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Mail className={`${iconSize.sm} ${text.muted}`} />
-                            <span className={`font-mono text-xs ${text.muted}`}>{user.email}</span>
+                        <div className="flex items-center gap-4 text-sm flex-wrap">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Mail className={`${iconSize.sm} ${text.muted} flex-shrink-0`} />
+                            <span className={`font-mono text-xs ${text.muted} truncate`}>{user.email}</span>
                           </div>
                           {user.phone && (
                             <div className="flex items-center gap-2">
-                              <Phone className={`${iconSize.sm} ${text.muted}`} />
+                              <Phone className={`${iconSize.sm} ${text.muted} flex-shrink-0`} />
                               <span className={`font-mono text-xs ${text.muted}`}>{user.phone}</span>
                             </div>
                           )}
@@ -472,7 +474,7 @@ export function EnterpriseDetail() {
                       </div>
                       <button
                         onClick={() => { setEditingUser(user); setIsEditUserModalOpen(true); }}
-                        className={`p-2 hover:bg-emerald-500/10 transition-colors ${text.muted} hover:text-emerald-500`}
+                        className={`p-2 hover:bg-emerald-500/10 transition-colors ${text.muted} hover:text-emerald-500 flex-shrink-0`}
                         title="Edit Org Admin"
                       >
                         <Edit2 className={iconSize.sm} />

@@ -462,52 +462,53 @@ export function PayoutProcessing() {
                     return (
                       <div
                         key={asset.id}
-                        className={`p-4 flex items-center gap-4 transition-colors ${
+                        className={`p-4 transition-colors ${
                           isSelected ? 'bg-ecotribe-primary/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.05]'
                         }`}
                       >
-                        {isPending && (
-                          <button
-                            onClick={() => toggleAssetSelection(asset.id)}
-                            className={`w-6 h-6 border flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'border-ecotribe-primary bg-ecotribe-primary text-black'
-                                : 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5'
-                            }`}
-                          >
-                            {isSelected && <CheckCircle className="w-4 h-4" />}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          {isPending && (
+                            <button
+                              onClick={() => toggleAssetSelection(asset.id)}
+                              className={`w-7 h-7 sm:w-6 sm:h-6 border flex items-center justify-center transition-all flex-shrink-0 ${
+                                isSelected
+                                  ? 'border-ecotribe-primary bg-ecotribe-primary text-black'
+                                  : 'border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5'
+                              }`}
+                            >
+                              {isSelected && <CheckCircle className="w-4 h-4" />}
+                            </button>
+                          )}
 
-                        <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
-                          <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="font-display font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</p>
-                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
-                        </div>
-
-                        <div className="text-right space-y-1">
-                          <div className="flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-white/50">
-                            <span>Base: ₹{payout.basePrice.toLocaleString()}</span>
-                            {payout.gradeModifier !== 0 && (
-                              <span className="text-amber-400">{payout.gradeModifier > 0 ? '+' : ''}{payout.gradeModifier}</span>
-                            )}
-                            <span className="text-red-400">-{payout.logistics}</span>
+                          <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center flex-shrink-0 hidden sm:flex">
+                            <Laptop className="w-5 h-5 text-slate-500 dark:text-white/50" />
                           </div>
-                          <p className="font-brand font-bold text-lg text-ecotribe-primary">
-                            ₹{payout.finalAmount.toLocaleString()}
-                          </p>
-                        </div>
 
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${
-                          asset.status === 'completed'
-                            ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
-                            : 'border-amber-400/30 bg-amber-400/10 text-amber-400'
-                        }`}>
-                          {asset.status === 'completed' ? 'Paid' : 'Pending'}
-                        </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-display font-bold text-slate-900 dark:text-white truncate">{asset.brand} {asset.model}</p>
+                            <p className="font-mono text-xs text-slate-500 dark:text-white/50">{asset.serial_number}</p>
+                          </div>
+
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-brand font-bold text-base sm:text-lg text-ecotribe-primary">
+                              ₹{payout.finalAmount.toLocaleString()}
+                            </p>
+                            <span className={`inline-block mt-1 px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${
+                              asset.status === 'completed'
+                                ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
+                                : 'border-amber-400/30 bg-amber-400/10 text-amber-400'
+                            }`}>
+                              {asset.status === 'completed' ? 'Paid' : 'Pending'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-white/50 mt-1 ml-[calc(1.75rem+0.75rem+2.5rem+1rem)]">
+                          <span>Base: ₹{payout.basePrice.toLocaleString()}</span>
+                          {payout.gradeModifier !== 0 && (
+                            <span className="text-amber-400">{payout.gradeModifier > 0 ? '+' : ''}{payout.gradeModifier}</span>
+                          )}
+                          <span className="text-red-400">-{payout.logistics}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -624,7 +625,7 @@ export function PayoutProcessing() {
                 </div>
 
                 {/* Assets Table */}
-                <div>
+                <div className="overflow-x-auto">
                   <p className="font-mono text-xs text-slate-500 uppercase tracking-wider mb-3">Assets Processed</p>
                   <table className="w-full border-collapse">
                     <thead>
@@ -680,7 +681,7 @@ export function PayoutProcessing() {
                 </div>
 
                 {/* Summary */}
-                <div className="grid grid-cols-3 gap-4 border border-slate-200 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border border-slate-200 p-4">
                   <div>
                     <p className="font-mono text-xs text-slate-500 uppercase">Total Assets</p>
                     <p className="font-brand font-bold text-2xl text-slate-900">{certificateEnterprise.assets.length}</p>

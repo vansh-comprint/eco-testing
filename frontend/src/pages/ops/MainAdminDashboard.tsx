@@ -336,7 +336,51 @@ export function MainAdminDashboard() {
               </h2>
               <p className={`font-mono text-xs ${text.muted}`}>Click to filter by enterprise</p>
             </div>
-            <div className="overflow-x-auto">
+            {/* Mobile Card Layout */}
+            <div className="md:hidden divide-y divide-slate-200/60 dark:divide-zinc-800/60">
+              {enterprises.map((enterprise) => {
+                const enterpriseAssets = assets.filter(a => a.enterprise_id === enterprise.id);
+                const enterprisePending = enterpriseAssets.filter(a =>
+                  ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
+                ).length;
+                const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+
+                return (
+                  <div
+                    key={enterprise.id}
+                    onClick={() => handleEnterpriseClick(enterprise.id)}
+                    className={`p-4 ${hoverStyles.row} cursor-pointer active:scale-[0.98] transition-all`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
+                        <Building2 className={`${iconSize.lg} ${text.muted}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-display font-bold truncate ${text.primary}`}>{enterprise.name}</p>
+                        <p className={`font-mono text-xs truncate ${text.muted}`}>{enterprise.contact_email}</p>
+                      </div>
+                      <Badge variant={enterprise.status === 'active' ? 'success' : 'warning'} size="sm">
+                        {enterprise.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`font-mono ${text.muted}`}>{enterpriseAssets.length} assets</span>
+                      {enterprisePending > 0 && (
+                        <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono font-bold">
+                          {enterprisePending} pending
+                        </span>
+                      )}
+                      <span className="font-mono font-bold text-lime-600 dark:text-lime-400">
+                        ₹{enterpriseValue.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-zinc-800">

@@ -153,26 +153,26 @@ export function LogisticsAssignmentQueue() {
             )}
           </motion.div>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full md:w-auto">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500 dark:text-white/50" />
+            <Filter className="w-4 h-4 text-slate-500 dark:text-white/50 flex-shrink-0" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:border-ecotribe-primary/50"
+              className="flex-1 sm:flex-none px-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:border-ecotribe-primary/50"
             >
               <option value="active">Active Only</option>
               <option value="all">All (with History)</option>
             </select>
           </div>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search location or enterprise..."
-            className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono"
-          />
-          <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-            <Search className="w-4 h-4 text-slate-500 dark:text-white/50" />
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search location or enterprise..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono"
+            />
           </div>
         </div>
       </div>
@@ -240,13 +240,13 @@ export function LogisticsAssignmentQueue() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 w-full md:w-auto">
                 <StatusPill status={r.status} />
                 {needsUserAssignment ? (
                   <button
                     disabled={isLoading}
                     onClick={() => openAssignModal(r)}
-                    className="px-4 py-2 bg-amber-400 text-black font-mono text-xs uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors"
+                    className="flex-1 md:flex-none px-4 py-3 md:py-2 bg-amber-400 text-black font-mono text-xs font-bold uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors text-center"
                   >
                     Assign User
                   </button>
@@ -254,7 +254,7 @@ export function LogisticsAssignmentQueue() {
                   <button
                     disabled={isLoading}
                     onClick={() => openAssignModal(r)}
-                    className="px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors"
+                    className="flex-1 md:flex-none px-4 py-3 md:py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs font-bold uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors text-center"
                   >
                     Reassign
                   </button>

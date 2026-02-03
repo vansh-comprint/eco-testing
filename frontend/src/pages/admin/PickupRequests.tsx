@@ -157,7 +157,7 @@ export function PickupRequests() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
       >
         <StatBox
           label="Ready"
@@ -211,12 +211,12 @@ export function PickupRequests() {
             className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-500 dark:text-white/50" />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-slate-500 dark:text-white/50 flex-shrink-0" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer min-w-[160px]"
+            className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
@@ -258,7 +258,7 @@ export function PickupRequests() {
                           <Truck className="w-5 h-5 text-ecotribe-primary" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                               {getBranchName(request)}
                             </h3>
@@ -278,7 +278,7 @@ export function PickupRequests() {
                             )}
                           </div>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                            {getBranchCity(request)} &bull; ID: {request.id.slice(0, 8)}
+                            {getBranchCity(request)}
                           </p>
                         </div>
                       </div>

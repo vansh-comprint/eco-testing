@@ -150,7 +150,7 @@ export function DisputeList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10"
       >
         <StatBox label="Total Disputes" value={stats.total} icon={<MessageSquare className="w-4 h-4" />} />
         <StatBox label="Pending" value={stats.pending} icon={<Clock className="w-4 h-4" />} highlight={stats.pending > 0} />

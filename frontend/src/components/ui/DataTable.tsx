@@ -170,7 +170,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   );
 
   return (
-    <div className={cn('flex items-center justify-between gap-4', className)}>
+    <div className={cn('flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4', className)}>
       {showInfo && totalItems !== undefined && itemsPerPage !== undefined && (
         <p className="text-xs text-slate-500 dark:text-white/40">
           Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}

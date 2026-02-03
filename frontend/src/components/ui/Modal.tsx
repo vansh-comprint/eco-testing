@@ -23,6 +23,9 @@ const sizes = {
   full: 'max-w-[90vw]',
 };
 
+// On mobile (<640px), modals go near-full-screen for usability
+const mobileFullScreen = 'max-sm:max-w-none max-sm:w-full max-sm:h-full max-sm:max-h-full max-sm:m-0';
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -51,7 +54,7 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 max-sm:p-0">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -74,6 +77,7 @@ export const Modal: React.FC<ModalProps> = ({
               'shadow-2xl dark:shadow-none',
               'max-h-[85vh] overflow-hidden flex flex-col',
               sizes[size],
+              mobileFullScreen,
               className
             )}
           >

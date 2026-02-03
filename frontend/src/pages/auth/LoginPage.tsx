@@ -151,9 +151,9 @@ export function LoginPage() {
           <p className="text-black/60 dark:text-zinc-400 mt-2 font-mono text-xs uppercase tracking-wider">B2B Refurbished Laptop Trade-In</p>
         </div>
 
-        <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+        <div className="p-5 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
           <div className="text-center mb-6">
-            <h2 className="font-brand font-bold text-2xl text-black dark:text-white uppercase">Welcome Back</h2>
+            <h2 className="font-brand font-bold text-xl sm:text-2xl text-black dark:text-white uppercase">Welcome Back</h2>
             <p className="text-black/60 dark:text-zinc-400 mt-2 font-mono text-xs uppercase tracking-wider">
               Sign in to your account
             </p>
@@ -164,7 +164,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => { setLoginMode('password'); setError(''); setOtpStep('email'); setOtp(''); }}
-              className={`flex-1 py-2.5 font-mono text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+              className={`flex-1 min-h-[44px] py-2.5 font-mono text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
                 loginMode === 'password'
                   ? 'bg-ecotribe-primary text-black font-bold'
                   : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
@@ -176,7 +176,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => { setLoginMode('otp'); setError(''); setPassword(''); }}
-              className={`flex-1 py-2.5 font-mono text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+              className={`flex-1 min-h-[44px] py-2.5 font-mono text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
                 loginMode === 'otp'
                   ? 'bg-ecotribe-primary text-black font-bold'
                   : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
@@ -233,7 +233,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 dark:text-zinc-500 hover:text-black/60 dark:hover:text-zinc-300 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-black/30 dark:text-zinc-500 hover:text-black/60 dark:hover:text-zinc-300 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

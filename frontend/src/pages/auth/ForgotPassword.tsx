@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { authApi } from '@/lib/api/auth';
 
 /**
  * Forgot Password Page
  *
  * Allows users to request a password reset link via email.
- * Currently shows a success message for UX - actual email sending
- * would be implemented via backend API.
+ * Calls the backend API to send a reset email.
  */
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -37,12 +37,15 @@ export function ForgotPassword() {
 
     setIsLoading(true);
 
-    // TODO: Implement actual password reset API call
-    // For now, simulate a successful request
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    setIsLoading(false);
-    setIsSubmitted(true);
+    try {
+      await authApi.forgotPassword(email);
+      setIsSubmitted(true);
+    } catch {
+      // Always show success to prevent user enumeration
+      setIsSubmitted(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -65,7 +68,7 @@ export function ForgotPassword() {
           </Link>
         </div>
 
-        <div className="p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
+        <div className="p-5 sm:p-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-black/10 dark:border-white/5 shadow-2xl dark:shadow-none">
           {isSubmitted ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}

@@ -58,6 +58,27 @@ export const authApi = {
     return Promise.resolve({ success: true });
   },
 
+  // Self-service password change (requires current password)
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    fetchWithAuth<null>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Forgot password (public, sends reset link email)
+  forgotPassword: (email: string) =>
+    fetchPublic<null>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  // Reset password with token (public, from email link)
+  resetPassword: (token: string, new_password: string) =>
+    fetchPublic<null>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    }),
+
   // Employee OTP flow — uses fetchPublic since user is not yet authenticated
   requestOTP: (email: string) =>
     fetchPublic<{ email: string }>('/auth/employee/request-otp', {

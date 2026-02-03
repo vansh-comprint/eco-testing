@@ -655,7 +655,7 @@ export function AssetDetail() {
               <Laptop className="w-5 h-5 text-ecotribe-primary" />
               <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Device Information</h2>
             </div>
-            <div className="p-6 grid grid-cols-2 gap-6">
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
               {isEditing ? (
                 <>
                   <div>
@@ -704,7 +704,7 @@ export function AssetDetail() {
             </div>
             <div className="p-6">
               {isEditing ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="font-mono font-bold text-[10px] text-slate-600 dark:text-white/50 uppercase tracking-widest mb-2 block">Processor</label>
                     <input
@@ -770,7 +770,7 @@ export function AssetDetail() {
                 (() => {
                   const specs = asset.specs as Record<string, string>;
                   return (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {specs.processor && (
                         <SpecRow icon={<Cpu className="w-4 h-4" />} label="Processor" value={specs.processor} />
                       )}
@@ -811,7 +811,7 @@ export function AssetDetail() {
               <div className="p-6 border-b border-slate-200 dark:border-white/10">
                 <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Valuation</h2>
               </div>
-              <div className="p-6 grid grid-cols-2 gap-6">
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {asset.remoteQuote && (
                   <div className="p-5 border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                     <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">Remote Quote</p>
@@ -991,11 +991,7 @@ export function AssetDetail() {
                             <div className="flex-1">
                               <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{event.status}</p>
                               <p className="font-mono text-xs text-slate-600 dark:text-white/60 mt-1">{event.description}</p>
-                              {event.metadata?.pickupId && (
-                                <p className="font-mono text-xs text-slate-500 dark:text-zinc-600 mt-1">
-                                  Pickup ID: {event.metadata.pickupId}
-                                </p>
-                              )}
+                              {/* Pickup ID hidden for cleaner UX */}
                             </div>
                             <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest whitespace-nowrap">
                               {formatDistanceToNow(event.date, { addSuffix: true })}
@@ -1052,7 +1048,7 @@ export function AssetDetail() {
                       {assignedUser?.name || 'Assigned User'}
                     </p>
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                      {assignedUser?.email || asset.assigned_to_user_id}
+                      {assignedUser?.email || 'No email available'}
                     </p>
                   </div>
                 </div>
@@ -1080,10 +1076,7 @@ export function AssetDetail() {
                   {asset.updated_at ? format(new Date(asset.updated_at), 'MMM d, yyyy') : '—'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-slate-600 dark:text-white/60 uppercase tracking-widest">Asset ID</span>
-                <span className="font-mono text-xs text-slate-700 dark:text-zinc-500">{asset.id}</span>
-              </div>
+              {/* Asset ID hidden for cleaner UX */}
             </div>
           </motion.div>
         </div>
@@ -1092,11 +1085,11 @@ export function AssetDetail() {
       {/* Assignment Modal */}
       {/* Add to Batch Modal */}
       {showBatchSelectModal && asset && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Add to Batch</h3>
@@ -1249,11 +1242,11 @@ export function AssetDetail() {
       )}
 
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Assign Asset</h3>
@@ -1463,11 +1456,11 @@ export function AssetDetail() {
 
       {/* Dispute Modal */}
       {showDisputeModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">

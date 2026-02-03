@@ -65,6 +65,55 @@ class EmailService:
             return False
 
     @staticmethod
+    def send_password_reset_email(
+        to_email: str,
+        reset_url: str,
+    ) -> bool:
+        """Send password reset link email"""
+        subject = "Reset Your EcoTribe Password"
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #84cc16; padding: 20px; text-align: center;">
+                <h1 style="color: #000; margin: 0; font-size: 24px;">ECO/TRIBE</h1>
+            </div>
+            <div style="padding: 30px; background-color: #ffffff;">
+                <h2 style="color: #1a1a1a;">Password Reset Request</h2>
+                <p style="color: #333;">
+                    You requested a password reset for your EcoTribe account.
+                    Click the button below to set a new password.
+                </p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_url}" style="background-color: #84cc16; color: #000; padding: 12px 30px;
+                       text-decoration: none; font-weight: bold; text-transform: uppercase;
+                       font-size: 14px; letter-spacing: 1px;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="color: #666; font-size: 14px;">
+                    This link will expire in 1 hour. If you did not request a password reset,
+                    you can safely ignore this email.
+                </p>
+                <p style="color: #999; font-size: 12px; word-break: break-all;">
+                    If the button doesn't work, copy and paste this link: {reset_url}
+                </p>
+            </div>
+            <div style="padding: 20px; background-color: #f5f5f5; text-align: center;">
+                <p style="color: #999; font-size: 12px; margin: 0;">
+                    &copy; EcoTribe. All rights reserved.
+                </p>
+            </div>
+        </div>
+        """
+        plain_body = (
+            f"You requested a password reset for your EcoTribe account.\n\n"
+            f"Click here to reset your password: {reset_url}\n\n"
+            f"This link will expire in 1 hour.\n\n"
+            f"If you did not request this, you can safely ignore this email.\n\n"
+            f"- EcoTribe Team"
+        )
+        return EmailService.send_email(to_email, subject, html_body, plain_body)
+
+    @staticmethod
     def send_approval_notification(
         to_email: str,
         company_name: str,

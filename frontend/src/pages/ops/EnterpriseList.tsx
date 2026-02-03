@@ -94,7 +94,7 @@ export function EnterpriseList() {
             className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['all', 'active', 'inactive', 'pending_verification'].map((status) => (
             <button
               key={status}
@@ -184,7 +184,7 @@ export function EnterpriseList() {
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-4 gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
                     <div>
                       <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{stats.assetCount}</p>
                       <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Assets</p>

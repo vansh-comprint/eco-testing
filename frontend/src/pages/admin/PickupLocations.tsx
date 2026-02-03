@@ -432,7 +432,7 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
           </div>
 
           {/* City, State & Pin Code */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-white/60 mb-2">
                 City *
@@ -472,7 +472,7 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
           </div>
 
           {/* Contact Person & Phone */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-white/60 mb-2">
                 Contact Person *

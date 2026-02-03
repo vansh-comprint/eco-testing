@@ -211,11 +211,11 @@ export function OpsLogistics() {
                   className={`p-6 bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-900/10 dark:to-transparent border-b border-slate-200/80 dark:border-zinc-800 ${hoverStyles.card} cursor-pointer`}
                   onClick={() => toggleExpand(item.admin.id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                       <button
                         type="button"
-                        className={`p-2 hover:bg-amber-500/10 transition-colors ${text.muted} hover:text-amber-500`}
+                        className={`p-2 hover:bg-amber-500/10 transition-colors ${text.muted} hover:text-amber-500 flex-shrink-0`}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleExpand(item.admin.id);
@@ -227,23 +227,25 @@ export function OpsLogistics() {
                           <ChevronRight className={iconSize.md} />
                         )}
                       </button>
-                      <div className="w-12 h-12 border border-amber-500/30 dark:border-amber-400/20 bg-amber-50/80 dark:bg-amber-500/10 flex items-center justify-center font-brand font-bold text-amber-700 dark:text-amber-400">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 border border-amber-500/30 dark:border-amber-400/20 bg-amber-50/80 dark:bg-amber-500/10 flex items-center justify-center font-brand font-bold text-amber-700 dark:text-amber-400 flex-shrink-0 text-sm sm:text-base">
                         {item.admin.name?.split(' ').map(n => n[0]).join('').toUpperCase() || item.admin.email[0].toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <p className={`font-display text-lg font-bold uppercase ${text.primary}`}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                          <p className={`font-display text-base sm:text-lg font-bold uppercase truncate ${text.primary}`}>
                             {item.admin.name || 'Logistics Admin'}
                           </p>
-                          <Badge variant="warning" size="sm">Logistics Admin</Badge>
-                          <Badge variant={item.admin.status === 'active' ? 'success' : 'default'} size="sm">
-                            {item.admin.status}
-                          </Badge>
+                          <div className="flex gap-1.5">
+                            <Badge variant="warning" size="sm">Logistics Admin</Badge>
+                            <Badge variant={item.admin.status === 'active' ? 'success' : 'default'} size="sm">
+                              {item.admin.status}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 mt-1">
+                        <div className="flex items-center gap-4 mt-1 flex-wrap">
                           <div className="flex items-center gap-2">
                             <Mail className={`${iconSize.xs} ${text.muted}`} />
-                            <p className={`font-mono text-xs ${text.muted}`}>{item.admin.email}</p>
+                            <p className={`font-mono text-xs ${text.muted} truncate`}>{item.admin.email}</p>
                           </div>
                           {item.admin.phone && (
                             <div className="flex items-center gap-2">
@@ -254,7 +256,7 @@ export function OpsLogistics() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
                       <div className="text-right">
                         <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Field Users</p>
                         <p className={`font-brand text-xl font-bold ${text.primary}`}>{item.users.length}</p>
@@ -315,7 +317,7 @@ export function OpsLogistics() {
                             className={`p-4 flex items-center justify-between ${hoverStyles.row}`}
                           >
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 border border-blue-500/30 dark:border-blue-400/20 bg-blue-50/80 dark:bg-blue-500/10 flex items-center justify-center font-brand font-bold text-blue-700 dark:text-blue-400 text-sm ml-16">
+                              <div className="w-10 h-10 border border-blue-500/30 dark:border-blue-400/20 bg-blue-50/80 dark:bg-blue-500/10 flex items-center justify-center font-brand font-bold text-blue-700 dark:text-blue-400 text-sm ml-0 sm:ml-16">
                                 {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || user.email[0].toUpperCase()}
                               </div>
                               <div>

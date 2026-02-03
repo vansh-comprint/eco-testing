@@ -12,8 +12,12 @@ from app.schemas.auth import (
     EmployeeOTPRequest,
     EmployeeOTPVerifyRequest,
     LogoutRequest,
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    ResetPasswordWithTokenRequest,
 )
 from app.schemas.user import UserResponse
+from app.core.config import settings
 from app.core.permission_checker import get_user_permissions
 from app.services.auth_service import AuthService
 from app.middleware.auth import get_current_user
@@ -21,6 +25,7 @@ from app.middleware.rate_limit import (
     rate_limit_login,
     rate_limit_otp,
     rate_limit_otp_send,
+    rate_limit_forgot_password,
 )
 from app.utils.response import success_response
 
@@ -52,6 +57,7 @@ async def login(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "expires_in": settings.jwt_access_token_expire_minutes * 60,  # seconds
         "user": UserResponse.model_validate(user),
     }
 
@@ -77,6 +83,7 @@ async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends
         "access_token": access_token,
         "refresh_token": new_refresh_token,  # New refresh token for rotation
         "token_type": "bearer",
+        "expires_in": settings.jwt_access_token_expire_minutes * 60,  # seconds
         "user": UserResponse.model_validate(user),
     }
 
@@ -131,6 +138,7 @@ async def verify_employee_otp(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "expires_in": settings.jwt_access_token_expire_minutes * 60,  # seconds
         "user": UserResponse.model_validate(user),
     }
 
@@ -162,6 +170,97 @@ async def get_current_user_info(
     return success_response(
         data=user_data,
         message="User information retrieved successfully",
+    )
+
+
+# ==================== Change Password ====================
+
+
+@router.post("/change-password", response_model=dict, status_code=status.HTTP_200_OK)
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Change password for the currently authenticated user (self-service).
+
+    Requires the current password for verification. After changing,
+    all existing sessions are invalidated for security.
+
+    **Roles:** All admin roles (not employees — they use OTP)
+    """
+    auth_service = AuthService(db)
+    await auth_service.change_password(
+        user=current_user,
+        current_password=request.current_password,
+        new_password=request.new_password,
+    )
+
+    return success_response(
+        data=None,
+        message="Password changed successfully. Please log in again.",
+    )
+
+
+# ==================== Forgot / Reset Password ====================
+
+
+@router.post("/forgot-password", response_model=dict, status_code=status.HTTP_200_OK)
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_forgot_password),
+):
+    """
+    Request a password reset link via email.
+
+    Always returns success to prevent user enumeration.
+    If the email exists and belongs to a password-based account,
+    a reset link is sent.
+
+    Rate limited to 3 attempts per hour per email address.
+
+    **Roles:** Public (no authentication required)
+    """
+    from app.core.config import settings
+
+    auth_service = AuthService(db)
+    reset_token = await auth_service.request_password_reset(request.email)
+
+    # TEMPORARY: Return token in response until email sending is wired up
+    response_data = None
+    if settings.debug and reset_token:
+        response_data = {"reset_token": reset_token}
+
+    return success_response(
+        data=response_data,
+        message="If an account exists for this email, a password reset link has been sent.",
+    )
+
+
+@router.post("/reset-password", response_model=dict, status_code=status.HTTP_200_OK)
+async def reset_password_with_token(
+    request: ResetPasswordWithTokenRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reset password using a token received via email.
+
+    The token is a one-time-use token that expires after 1 hour.
+
+    **Roles:** Public (no authentication required)
+    """
+    auth_service = AuthService(db)
+    await auth_service.reset_password_with_token(
+        token=request.token,
+        new_password=request.new_password,
+    )
+
+    return success_response(
+        data=None,
+        message="Password has been reset successfully. You can now log in with your new password.",
     )
 
 

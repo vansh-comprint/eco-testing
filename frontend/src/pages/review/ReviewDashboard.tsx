@@ -277,7 +277,7 @@ export function ReviewDashboard() {
                 <button
                   onClick={() => {
                     // TODO: Dispute resolution page coming soon
-                    alert(`Dispute Resolution\n\nID: ${dispute.id}\nAsset: ${dispute.assetId}\nType: ${dispute.type}\n\nNotes: ${dispute.itAdminNotes}`);
+                    alert(`Dispute Resolution\n\nType: ${dispute.type}\n\nNotes: ${dispute.itAdminNotes}`);
                   }}
                   className="interactive px-4 py-2 border border-amber-400/30 bg-amber-400/10 text-amber-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400/20 transition-all"
                   title="Resolve dispute (coming soon)"

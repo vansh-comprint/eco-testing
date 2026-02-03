@@ -10,15 +10,15 @@ interface LegalPageProps {
 function LegalPage({ title, lastUpdated = 'January 2026', children }: LegalPageProps) {
   return (
     <div className="min-h-screen bg-white dark:bg-ecotribe-dark">
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-8"
+          className="inline-flex items-center gap-2 min-h-[44px] text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
-        <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight mb-2">
+        <h1 className="font-brand font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white uppercase tracking-tight mb-2">
           {title}
         </h1>
         <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-8">

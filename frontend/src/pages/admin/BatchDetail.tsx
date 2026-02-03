@@ -666,10 +666,7 @@ export function BatchDetail() {
         className="border border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
       >
         <div className="flex flex-wrap gap-8 font-mono text-xs">
-          <div>
-            <span className="text-zinc-600 uppercase tracking-widest">Batch ID</span>
-            <span className="ml-3 text-zinc-400">{batch.id}</span>
-          </div>
+          {/* Batch ID hidden for cleaner UX */}
           <div>
             <span className="text-zinc-600 uppercase tracking-widest">Created</span>
             <span className="ml-3 text-zinc-400">
@@ -689,11 +686,11 @@ export function BatchDetail() {
 
       {/* Pickup Modal with Asset Selection */}
       {showPickupModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-lg bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-none sm:max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -885,11 +882,11 @@ export function BatchDetail() {
 
       {/* Submit for Approval Modal with Pickup Details */}
       {showSubmitModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-lg bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-none sm:max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">

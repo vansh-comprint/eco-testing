@@ -191,7 +191,7 @@ export function EnterpriseApplications() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         <div
           className={`border p-5 cursor-pointer transition-all ${
@@ -341,7 +341,7 @@ export function EnterpriseApplications() {
                         </div>
 
                         {/* Quick Info Grid */}
-                        <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
                           <div className="flex items-center gap-2">
                             <Shield className="w-3 h-3 text-slate-400 dark:text-white/30" />
                             <div>
@@ -362,15 +362,15 @@ export function EnterpriseApplications() {
                           </div>
                         </div>
                         {/* Contact Quick View */}
-                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-white/5">
-                          <div className="flex items-center gap-1.5">
-                            <Mail className="w-3 h-3 text-slate-400 dark:text-white/30" />
-                            <span className="font-mono text-[10px] text-slate-500 dark:text-white/40 truncate max-w-[120px]">
+                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-white/5 flex-wrap">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Mail className="w-3 h-3 text-slate-400 dark:text-white/30 flex-shrink-0" />
+                            <span className="font-mono text-[10px] text-slate-500 dark:text-white/40 truncate max-w-[180px] sm:max-w-[120px]">
                               {app.org_admin_email}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Phone className="w-3 h-3 text-slate-400 dark:text-white/30" />
+                            <Phone className="w-3 h-3 text-slate-400 dark:text-white/30 flex-shrink-0" />
                             <span className="font-mono text-[10px] text-slate-500 dark:text-white/40">
                               {app.org_admin_phone}
                             </span>
@@ -459,7 +459,7 @@ export function EnterpriseApplications() {
                 </div>
 
                 {/* Tax Info */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-1">GST Number</p>
                     <p className="font-mono font-bold text-sm text-slate-900 dark:text-white">{selectedApplication.gst_number}</p>
@@ -583,7 +583,7 @@ export function EnterpriseApplications() {
                       <p className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3">
                         Your Decision
                       </p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <button
                           onClick={() => setDecision('approve')}
                           className={`interactive p-4 border transition-all ${

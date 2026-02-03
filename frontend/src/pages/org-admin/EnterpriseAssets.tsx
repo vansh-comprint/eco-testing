@@ -267,8 +267,9 @@ export function EnterpriseAssets() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-hidden"
+        className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto"
       >
+        <div className="min-w-[700px]">
         {/* Table Header */}
         <div className="grid grid-cols-[1fr_120px_1fr_140px_100px_60px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
           <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Device</p>
@@ -339,6 +340,7 @@ export function EnterpriseAssets() {
           )}
         </div>
 
+        </div>{/* min-w-[700px] */}
         {/* Footer */}
         {filteredAssets.length > 100 && (
           <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-200 dark:border-white/10 text-center">

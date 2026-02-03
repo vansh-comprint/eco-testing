@@ -591,11 +591,11 @@ export function EmployeeDetail() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md border border-red-500/30 bg-white dark:bg-[#0a0a0a]"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto border border-red-500/30 bg-white dark:bg-[#0a0a0a]"
           >
             <div className="p-6 border-b border-red-500/20">
               <div className="flex items-center gap-3">
