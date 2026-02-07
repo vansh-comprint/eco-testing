@@ -18,6 +18,7 @@
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # IDE
 .vscode/
@@ -25,12 +26,33 @@ Thumbs.db
 *.swp
 *.swo
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+
+# Node
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
 # Playwright MCP
 .playwright-mcp/
 
-# Markdown docs (root level)
-*.md
+# Test artifacts (agent-generated reports)
+*_TEST_REPORT.md
+test_*.py
+!backend/tests/test_*.py
 
-# Misc
-nul
-*.csv
+# Temp files
+tmpclaude-*/
+tsc_output.txt
+*.tmp
+
+# Credential/token files (should never be committed)
+*_login.json
+*_token.txt
+*_test.json

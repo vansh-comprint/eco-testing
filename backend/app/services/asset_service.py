@@ -243,12 +243,23 @@ class AssetService:
 
         Validates:
         - Asset exists
+        - Assigned user exists
         - Asset is in pending_assignment or assigned status
         - Transitions status to 'assigned' if currently pending_assignment
         """
         asset = await self.repository.get_by_id(asset_id)
         if not asset:
             raise NotFoundError("Asset", asset_id)
+
+        # Validate the target user exists
+        from app.models.user import User
+        from sqlalchemy import select
+
+        result = await self.db.execute(
+            select(User.id).where(User.id == assigned_to_user_id)
+        )
+        if not result.scalar_one_or_none():
+            raise NotFoundError("User", assigned_to_user_id)
 
         old_status = asset.status
         new_status = "assigned"

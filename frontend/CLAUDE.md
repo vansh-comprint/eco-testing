@@ -84,12 +84,16 @@ pending_assignment → assigned → check_in_started → submitted → remote_re
 → payout_pending → completed
 ```
 
-## Legacy Directories
+## Directory Structure
 
-Old directory names still exist alongside current ones:
-- `pages/cfo/` → use `pages/org-admin/`
-- `pages/it-admin/` → use `pages/admin/`
-- `pages/super-admin/` → use `pages/super/`
-- `pages/technician/` → use `pages/review/`
-
-Use the current (right-side) directories for all new development.
+Active page directories (legacy aliases have been removed):
+- `pages/admin/` — IT Admin portal
+- `pages/org-admin/` — Org Admin portal
+- `pages/ops/` — OPS Admin portal
+- `pages/review/` — OPS Review/QC portal
+- `pages/super/` — Super Admin portal
+- `pages/check-in/` — Employee self-evaluation
+- `pages/logistics-admin/` — Logistics Admin portal
+- `pages/logistics-user/` — Logistics User portal
+- `pages/auth/` — Login, register, forgot password
+- `pages/legal/` — Terms, privacy

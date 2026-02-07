@@ -164,6 +164,7 @@ async def process_payout(
             failure_reason=data.failure_reason,
         )
         await db.commit()
+        await db.refresh(payout)
         action_msg = "completed" if data.action == "complete" else "marked as failed"
         return success_response(data=_payout_to_dict(payout), message=f"Payout {action_msg}")
     except ValueError as e:
@@ -224,6 +225,8 @@ async def credit_wallet(
     try:
         wallet, transaction = await service.credit(enterprise_id, data, current_user)
         await db.commit()
+        await db.refresh(wallet)
+        await db.refresh(transaction)
         return success_response(
             data={
                 "wallet": _wallet_to_dict(wallet),
@@ -259,6 +262,8 @@ async def debit_wallet(
     try:
         wallet, transaction = await service.debit(enterprise_id, data, current_user)
         await db.commit()
+        await db.refresh(wallet)
+        await db.refresh(transaction)
         return success_response(
             data={
                 "wallet": _wallet_to_dict(wallet),

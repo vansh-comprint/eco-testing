@@ -334,6 +334,7 @@ async def create_pickup(
     try:
         pickup = await service.create_pickup(data, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Pickup request created")
     except ValueError as e:
         await db.rollback()
@@ -539,6 +540,7 @@ async def update_pickup(
         if not pickup:
             raise HTTPException(status_code=404, detail="Pickup request not found")
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Pickup updated")
     except ValueError as e:
         await db.rollback()
@@ -558,6 +560,7 @@ async def assign_to_logistics_admin(
     try:
         pickup = await service.assign_to_logistics_admin(pickup_id, data, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Assigned to logistics admin")
     except ValueError as e:
         await db.rollback()
@@ -580,6 +583,7 @@ async def assign_to_logistics_user(
     try:
         pickup = await service.assign_to_logistics_user(pickup_id, data, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Assigned to logistics user")
     except ValueError as e:
         await db.rollback()
@@ -601,6 +605,7 @@ async def start_pickup(
     try:
         pickup = await service.start_pickup(pickup_id, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Pickup started")
     except ValueError as e:
         await db.rollback()
@@ -623,6 +628,7 @@ async def complete_pickup(
     try:
         pickup = await service.complete_pickup(pickup_id, data, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Pickup completed")
     except ValueError as e:
         await db.rollback()
@@ -645,6 +651,7 @@ async def cancel_pickup(
     try:
         pickup = await service.cancel_pickup(pickup_id, data.reason, current_user)
         await db.commit()
+        await db.refresh(pickup)
         return success_response(data=await _enrich_single(pickup, db), message="Pickup cancelled")
     except ValueError as e:
         await db.rollback()
