@@ -2,9 +2,10 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { text, focus as focusStyles } from '@/lib/design-tokens';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string;
   error?: string;
+  icon?: React.ReactNode; // Alias for leftIcon
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   hint?: string;
@@ -18,8 +19,9 @@ const sizes = {
 };
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, leftIcon, rightIcon, hint, id, size = 'md', required, ...props }, ref) => {
+  ({ className, label, error, icon, leftIcon, rightIcon, hint, id, size = 'md', required, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s/g, '-');
+    const actualLeftIcon = leftIcon || icon;
 
     return (
       <div className="w-full space-y-2">
@@ -36,14 +38,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           </label>
         )}
         <div className="relative group">
-          {leftIcon && (
+          {actualLeftIcon && (
             <div className={cn(
               'absolute left-4 top-1/2 -translate-y-1/2',
               text.muted,
               'group-focus-within:text-lime-600 dark:group-focus-within:text-lime-400',
               'transition-colors duration-200'
             )}>
-              {leftIcon}
+              {actualLeftIcon}
             </div>
           )}
           <input
@@ -70,7 +72,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'disabled:bg-slate-100 dark:disabled:bg-zinc-800',
               // Sizes
               sizes[size],
-              leftIcon && 'pl-12',
+              actualLeftIcon && 'pl-12',
               rightIcon && 'pr-12',
               // Error state
               error && 'border-red-500/50 dark:border-red-400/50 focus:border-red-500 focus:ring-red-500/20',

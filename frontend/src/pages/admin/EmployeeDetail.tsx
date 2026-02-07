@@ -84,7 +84,7 @@ export function EmployeeDetail() {
         email: subUser.email || '',
         phone: subUser.phone || '',
         department: isCustomDept ? 'Other' : (subUser.department || ''),
-        customDepartment: isCustomDept ? subUser.department : '',
+        customDepartment: isCustomDept ? subUser.department || '' : '',
         status: (subUser.status as 'active' | 'pending_invite' | 'inactive') || 'active',
       });
       setEditErrors({});
@@ -105,15 +105,12 @@ export function EmployeeDetail() {
     a => ['assigned', 'check_in_started'].includes(a.status)
   ).length;
 
-  // Determine status (V3: use snake_case)
+  // Determine display status from backend status field
   const getStatus = (): SubUserStatus => {
     if (!subUser) return 'inactive';
-    if (!subUser.token || (subUser.token_expires_at && new Date(subUser.token_expires_at) < new Date())) {
-      return 'inactive';
-    }
-    if (assignedAssets === 0) {
-      return 'pending';
-    }
+    if (subUser.status === 'inactive') return 'inactive';
+    if (subUser.status === 'pending_invite' || subUser.status === 'invited') return 'pending';
+    if (assignedAssets === 0 && subUser.status !== 'active') return 'pending';
     return 'active';
   };
 
@@ -578,9 +575,9 @@ export function EmployeeDetail() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">Token Expires</span>
+                <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">Status</span>
                 <span className="font-display text-sm text-slate-500 dark:text-white/50">
-                  {subUser.token_expires_at ? formatDistanceToNow(new Date(subUser.token_expires_at), { addSuffix: true }) : '—'}
+                  {subUser.status?.replace(/_/g, ' ') || '—'}
                 </span>
               </div>
 {/* User ID hidden for cleaner UX - available in database if needed */}

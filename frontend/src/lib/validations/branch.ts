@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { phoneSchema, pinCodeSchema } from './common';
 
 /**
  * Branch code validation schema
@@ -13,23 +14,6 @@ export const branchCodeSchema = z
   .transform(val => val.toUpperCase().replace(/[^A-Z0-9]/g, ''))
   .refine(val => /^[A-Z0-9]+$/.test(val), {
     message: 'Only uppercase letters and numbers allowed',
-  });
-
-/**
- * Indian PIN code validation
- */
-export const pinCodeSchema = z
-  .string()
-  .regex(/^\d{6}$/, 'PIN code must be 6 digits');
-
-/**
- * Phone number validation (Indian format)
- */
-export const phoneSchema = z
-  .string()
-  .optional()
-  .refine(val => !val || /^\+?\d{10,}$/.test(val.replace(/\s/g, '')), {
-    message: 'Invalid phone number',
   });
 
 /**

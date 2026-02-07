@@ -19,6 +19,8 @@ export interface SubUserResponse {
   enterprise_id: string;
   branch_id?: string;
   status: string;
+  role?: string;
+  designation?: string;
   created_at: string;
 }
 
@@ -39,6 +41,8 @@ export interface SubUserCreateRequest {
   employee_id?: string;
   enterprise_id?: string;
   branch_id?: string;
+  designation?: string;
+  status?: string;
 }
 
 export interface SubUserBulkItem {

@@ -4,7 +4,6 @@ from typing import Optional, List, Tuple
 from datetime import datetime
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import Submission
 from app.repositories.base import BaseRepository

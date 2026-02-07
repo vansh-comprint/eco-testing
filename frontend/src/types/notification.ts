@@ -10,7 +10,11 @@ export type NotificationType =
   | 'payout_initiated'
   | 'payout_completed'
   | 'reminder_checkin'
-  | 'reminder_stalled';
+  | 'reminder_stalled'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'batch_ready';
 
 export interface Notification {
   id: string;
@@ -47,4 +51,8 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   payout_completed: 'Payout Completed',
   reminder_checkin: 'Check-in Reminder',
   reminder_stalled: 'Stalled Asset Reminder',
+  info: 'Information',
+  success: 'Success',
+  warning: 'Warning',
+  batch_ready: 'Batch Ready',
 };

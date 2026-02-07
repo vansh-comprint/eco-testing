@@ -126,14 +126,14 @@ export const assetKeys = {
 | Role | DB Value | Portal Route | Purpose |
 |------|----------|--------------|---------|
 | Super Admin | `super_admin` | `/super` | Platform oversight, pricing |
-| OPS Admin | `main_admin` | `/ops`, `/tech` | Operations & technician QC (dual portal) |
+| OPS Admin | `main_admin` | `/ops`, `/review` | Operations & review/QC (dual portal) |
 | Org Admin | `org_admin` | `/org-admin` | Enterprise admin, branches, finances |
 | IT Admin | `it_admin` | `/admin` | Branch-level asset & batch management |
 | Employee | `sub_user` | `/check-in` | Device self-evaluation |
 | Logistics Admin | `logistics_admin` | `/logistics-admin` | Partner company management |
 | Logistics User | `logistics_user` | `/logistics` | Field pickups, on-site QC |
 
-OPS Admin has dual portal: `/ops/*` (admin functions) and `/tech/*` (review/QC). Enterprise selection stored in `sessionStorage`.
+OPS Admin has dual portal: `/ops/*` (admin functions with OpsLayout) and `/review/*` (review/QC with DashboardLayout). Enterprise selection stored in `sessionStorage`.
 
 ## Asset Status Flow
 
@@ -179,3 +179,43 @@ See `TODO.md` for detailed migration tracking.
 PostgreSQL via Supabase. Alembic migrations in `backend/alembic/versions/` (001-011).
 
 Key tables: `users`, `sub_users`, `enterprises`, `branches`, `assets`, `batches`, `submissions`, `remote_reviews`, `facility_reviews`, `pickup_requests`, `logistics_admins`, `logistics_users`, `payouts`, `disputes`, `token_blacklist`, `epr_certificates`.
+
+## Agent System
+
+This project uses the **conductor agent orchestration system** with Opus 4.6 Agent Teams.
+
+### To use: Just invoke the conductor for any non-trivial task.
+### Memory location: `.claude/memory/`
+### Agent definitions: `.claude/agents/`
+### Verification hooks: `.claude/hooks/`
+
+The conductor will automatically:
+- Resume work-in-progress from memory
+- Spawn Agent Teams for complex tasks (parallel, peer-to-peer messaging)
+- Use `TeamCreate` + `SendMessage` + shared `TaskList` for coordination
+- Manage project memory and agent learning via the librarian
+
+### Available Agents (14 project-level)
+| Agent | Role | Model |
+|-------|------|-------|
+| analyst | Reconnaissance & memory validation | sonnet |
+| builder | General implementation | sonnet |
+| backend-engineer | FastAPI/Python specialist | sonnet |
+| breaker | Destruction testing | sonnet |
+| sentinel | Mechanical verification (tests/lint/types) | haiku |
+| librarian | Memory management & meta-learning | haiku |
+| surgeon | Precision multi-file edits (delegated by builder) | sonnet |
+| advocate | Flash tribunal: case FOR | sonnet |
+| adversary | Flash tribunal: case AGAINST | sonnet |
+| architecture-validator | Layer separation checks | sonnet |
+| database-architect | Schema & migration design | sonnet |
+| code-reviewer | Quality & pattern review | sonnet |
+| security-auditor | OWASP & auth scanning | sonnet |
+| test-generator | pytest-asyncio test generation | sonnet |
+
+### Memory files (NOT committed to git):
+- `.claude/memory/architecture.md` — living codebase map
+- `.claude/memory/decisions.md` — decision log with tribunal records
+- `.claude/memory/failures.md` — failure registry and patterns
+- `.claude/memory/wip.md` — work-in-progress state
+- `.claude/memory/agent-logs/` — individual agent observations

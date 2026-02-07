@@ -111,13 +111,13 @@ export function BatchCreate() {
         description: formData.description.trim() || undefined,
         created_by: user.id,
       });
-      console.log('✅ Batch created with id:', batch.id, 'created_by:', batch.created_by, 'branch_id:', batch.branch_id);
+      console.log('✅ Batch created with id:', batch?.id, 'created_by:', batch?.created_by, 'branch_id:', batch?.branch_id);
 
       setCreatedBatch({
-        id: batch.id,
-        name: batch.name,
+        id: batch?.id || '',
+        name: batch?.name || '',
       });
-      showSuccess('Batch Created', `Batch "${batch.name}" created successfully`);
+      showSuccess('Batch Created', `Batch "${batch?.name}" created successfully`);
     } catch (error: unknown) {
       handleError(error, 'Creating batch');
       const errorMessage = error instanceof Error ? error.message : 'Failed to create batch. Please try again.';

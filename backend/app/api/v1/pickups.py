@@ -19,7 +19,6 @@ from app.schemas.pickup import (
     PickupCancel,
     PickupLocationCreate,
     PickupLocationUpdate,
-    PickupLocationResponse,
 )
 from app.services.pickup_service import PickupService
 from app.services.pickup_location_service import PickupLocationService

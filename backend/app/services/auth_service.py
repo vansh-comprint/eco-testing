@@ -19,7 +19,7 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.branch_repository import BranchRepository
 from app.repositories.enterprise_repository import EnterpriseRepository
 from app.schemas.auth import LoginRequest, EmployeeOTPRequest, EmployeeOTPVerifyRequest
-from app.utils.exceptions import AuthenticationError, NotFoundError
+from app.utils.exceptions import AuthenticationError
 
 
 class AuthService:
@@ -200,11 +200,11 @@ class AuthService:
         Note:
             Returns same response for all cases to prevent user enumeration.
         """
-        import time
-        import random
+        import asyncio
+        import secrets
 
         # Add random delay to prevent timing attacks (100-300ms)
-        time.sleep(random.uniform(0.1, 0.3))
+        await asyncio.sleep(secrets.randbelow(200) / 1000 + 0.1)
 
         # Get user by email
         user = await self.user_repo.get_by_email(request.email)
@@ -249,8 +249,12 @@ class AuthService:
         await self.user_repo.set_otp(user.id, otp, expires_at)
 
         # TODO: Send OTP via email/SMS
-        # For now, log it for development
-        print(f"OTP for {user.email}: {otp}")
+        # Log OTP only in development/test environment
+        import logging
+        logger = logging.getLogger(__name__)
+        from app.core.config import settings
+        if settings.environment in ("development", "test"):
+            logger.debug(f"OTP for {user.email}: {otp}")
 
         return user
 

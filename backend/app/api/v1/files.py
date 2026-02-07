@@ -1,12 +1,11 @@
 """File upload endpoints"""
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, status
-from typing import List
 
 from app.middleware.auth import get_current_user, require_permission
 from app.core.permissions import Permission
 from app.models.user import User
-from app.schemas.file import FileUploadResponse, PresignedUrlRequest, PresignedUrlResponse
+from app.schemas.file import PresignedUrlRequest, PresignedUrlResponse
 from app.services.file_service import FileService
 from app.storage.storage_factory import get_storage, StorageBucket
 from app.utils.response import success_response
@@ -88,7 +87,7 @@ async def upload_pickup_evidence(
 async def upload_epr_certificate(
     file: UploadFile = File(..., description="EPR certificate"),
     enterprise_id: str = Form(..., description="Enterprise ID"),
-    current_user: User = Depends(require_permission(Permission.VIEW_EPR_CERTIFICATES)),
+    current_user: User = Depends(require_permission(Permission.PRICING_MANAGE)),
 ):
     """
     Upload EPR compliance certificate.
@@ -96,7 +95,7 @@ async def upload_epr_certificate(
     **Allowed formats**: PDF
     **Max size**: 50 MB
     **Bucket**: epr-certificates
-    **Permissions**: view_epr_certificates
+    **Permissions**: PRICING_MANAGE (Super Admin only)
     """
     from app.core.storage import MAX_DOCUMENT_SIZE
 
@@ -124,8 +123,19 @@ async def get_presigned_url(
     """
     Generate a presigned URL for temporary file access.
 
-    **Permissions**: All authenticated users (with appropriate access to the file)
+    File key must contain the user's enterprise ID path segment for non-platform users.
+    Platform admins (Super Admin, OPS Admin) can access any file.
+
+    **Permissions**: All authenticated users (scoped to their enterprise)
     """
+    from app.utils.scoping import is_platform_admin
+
+    # Validate file access: non-platform users can only access files in their enterprise path
+    if not is_platform_admin(current_user) and current_user.enterprise_id:
+        if f"enterprises/{current_user.enterprise_id}" not in request.file_key:
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("You do not have access to this file")
+
     storage = get_storage()
 
     url = await storage.get_presigned_url(

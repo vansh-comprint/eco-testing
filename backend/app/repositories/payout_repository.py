@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Payout, EnterpriseWallet, CreditTransaction, PayoutStatus
+from app.models import Payout, EnterpriseWallet, CreditTransaction
 from app.repositories.base import BaseRepository
 
 

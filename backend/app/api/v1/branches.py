@@ -1,7 +1,7 @@
 """Branch management endpoints"""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query, HTTPException
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -14,7 +14,7 @@ from app.models.asset import Asset
 from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
-from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
+from app.utils.exceptions import AuthorizationError
 from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin
 
 router = APIRouter()
@@ -94,12 +94,9 @@ async def create_branch(
     if current_user.role == UserRole.IT_ADMIN.value:
         branch_data.it_admin_id = current_user.id
 
-    try:
-        service = BranchService(db)
-        branch = await service.create_branch(branch_data, current_user.id)
-        return success_response(data=branch.model_dump(), message="Branch created successfully")
-    except (ValidationError, ConflictError) as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    service = BranchService(db)
+    branch = await service.create_branch(branch_data, current_user.id)
+    return success_response(data=branch.model_dump(), message="Branch created successfully")
 
 
 @router.get("/summary", response_model=dict)
@@ -214,35 +211,23 @@ async def get_branch(
 
     **Permissions:** BRANCH_READ
     """
-    try:
-        service = BranchService(db)
-        branch = await service.get_branch(branch_id)
+    service = BranchService(db)
+    branch = await service.get_branch(branch_id)
 
-        # Access control based on role
-        if not is_platform_admin(current_user):
-            if current_user.role == UserRole.ORG_ADMIN.value:
-                if branch.enterprise_id != current_user.enterprise_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Access denied: branch belongs to a different enterprise",
-                    )
-            elif current_user.role == UserRole.IT_ADMIN.value:
-                if branch.it_admin_id != current_user.id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Access denied: branch is not assigned to you",
-                    )
-            else:
-                # Other roles: check enterprise match
-                if current_user.enterprise_id and branch.enterprise_id != current_user.enterprise_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Access denied",
-                    )
+    # Access control based on role
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if branch.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if branch.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+        else:
+            # Other roles: check enterprise match
+            if current_user.enterprise_id and branch.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied")
 
-        return success_response(data=branch.model_dump())
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return success_response(data=branch.model_dump())
 
 
 @router.put("/{branch_id}", response_model=dict)
@@ -257,14 +242,9 @@ async def update_branch(
 
     **Permissions:** BRANCH_UPDATE
     """
-    try:
-        service = BranchService(db)
-        branch = await service.update_branch(branch_id, branch_data, current_user.id)
-        return success_response(data=branch.model_dump(), message="Branch updated successfully")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except (ValidationError, ConflictError) as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    service = BranchService(db)
+    branch = await service.update_branch(branch_id, branch_data, current_user.id)
+    return success_response(data=branch.model_dump(), message="Branch updated successfully")
 
 
 @router.delete("/{branch_id}", response_model=dict, status_code=status.HTTP_200_OK)
@@ -278,9 +258,6 @@ async def delete_branch(
 
     **Permissions:** BRANCH_DELETE
     """
-    try:
-        service = BranchService(db)
-        await service.delete_branch(branch_id)
-        return success_response(message="Branch deleted successfully")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    service = BranchService(db)
+    await service.delete_branch(branch_id)
+    return success_response(message="Branch deleted successfully")

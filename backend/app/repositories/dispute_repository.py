@@ -1,7 +1,7 @@
 """Repository for Dispute database operations"""
 
 from typing import Optional, List, Tuple
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Dispute, DisputeStatus

@@ -2,10 +2,10 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Submission, Asset, AssetStatus, User, UserRole
+from app.models import Submission, AssetStatus, User, UserRole
 from app.repositories.submission_repository import SubmissionRepository
 from app.repositories.asset_repository import AssetRepository
 from app.schemas.submission import SubmissionCreate, SubmissionUpdate

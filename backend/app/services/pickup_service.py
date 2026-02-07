@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import PickupRequest, PickupStatus, Asset, AssetStatus, User, UserRole
-from app.models.batch import Batch, BatchStatus
+from app.models import PickupRequest, PickupStatus, AssetStatus, User, UserRole
+from app.models.batch import BatchStatus
 from app.repositories.batch_repository import BatchRepository
 from app.repositories.branch_repository import BranchRepository
 from app.repositories.pickup_repository import PickupRepository, PickupLocationRepository

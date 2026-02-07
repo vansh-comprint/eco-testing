@@ -224,18 +224,11 @@ async def forgot_password(
 
     **Roles:** Public (no authentication required)
     """
-    from app.core.config import settings
-
     auth_service = AuthService(db)
-    reset_token = await auth_service.request_password_reset(request.email)
-
-    # TEMPORARY: Return token in response until email sending is wired up
-    response_data = None
-    if settings.debug and reset_token:
-        response_data = {"reset_token": reset_token}
+    await auth_service.request_password_reset(request.email)
 
     return success_response(
-        data=response_data,
+        data=None,
         message="If an account exists for this email, a password reset link has been sent.",
     )
 

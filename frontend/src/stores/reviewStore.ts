@@ -75,7 +75,7 @@ export const useReviewStore = create<ReviewState>()(
             notes: input.notes || null,
             reason: input.reason || null,
             reviewed_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);
@@ -120,6 +120,7 @@ export const useReviewStore = create<ReviewState>()(
           const qcId = generateId();
 
           // Insert into database
+          const inputAny = input as any;
           const result = await db.insert('facility_qc', {
             id: qcId,
             asset_id: input.assetId,
@@ -127,10 +128,10 @@ export const useReviewStore = create<ReviewState>()(
             checklist_data: input.checklistData || {},
             decision: input.decision,
             grade: input.grade || null,
-            discrepancies: input.discrepancies || null,
-            notes: input.notes || null,
+            discrepancies: inputAny.discrepancies || null,
+            notes: inputAny.notes || null,
             completed_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);
@@ -174,15 +175,19 @@ export const useReviewStore = create<ReviewState>()(
           const disputeId = generateId();
 
           // Insert into database
+          const disputeAny = input as any;
           const result = await db.insert('disputes', {
             id: disputeId,
             asset_id: input.assetId,
-            raised_by: input.raisedBy,
-            reason: input.reason,
-            description: input.description || null,
-            evidence: input.evidence || null,
+            type: input.type,
+            it_admin_notes: input.itAdminNotes,
+            photos: input.photos || null,
+            raised_by: disputeAny.raisedBy || null,
+            reason: disputeAny.reason || null,
+            description: disputeAny.description || null,
+            evidence: disputeAny.evidence || null,
             created_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);
@@ -218,7 +223,7 @@ export const useReviewStore = create<ReviewState>()(
             resolved_by: input.resolvedBy,
             resolver_notes: input.resolverNotes || null,
             resolved_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);

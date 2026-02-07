@@ -53,8 +53,8 @@ export function PayoutProcessing() {
       return true;
     })
     .filter(a =>
-      a.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 

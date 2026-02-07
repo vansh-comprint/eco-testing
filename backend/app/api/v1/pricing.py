@@ -1,7 +1,7 @@
 """Pricing management endpoints"""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query, HTTPException
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -16,7 +16,6 @@ from app.schemas.pricing import (
 )
 from app.services.pricing_service import PricingService
 from app.utils.response import success_response, paginated_response
-from app.utils.exceptions import NotFoundError, ValidationError
 
 router = APIRouter()
 

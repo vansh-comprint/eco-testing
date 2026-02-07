@@ -286,7 +286,7 @@ export function AssetDetail() {
         <p className="font-display font-bold text-zinc-500 uppercase tracking-wide mb-1">Asset not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The asset you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(isLogisticsAdmin ? -1 : `${basePath}/assets`)}
+          onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(`${basePath}/assets`)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -297,7 +297,7 @@ export function AssetDetail() {
   }
 
   // V3: Use centralized status display
-  const statusConfig = getAssetStatusDisplay(asset.status);
+  const statusConfig = getAssetStatusDisplay(asset.status as any);
 
   // Handle assignment using React Query mutation
   const handleAssign = async () => {
@@ -318,7 +318,7 @@ export function AssetDetail() {
           assetId: asset.id,
           updates: {
             assigned_to_user_id: user.id,
-            status: 'assigned',
+            status: 'assigned' as any,
           },
         });
 
@@ -358,7 +358,7 @@ export function AssetDetail() {
           department: newUserForm.department.trim() || undefined,
         });
 
-        userIdToAssign = newUser.id;
+        userIdToAssign = newUser?.id || '';
       }
 
       // Assign the asset to the user (existing or newly created)
@@ -538,7 +538,7 @@ export function AssetDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(isLogisticsAdmin ? -1 : `${basePath}/assets`)}
+            onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(`${basePath}/assets`)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -679,8 +679,8 @@ export function AssetDetail() {
                 </>
               ) : (
                 <>
-                  <InfoRow label="Brand" value={asset.brand} />
-                  <InfoRow label="Model" value={asset.model} />
+                  <InfoRow label="Brand" value={asset.brand || ''} />
+                  <InfoRow label="Model" value={asset.model || ''} />
                 </>
               )}
               <InfoRow label="Serial Number" value={asset.serial_number || ''} mono />
@@ -801,7 +801,7 @@ export function AssetDetail() {
           </motion.div>
 
           {/* Valuation */}
-          {(asset.remoteQuote || asset.finalQuote) && (
+          {(asset.base_price || asset.final_price) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -812,34 +812,40 @@ export function AssetDetail() {
                 <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Valuation</h2>
               </div>
               <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {asset.remoteQuote && (
+                {asset.base_price && (
                   <div className="p-5 border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                    <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">Remote Quote</p>
+                    <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2">Base Price</p>
                     <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">
-                      ₹{asset.remoteQuote.amount.toLocaleString()}
+                      ₹{Number(asset.base_price).toLocaleString()}
                     </p>
-                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-2">
-                      Condition: {asset.remoteQuote.condition}
-                    </p>
+                    {asset.grade && (
+                      <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-2">
+                        Grade: {asset.grade}
+                      </p>
+                    )}
                   </div>
                 )}
-                {asset.finalQuote && (
+                {asset.final_price && (
                   <div className="p-5 border border-ecotribe-primary/30 bg-ecotribe-primary/5">
-                    <p className="font-mono font-bold text-[10px] text-ecotribe-primary/60 uppercase tracking-widest mb-2">Final Quote</p>
+                    <p className="font-mono font-bold text-[10px] text-ecotribe-primary/60 uppercase tracking-widest mb-2">Final Price</p>
                     <p className="font-brand font-bold text-3xl text-ecotribe-primary">
-                      ₹{asset.finalQuote.amount.toLocaleString()}
+                      ₹{Number(asset.final_price).toLocaleString()}
                     </p>
-                    <p className="font-mono text-xs text-zinc-500 mt-2">
-                      Condition: {asset.finalQuote.condition}
-                    </p>
+                    {asset.condition_grade && (
+                      <p className="font-mono text-xs text-zinc-500 mt-2">
+                        Condition: {asset.condition_grade}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
             </motion.div>
           )}
 
-          {/* QC Report - Shown for accepted/reviewed assets */}
-          {asset.qcReport && ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'].includes(asset.status) && (
+          {/* QC Report - Shown for accepted/reviewed assets
+              Note: qc_report exists as a JSON column on the backend model but is not yet
+              included in the API response schema. This section will render when added. */}
+          {(asset as any).qc_report && ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'].includes(asset.status) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -851,21 +857,21 @@ export function AssetDetail() {
                   <ClipboardCheck className="w-5 h-5 text-emerald-400" />
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">QC Report</h2>
                 </div>
-                {asset.qcReport.grade && (
+                {(asset as any).qc_report.grade && (
                   <div className="px-4 py-2 border border-emerald-400/30 bg-emerald-400/10">
                     <p className="font-mono font-bold text-xs text-emerald-400 uppercase tracking-widest">
-                      Grade: {asset.qcReport.grade}
+                      Grade: {(asset as any).qc_report.grade}
                     </p>
                   </div>
                 )}
               </div>
 
               {/* QC Checklist */}
-              {asset.qcReport.checklist && asset.qcReport.checklist.length > 0 && (
+              {(asset as any).qc_report.checklist && (asset as any).qc_report.checklist.length > 0 && (
                 <div className="p-6 border-b border-emerald-500/10">
                   <h3 className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest mb-4">Inspection Checklist</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {asset.qcReport.checklist.map((item) => (
+                    {(asset as any).qc_report.checklist.map((item: any) => (
                       <div
                         key={item.id}
                         className={`p-3 border flex items-center gap-3 ${
@@ -894,28 +900,28 @@ export function AssetDetail() {
               )}
 
               {/* QC Images */}
-              {asset.qcReport.images && asset.qcReport.images.length > 0 && (
+              {(asset as any).qc_report.images && (asset as any).qc_report.images.length > 0 && (
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Camera className="w-4 h-4 text-zinc-500" />
                     <h3 className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest">QC Photos</h3>
-                    <span className="text-xs text-slate-500 dark:text-white/50">({asset.qcReport.images.length})</span>
+                    <span className="text-xs text-slate-500 dark:text-white/50">({(asset as any).qc_report.images.length})</span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {asset.qcReport.images.map((image) => (
+                    {(asset as any).qc_report.images.map((image: any) => (
                       <div
                         key={image.id}
                         className="relative aspect-square border border-white/10 bg-slate-50 dark:bg-white/[0.02] overflow-hidden group cursor-pointer"
                       >
                         <img
                           src={image.url}
-                          alt={IMAGE_TYPE_LABELS[image.type]}
+                          alt={IMAGE_TYPE_LABELS[image.type as keyof typeof IMAGE_TYPE_LABELS]}
                           className="w-full h-full object-cover transition-transform group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                           <div className="absolute bottom-0 left-0 right-0 p-2">
                             <p className="font-mono font-bold text-[10px] text-white uppercase tracking-widest">
-                              {IMAGE_TYPE_LABELS[image.type]}
+                              {IMAGE_TYPE_LABELS[image.type as keyof typeof IMAGE_TYPE_LABELS]}
                             </p>
                             {image.caption && (
                               <p className="font-mono text-[10px] text-zinc-400 truncate">{image.caption}</p>
@@ -924,7 +930,7 @@ export function AssetDetail() {
                         </div>
                         <div className="absolute top-2 left-2">
                           <span className="px-2 py-0.5 bg-black/60 font-mono text-[9px] text-white uppercase tracking-widest">
-                            {IMAGE_TYPE_LABELS[image.type]}
+                            {IMAGE_TYPE_LABELS[image.type as keyof typeof IMAGE_TYPE_LABELS]}
                           </span>
                         </div>
                       </div>
@@ -934,23 +940,23 @@ export function AssetDetail() {
               )}
 
               {/* QC Notes */}
-              {asset.qcReport.notes && (
+              {(asset as any).qc_report.notes && (
                 <div className="p-6 border-t border-emerald-500/10">
                   <h3 className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest mb-2">Reviewer Notes</h3>
-                  <p className="font-display text-sm text-zinc-400">{asset.qcReport.notes}</p>
+                  <p className="font-display text-sm text-zinc-400">{(asset as any).qc_report.notes}</p>
                 </div>
               )}
 
               {/* QC Meta */}
               <div className="p-6 border-t border-emerald-500/10 flex items-center justify-between text-xs">
-                {asset.qcReport.reviewer && (
+                {(asset as any).qc_report.reviewer && (
                   <span className="font-mono text-slate-500 dark:text-white/50">
-                    Reviewed by: <span className="text-zinc-400">{asset.qcReport.reviewer}</span>
+                    Reviewed by: <span className="text-zinc-400">{(asset as any).qc_report.reviewer}</span>
                   </span>
                 )}
-                {asset.qcReport.completedAt && (
+                {(asset as any).qc_report.completedAt && (
                   <span className="font-mono text-slate-500 dark:text-white/50">
-                    {format(new Date(asset.qcReport.completedAt), 'MMM d, yyyy h:mm a')}
+                    {format(new Date((asset as any).qc_report.completedAt), 'MMM d, yyyy h:mm a')}
                   </span>
                 )}
               </div>
@@ -1480,7 +1486,7 @@ export function AssetDetail() {
                   {asset.brand} {asset.model}
                 </p>
                 <p className="font-mono text-xs text-zinc-500">
-                  Status: {getAssetStatusDisplay(asset.status).label}
+                  Status: {getAssetStatusDisplay(asset.status as any).label}
                 </p>
               </div>
               <div>

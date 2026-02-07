@@ -80,7 +80,7 @@ function TimelineStep({
 }: {
   title: string;
   description?: string;
-  timestamp?: Date;
+  timestamp?: Date | string;
   isCompleted: boolean;
   isCurrent: boolean;
   isLast: boolean;
@@ -211,7 +211,7 @@ export function PickupRequestDetail() {
     if (!confirm('Are you sure you want to cancel this pickup request?')) return;
     setIsCancelling(true);
     try {
-      await cancelMutation.mutateAsync(request.id);
+      await cancelMutation.mutateAsync({ requestId: request.id, reason: 'Cancelled by user' });
       navigate(pickupsListPath);
     } finally {
       setIsCancelling(false);
@@ -260,7 +260,7 @@ export function PickupRequestDetail() {
       });
 
       // Auto-select the newly created user
-      setSelectedUser(newUser.id);
+      setSelectedUser(newUser?.id || '');
 
       // Reset form
       setShowAddUser(false);
@@ -594,13 +594,13 @@ export function PickupRequestDetail() {
                   {request.confirmed_date ? 'Confirmed Date' : 'Preferred Date'}
                 </p>
                 <p className="font-mono text-sm text-slate-900 dark:text-white">
-                  {format(new Date(request.confirmed_date || request.preferred_date), 'EEEE, dd MMMM yyyy')}
+                  {format(new Date(request.confirmed_date || request.preferred_date || ''), 'EEEE, dd MMMM yyyy')}
                 </p>
               </div>
               <div>
                 <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-1">Time Slot</p>
                 <p className="font-mono text-sm text-slate-900 dark:text-white">
-                  {pickupTimeSlotLabels[request.confirmed_time_slot || request.preferred_time_slot]}
+                  {(pickupTimeSlotLabels as Record<string, string>)[(request.confirmed_time_slot || request.preferred_time_slot) || '']}
                 </p>
               </div>
             </div>

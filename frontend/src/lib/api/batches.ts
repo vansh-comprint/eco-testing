@@ -17,6 +17,7 @@ export interface BatchResponse {
   enterprise_id: string;
   branch_id?: string;
   created_by?: string;
+  it_admin_id?: string;
   asset_count: number;
   accepted_count: number;
   rejected_count: number;
@@ -70,6 +71,7 @@ export interface BatchCreateRequest {
   description?: string;
   enterprise_id?: string;
   branch_id?: string;
+  status?: string;
 }
 
 export interface BatchUpdateRequest {

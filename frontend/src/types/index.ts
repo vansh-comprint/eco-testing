@@ -31,5 +31,17 @@ export * from './epr';
 // Bulk Upload types
 export * from './bulkUpload';
 
-// Pickup types
-export * from './pickup';
+// Pickup types (exclude PickupTimeSlot and pickupTimeSlotLabels — they conflict with submission.ts exports)
+export {
+  type PickupRequestStatus,
+  type PickupPriority,
+  type AssetPickupStatus,
+  type AssetPickupRecord,
+  type PickupRequest,
+  type CreatePickupRequestInput,
+  type UpdatePickupRequestInput,
+  type AssignPickupInput,
+  type PickupStats,
+  type PickupRequestSummary,
+  type PickupCalendarEvent,
+} from './pickup';

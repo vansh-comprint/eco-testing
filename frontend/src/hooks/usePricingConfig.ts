@@ -432,7 +432,7 @@ export function calculateDevicePrice(params: {
   let depreciationRate = 0;
   if (ageMonths > 0) {
     const depRule = pricingConfig.depreciation.find(
-      d => ageMonths >= d.min_age_months && (d.max_age_months === null || ageMonths < d.max_age_months)
+      d => ageMonths >= d.min_age_months && (d.max_age_months === null || d.max_age_months === undefined || ageMonths < d.max_age_months)
     );
     if (depRule) {
       depreciationRate = depRule.depreciation_rate;

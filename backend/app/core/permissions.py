@@ -6,7 +6,7 @@ based on the EcoTribe V3 role structure from src/types/user.ts
 """
 
 from enum import Enum
-from typing import Set, Dict, List
+from typing import Set, Dict
 from app.models.user import UserRole
 
 

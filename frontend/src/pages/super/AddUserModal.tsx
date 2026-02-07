@@ -44,7 +44,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     formState: { errors },
     reset,
   } = useForm<AddUserForm>({
-    resolver: zodResolver(addUserSchema),
+    resolver: zodResolver(addUserSchema) as any,
     defaultValues: {
       status: 'active',
     },
@@ -120,7 +120,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       description="Create a new user account"
       size="md"
     >
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit as any)}>
         <div className="space-y-4">
           <Input
             label="Full Name"

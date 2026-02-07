@@ -266,4 +266,4 @@ export function useCheckEmailExists() {
 }
 
 // Type exports for consumers
-export type { EnterpriseApplicationResponse, CreateEnterpriseApplicationInput };
+export type { EnterpriseApplicationResponse };

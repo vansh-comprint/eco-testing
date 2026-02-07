@@ -60,13 +60,13 @@ export function BulkUploadDetail() {
 
   // Group assets by status
   const assetsByStatus = uploadedAssets.reduce((acc, asset) => {
-    acc[asset.status] = acc[asset.status] || [];
-    acc[asset.status].push(asset);
+    (acc as any)[asset.status] = (acc as any)[asset.status] || [];
+    (acc as any)[asset.status].push(asset);
     return acc;
   }, {} as Record<AssetStatus, typeof uploadedAssets>);
 
   const getStatusConfig = (status: AssetStatus) => {
-    const configs: Record<AssetStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info' }> = {
+    const configs: Partial<Record<AssetStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info' }>> = {
       pending_assignment: { label: 'Pending', variant: 'warning' },
       assigned: { label: 'Assigned', variant: 'info' },
       check_in_started: { label: 'Check-in Started', variant: 'info' },
@@ -219,7 +219,7 @@ export function BulkUploadDetail() {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
               {uploadedAssets.map((asset, index) => {
-                const statusConfig = getStatusConfig(asset.status);
+                const statusConfig = getStatusConfig(asset.status as any);
                 // V3: Use snake_case field names
                 const subUser = asset.assigned_to_user_id ? getSubUserById(asset.assigned_to_user_id) : null;
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Dispute, DisputeStatus, User, UserRole, Asset, AssetStatus
+from app.models import Dispute, DisputeStatus, User, UserRole, AssetStatus
 from app.repositories.dispute_repository import DisputeRepository
 from app.repositories.asset_repository import AssetRepository
 from app.schemas.dispute import DisputeCreate, DisputeUpdate, DisputeResolve

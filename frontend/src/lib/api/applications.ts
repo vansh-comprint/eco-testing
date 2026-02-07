@@ -11,6 +11,7 @@ import { fetchWithAuth, fetchPublic, DEFAULT_PAGE_SIZE } from './client';
 
 export interface EnterpriseApplicationResponse {
   id: string;
+  application_ref?: string;
   company_name: string;
   legal_name?: string;
   gst_number?: string;
@@ -54,7 +55,9 @@ export interface EnterpriseApplicationCreateRequest {
   pan_number?: string;
   registered_address?: string;
   industry_type?: string;
+  industry?: string;
   company_size?: string;
+  employee_count?: number;
   org_admin_name: string;
   org_admin_email: string;
   org_admin_phone?: string;

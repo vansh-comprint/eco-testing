@@ -208,7 +208,7 @@ export interface CreateLogisticsUserInput {
   name: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
   vehicle_number?: string;
   vehicle_type?: string;
 }
@@ -226,7 +226,7 @@ export function useCreateLogisticsUser() {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        password: user.password,
+        password: user.password || '',
         vehicle_number: user.vehicle_number,
         vehicle_type: user.vehicle_type,
       };

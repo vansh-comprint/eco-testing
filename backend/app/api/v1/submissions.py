@@ -1,6 +1,6 @@
 """API endpoints for Submissions"""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -10,11 +10,9 @@ from app.models import User
 from app.schemas.submission import (
     SubmissionCreate,
     SubmissionUpdate,
-    SubmissionResponse,
-    SubmissionListResponse,
 )
 from app.services.submission_service import SubmissionService
-from app.utils.response import success_response, error_response, paginated_response
+from app.utils.response import success_response, paginated_response
 
 router = APIRouter()
 

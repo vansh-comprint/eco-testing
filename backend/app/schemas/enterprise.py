@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
-from app.models.enterprise import EnterpriseStatus, EnterpriseApplicationStatus
+from app.models.enterprise import EnterpriseStatus
 
 
 class EnterpriseCreate(BaseModel):

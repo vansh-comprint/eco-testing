@@ -3,7 +3,7 @@
  * Org Admin view showing ALL pickup requests across enterprise
  * Status tracking with branch filtering and logistics timeline
  */
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -45,7 +45,7 @@ export function EnterprisePickups() {
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name));
+    branches.forEach(b => map.set(b.id, b.name || ''));
     return map;
   }, [branches]);
 
@@ -111,7 +111,7 @@ export function EnterprisePickups() {
   };
 
   const getStatusInfo = (status: string) => {
-    const map: Record<string, { color: string; label: string; icon: JSX.Element }> = {
+    const map: Record<string, { color: string; label: string; icon: React.ReactElement }> = {
       pending: { color: 'border-amber-400/30 bg-amber-400/10 text-amber-500', label: 'Pending', icon: <Clock className="w-3 h-3" /> },
       assigned_to_logistics_admin: { color: 'border-blue-400/30 bg-blue-400/10 text-blue-500', label: 'Assigned to Partner', icon: <User className="w-3 h-3" /> },
       assigned_to_logistics_user: { color: 'border-indigo-400/30 bg-indigo-400/10 text-indigo-500', label: 'Assigned to Driver', icon: <User className="w-3 h-3" /> },
@@ -281,7 +281,7 @@ export function EnterprisePickups() {
                         <span className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-slate-400" />
                           <span className="font-mono text-xs text-slate-500 dark:text-zinc-500 truncate max-w-[200px]">
-                            {pickup.pickup_location}
+                            {typeof pickup.pickup_location === 'string' ? pickup.pickup_location : pickup.pickup_location?.name || ''}
                           </span>
                         </span>
                       )}

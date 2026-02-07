@@ -2,12 +2,12 @@
 
 import uuid
 from datetime import datetime
-from typing import BinaryIO, Optional, List
+from typing import Optional, List
 from fastapi import UploadFile
 
 from app.core.storage import generate_file_key, get_content_type, validate_file_extension
 from app.storage.storage_factory import get_storage, StorageBucket
-from app.schemas.file import FileUploadResponse, FileMetadata
+from app.schemas.file import FileUploadResponse
 from app.utils.exceptions import ValidationError
 
 

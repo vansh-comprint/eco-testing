@@ -1,14 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Payout } from '@/types';
 import { generateId } from '@/lib/utils';
 import { db } from '@/lib/database';
 
+// Internal payout type used by the store (differs from API Payout type)
+interface StorePayout {
+  id: string;
+  enterpriseId: string;
+  batchId?: string;
+  amount: number;
+  status: string;
+  processedAt?: Date;
+  processedBy?: string;
+  referenceId: string;
+  items: { assetId: string; amount: number }[];
+  createdAt: Date;
+}
+
 interface PayoutState {
-  payouts: Payout[];
+  payouts: StorePayout[];
   isLoading: boolean;
-  createPayout: (enterpriseId: string, assetIds: string[], amount: number, processedBy?: string) => Promise<Payout>;
-  getPayoutsByEnterprise: (enterpriseId: string) => Payout[];
+  createPayout: (enterpriseId: string, assetIds: string[], amount: number, processedBy?: string) => Promise<StorePayout>;
+  getPayoutsByEnterprise: (enterpriseId: string) => StorePayout[];
 }
 
 export const usePayoutStore = create<PayoutState>()(
@@ -37,13 +50,13 @@ export const usePayoutStore = create<PayoutState>()(
             reference_id: referenceId,
             items: items,
             created_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);
           }
 
-          const newPayout: Payout = {
+          const newPayout: StorePayout = {
             id: payoutId,
             enterpriseId,
             batchId: undefined,

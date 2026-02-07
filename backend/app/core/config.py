@@ -22,8 +22,8 @@ class Settings(BaseSettings):
 
     # JWT Configuration
     jwt_secret_key: str = Field(
-        default="change-this-secret-key-in-production",
-        description="Secret key for JWT token generation",
+        ...,
+        description="Secret key for JWT token generation. REQUIRED — app will not start without this.",
     )
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_access_token_expire_minutes: int = Field(

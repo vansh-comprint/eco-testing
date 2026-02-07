@@ -3,8 +3,11 @@
 export type BatchStatus =
   | 'draft'
   | 'pending_approval'        // Awaits Org Admin approval
+  | 'pending_cfo_approval'    // Backward compat alias
   | 'approved'                // Org Admin approved
+  | 'cfo_approved'            // Backward compat alias
   | 'rejected'                // Org Admin rejected
+  | 'cfo_rejected'            // Backward compat alias
   | 'pickup_in_progress'      // At least one pickup created
   | 'completed'
   | 'cancelled';
@@ -104,8 +107,11 @@ export interface PickupApprovalInput {
 export const batchStatusLabels: Record<BatchStatus, string> = {
   draft: 'Draft',
   pending_approval: 'Pending Approval',
+  pending_cfo_approval: 'Pending CFO Approval',
   approved: 'Approved',
+  cfo_approved: 'CFO Approved',
   rejected: 'Rejected',
+  cfo_rejected: 'CFO Rejected',
   pickup_in_progress: 'Pickup In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',

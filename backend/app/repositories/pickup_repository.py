@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 from typing import Optional, List, Tuple
-from sqlalchemy import select, func, and_, or_, update
+from sqlalchemy import select, func, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PickupRequest, PickupStatus, PickupLocation
@@ -144,7 +144,7 @@ class PickupLocationRepository(BaseRepository[PickupLocation]):
         conditions = [PickupLocation.enterprise_id == enterprise_id]
 
         if not include_inactive:
-            conditions.append(PickupLocation.is_active == True)
+            conditions.append(PickupLocation.is_active.is_(True))
 
         base_query = select(PickupLocation).where(and_(*conditions))
 
@@ -167,8 +167,8 @@ class PickupLocationRepository(BaseRepository[PickupLocation]):
             select(PickupLocation).where(
                 and_(
                     PickupLocation.enterprise_id == enterprise_id,
-                    PickupLocation.is_default == True,
-                    PickupLocation.is_active == True,
+                    PickupLocation.is_default.is_(True),
+                    PickupLocation.is_active.is_(True),
                 )
             )
         )
@@ -208,7 +208,7 @@ class PickupLocationRepository(BaseRepository[PickupLocation]):
                 and_(
                     PickupLocation.enterprise_id == branch.enterprise_id,
                     PickupLocation.name == branch.branch_name,
-                    PickupLocation.is_active == True,
+                    PickupLocation.is_active.is_(True),
                 )
             )
         )

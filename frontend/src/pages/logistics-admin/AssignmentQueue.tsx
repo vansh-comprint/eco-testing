@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Filter, Plus, AlertCircle } from 'lucide-react';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
-import type { PickupRequest } from '@/types';
+import type { PickupResponse } from '@/lib/api/pickups';
 
 type StatusFilter = 'active' | 'all';
 
@@ -17,7 +17,7 @@ export function LogisticsAssignmentQueue() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedPickup, setSelectedPickup] = useState<PickupRequest | null>(null);
+  const [selectedPickup, setSelectedPickup] = useState<PickupResponse | null>(null);
   const [selectedUser, setSelectedUser] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [userSearch, setUserSearch] = useState('');
@@ -61,7 +61,7 @@ export function LogisticsAssignmentQueue() {
   // Count of pickups awaiting field user assignment (no logistics_user_id yet)
   const pendingUserAssignment = queue.filter(r => !r.logistics_user_id).length;
 
-  const openAssignModal = (pickup: PickupRequest) => {
+  const openAssignModal = (pickup: PickupResponse) => {
     setSelectedPickup(pickup);
     // Pre-populate with existing assignment if reassigning
     setSelectedUser(pickup.logistics_user_id || '');
@@ -110,7 +110,7 @@ export function LogisticsAssignmentQueue() {
       });
 
       // Auto-select the newly created user
-      setSelectedUser(newUser.id);
+      setSelectedUser(newUser?.id || '');
 
       // Reset form
       setShowAddUser(false);

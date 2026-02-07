@@ -52,8 +52,8 @@ export function QCQueue() {
   // Filter and sort
   const filteredAssets = pendingAssets
     .filter(a =>
-      a.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {

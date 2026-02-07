@@ -5,8 +5,6 @@ from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
-from app.models.review import ReviewDecision
-from app.models.support import QCStatus
 
 
 # ============================================================================

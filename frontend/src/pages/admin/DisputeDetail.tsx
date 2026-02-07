@@ -28,7 +28,7 @@ import { Badge, useToast } from '@/components/ui';
 import { useDispute, useAuth } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import { getAssetStatusDisplay } from '@/lib/status-display';
-import type { QCImage } from '@/types';
+import type { QCImage, AssetStatus } from '@/types';
 
 // Image type labels
 const IMAGE_TYPE_LABELS: Record<QCImage['type'], string> = {
@@ -87,7 +87,7 @@ export function DisputeDetail() {
 
   const asset = dispute.assets;
   const isResolved = !!dispute.resolved_at;
-  const statusConfig = asset ? getAssetStatusDisplay(asset.status) : null;
+  const statusConfig = asset ? getAssetStatusDisplay(asset.status as AssetStatus) : null;
   const qcReport = asset?.qc_report as {
     grade?: string;
     checklist?: Array<{ id: string; label: string; passed: boolean; notes?: string }>;

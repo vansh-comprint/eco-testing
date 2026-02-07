@@ -64,7 +64,7 @@ export function useUpdateEnterprise() {
 
   return useMutation({
     mutationFn: async ({ enterpriseId, updates }: { enterpriseId: string; updates: UpdateEnterpriseInput }) => {
-      const response = await enterprisesApi.update(enterpriseId, updates);
+      const response = await enterprisesApi.update(enterpriseId, updates as any);
       if (!response.success) throw new Error(response.error?.message || 'Failed to update enterprise');
       return response.data;
     },

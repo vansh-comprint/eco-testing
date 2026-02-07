@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Input, Dropdown } from '@/components/ui';
-import type { IndustryType } from '@/types';
 import { enterpriseApplicationsApi } from '@/lib/api/applications';
+
+type IndustryType = 'technology' | 'finance' | 'healthcare' | 'education' | 'manufacturing' | 'retail' | 'government' | string;
 
 const industryOptions: { label: string; value: IndustryType }[] = [
   { label: 'Technology', value: 'technology' },

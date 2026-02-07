@@ -9,7 +9,7 @@ from app.core.permissions import Permission
 from app.models import User
 from app.schemas.notification import NotificationCreate, NotificationBulkCreate
 from app.services.notification_service import NotificationService
-from app.utils.response import success_response, paginated_response
+from app.utils.response import success_response
 
 router = APIRouter()
 

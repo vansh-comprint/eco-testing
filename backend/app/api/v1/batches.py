@@ -1,7 +1,7 @@
 """Batch management endpoints"""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query, HTTPException
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,7 +17,6 @@ from app.schemas.batch import (
 )
 from app.services.batch_service import BatchService
 from app.utils.response import success_response, paginated_response
-from app.utils.exceptions import NotFoundError, ValidationError
 from app.utils.scoping import get_scoped_filters, auto_fill_context
 
 router = APIRouter()
@@ -113,12 +112,9 @@ async def create_batch(
         "branch_id": filled_branch_id
     })
 
-    try:
-        service = BatchService(db)
-        batch = await service.create_batch(batch_data, current_user.id)
-        return success_response(data=batch.model_dump(), message="Batch created successfully")
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    service = BatchService(db)
+    batch = await service.create_batch(batch_data, current_user.id)
+    return success_response(data=batch.model_dump(), message="Batch created successfully")
 
 
 @router.get("/{batch_id}", response_model=dict)
@@ -132,12 +128,9 @@ async def get_batch(
 
     **Permissions:** BATCH_READ
     """
-    try:
-        service = BatchService(db)
-        batch = await service.get_batch(batch_id)
-        return success_response(data=batch.model_dump())
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    service = BatchService(db)
+    batch = await service.get_batch(batch_id)
+    return success_response(data=batch.model_dump())
 
 
 @router.put("/{batch_id}", response_model=dict)
@@ -155,20 +148,11 @@ async def update_batch(
 
     **Permissions:** BATCH_UPDATE
     """
-    from app.utils.exceptions import AuthorizationError
-
-    try:
-        service = BatchService(db)
-        batch = await service.update_batch(
-            batch_id, batch_data, current_user.id, actor=current_user
-        )
-        return success_response(data=batch.model_dump(), message="Batch updated successfully")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except AuthorizationError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    service = BatchService(db)
+    batch = await service.update_batch(
+        batch_id, batch_data, current_user.id, actor=current_user
+    )
+    return success_response(data=batch.model_dump(), message="Batch updated successfully")
 
 
 @router.post("/{batch_id}/submit-for-approval", response_model=dict)
@@ -185,14 +169,9 @@ async def submit_batch_for_approval(
 
     **Permissions:** BATCH_UPDATE
     """
-    try:
-        service = BatchService(db)
-        batch = await service.submit_for_approval(batch_id, data, current_user.id)
-        return success_response(data=batch.model_dump(), message="Batch submitted for approval")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    service = BatchService(db)
+    batch = await service.submit_for_approval(batch_id, data, current_user.id)
+    return success_response(data=batch.model_dump(), message="Batch submitted for approval")
 
 
 @router.post("/{batch_id}/approval", response_model=dict)
@@ -209,15 +188,10 @@ async def process_batch_approval(
 
     **Permissions:** BATCH_APPROVE
     """
-    try:
-        service = BatchService(db)
-        batch = await service.process_approval(batch_id, action_data, current_user.id)
-        action_msg = "approved" if action_data.action == "approve" else "rejected"
-        return success_response(data=batch.model_dump(), message=f"Batch {action_msg}")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    service = BatchService(db)
+    batch = await service.process_approval(batch_id, action_data, current_user.id)
+    action_msg = "approved" if action_data.action == "approve" else "rejected"
+    return success_response(data=batch.model_dump(), message=f"Batch {action_msg}")
 
 
 @router.delete("/{batch_id}", response_model=dict, status_code=status.HTTP_200_OK)
@@ -233,13 +207,10 @@ async def delete_batch(
 
     **Permissions:** BATCH_DELETE
     """
-    try:
-        service = BatchService(db)
-        await service.delete_batch(
-            batch_id,
-            delete_assets=delete_assets,
-            delete_sub_users=delete_sub_users,
-        )
-        return success_response(message="Batch deleted successfully")
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    service = BatchService(db)
+    await service.delete_batch(
+        batch_id,
+        delete_assets=delete_assets,
+        delete_sub_users=delete_sub_users,
+    )
+    return success_response(message="Batch deleted successfully")

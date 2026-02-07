@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export type AuditEntityType =
   | 'asset'
   | 'batch'
+  | 'pickup'
   | 'pickup_request'
   | 'pickup_asset'
   | 'payout'

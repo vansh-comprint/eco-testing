@@ -12,7 +12,8 @@ import {
   XCircle,
   Package,
   FileText,
-  X
+  X,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth, useAllAssets, useEnterprises, useAllBatches, useAllDisputes } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
@@ -250,6 +251,22 @@ export function MainAdminDashboard() {
                     <p className={`font-mono text-xs ${text.muted}`}>Ready for processing</p>
                   </div>
                   <ArrowRight className={`${iconSize.lg} ${text.muted} group-hover:text-emerald-500 transition-colors`} />
+                </button>
+
+                <button
+                  onClick={() => navigate('/review')}
+                  className={`w-full p-4 flex items-center gap-4 ${hoverStyles.row} group`}
+                >
+                  <div className="w-12 h-12 border border-cyan-500/30 bg-cyan-50/80 dark:bg-cyan-500/10 flex items-center justify-center">
+                    <ClipboardCheck className={`${iconSize.xl} text-cyan-500`} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className={`font-display font-bold group-hover:text-cyan-500 transition-colors ${text.primary}`}>
+                      Review & QC Portal
+                    </p>
+                    <p className={`font-mono text-xs ${text.muted}`}>Remote review and facility QC</p>
+                  </div>
+                  <ArrowRight className={`${iconSize.lg} ${text.muted} group-hover:text-cyan-500 transition-colors`} />
                 </button>
               </div>
             </motion.div>

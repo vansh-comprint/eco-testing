@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import RemoteReview, FacilityQC, Asset, AssetStatus, User, UserRole
+from app.models import RemoteReview, FacilityQC, AssetStatus, User, UserRole
 from app.models.support import OnSiteQC
 from app.models.review import ReviewDecision
 from app.repositories.review_repository import (
@@ -19,9 +19,7 @@ from app.schemas.review import (
     RemoteReviewCreate,
     RemoteReviewUpdate,
     FacilityQCCreate,
-    FacilityQCUpdate,
     OnSiteQCCreate,
-    OnSiteQCUpdate,
 )
 
 

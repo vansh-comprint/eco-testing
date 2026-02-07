@@ -57,7 +57,7 @@ export const useBatchStore = create<BatchState>()(
       // Query batches from database
       const result = await db.query('batches', {
         filters: [{ field: 'enterprise_id', operator: 'eq', value: enterpriseId }]
-      });
+      }) as { data: any[] | null; error: { message: string } | null };
 
       if (result.error) {
         console.error('Database query error:', result.error.message);
@@ -126,7 +126,7 @@ export const useBatchStore = create<BatchState>()(
         requires_approval: false,
         created_by: createdBy,
         created_at: new Date().toISOString(),
-      });
+      }) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         throw new Error(`Database error: ${result.error.message}`);
@@ -196,7 +196,7 @@ export const useBatchStore = create<BatchState>()(
       if (input.approvedAt) updateData.approved_at = new Date(input.approvedAt).toISOString();
       if (input.completedAt) updateData.completed_at = new Date(input.completedAt).toISOString();
 
-      const result = await db.update('batches', id, updateData);
+      const result = await db.update('batches', id, updateData) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         console.error('Database update error:', result.error.message);
@@ -249,7 +249,7 @@ export const useBatchStore = create<BatchState>()(
           console.log(`Deleting assets for batch: ${id}`);
           const deleteAssetsResult = await db.query('assets', {
             filters: [{ field: 'batch_id', operator: 'eq', value: id }]
-          });
+          }) as { data: any[] | null; error: any };
 
           if (deleteAssetsResult.data && deleteAssetsResult.data.length > 0) {
             for (const asset of deleteAssetsResult.data) {
@@ -264,7 +264,7 @@ export const useBatchStore = create<BatchState>()(
           console.log(`Deleting sub-users for enterprise: ${batch.enterpriseId}`);
           const deleteSubUsersResult = await db.query('sub_users', {
             filters: [{ field: 'enterprise_id', operator: 'eq', value: batch.enterpriseId }]
-          });
+          }) as { data: any[] | null; error: any };
 
           if (deleteSubUsersResult.data && deleteSubUsersResult.data.length > 0) {
             for (const subUser of deleteSubUsersResult.data) {
@@ -276,7 +276,7 @@ export const useBatchStore = create<BatchState>()(
       }
 
       // Delete the batch itself
-      const result = await db.delete('batches', id);
+      const result = await db.delete('batches', id) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         throw new Error(`Database error: ${result.error.message}`);
@@ -336,7 +336,7 @@ export const useBatchStore = create<BatchState>()(
           const needsApproval = requiresOrgAdminApproval(b.assetCount, b.estimatedValue);
           updatedBatch = {
             ...b,
-            status: needsApproval ? 'pending_approval' : 'active',
+            status: (needsApproval ? 'pending_approval' : 'approved') as BatchStatus,
             requiresApproval: needsApproval,
             approvalStatus: needsApproval ? 'pending' : undefined,
             updatedAt: new Date(),
@@ -386,7 +386,7 @@ export const useBatchStore = create<BatchState>()(
         if (b.id === approvalInput.batchId) {
           updatedBatch = {
             ...b,
-            status: approvalInput.approved ? 'active' : 'rejected',
+            status: (approvalInput.approved ? 'approved' : 'rejected') as BatchStatus,
             approvalStatus: approvalInput.approved ? 'approved' : 'rejected',
             approvedBy: approvedBy,
             approvedAt: new Date(),

@@ -65,7 +65,7 @@ class PricingRuleRepository(BaseRepository[PricingRule]):
         """Find the best matching pricing rule for a device"""
         # Build conditions
         conditions = [
-            PricingRule.is_active == True,
+            PricingRule.is_active.is_(True),
             PricingRule.category == category,
             PricingRule.age_min <= age_years,
             or_(
@@ -120,7 +120,7 @@ class ConditionModifierRepository(BaseRepository[ConditionModifier]):
         """List all condition modifiers"""
         query = select(ConditionModifier)
         if active_only:
-            query = query.where(ConditionModifier.is_active == True)
+            query = query.where(ConditionModifier.is_active.is_(True))
         query = query.order_by(ConditionModifier.sort_order)
         result = await self.session.execute(query)
         return list(result.scalars().all())

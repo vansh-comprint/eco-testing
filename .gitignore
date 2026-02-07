@@ -1,5 +1,6 @@
-# Claude Code
-.claude/
+# Claude Code - memory is local, agents/hooks/skills/checklists can be committed
+.claude/memory/
+.claude/settings.local.json
 
 # Environment
 .env

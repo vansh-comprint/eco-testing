@@ -1,5 +1,6 @@
 """User service for unified user model"""
 
+import secrets
 from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,8 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.enterprise import Branch
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
-from app.utils.exceptions import NotFoundError, ValidationError, ConflictError, AuthorizationError
-from app.utils.security import validate_user_modification, can_modify_user
+from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
+from app.utils.security import validate_user_modification
 from app.core.security import get_password_hash
 
 
@@ -111,8 +112,8 @@ class UserService:
         is_employee = user_data.role == UserRole.EMPLOYEE
 
         if is_employee:
-            # Employees get a default password for login
-            password_hash = get_password_hash("password123")
+            # Employees use OTP-based login — set a random unusable password
+            password_hash = get_password_hash(secrets.token_urlsafe(32))
             initial_status = UserStatus.ACTIVE.value
         else:
             # All other roles require password
@@ -221,7 +222,7 @@ class UserService:
                     employee_id=user_item.employee_id,
                     department=user_item.department,
                     designation=user_item.designation,
-                    password_hash=get_password_hash(user_item.password) if user_item.password else (get_password_hash("password123") if is_employee else None),
+                    password_hash=get_password_hash(user_item.password) if user_item.password else (get_password_hash(secrets.token_urlsafe(32)) if is_employee else None),
                     status=UserStatus.ACTIVE.value,
                     created_by=created_by,
                     updated_by=created_by,

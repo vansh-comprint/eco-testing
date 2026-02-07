@@ -1,7 +1,5 @@
 """User models - Unified user table for all roles"""
 
-from datetime import datetime
-from typing import Optional
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.orm import relationship
 import enum

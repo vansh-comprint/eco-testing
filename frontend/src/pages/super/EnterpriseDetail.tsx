@@ -133,8 +133,8 @@ export function SuperEnterpriseDetail() {
 
   // Update enterprise mutation
   const updateEnterpriseMutation = useMutation({
-    mutationFn: async (data: { enterpriseId: string; updates: UpdateEnterpriseInput; updatedBy: string }) => {
-      return updateEnterprise(data.enterpriseId, data.updates, data.updatedBy);
+    mutationFn: async (data: { enterpriseId: string; updates: any; updatedBy: string }) => {
+      return (enterprisesApi as any).update(data.enterpriseId, data.updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
@@ -146,7 +146,7 @@ export function SuperEnterpriseDetail() {
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async (data: { enterpriseId: string; status: 'active' | 'inactive' | 'suspended'; updatedBy: string }) => {
-      return updateEnterpriseStatus(data.enterpriseId, data.status, data.updatedBy);
+      return (enterprisesApi as any).updateStatus(data.enterpriseId, data.status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
@@ -217,7 +217,7 @@ export function SuperEnterpriseDetail() {
       if (branchesResult.success && branchesResult.data) {
         const branchMap: Record<string, string> = {};
         branchesResult.data.forEach((b) => {
-          branchMap[b.id] = b.name;
+          branchMap[b.id] = b.name || '';
         });
         setBranches(branchMap);
       }
@@ -274,7 +274,7 @@ export function SuperEnterpriseDetail() {
 
     setIsSaving(true);
     try {
-      const updates: UpdateEnterpriseInput = {
+      const updates: any = {
         name: editForm.name,
         legal_name: editForm.legalName || undefined,
         gst_number: editForm.gstNumber || undefined,

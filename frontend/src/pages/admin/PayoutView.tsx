@@ -50,15 +50,15 @@ export function PayoutView() {
   const { data: payouts = [], isLoading } = usePayouts(enterpriseId);
 
   const filteredPayouts = statusFilter
-    ? payouts.filter((p: Payout) => p.status === statusFilter)
+    ? payouts.filter((p: any) => p.status === statusFilter)
     : payouts;
 
   // Stats
   const stats = {
-    totalEarned: payouts.filter((p: Payout) => p.status === 'completed').reduce((sum: number, p: Payout) => sum + Number(p.amount), 0),
-    pending: payouts.filter((p: Payout) => p.status === 'pending').reduce((sum: number, p: Payout) => sum + Number(p.amount), 0),
-    processing: payouts.filter((p: Payout) => p.status === 'processing').reduce((sum: number, p: Payout) => sum + Number(p.amount), 0),
-    completedCount: payouts.filter((p: Payout) => p.status === 'completed').length,
+    totalEarned: payouts.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + Number(p.amount), 0),
+    pending: payouts.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + Number(p.amount), 0),
+    processing: payouts.filter((p: any) => p.status === 'processing').reduce((sum: number, p: any) => sum + Number(p.amount), 0),
+    completedCount: payouts.filter((p: any) => p.status === 'completed').length,
   };
 
   const getStatusConfig = (status: PayoutStatus) => {
@@ -190,7 +190,7 @@ export function PayoutView() {
             <p className="font-mono text-xs text-zinc-600 uppercase tracking-wide">Loading payouts...</p>
           </div>
         ) : filteredPayouts.length > 0 ? (
-          filteredPayouts.map((payout: Payout, index: number) => {
+          filteredPayouts.map((payout: any, index: number) => {
             const statusConfig = getStatusConfig(payout.status);
             const batchName = payout.batches?.name || payout.reference_id || `Payout #${payout.id.slice(0, 8)}`;
             const assetCount = payout.asset_ids?.length || 0;

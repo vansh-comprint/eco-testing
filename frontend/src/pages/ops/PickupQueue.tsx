@@ -130,7 +130,7 @@ export function PickupQueue() {
       });
 
       // Auto-select the newly created admin
-      setSelectedLogisticsAdmin(newAdmin.id);
+      setSelectedLogisticsAdmin(newAdmin!.id);
 
       // Reset form
       setShowAddAdmin(false);

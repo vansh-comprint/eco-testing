@@ -32,51 +32,16 @@ import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreate
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { validateBranchCode } from '@/lib/validations/branch';
+import type { BranchResponse, BranchSummary } from '@/lib/api/branches';
 
-// Types
+// Use API response type directly — the hooks return BranchResponse
+type Branch = BranchResponse;
+
 interface ITAdmin {
   id: string;
   name: string;
   email: string;
   phone?: string;
-}
-
-interface Branch {
-  id: string;
-  enterprise_id: string;
-  branch_name: string;
-  branch_code: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  pin_code: string;
-  pickup_point_description?: string;
-  site_contact_person?: string;
-  site_contact_phone?: string;
-  operating_hours?: string;
-  special_instructions?: string;
-  status: 'active' | 'inactive' | 'needs_admin';
-  it_admin_id?: string | null;
-  it_admin?: ITAdmin | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface BranchSummary {
-  branch_id: string;
-  enterprise_id: string;
-  branch_name: string;
-  branch_code: string;
-  city: string;
-  state: string;
-  branch_status: string;
-  it_admin_id?: string;
-  it_admin_name?: string;
-  it_admin_email?: string;
-  asset_count: number;
-  total_batch_count: number;
-  active_batch_count: number;
 }
 
 export function BranchManagement() {
@@ -110,7 +75,7 @@ export function BranchManagement() {
   const myBranchIds = new Set(branches.map((b: Branch) => b.id));
   const branchSummaries = isOrgAdmin
     ? allBranchSummaries
-    : allBranchSummaries.filter((s: BranchSummary) => myBranchIds.has(s.branch_id));
+    : allBranchSummaries.filter((s: BranchSummary) => myBranchIds.has(s.branch_id || s.id));
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const updateBranchStatus = useUpdateBranchStatus();
@@ -323,7 +288,7 @@ export function BranchManagement() {
           if (editingBranch) {
             await updateBranch.mutateAsync({ branchId: editingBranch.id, updates: data });
           } else {
-            await createBranch.mutateAsync({ ...data, enterprise_id: enterpriseId });
+            await createBranch.mutateAsync({ ...data, enterprise_id: enterpriseId } as any);
           }
           setIsModalOpen(false);
         }}
@@ -482,7 +447,7 @@ function BranchCard({
               <button
                 type="button"
                 onClick={() => setShowMenu(!showMenu)}
-                className={`p-1.5 ${hoverStyles.subtle} transition-colors`}
+                className={`p-1.5 ${(hoverStyles as any).subtle || hoverStyles.row} transition-colors`}
               >
                 <MoreVertical className="w-4 h-4" />
               </button>

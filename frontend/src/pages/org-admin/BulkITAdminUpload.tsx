@@ -169,7 +169,7 @@ export function BulkITAdminUpload() {
       Object.entries(mapping).forEach(([field, index]) => {
         const value = values[index]?.trim() || '';
         if (field in row || OPTIONAL_COLUMNS.includes(field)) {
-          (row as Record<string, unknown>)[field] = value;
+          (row as unknown as Record<string, unknown>)[field] = value;
         }
       });
 
@@ -472,7 +472,7 @@ export function BulkITAdminUpload() {
           type: 'list',
           allowBlank: true,
           formulae: [`"${branchNames.join(',')}"`],
-          showDropDown: true,
+          showInputMessage: true,
           errorTitle: 'Invalid Branch',
           error: 'Please select a branch from the dropdown list',
         };

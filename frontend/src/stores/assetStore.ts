@@ -6,6 +6,25 @@ import { generateId } from '@/lib/utils';
 import { useBatchStore } from './batchStore';
 import { db } from '@/lib/database';
 
+// Extended input types for internal store use (includes DB fields not in strict API types)
+type InternalCreateAssetInput = CreateAssetInput & {
+  assetTag?: string;
+  assignedSubUserId?: string;
+  assignedAt?: Date;
+  grade?: AssetGrade;
+  basePrice?: number;
+  finalPrice?: number;
+};
+
+type InternalUpdateAssetInput = UpdateAssetInput & {
+  serialNumber?: string;
+  assetTag?: string;
+  assignedSubUserId?: string;
+  assignedAt?: Date;
+  basePrice?: number;
+  finalPrice?: number;
+};
+
 interface AssetFilters {
   status?: AssetStatus | 'all';
   batchId?: string;
@@ -24,9 +43,9 @@ interface AssetState {
   fetchAssets: (enterpriseId: string) => Promise<void>;
   getAssetById: (id: string) => Asset | undefined;
   getAssetsBySubUserId: (subUserId: string) => Asset[];
-  createAsset: (input: CreateAssetInput) => Promise<Asset>;
-  createAssets: (inputs: CreateAssetInput[]) => Promise<Asset[]>;
-  updateAsset: (id: string, input: UpdateAssetInput, forceStatus?: boolean) => Promise<Asset>;
+  createAsset: (input: InternalCreateAssetInput) => Promise<Asset>;
+  createAssets: (inputs: InternalCreateAssetInput[]) => Promise<Asset[]>;
+  updateAsset: (id: string, input: InternalUpdateAssetInput, forceStatus?: boolean) => Promise<Asset>;
   updateAssetStatus: (id: string, status: AssetStatus, grade?: AssetGrade, force?: boolean) => Promise<Asset>;
   deleteAsset: (id: string) => Promise<void>;
   assignSubUser: (assetId: string, subUserId: string) => Promise<void>;
@@ -75,7 +94,7 @@ export const useAssetStore = create<AssetState>()(
       // Query assets from database
       const result = await db.query('assets', {
         filters: [{ field: 'enterprise_id', operator: 'eq', value: enterpriseId }]
-      });
+      }) as { data: any[] | null; error: { message: string } | null };
 
       if (result.error) {
         console.error('Database query error:', result.error.message);
@@ -124,7 +143,7 @@ export const useAssetStore = create<AssetState>()(
     return get().assets.filter(a => a.assignedSubUserId === subUserId);
   },
 
-  createAsset: async (input: CreateAssetInput) => {
+  createAsset: async (input: InternalCreateAssetInput) => {
     set({ isLoading: true });
 
     try {
@@ -148,7 +167,7 @@ export const useAssetStore = create<AssetState>()(
         base_price: input.basePrice || null,
         final_price: input.finalPrice || null,
         created_at: new Date().toISOString(),
-      });
+      }) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         throw new Error(`Database error: ${result.error.message}`);
@@ -156,7 +175,18 @@ export const useAssetStore = create<AssetState>()(
 
       const newAsset: Asset = {
         id: assetId,
-        ...input,
+        enterpriseId: input.enterpriseId,
+        batchId: input.batchId,
+        serialNumber: input.serialNumber,
+        brand: input.brand,
+        model: input.model,
+        specs: input.specs,
+        purchaseDate: input.purchaseDate,
+        assignedSubUserId: input.assignedSubUserId,
+        assignedAt: input.assignedAt,
+        grade: input.grade,
+        basePrice: input.basePrice,
+        finalPrice: input.finalPrice,
         status: 'pending_assignment',
         createdAt: new Date(),
       };
@@ -180,7 +210,7 @@ export const useAssetStore = create<AssetState>()(
     }
   },
 
-  createAssets: async (inputs: (CreateAssetInput & { assignedSubUserId?: string; status?: AssetStatus; assignedAt?: Date })[]) => {
+  createAssets: async (inputs: (InternalCreateAssetInput & { status?: AssetStatus })[]) => {
     set({ isLoading: true });
 
     try {
@@ -189,7 +219,7 @@ export const useAssetStore = create<AssetState>()(
       // Process each asset
       for (const input of inputs) {
         const assetId = `ast-${generateId()}`;
-        const { assignedSubUserId, status, assignedAt, assignedEmail, assignedName, assignedDepartment, ...rest } = input as CreateAssetInput & { assignedSubUserId?: string; status?: AssetStatus; assignedAt?: Date };
+        const { assignedSubUserId, status, assignedAt, assignedEmail, assignedName, assignedDepartment, assetTag, grade, basePrice, finalPrice, ...rest } = input;
 
         try {
           // Insert into database
@@ -200,17 +230,17 @@ export const useAssetStore = create<AssetState>()(
             serial_number: input.serialNumber,
             brand: input.brand,
             model: input.model,
-            asset_tag: input.assetTag || null,
+            asset_tag: assetTag || null,
             specs: input.specs || null,
             purchase_date: input.purchaseDate ? new Date(input.purchaseDate).toISOString() : null,
             assigned_sub_user_id: assignedSubUserId || null,
             assigned_at: assignedAt ? new Date(assignedAt).toISOString() : null,
             status: status || 'pending_assignment',
-            grade: input.grade || null,
-            base_price: input.basePrice || null,
-            final_price: input.finalPrice || null,
+            grade: grade || null,
+            base_price: basePrice || null,
+            final_price: finalPrice || null,
             created_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             console.error(`Database error for ${input.serialNumber}:`, result.error.message);
@@ -252,7 +282,7 @@ export const useAssetStore = create<AssetState>()(
     }
   },
 
-  updateAsset: async (id: string, input: UpdateAssetInput, forceStatus = false) => {
+  updateAsset: async (id: string, input: InternalUpdateAssetInput, forceStatus = false) => {
     set({ isLoading: true });
 
     try {
@@ -307,7 +337,7 @@ export const useAssetStore = create<AssetState>()(
       if (input.finalPrice !== undefined) updateData.final_price = input.finalPrice || null;
       if (input.batchId !== undefined) updateData.batch_id = input.batchId || null;
 
-      const result = await db.update('assets', id, updateData);
+      const result = await db.update('assets', id, updateData) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         console.error('Database update error:', result.error.message);
@@ -351,7 +381,7 @@ export const useAssetStore = create<AssetState>()(
         const result = await db.query('assets', {
           filters: [{ field: 'id', operator: 'eq', value: id }],
           limit: 1,
-        });
+        }) as { data: any[] | null; error: { message: string } | null };
 
         if (result.data && result.data.length > 0) {
           const dbAsset = result.data[0];
@@ -431,14 +461,14 @@ export const useAssetStore = create<AssetState>()(
       }
 
       // Update database
-      const result = await db.update('assets', id, {
+      const dbResult = await db.update('assets', id, {
         status,
         grade: grade || null,
         updated_at: new Date().toISOString(),
-      });
+      }) as { data: any; error: { message: string } | null };
 
-      if (result.error) {
-        console.error('Database update error:', result.error.message);
+      if (dbResult.error) {
+        console.error('Database update error:', dbResult.error.message);
         // Don't throw - we've already updated local state
       }
 
@@ -461,7 +491,7 @@ export const useAssetStore = create<AssetState>()(
 
     try {
       // Delete from database
-      const result = await db.delete('assets', id);
+      const result = await db.delete('assets', id) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         throw new Error(`Database error: ${result.error.message}`);
@@ -502,7 +532,7 @@ export const useAssetStore = create<AssetState>()(
       assigned_sub_user_id: subUserId,
       assigned_at: now.toISOString(),
       updated_at: now.toISOString(),
-    });
+    }) as { data: any; error: { message: string } | null };
 
     if (result.error) {
       console.error('Failed to assign sub-user in database:', result.error.message);
@@ -553,7 +583,7 @@ export const useAssetStore = create<AssetState>()(
       assigned_sub_user_id: null,
       assigned_at: null,
       updated_at: now.toISOString(),
-    });
+    }) as { data: any; error: { message: string } | null };
 
     if (result.error) {
       console.error('Failed to unassign asset in database:', result.error.message);
@@ -608,7 +638,7 @@ export const useAssetStore = create<AssetState>()(
         assigned_sub_user_id: null,
         assigned_at: null,
         updated_at: now.toISOString(),
-      });
+      }) as { data: any; error: { message: string } | null };
 
       if (result.error) {
         console.error(`Failed to unassign asset ${asset.id}:`, result.error.message);

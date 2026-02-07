@@ -299,7 +299,7 @@ export function PickupRequests() {
                         </span>
                         <span className="flex items-center gap-1.5 font-mono text-xs">
                           <Clock className="w-3 h-3" />
-                          {pickupTimeSlotLabels[request.preferred_time_slot] || request.preferred_time_slot}
+                          {(pickupTimeSlotLabels as Record<string, string>)[request.preferred_time_slot || ''] || request.preferred_time_slot}
                         </span>
                         {request.logistics_user_id && (
                           <span className="flex items-center gap-1.5 font-mono text-xs text-ecotribe-primary">

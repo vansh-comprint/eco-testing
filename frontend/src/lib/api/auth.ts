@@ -29,6 +29,7 @@ export interface UserResponse {
   role: string;
   status: string;
   enterprise_id?: string;
+  enterpriseId?: string; // Alias
   branch_id?: string;
   enterprise_name?: string;
   branch_name?: string;

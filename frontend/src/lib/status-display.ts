@@ -78,6 +78,11 @@ export const ASSET_STATUS_DISPLAY: Record<AssetStatus, StatusDisplayConfig> = {
     variant: 'info',
     description: 'Pickup has been scheduled'
   },
+  pickup_failed_qc: {
+    label: 'Pickup Failed QC',
+    variant: 'error',
+    description: 'Device failed on-site QC during pickup'
+  },
   picked_up: {
     label: 'Pickup Completed',
     variant: 'success',
@@ -163,7 +168,7 @@ export function getAssetStatusDisplay(status: AssetStatus): StatusDisplayConfig 
 // BATCH STATUS DISPLAY
 // ============================================
 
-export const BATCH_STATUS_DISPLAY: Record<BatchStatus, StatusDisplayConfig> = {
+export const BATCH_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
   draft: {
     label: 'Draft',
     variant: 'default',

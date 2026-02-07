@@ -1,6 +1,5 @@
 """Review models for remote and facility QC"""
 
-from decimal import Decimal
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Numeric, JSON
 from sqlalchemy.orm import relationship
 import enum

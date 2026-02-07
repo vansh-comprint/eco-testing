@@ -94,7 +94,7 @@ export const usePickupStore = create<PickupState>()(
             is_default: isDefault,
             is_active: true,
             created_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);
@@ -233,7 +233,7 @@ export const usePickupStore = create<PickupState>()(
             created_by: createdBy,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          });
+          }) as { data: any; error: { message: string } | null };
 
           if (result.error) {
             throw new Error(`Database error: ${result.error.message}`);

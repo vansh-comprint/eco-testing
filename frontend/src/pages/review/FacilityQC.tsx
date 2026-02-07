@@ -140,7 +140,7 @@ export function FacilityQC() {
       updates: {
         status: decision === 'final_accept' ? 'final_accepted' : 'final_rejected',
         grade: grade || undefined,
-      },
+      } as any,
     });
 
     navigate(-1); // Go back to QC queue (works for both /review/qc and /ops/qc)

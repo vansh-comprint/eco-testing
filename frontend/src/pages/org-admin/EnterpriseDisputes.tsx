@@ -3,7 +3,7 @@
  * Org Admin view showing ALL disputes across enterprise with branch attribution
  * Read-only overview with status filtering
  */
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -43,7 +43,7 @@ export function EnterpriseDisputes() {
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name));
+    branches.forEach(b => map.set(b.id, b.name || ''));
     return map;
   }, [branches]);
 
@@ -121,7 +121,7 @@ export function EnterpriseDisputes() {
   };
 
   const getStatusInfo = (status: string) => {
-    const map: Record<string, { color: string; label: string; icon: JSX.Element }> = {
+    const map: Record<string, { color: string; label: string; icon: React.ReactElement }> = {
       pending: { color: 'border-amber-400/30 bg-amber-400/10 text-amber-500', label: 'Pending', icon: <Clock className="w-3 h-3" /> },
       upheld: { color: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-500', label: 'Upheld', icon: <CheckCircle className="w-3 h-3" /> },
       overturned: { color: 'border-blue-400/30 bg-blue-400/10 text-blue-500', label: 'Overturned', icon: <Scale className="w-3 h-3" /> },

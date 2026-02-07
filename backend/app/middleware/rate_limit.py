@@ -15,7 +15,6 @@ from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from app.core.config import settings
 
 
 @dataclass
@@ -174,6 +173,13 @@ PAYOUT_RATE_LIMIT = RateLimitConfig(
     key_prefix="payout"
 )
 
+# Public file upload - 10 uploads per hour per IP
+PUBLIC_UPLOAD_RATE_LIMIT = RateLimitConfig(
+    requests=10,
+    window_seconds=3600,
+    key_prefix="public_upload"
+)
+
 # General API - 1000 requests per minute per IP
 GENERAL_RATE_LIMIT = RateLimitConfig(
     requests=1000,
@@ -303,6 +309,12 @@ async def rate_limit_otp_send(request: Request) -> None:
     """Rate limit dependency for OTP send."""
     client_ip = get_client_ip(request)
     check_rate_limit(client_ip, OTP_SEND_RATE_LIMIT, "OTP send")
+
+
+async def rate_limit_public_upload(request: Request) -> None:
+    """Rate limit dependency for public file upload endpoints."""
+    client_ip = get_client_ip(request)
+    check_rate_limit(client_ip, PUBLIC_UPLOAD_RATE_LIMIT, "file upload")
 
 
 async def rate_limit_forgot_password(request: Request) -> None:

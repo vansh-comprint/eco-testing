@@ -465,7 +465,7 @@ export function BulkBranchUpload() {
         (result.errors || []).map((e: any) => [e.index, e.error])
       );
 
-      const uploadResults: UploadResult[] = inputs.map((input, index) => {
+      const uploadResults = inputs.map((input, index) => {
         const isSuccess = createdCodes.has(input.branch_code);
         const errorMsg = errorsByIndex.get(index);
 
@@ -476,7 +476,7 @@ export function BulkBranchUpload() {
           error: errorMsg,
           it_admin_created: false,
           generated_password: undefined,
-        };
+        } as UploadResult;
       });
 
       setUploadResults(uploadResults);

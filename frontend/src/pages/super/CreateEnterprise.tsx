@@ -217,7 +217,7 @@ export function CreateEnterprise() {
     handleSubmit,
     formState: { errors },
   } = useForm<CreateEnterpriseForm>({
-    resolver: zodResolver(createEnterpriseSchema),
+    resolver: zodResolver(createEnterpriseSchema) as any,
     defaultValues: {
       country: 'India',
     },
@@ -349,7 +349,7 @@ export function CreateEnterprise() {
       });
 
       // Navigate back
-      if (currentUser?.role === 'ops_admin' || currentUser?.role === 'ops_admin') {
+      if ((currentUser?.role as string) === 'ops_admin' || (currentUser?.role as string) === 'ops_admin') {
         navigate('/ops/enterprises');
       } else {
         navigate('/super');
@@ -378,7 +378,7 @@ export function CreateEnterprise() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => navigate(currentUser?.role === 'ops_admin' ? '/ops' : '/super')}
+            onClick={() => navigate((currentUser?.role as string) === 'ops_admin' ? '/ops' : '/super')}
             leftIcon={<ArrowLeft className={iconSize.sm} />}
           >
             Back to Dashboard
@@ -387,7 +387,7 @@ export function CreateEnterprise() {
       />
 
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit as any)}>
         <div className="space-y-6">
           {/* Enterprise Details */}
           <motion.div

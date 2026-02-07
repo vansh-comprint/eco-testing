@@ -166,7 +166,7 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
       brand: formData.brand,
       model: model.trim(),
       // FIX: Actually save specs to the asset!
-      specs: Object.keys(specs).length > 0 ? specs : undefined,
+      specs: Object.keys(specs).length > 0 ? specs as Record<string, unknown> : undefined,
       // FIX: Save purchase date if provided
       purchase_date: formData.purchaseDate || undefined,
       // V3.2: Self-assignment fields

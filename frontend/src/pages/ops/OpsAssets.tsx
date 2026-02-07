@@ -65,8 +65,8 @@ export function OpsAssets() {
 
     // Search filter with snake_case
     filtered = filtered.filter(a =>
-      a.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -228,8 +228,8 @@ export function OpsAssets() {
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status)}`}>
-                    {assetStatusLabels[asset.status]}
+                  <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status as any)}`}>
+                    {(assetStatusLabels as Record<string, string>)[asset.status]}
                   </span>
                   <span className="font-mono text-sm font-bold text-ecotribe-primary">
                     ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
@@ -306,8 +306,8 @@ export function OpsAssets() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status)}`}>
-                          {assetStatusLabels[asset.status]}
+                        <span className={`px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(asset.status as any)}`}>
+                          {(assetStatusLabels as Record<string, string>)[asset.status]}
                         </span>
                       </td>
                       <td className="p-4">

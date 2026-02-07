@@ -497,7 +497,7 @@ export function useUpdateITAdminStatus() {
       return response.data;
     },
     onSuccess: (data) => {
-      if (data) {
+      if (data?.enterprise_id) {
         queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
       }

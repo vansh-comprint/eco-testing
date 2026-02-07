@@ -24,7 +24,8 @@ import { AssetForm } from '@/components/assets';
 import type { CreateAssetInput } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { BatchStatus, AssetStatus, PickupPriority, PickupTimeSlot } from '@/types';
+import type { BatchStatus, AssetStatus, PickupPriority } from '@/types';
+import type { PickupTimeSlot } from '@/types/pickup';
 import { DeleteBatchModal, ConfirmationModal } from '@/components/ui';
 import { getBatchStatusDisplay, getAssetStatusDisplay } from '@/lib/status-display';
 import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
@@ -73,7 +74,7 @@ export function BatchDetail() {
       await updateBatchMutation.mutateAsync({
         batchId,
         updates: {
-          status: 'draft',
+          status: 'draft' as any,
         },
       });
       showSuccess('Batch Updated', 'Batch has been returned to draft status. You can now make changes and resubmit.');
@@ -273,7 +274,7 @@ export function BatchDetail() {
     return { label: display.label, color: variantColors[display.variant] || variantColors.default };
   };
 
-  const statusConfig = getStatusConfig(batch.status);
+  const statusConfig = getStatusConfig(batch.status as any);
 
   // Use API-provided progress stats, falling back to a basic count
   const progress = batch.progress || { total: batchAssets.length, pending_assignment: 0, assigned: 0, in_review: 0, verified: 0, in_pickup: 0, picked_up: 0, completed: 0, rejected: 0 };
@@ -578,7 +579,7 @@ export function BatchDetail() {
                 </thead>
               <tbody>
                 {batchAssets.map((asset, index) => {
-                  const assetStatusConfig = getAssetStatusConfig(asset.status);
+                  const assetStatusConfig = getAssetStatusConfig(asset.status as any);
 
                   return (
                     <motion.tr
@@ -609,13 +610,13 @@ export function BatchDetail() {
                         </span>
                       </td>
                       <td className="py-4 px-5">
-                        {asset.final_quote?.amount ? (
+                        {asset.final_price ? (
                           <span className="font-mono font-bold text-sm text-ecotribe-primary">
-                            ₹{asset.final_quote.amount.toLocaleString()}
+                            ₹{Number(asset.final_price).toLocaleString()}
                           </span>
-                        ) : asset.remote_quote?.amount ? (
+                        ) : asset.base_price ? (
                           <span className="font-mono text-sm text-zinc-400">
-                            ₹{asset.remote_quote.amount.toLocaleString()}
+                            ₹{Number(asset.base_price).toLocaleString()}
                           </span>
                         ) : (
                           <span className="font-mono text-xs text-zinc-700">—</span>
@@ -758,7 +759,7 @@ export function BatchDetail() {
                         </span>
                       </div>
                       <span className="font-mono text-[10px] text-emerald-400 uppercase">
-                        {getAssetStatusConfig(asset.status).label}
+                        {getAssetStatusConfig(asset.status as any).label}
                       </span>
                     </label>
                   ))}
@@ -937,7 +938,7 @@ export function BatchDetail() {
                         </span>
                       </div>
                       <span className="font-mono text-[10px] text-emerald-400 uppercase">
-                        {getAssetStatusConfig(asset.status).label}
+                        {getAssetStatusConfig(asset.status as any).label}
                       </span>
                     </div>
                   ))}

@@ -274,7 +274,7 @@ export const useSubmissionStore = create<SubmissionState>()(
           });
 
           // Fetch asset data for notification info
-          let asset: Record<string, unknown> | null = null;
+          let asset: any = null;
           try {
             asset = await fetchAssetById(input.assetId);
           } catch {

@@ -583,7 +583,7 @@ export function SubmissionDetail() {
             icon={<Battery className="w-4 h-4 text-green-500" />}
             label="Battery"
             value={batteryOptions.find(o => o.value === submission.functionalChecks?.batteryBackup)?.label || 'N/A'}
-            good={['1_2hrs', 'more_2hrs'].includes(submission.functionalChecks?.batteryBackup || '')}
+            good={['1_2hrs', 'more_2hrs'].includes((submission.functionalChecks?.batteryBackup as any) || '')}
           />
 
           {/* Screen */}
@@ -591,15 +591,15 @@ export function SubmissionDetail() {
             icon={<Monitor className="w-4 h-4 text-blue-500" />}
             label="Screen"
             value={
-              submission.functionalChecks?.screenCondition?.length
-                ? submission.functionalChecks.screenCondition
-                    .map(v => screenConditionOptions.find(o => o.value === v)?.label)
+              (submission.functionalChecks?.screenCondition as any)?.length
+                ? (submission.functionalChecks?.screenCondition as any)
+                    .map((v: any) => screenConditionOptions.find(o => o.value === v)?.label)
                     .join(', ')
                 : 'N/A'
             }
             good={
-              !submission.functionalChecks?.screenCondition?.length ||
-              (submission.functionalChecks.screenCondition.length === 1 && submission.functionalChecks.screenCondition[0] === 'none')
+              !(submission.functionalChecks?.screenCondition as any)?.length ||
+              ((submission.functionalChecks?.screenCondition as any)?.length === 1 && (submission.functionalChecks?.screenCondition as any)[0] === 'none')
             }
           />
 
@@ -648,15 +648,15 @@ export function SubmissionDetail() {
             icon={<Box className="w-4 h-4 text-amber-500" />}
             label="Body"
             value={
-              submission.functionalChecks?.bodyCondition?.length
-                ? submission.functionalChecks.bodyCondition
-                    .map(v => bodyConditionOptions.find(o => o.value === v)?.label)
+              (submission.functionalChecks?.bodyCondition as any)?.length
+                ? (submission.functionalChecks?.bodyCondition as any)
+                    .map((v: any) => bodyConditionOptions.find(o => o.value === v)?.label)
                     .join(', ')
                 : 'N/A'
             }
             good={
-              !submission.functionalChecks?.bodyCondition?.length ||
-              (submission.functionalChecks.bodyCondition.length === 1 && submission.functionalChecks.bodyCondition[0] === 'none')
+              !(submission.functionalChecks?.bodyCondition as any)?.length ||
+              ((submission.functionalChecks?.bodyCondition as any)?.length === 1 && (submission.functionalChecks?.bodyCondition as any)[0] === 'none')
             }
           />
         </div>

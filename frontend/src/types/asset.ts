@@ -21,7 +21,7 @@ export type AssetStatus =
   | 'payout_pending'
   | 'completed';
 
-export type AssetGrade = 'A' | 'B' | 'C' | 'D';
+export type AssetGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 
 export interface AssetSpecs {
   processor?: string;
@@ -99,6 +99,7 @@ export interface CreateAssetInput {
   model: string;
   specs?: AssetSpecs;
   purchaseDate?: Date;
+  status?: AssetStatus;
   // Optional user assignment from CSV upload
   assignedEmail?: string;
   assignedName?: string;
@@ -182,4 +183,5 @@ export const gradeModifiers: Record<AssetGrade, number> = {
   B: -500,
   C: -1500,
   D: -3000,
+  F: -5000,
 };

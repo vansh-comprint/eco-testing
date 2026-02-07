@@ -13,6 +13,7 @@ import {
   isNotFoundError,
   isValidationError,
   NetworkError,
+  ValidationError,
 } from './errors';
 
 /**
@@ -31,6 +32,8 @@ export interface ErrorDisplayConfig {
 export function getErrorDisplay(error: unknown): ErrorDisplayConfig {
   // Handle ApiError instances
   if (isApiError(error)) {
+    const apiErr = error as ApiError;
+
     // Authentication errors
     if (isAuthenticationError(error)) {
       return {
@@ -44,7 +47,7 @@ export function getErrorDisplay(error: unknown): ErrorDisplayConfig {
     if (isAuthorizationError(error)) {
       return {
         title: 'Access Denied',
-        message: error.message || 'You do not have permission to perform this action.',
+        message: apiErr.message || 'You do not have permission to perform this action.',
         type: 'error',
       };
     }
@@ -53,19 +56,18 @@ export function getErrorDisplay(error: unknown): ErrorDisplayConfig {
     if (isNotFoundError(error)) {
       return {
         title: 'Not Found',
-        message: error.message || 'The requested resource was not found.',
+        message: apiErr.message || 'The requested resource was not found.',
         type: 'warning',
       };
     }
 
     // Validation errors
-    if (isValidationError(error)) {
-      const validationError = error;
-      let message = error.message;
+    if (apiErr instanceof ValidationError) {
+      let message = apiErr.message;
 
       // If we have field-specific errors, format them nicely
-      if (validationError.errors && validationError.errors.length > 0) {
-        const firstError = validationError.errors[0];
+      if (apiErr.errors && apiErr.errors.length > 0) {
+        const firstError = apiErr.errors[0];
         message = `${firstError.field}: ${firstError.message}`;
       }
 
@@ -89,7 +91,7 @@ export function getErrorDisplay(error: unknown): ErrorDisplayConfig {
     // Generic API errors
     return {
       title: 'Error',
-      message: error.message || 'An unexpected error occurred.',
+      message: apiErr.message || 'An unexpected error occurred.',
       type: 'error',
     };
   }

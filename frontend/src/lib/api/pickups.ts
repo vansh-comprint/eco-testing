@@ -14,9 +14,12 @@ export interface PickupResponse {
   enterprise_id: string;
   location_id?: string;
   batch_id?: string;
+  branch_id?: string;
   logistics_admin_id?: string;
   logistics_user_id?: string;
   asset_ids: string[];
+  asset_count?: number;
+  picked_asset_ids?: string[];
   assets?: Array<{
     id?: string;
     asset_id?: string;
@@ -47,6 +50,17 @@ export interface PickupResponse {
   // Joined data
   enterprise_name?: string;
   branch_name?: string;
+  pickup_location?: {
+    id: string;
+    name: string;
+    address: string;
+    city?: string;
+    state?: string;
+    pin_code?: string;
+    contact_person?: string;
+    contact_phone?: string;
+    operating_hours?: string;
+  };
   pickup_locations?: {
     id: string;
     name: string;
@@ -76,6 +90,7 @@ export interface PickupListParams {
   page?: number;
   pageSize?: number;
   status?: string;
+  enterprise_id?: string;
 }
 
 export interface PickupCreateRequest {
@@ -109,6 +124,7 @@ export interface PickupLocationResponse {
   enterprise_id: string;
   name: string;
   address: string;
+  address_line1?: string; // For backward compat
   city?: string;
   state?: string;
   pin_code?: string;

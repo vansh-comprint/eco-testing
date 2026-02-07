@@ -1,7 +1,7 @@
 """Authentication middleware and dependencies"""
 
-from typing import Optional, List, Callable
-from fastapi import Depends, HTTPException, status
+from typing import List, Callable
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,9 +10,6 @@ from app.core.database import get_db
 from app.core.security import decode_token, async_is_blacklisted
 from app.core.permissions import Permission
 from app.core.permission_checker import (
-    has_permission,
-    has_any_permission,
-    has_all_permissions,
     require_permission as check_permission,
     require_any_permission as check_any_permission,
     require_all_permissions as check_all_permissions,

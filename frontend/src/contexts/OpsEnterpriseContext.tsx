@@ -6,11 +6,11 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useEnterprises } from '@/hooks';
-import type { Enterprise } from '@/types';
+import type { EnterpriseResponse } from '@/lib/api/enterprises';
 
 interface OpsEnterpriseContextType {
-  enterprises: Enterprise[];
-  selectedEnterprise: Enterprise | null;
+  enterprises: EnterpriseResponse[];
+  selectedEnterprise: EnterpriseResponse | null;
   selectedEnterpriseId: string | null;
   setSelectedEnterpriseId: (id: string | null) => void;
   isAllEnterprises: boolean;

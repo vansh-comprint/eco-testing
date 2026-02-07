@@ -9,7 +9,6 @@ from app.core.permissions import Permission
 from app.models import User
 from app.schemas.payout import (
     PayoutCreate,
-    PayoutUpdate,
     PayoutProcess,
     WalletCredit,
     WalletDebit,

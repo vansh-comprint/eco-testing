@@ -88,3 +88,6 @@ export { BranchSelector } from './BranchSelector';
 // BulkImportModal (CSV-based bulk import)
 export { BulkImportModal } from './BulkImportModal';
 export type { BulkImportColumn, BulkImportResult } from './BulkImportModal';
+
+// ErrorBoundary
+export { ErrorBoundary } from './ErrorBoundary';

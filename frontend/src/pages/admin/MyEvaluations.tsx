@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui';
 import { useAuth, useSelfAssignedAssets } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { getAssetStatusDisplay } from '@/lib/status-display';
+import type { AssetStatus } from '@/types';
 
 type ViewFilter = 'pending' | 'all';
 
@@ -240,7 +241,7 @@ export function MyEvaluations() {
         <div className="space-y-3">
           <AnimatePresence mode="popLayout">
             {displayedAssets.map((asset, index) => {
-              const statusDisplay = getAssetStatusDisplay(asset.status);
+              const statusDisplay = getAssetStatusDisplay(asset.status as AssetStatus);
               const isPending = ['assigned', 'check_in_started'].includes(asset.status);
 
               return (
@@ -280,7 +281,7 @@ export function MyEvaluations() {
                       </div>
                       {asset.branches && (
                         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
-                          Branch: {asset.branches.branch_name} ({asset.branches.branch_code})
+                          Branch: {asset.branches.branch_name} {(asset.branches as any).branch_code ? `(${(asset.branches as any).branch_code})` : ''}
                         </p>
                       )}
                     </div>

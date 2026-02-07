@@ -415,8 +415,8 @@ export function DeviceSubmit() {
 
               <div className="grid grid-cols-2 gap-3">
                 {PHOTO_SLOTS.map((slot) => {
-                  const photoKey = slot.key as keyof typeof currentDraft.photos;
-                  const hasPhoto = currentDraft?.photos?.[photoKey];
+                  const photoKey = slot.key as string;
+                  const hasPhoto = currentDraft?.photos?.[photoKey as keyof typeof currentDraft.photos];
 
                   return (
                     <div
@@ -431,7 +431,7 @@ export function DeviceSubmit() {
                       {hasPhoto ? (
                         <>
                           <img
-                            src={hasPhoto}
+                            src={Array.isArray(hasPhoto) ? hasPhoto[0] : hasPhoto}
                             alt={slot.label}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
@@ -754,8 +754,8 @@ export function DeviceSubmit() {
                   <>
                     <div className="flex gap-2 overflow-x-auto pb-2">
                       {PHOTO_SLOTS.slice(0, 6).map((slot) => {
-                        const photoKey = slot.key as keyof typeof currentDraft.photos;
-                        const photo = currentDraft?.photos?.[photoKey];
+                        const photoKey = slot.key as string;
+                        const photo = currentDraft?.photos?.[photoKey as keyof typeof currentDraft.photos];
                         return (
                           <div
                             key={slot.key}
@@ -766,7 +766,7 @@ export function DeviceSubmit() {
                             }`}
                           >
                             {photo ? (
-                              <img src={photo} alt={slot.label} className="w-full h-full object-cover" />
+                              <img src={Array.isArray(photo) ? photo[0] : photo} alt={slot.label} className="w-full h-full object-cover" />
                             ) : (
                               <Camera className="w-5 h-5 text-slate-500 dark:text-white/50" />
                             )}

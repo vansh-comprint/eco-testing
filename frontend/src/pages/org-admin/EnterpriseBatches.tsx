@@ -48,7 +48,7 @@ export function EnterpriseBatches() {
   // Lookups
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name));
+    branches.forEach(b => map.set(b.id, b.name || ''));
     return map;
   }, [branches]);
 

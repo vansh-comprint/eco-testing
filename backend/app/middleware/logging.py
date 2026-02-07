@@ -38,7 +38,7 @@ async def logging_middleware(request: Request, call_next: Callable) -> Response:
     
     # Log request
     logger.info(
-        f"Request started",
+        "Request started",
         extra={
             "request_id": request_id,
             "method": request.method,
@@ -59,7 +59,7 @@ async def logging_middleware(request: Request, call_next: Callable) -> Response:
         
         # Log response
         logger.info(
-            f"Request completed",
+            "Request completed",
             extra={
                 "request_id": request_id,
                 "method": request.method,
@@ -78,7 +78,7 @@ async def logging_middleware(request: Request, call_next: Callable) -> Response:
         # Log error
         duration = time.time() - start_time
         logger.error(
-            f"Request failed",
+            "Request failed",
             extra={
                 "request_id": request_id,
                 "method": request.method,

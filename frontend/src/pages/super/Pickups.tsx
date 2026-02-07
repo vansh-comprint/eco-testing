@@ -129,7 +129,7 @@ export function Pickups() {
         password: newAdminPassword,
       });
 
-      setSelectedLogisticsAdmin(newAdmin.id);
+      setSelectedLogisticsAdmin(newAdmin!.id);
       setShowAddAdmin(false);
       setNewAdminName('');
       setNewAdminCompany('');

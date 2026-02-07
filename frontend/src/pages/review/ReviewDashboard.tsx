@@ -16,7 +16,7 @@ export function ReviewDashboard() {
 
   // Get pending disputes
   // TODO: Add disputes hook when available
-  const pendingDisputes: Array<{ id: string; assetId: string; itAdminNotes: string }> = [];
+  const pendingDisputes: Array<{ id: string; assetId: string; itAdminNotes: string; type?: string }> = [];
 
   // Get today's stats
   // TODO: Add review stats hook when available

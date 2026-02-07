@@ -179,13 +179,13 @@ export function LogisticsAssignments() {
           status: 'failed',
           notes: `Picked: ${pickedCount}, Failed/No-show: ${failedCount}`,
           pickedAssetIds,
-        });
+        } as any);
       } else {
         // Full success - all assets transition to in_transit
         await completePickupMutation.mutateAsync({
           requestId: activeRequest.id,
           completedBy: user.id,
-        });
+        } as any);
       }
       // Reset local state after successful completion
       setAssetQC({});

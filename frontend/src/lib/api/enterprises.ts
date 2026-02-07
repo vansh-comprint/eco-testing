@@ -14,13 +14,16 @@ export interface EnterpriseResponse {
   name: string;
   legal_name?: string;
   gst_number?: string;
+  gstin?: string;
   pan_number?: string;
   address?: Record<string, unknown>;
   industry?: string;
   company_size?: string;
+  companySize?: string;
   employee_count?: number;
   contact_person?: string;
   contact_email?: string;
+  contactEmail?: string;
   contact_phone?: string;
   email?: string;
   city?: string;

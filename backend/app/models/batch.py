@@ -1,7 +1,5 @@
 """Batch model for grouping assets"""
 
-from datetime import datetime, date
-from decimal import Decimal
 from sqlalchemy import (
     Column,
     String,

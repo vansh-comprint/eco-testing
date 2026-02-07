@@ -187,7 +187,7 @@ export function LogisticsUserManagement() {
                       <p className={`font-mono text-xs ${text.muted}`}>Field User</p>
                     </div>
                   </div>
-                  <StatusBadge status={u.status} />
+                  <StatusBadge status={u.status as 'active' | 'inactive'} />
                 </div>
 
                 <div className={`space-y-2 text-sm ${text.muted}`}>

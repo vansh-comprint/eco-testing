@@ -4,13 +4,12 @@ from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.pricing import PricingRule, ConditionModifier
+from app.models.pricing import PricingRule
 from app.repositories.pricing_repository import PricingRuleRepository, ConditionModifierRepository
 from app.schemas.pricing import (
     PricingRuleCreate,
     PricingRuleUpdate,
     PricingRuleResponse,
-    ConditionModifierCreate,
     ConditionModifierUpdate,
     ConditionModifierResponse,
     PriceCalculationRequest,

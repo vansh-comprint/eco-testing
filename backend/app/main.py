@@ -5,13 +5,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
-from app.core.database import init_db, close_db
+from app.core.database import close_db
 from app.middleware.error_handler import error_handler_middleware
 from app.middleware.logging import logging_middleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -244,7 +243,7 @@ async def root():
 
 
 # Import and include routers
-from app.api.v1 import (
+from app.api.v1 import (  # noqa: E402
     auth,
     users,
     enterprises,

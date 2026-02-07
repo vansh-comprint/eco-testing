@@ -99,7 +99,7 @@ export function EnterpriseApplications() {
       app.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.org_admin_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.application_ref?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.gst_number.toLowerCase().includes(searchQuery.toLowerCase())
+      (app.gst_number || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
   const selectedApplication = selectedApp
@@ -504,8 +504,8 @@ export function EnterpriseApplications() {
                       { key: 'doc_signatory_id', label: 'Signatory ID', required: true },
                       { key: 'doc_address_proof', label: 'Address Proof', required: true },
                     ];
-                    const uploadedCount = docs.filter(d => selectedApplication[d.key as keyof EnterpriseApplication]).length;
-                    const requiredMissing = docs.filter(d => d.required && !selectedApplication[d.key as keyof EnterpriseApplication]);
+                    const uploadedCount = docs.filter(d => (selectedApplication as any)[d.key]).length;
+                    const requiredMissing = docs.filter(d => d.required && !(selectedApplication as any)[d.key]);
                     
                     return (
                       <>
@@ -533,7 +533,7 @@ export function EnterpriseApplications() {
                         )}
                         <div className="space-y-2">
                           {docs.map(doc => {
-                            const docUrl = selectedApplication[doc.key as keyof EnterpriseApplication] as string | null;
+                            const docUrl = (selectedApplication as any)[doc.key] as string | null;
                             return (
                               <div key={doc.key} className={`flex items-center justify-between p-3 border transition-colors ${
                                 docUrl 
@@ -556,7 +556,7 @@ export function EnterpriseApplications() {
                                 {docUrl ? (
                                   <button
                                     type="button"
-                                    onClick={() => addToast({ type: 'info', message: 'Document viewer coming soon' })}
+                                    onClick={() => addToast({ type: 'info', title: 'Coming Soon', message: 'Document viewer coming soon' })}
                                     className="flex items-center gap-1.5 px-2 py-1 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-colors"
                                   >
                                     <Eye className="w-3 h-3" />

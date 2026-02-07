@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
-from app.models.support import DisputeStatus, DisputeType
+from app.models.support import DisputeStatus
 
 
 # ============================================================================

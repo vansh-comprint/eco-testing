@@ -241,7 +241,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       Object.entries(mapping).forEach(([field, index]) => {
         const value = values[index]?.trim() || '';
         if (field in row || USER_COLUMNS.includes(field) || OPTIONAL_COLUMNS.includes(field)) {
-          (row as Record<string, unknown>)[field] = value;
+          (row as unknown as Record<string, unknown>)[field] = value;
         }
       });
 
@@ -354,7 +354,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
 
       // Convert to CSV format and use existing parseCSV logic
       const csvContent = jsonData.map(row =>
-        (row as string[]).map(cell => {
+        (row as unknown as string[]).map(cell => {
           const value = cell?.toString() || '';
           // Escape quotes and wrap in quotes if contains comma
           if (value.includes(',') || value.includes('"')) {
@@ -576,8 +576,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${brandOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -590,8 +589,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${ramOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -604,8 +602,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${storageOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -618,8 +615,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${screenOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -632,8 +628,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${osOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -646,8 +641,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${gpuOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
@@ -660,8 +654,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         type: 'list',
         allowBlank: true,
         formulae: [`"${departmentOptions.join(',')}"`],
-        showDropDown: false,
-        showErrorMessage: true,
+                showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'

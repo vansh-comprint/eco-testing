@@ -14,7 +14,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth, useBranches, useBranchesByITAdmin, useAssets, useAssetsByITAdmin, useCreatePickupRequest, usePickupRequests, usePickupsByITAdmin, useAllBatches, useApiError } from '@/hooks';
-import type { PickupPriority, PickupTimeSlot } from '@/types';
+import type { PickupPriority } from '@/types';
+import type { PickupTimeSlot } from '@/types/pickup';
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
 const PRIORITIES: { value: PickupPriority; label: string; color: string }[] = [
@@ -102,8 +103,8 @@ export function InitiatePickup() {
     const query = searchQuery.toLowerCase();
     return readyAssets.filter(a =>
       a.serial_number.toLowerCase().includes(query) ||
-      a.brand.toLowerCase().includes(query) ||
-      a.model.toLowerCase().includes(query)
+      (a.brand || '').toLowerCase().includes(query) ||
+      (a.model || '').toLowerCase().includes(query)
     );
   }, [readyAssets, searchQuery]);
 
@@ -176,7 +177,7 @@ export function InitiatePickup() {
         priority,
         notes: specialInstructions,
         created_by: user.id,
-      });
+      } as any);
 
       showSuccess('Pickup Requested', `Pickup request for ${selectedAssetIds.length} asset${selectedAssetIds.length > 1 ? 's' : ''} created successfully`);
       navigate(`${basePath}/pickups`);

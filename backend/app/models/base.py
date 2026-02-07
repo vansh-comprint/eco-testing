@@ -1,6 +1,5 @@
 """Base model with audit fields for all database tables"""
 
-from datetime import datetime
 from typing import Optional
 from sqlalchemy import Column, String, DateTime, func
 from sqlalchemy.orm import declared_attr

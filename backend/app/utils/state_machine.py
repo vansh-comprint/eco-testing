@@ -6,7 +6,6 @@ Invalid transitions will raise StateTransitionError.
 """
 
 from typing import Dict, Set, Optional, List
-from enum import Enum
 
 from app.utils.exceptions import ValidationError
 

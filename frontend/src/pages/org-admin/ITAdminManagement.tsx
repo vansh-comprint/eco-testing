@@ -99,15 +99,15 @@ export function ITAdminManagement() {
   }, [itAdmins, searchQuery, statusFilter]);
 
   // Stats - V3.2: Count IT admins without any assigned branches
-  const adminsWithoutBranches = itAdmins.filter((a: ITAdmin) => {
+  const adminsWithoutBranches = (itAdmins as any[]).filter((a: ITAdmin) => {
     const branchInfo = branchInfoMap.get(a.id);
     return !branchInfo || branchInfo.branch_count === 0;
   }).length;
 
   const stats = {
     total: itAdmins.length,
-    active: itAdmins.filter((a: ITAdmin) => a.status === 'active').length,
-    inactive: itAdmins.filter((a: ITAdmin) => a.status === 'inactive').length,
+    active: (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'active').length,
+    inactive: (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'inactive').length,
     noBranches: adminsWithoutBranches,
   };
 

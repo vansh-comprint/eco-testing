@@ -160,7 +160,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       Object.entries(mapping).forEach(([field, index]) => {
         const value = values[index]?.trim() || '';
         if (field in row || OPTIONAL_COLUMNS.includes(field)) {
-          (row as Record<string, unknown>)[field] = value;
+          (row as unknown as Record<string, unknown>)[field] = value;
         }
       });
 
@@ -402,7 +402,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
         type: 'list',
         allowBlank: true,
         formulae: [`"${departmentList}"`],
-        showDropDown: true,
+        showInputMessage: true,
         errorTitle: 'Invalid Department',
         error: 'Please select a department from the dropdown list',
       };

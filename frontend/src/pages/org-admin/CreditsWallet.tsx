@@ -280,7 +280,7 @@ export function CreditsWallet() {
             </select>
             <button
               onClick={exportTransactions}
-              className={`p-2 ${hoverStyles.subtle} transition-colors`}
+              className={`p-2 ${(hoverStyles as any).subtle || hoverStyles.row} transition-colors`}
               title="Download transactions as CSV"
             >
               <Download className={iconSize.md} />

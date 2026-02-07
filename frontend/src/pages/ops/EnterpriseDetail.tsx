@@ -123,7 +123,7 @@ export function EnterpriseDetail() {
       if (branchesResult.success && branchesResult.data) {
         const branchMap: Record<string, string> = {};
         branchesResult.data.forEach((b) => {
-          branchMap[b.id] = b.name;
+          branchMap[b.id] = b.name || '';
         });
         setBranches(branchMap);
       }

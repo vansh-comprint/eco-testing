@@ -150,6 +150,7 @@ export interface CreateBatchInput {
   created_by?: string;
   description?: string;
   estimated_value?: number;
+  status?: string;
 }
 
 /**
@@ -388,4 +389,4 @@ export function useRemoveAssetFromBatch() {
 }
 
 // Type exports for consumers
-export type { BatchResponse, CreateBatchInput };
+export type { BatchResponse };

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.middleware.auth import require_permission
+from app.middleware.rate_limit import rate_limit_public_upload
 from app.core.permissions import Permission
 from app.models.user import User
 from app.models.enterprise import EnterpriseStatus, EnterpriseApplicationStatus
@@ -108,7 +109,7 @@ async def create_enterprise(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create enterprise: {str(e)}",
+            detail="Failed to create enterprise. Please try again or contact support.",
         )
 
 
@@ -154,6 +155,7 @@ async def list_enterprise_applications(
 async def upload_application_document(
     file: UploadFile = File(..., description="Document file (PDF, JPG, PNG)"),
     document_type: str = Form(..., description="Document type (gst, pan, incorporation, signatory_id, address_proof, logo)"),
+    _: None = Depends(rate_limit_public_upload),
 ):
     """
     Upload a document for enterprise registration.
@@ -204,7 +206,6 @@ async def upload_application_document(
     # Upload to storage
     from io import BytesIO
     from datetime import datetime
-    import uuid
 
     file_service = FileService()
     prefix = f"applications/{datetime.utcnow().strftime('%Y/%m')}/{document_type}"
@@ -235,6 +236,7 @@ async def upload_application_document(
 async def create_enterprise_application(
     application_data: EnterpriseApplicationCreate,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_public_upload),
 ):
     """
     Create a new enterprise application (registration).
@@ -310,7 +312,7 @@ async def approve_enterprise_application(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to approve application: {str(e)}",
+            detail="Failed to approve application. Please try again or contact support.",
         )
 
 

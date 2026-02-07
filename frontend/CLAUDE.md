@@ -46,7 +46,7 @@ Some legacy Supabase direct calls remain (pickup locations, some page components
 |--------|-------|------|
 | IT Admin | `/admin/*` | `it_admin` |
 | Org Admin | `/org-admin/*` | `org_admin` |
-| OPS Admin | `/ops/*` + `/tech/*` | `main_admin` |
+| OPS Admin | `/ops/*` + `/review/*` | `main_admin` |
 | Super Admin | `/super/*` | `super_admin` |
 | Employee | `/check-in/*` | `sub_user` |
 | Logistics Admin | `/logistics-admin/*` | `logistics_admin` |
@@ -54,7 +54,7 @@ Some legacy Supabase direct calls remain (pickup locations, some page components
 
 Each portal wrapped in `<ProtectedRoute roles={[...]}>` with `<DashboardLayout>`.
 
-OPS Admin has dual portal: `/ops/*` (admin) and `/tech/*` (review/QC) with different layouts.
+OPS Admin has dual portal: `/ops/*` (admin with OpsLayout) and `/review/*` (review/QC with DashboardLayout).
 
 ### Auth
 
@@ -90,6 +90,6 @@ Old directory names still exist alongside current ones:
 - `pages/cfo/` → use `pages/org-admin/`
 - `pages/it-admin/` → use `pages/admin/`
 - `pages/super-admin/` → use `pages/super/`
-- `pages/technician/` → use `pages/tech/`
+- `pages/technician/` → use `pages/review/`
 
 Use the current (right-side) directories for all new development.

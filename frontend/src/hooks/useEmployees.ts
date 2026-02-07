@@ -84,6 +84,8 @@ export interface CreateSubUserInput {
   phone?: string;
   department?: string;
   employee_id?: string;
+  designation?: string;
+  status?: string;
 }
 
 /**
@@ -108,7 +110,7 @@ export function useCreateSubUser() {
       return response.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: subUserKeys.list(data.enterprise_id) });
+      if (data) queryClient.invalidateQueries({ queryKey: subUserKeys.list(data.enterprise_id) });
     },
   });
 }
@@ -275,4 +277,4 @@ export function useBulkSendInvitations() {
 }
 
 // Type exports for consumers
-export type { SubUserResponse, CreateSubUserInput };
+export type { SubUserResponse };

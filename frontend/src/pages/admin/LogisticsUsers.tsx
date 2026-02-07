@@ -117,7 +117,7 @@ export function ITAdminLogisticsUsers() {
                       </div>
                       <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{u.name}</p>
                     </div>
-                    <StatusBadge status={u.status} />
+                    <StatusBadge status={u.status as 'active' | 'inactive'} />
                   </div>
 
                   <div className="text-sm text-slate-500 dark:text-white/50 space-y-2">
@@ -133,7 +133,7 @@ export function ITAdminLogisticsUsers() {
 
                   <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex gap-2">
                     <button
-                      onClick={() => toggleStatus(u.id, u.status)}
+                      onClick={() => toggleStatus(u.id, u.status as 'active' | 'inactive')}
                       className={`flex-1 px-3 py-2 font-mono text-xs uppercase tracking-widest border transition-colors ${
                         u.status === 'active'
                           ? 'border-amber-400/40 bg-amber-400/10 text-amber-400 hover:bg-amber-400/20'

@@ -13,7 +13,9 @@ export interface BranchResponse {
   id: string;
   enterprise_id: string;
   branch_name: string;
+  name?: string; // Alias for branch_name (backward compat)
   branch_code: string;
+  code?: string; // Alias for branch_code (backward compat)
   address_line1: string;
   address_line2?: string;
   city: string;
@@ -85,16 +87,24 @@ export interface BranchUpdateRequest {
 
 export interface BranchSummary {
   id: string;
+  branch_id?: string; // Alias used by some pages
   enterprise_id: string;
   branch_name: string;
   branch_code: string;
   city: string;
   state: string;
   status: string;
+  branch_status?: string; // Alias for status
   it_admin_count: number;
+  it_admin_id?: string;
+  it_admin_name?: string;
+  it_admin_email?: string;
   asset_count: number;
   pending_assets: number;
   completed_assets: number;
+  completed_asset_count?: number; // Alias
+  total_batch_count?: number;
+  active_batch_count?: number;
 }
 
 export interface BulkBranchCreateRequest {

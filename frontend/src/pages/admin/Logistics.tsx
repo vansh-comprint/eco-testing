@@ -176,7 +176,7 @@ export function ITAdminLogistics() {
               </div>
             )}
             {upcoming.map((r) => {
-              const location = getLocationById(r.location_id);
+              const location = getLocationById(r.location_id || '');
               const assignedUser = logisticsUsers.find(u => u.id === r.logistics_user_id);
               return (
                 <div

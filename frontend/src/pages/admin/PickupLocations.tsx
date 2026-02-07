@@ -77,7 +77,7 @@ export function PickupLocations() {
 
   const handleCreateLocation = async (input: CreatePickupLocationInput) => {
     try {
-      await createLocationMutation.mutateAsync(input);
+      await createLocationMutation.mutateAsync(input as any);
       setIsCreateModalOpen(false);
     } catch (error) {
       console.error('Failed to create location:', error);
@@ -174,7 +174,7 @@ export function PickupLocations() {
           {pickupLocations.map((location) => (
             <LocationCard
               key={location.id}
-              location={location}
+              location={location as any}
               onSetDefault={handleSetDefault}
               onEdit={setEditingLocation}
               onDelete={handleDelete}

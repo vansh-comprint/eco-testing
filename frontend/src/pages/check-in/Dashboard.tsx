@@ -160,7 +160,7 @@ export function SubUserDashboard() {
           </h2>
           <div className="space-y-3">
             {submittedAssets.map((asset) => {
-              const config = getStatusConfig(asset.status);
+              const config = getStatusConfig(asset.status as AssetStatus);
               const StatusIcon = config.icon;
 
               return (
@@ -182,7 +182,7 @@ export function SubUserDashboard() {
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 ${config.bg} border ${config.border}`}>
                       <StatusIcon className={`${iconSize.sm} ${config.text}`} />
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${config.text}`}>
-                        {assetStatusLabels[asset.status]}
+                        {assetStatusLabels[asset.status as AssetStatus]}
                       </span>
                     </div>
                   </div>

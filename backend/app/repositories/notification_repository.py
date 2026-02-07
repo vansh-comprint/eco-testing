@@ -41,7 +41,7 @@ class NotificationRepository(BaseRepository[Notification]):
             select(func.count()).where(
                 and_(
                     Notification.user_id == user_id,
-                    Notification.is_read == False,
+                    Notification.is_read.is_(False),
                 )
             )
         )
@@ -56,7 +56,7 @@ class NotificationRepository(BaseRepository[Notification]):
             .where(
                 and_(
                     Notification.user_id == user_id,
-                    Notification.is_read == False,
+                    Notification.is_read.is_(False),
                 )
             )
             .values(is_read=True, read_at=datetime.now(timezone.utc))

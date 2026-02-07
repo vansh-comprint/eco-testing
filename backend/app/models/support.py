@@ -1,6 +1,5 @@
 """Support models for notifications, disputes, audit logs, and QC"""
 
-from datetime import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, Boolean, ARRAY
 from sqlalchemy.orm import relationship
 import enum

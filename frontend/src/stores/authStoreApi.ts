@@ -8,7 +8,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, UserRole, Enterprise } from '@/types';
+import type { User, UserRole, Enterprise, Address, EnterpriseStatus } from '@/types';
 import {
   authApi,
   enterprisesApi,
@@ -126,8 +126,8 @@ export const useAuthStoreApi = create<AuthState>()(
                   id: entData.id,
                   name: entData.name,
                   gstNumber: entData.gst_number,
-                  address: entData.address,
-                  status: entData.status,
+                  address: entData.address as Address | undefined,
+                  status: entData.status as EnterpriseStatus,
                   contactPerson: entData.contact_person,
                   contactEmail: entData.contact_email,
                   contactPhone: entData.contact_phone,
@@ -202,8 +202,8 @@ export const useAuthStoreApi = create<AuthState>()(
                   id: entData.id,
                   name: entData.name,
                   gstNumber: entData.gst_number,
-                  address: entData.address,
-                  status: entData.status,
+                  address: entData.address as Address | undefined,
+                  status: entData.status as EnterpriseStatus,
                   contactPerson: entData.contact_person,
                   contactEmail: entData.contact_email,
                   contactPhone: entData.contact_phone,
@@ -281,8 +281,8 @@ export const useAuthStoreApi = create<AuthState>()(
                   id: entData.id,
                   name: entData.name,
                   gstNumber: entData.gst_number,
-                  address: entData.address,
-                  status: entData.status,
+                  address: entData.address as Address | undefined,
+                  status: entData.status as EnterpriseStatus,
                   contactPerson: entData.contact_person,
                   contactEmail: entData.contact_email,
                   contactPhone: entData.contact_phone,
@@ -313,9 +313,13 @@ export const useAuthStoreApi = create<AuthState>()(
       },
 
       /**
-       * Logout - clear tokens and state
+       * Logout - invalidate server-side session, then clear local tokens
        */
       logout: () => {
+        // Call backend logout to invalidate tokens server-side (fire-and-forget)
+        authApi.logout().catch(() => {
+          // Ignore errors — we're clearing local state regardless
+        });
         clearTokens();
         set({
           user: null,

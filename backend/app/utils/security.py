@@ -12,7 +12,7 @@ This module provides comprehensive security functions to prevent:
 import re
 import html
 import ipaddress
-from typing import Optional, List, Set
+from typing import Optional, List
 from urllib.parse import urlparse
 from decimal import Decimal, InvalidOperation
 
@@ -577,7 +577,7 @@ def validate_gst(gst: str) -> str:
 # DATE VALIDATION
 # =============================================================================
 
-from datetime import date, timedelta
+from datetime import date, timedelta  # noqa: E402
 
 
 def validate_pickup_date(pickup_date: date) -> date:

@@ -67,7 +67,7 @@ export function RemoteReviewQueue() {
       // Then by submission time (newest first)
       const timeA = a.submission?.submittedAt || a.updated_at;
       const timeB = b.submission?.submittedAt || b.updated_at;
-      return new Date(timeB).getTime() - new Date(timeA).getTime();
+      return new Date(timeB as any).getTime() - new Date(timeA as any).getTime();
     });
   }, [assets, submissions, searchQuery, subUsers, isAllEnterprises, selectedEnterpriseId, enterprises]);
 

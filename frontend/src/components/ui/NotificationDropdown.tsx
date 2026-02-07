@@ -16,6 +16,10 @@ const typeIcons: Record<NotificationType, string> = {
   payout_completed: '💵',
   reminder_checkin: '🔔',
   reminder_stalled: '⏰',
+  info: 'ℹ️',
+  success: '✅',
+  warning: '⚠️',
+  batch_ready: '📋',
 };
 
 const formatTimeAgo = (date: Date): string => {

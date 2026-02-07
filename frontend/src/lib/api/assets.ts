@@ -14,16 +14,24 @@ export interface AssetResponse {
   serial_number: string;
   asset_tag?: string;
   device_type?: string;
+  category?: string;
+  type?: string;
   brand?: string;
   model?: string;
   specs?: Record<string, unknown>;
+  processor?: string;
+  ram?: string;
+  storage?: string;
   purchase_date?: string;
   status: string;
   enterprise_id: string;
   enterprise_name?: string;
   branch_id?: string;
   branch_name?: string;
+  branches?: { branch_name: string };
+  enterprises?: { name: string };
   batch_id?: string;
+  assigned_to?: string;
   assigned_to_user_id?: string;
   assigned_at?: string;
   grade?: string;
@@ -70,6 +78,7 @@ export interface AssetUpdateRequest {
   condition_grade?: string;
   estimated_value?: number;
   final_value?: number;
+  base_price?: number;
 }
 
 export interface AssetBulkCreateRequest {

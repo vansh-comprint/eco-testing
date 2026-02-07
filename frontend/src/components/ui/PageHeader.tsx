@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { headerVariants, createSectionTransition } from '@/lib/animations';
 
-interface PageHeaderProps {
+export interface PageHeaderProps {
   /** Small uppercase label above the title (e.g., "Dashboard", "Assets") */
   label?: string;
   /** Main page title */
@@ -12,6 +12,9 @@ interface PageHeaderProps {
   subtitle?: string;
   /** Right-aligned action buttons */
   actions?: React.ReactNode;
+  action?: React.ReactNode; // Alias for actions
+  /** Link to navigate back */
+  backLink?: string;
   /** Whether to show bottom border */
   bordered?: boolean;
   /** Additional CSS classes */
@@ -29,10 +32,13 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  action,
+  backLink,
   bordered = true,
   className,
   delay = 0,
 }: PageHeaderProps) {
+  const actualActions = actions || action;
   return (
     <motion.div
       variants={headerVariants}
@@ -61,9 +67,9 @@ export function PageHeader({
         )}
       </div>
 
-      {actions && (
+      {actualActions && (
         <div className="flex items-center gap-3 flex-shrink-0">
-          {actions}
+          {actualActions}
         </div>
       )}
     </motion.div>

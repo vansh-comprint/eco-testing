@@ -1,8 +1,6 @@
 """EPR (Extended Producer Responsibility) compliance models"""
 
-from datetime import datetime, date
-from decimal import Decimal
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Numeric, Text, JSON, ARRAY
+from sqlalchemy import Column, String, Date, ForeignKey, Numeric, Text, JSON, ARRAY
 from sqlalchemy.orm import relationship
 import enum
 

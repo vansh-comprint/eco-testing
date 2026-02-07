@@ -33,7 +33,7 @@ type StatusFilter = 'all' | 'pending' | 'issued' | 'expired' | 'revoked';
 
 export function EPRCertificates() {
   const { user } = useAuth();
-  const enterpriseId = user?.enterprise_id || '';
+  const enterpriseId = user?.enterpriseId || '';
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');

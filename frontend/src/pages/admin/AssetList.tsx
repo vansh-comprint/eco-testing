@@ -142,7 +142,7 @@ export function AssetList() {
       // Check if it's a status group filter
       const statusGroup = STATUS_GROUPS[statusFilter];
       if (statusGroup) {
-        result = result.filter(a => statusGroup.includes(a.status));
+        result = result.filter(a => statusGroup.includes(a.status as any));
       } else {
         result = result.filter(a => a.status === statusFilter);
       }
@@ -564,7 +564,7 @@ export function AssetList() {
           {/* Mobile Card Layout */}
           <div className="md:hidden divide-y divide-slate-200 dark:divide-white/5">
             {filteredAssets.map((asset, index) => {
-              const statusConfig = getStatusConfig(asset.status);
+              const statusConfig = getStatusConfig(asset.status as any);
               const batch = batches.find(b => b.id === asset.batch_id);
               const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted' || asset.status === 'assigned' || asset.status === 'check_in_started' || asset.status === 'submitted' || asset.status === 'remote_review';
               const isSelected = selectedAssets.has(asset.id);
@@ -656,7 +656,7 @@ export function AssetList() {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                 {filteredAssets.map((asset, index) => {
-                  const statusConfig = getStatusConfig(asset.status);
+                  const statusConfig = getStatusConfig(asset.status as any);
                   const batch = batches.find(b => b.id === asset.batch_id);
                   const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted' || asset.status === 'assigned' || asset.status === 'check_in_started' || asset.status === 'submitted' || asset.status === 'remote_review';
                   const isSelected = selectedAssets.has(asset.id);

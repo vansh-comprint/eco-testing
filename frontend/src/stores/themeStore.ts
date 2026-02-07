@@ -36,7 +36,7 @@ export const useThemeStore = create<ThemeState>()(
       theme: 'dark',
       showMeshBackground: true,
       // Ensure default theme is applied on init
-      ...(typeof document !== 'undefined' ? applyTheme('dark') : undefined),
+      ...(typeof document !== 'undefined' ? (applyTheme('dark'), {}) : {}),
 
       setTheme: (theme: Theme) => {
         applyTheme(theme);

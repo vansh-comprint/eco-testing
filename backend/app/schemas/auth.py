@@ -3,7 +3,6 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.user import UserRole
 
 
 class LoginRequest(BaseModel):
@@ -114,7 +113,7 @@ SubUserLoginResponse = EmployeeLoginResponse
 
 
 # Import here to avoid circular imports
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse  # noqa: E402
 
 LoginResponse.model_rebuild()
 RefreshTokenResponse.model_rebuild()

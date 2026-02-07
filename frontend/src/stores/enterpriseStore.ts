@@ -18,7 +18,7 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
   fetchEnterprises: async () => {
     set({ isLoading: true });
     try {
-      const result = await db.query<any>('enterprises', {
+      const result = await db.query('enterprises', {
         orderBy: [{ field: 'created_at', ascending: false }],
       });
 

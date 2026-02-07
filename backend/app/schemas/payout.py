@@ -2,10 +2,9 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Dict, Any, List
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
-from app.models.financial import PayoutStatus, PayoutMethod, TransactionType
 
 
 # ============================================================================

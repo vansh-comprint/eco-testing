@@ -58,8 +58,8 @@ export function OpsDisputes() {
       const asset = assets.find(a => a.id === d.assetId);
       if (!asset) return d.itAdminNotes.toLowerCase().includes(searchQuery.toLowerCase());
       return (
-        asset.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (asset.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.itAdminNotes.toLowerCase().includes(searchQuery.toLowerCase())
       );

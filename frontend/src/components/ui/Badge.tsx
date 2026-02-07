@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'primary' | 'outline';
+export type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'danger' | 'destructive' | 'info' | 'primary' | 'outline';
 type BadgeSize = 'xs' | 'sm' | 'md' | 'lg';
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -43,6 +43,16 @@ const variants: Record<BadgeVariant, string> = {
     bg-lime-50/80 dark:bg-lime-500/10
     text-lime-700 dark:text-lime-400
     border border-lime-500/25 dark:border-lime-400/20
+  `,
+  danger: `
+    bg-red-50/80 dark:bg-red-500/10
+    text-red-700 dark:text-red-400
+    border border-red-500/25 dark:border-red-400/20
+  `,
+  destructive: `
+    bg-red-50/80 dark:bg-red-500/10
+    text-red-700 dark:text-red-400
+    border border-red-500/25 dark:border-red-400/20
   `,
   outline: `
     bg-transparent
@@ -95,6 +105,20 @@ const accentBorderVariants: Record<BadgeVariant, string> = {
     border border-lime-200/60 dark:border-lime-500/20
     border-l-2 border-l-lime-500
   `,
+  danger: `
+    bg-white/60 dark:bg-zinc-900/60
+    backdrop-blur-sm
+    text-red-700 dark:text-red-400
+    border border-red-200/60 dark:border-red-500/20
+    border-l-2 border-l-red-500
+  `,
+  destructive: `
+    bg-white/60 dark:bg-zinc-900/60
+    backdrop-blur-sm
+    text-red-700 dark:text-red-400
+    border border-red-200/60 dark:border-red-500/20
+    border-l-2 border-l-red-500
+  `,
   outline: `
     bg-transparent
     text-slate-600 dark:text-zinc-400
@@ -115,6 +139,8 @@ const dotColors: Record<BadgeVariant, string> = {
   success: 'bg-emerald-500',
   warning: 'bg-amber-500',
   error: 'bg-red-500',
+  danger: 'bg-red-500',
+  destructive: 'bg-red-500',
   info: 'bg-blue-500',
   primary: 'bg-lime-500',
   outline: 'bg-slate-500 dark:bg-zinc-400',

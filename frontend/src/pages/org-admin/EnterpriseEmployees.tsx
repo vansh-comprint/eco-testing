@@ -3,7 +3,7 @@
  * Org Admin view showing ALL employees (sub-users) across all branches
  * Grouped by branch with search and status filtering
  */
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -357,7 +357,7 @@ export function EnterpriseEmployees() {
 function EmployeeRow({ employee: emp, assetCounts, getStatusBadge }: {
   employee: any;
   assetCounts?: { assigned: number; submitted: number };
-  getStatusBadge: (s: string) => { color: string; icon: JSX.Element };
+  getStatusBadge: (s: string) => { color: string; icon: React.ReactElement };
 }) {
   const badge = getStatusBadge(emp.status);
   return (

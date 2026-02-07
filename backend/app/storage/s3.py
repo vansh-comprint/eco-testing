@@ -1,7 +1,6 @@
 """AWS S3 storage backend"""
 
 from typing import Optional, BinaryIO, Dict
-from datetime import timedelta
 import aioboto3
 from botocore.exceptions import ClientError
 

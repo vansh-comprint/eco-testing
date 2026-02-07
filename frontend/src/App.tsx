@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from '@/components/ui';
+import { ToastProvider, ErrorBoundary } from '@/components/ui';
 import { ProtectedRoute } from '@/components/auth';
 import { DashboardLayout, OpsLayout } from '@/layouts';
 import { AuthProviderApi } from '@/contexts/AuthContextApi';
@@ -140,15 +140,17 @@ const logisticsUserNavItems = [
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProviderApi>
-        <ToastProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </ToastProvider>
-      </AuthProviderApi>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProviderApi>
+          <ToastProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </ToastProvider>
+        </AuthProviderApi>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -269,7 +269,7 @@ export function BatchList() {
       >
         {filteredBatches.length > 0 ? (
           filteredBatches.map((batch, index) => {
-            const statusConfig = getStatusConfig(batch.status);
+            const statusConfig = getStatusConfig(batch.status as BatchStatus);
             // V3: Use snake_case from database
             const batchAssets = assets.filter(a => a.batch_id === batch.id);
             return (

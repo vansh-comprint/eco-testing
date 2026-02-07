@@ -1,0 +1,12 @@
+// Stub file for legacy pricing config imports
+export const updateDeviceTypePricing = (...args: any[]) => Promise.resolve(null);
+export const updateCpuTierPricing = (...args: any[]) => Promise.resolve(null);
+export const updateRamTierPricing = (...args: any[]) => Promise.resolve(null);
+export const updateStorageTierPricing = (...args: any[]) => Promise.resolve(null);
+export const updateGradePricing = (...args: any[]) => Promise.resolve(null);
+export const updateDepreciationRule = (...args: any[]) => Promise.resolve(null);
+export const updateRedemptionRate = (...args: any[]) => Promise.resolve(null);
+export const updateBrandAdjustment = (...args: any[]) => Promise.resolve(null);
+export const createCpuTier = (...args: any[]) => Promise.resolve(null);
+export const createStorageTier = (...args: any[]) => Promise.resolve(null);
+export const createBrandAdjustment = (...args: any[]) => Promise.resolve(null);

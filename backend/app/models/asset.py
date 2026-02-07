@@ -1,7 +1,5 @@
 """Asset model for IT devices"""
 
-from datetime import datetime
-from decimal import Decimal
 from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Numeric, JSON
 from sqlalchemy.orm import relationship
 import enum

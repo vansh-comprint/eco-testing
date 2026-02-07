@@ -153,6 +153,9 @@ export interface CreateAssetInput {
   specs?: Record<string, unknown>;
   purchase_date?: string;
   assigned_to_user_id?: string;
+  status?: string;
+  grade?: string;
+  condition_grade?: string;
   // CSV bulk upload: user assignment fields (used by UploadAssets to create sub-users)
   assigned_email?: string;
   assigned_name?: string;
@@ -283,7 +286,7 @@ export function useBulkCreateAssets() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (assets: CreateAssetInput[]) => bulkCreateAssets(assets),
+    mutationFn: (assets: CreateAssetInput[]) => bulkCreateAssets(assets as unknown as Record<string, unknown>[]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
     },

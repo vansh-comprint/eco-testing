@@ -1,6 +1,5 @@
 """Audit log model for tracking state transitions and important actions"""
 
-from datetime import datetime
 from sqlalchemy import Column, String, DateTime, JSON, Text, Index
 from sqlalchemy.sql import func
 

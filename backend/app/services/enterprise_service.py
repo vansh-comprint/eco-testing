@@ -22,7 +22,6 @@ from app.schemas.enterprise import (
     EnterpriseUpdate,
     EnterpriseResponse,
     EnterpriseApplicationCreate,
-    EnterpriseApplicationUpdate,
     EnterpriseApplicationResponse,
 )
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError

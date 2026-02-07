@@ -113,8 +113,8 @@ export function Settings() {
   // Enterprise form
   const [enterpriseForm, setEnterpriseForm] = useState({
     name: enterprise?.name || '',
-    gstin: enterprise?.gstin || '',
-    address: enterprise?.address || '',
+    gstin: (enterprise as any)?.gstin || '',
+    address: typeof enterprise?.address === 'string' ? enterprise.address : '',
     city: '',
     state: '',
     pincode: '',
@@ -574,7 +574,7 @@ export function Settings() {
                               </button>
                             )}
                             <button
-                              onClick={() => openEditLocation(location)}
+                              onClick={() => openEditLocation(location as any)}
                               className="interactive p-2 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5 transition-all"
                             >
                               <Edit2 className="w-4 h-4 text-slate-500 dark:text-zinc-500 hover:text-ecotribe-primary" />

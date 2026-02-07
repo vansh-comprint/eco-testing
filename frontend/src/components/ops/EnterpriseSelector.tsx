@@ -42,7 +42,7 @@ export function EnterpriseSelector({ compact = false }: EnterpriseSelectorProps)
   // Filter enterprises by search
   const filteredEnterprises = enterprises.filter(e =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.contact_email?.toLowerCase().includes(searchQuery.toLowerCase())
+    (e.contact_email || e.contactEmail)?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -180,7 +180,7 @@ export function EnterpriseSelector({ compact = false }: EnterpriseSelectorProps)
                           {enterprise.name}
                         </p>
                         <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide truncate">
-                          {enterprise.contact_email || 'No email'}
+                          {enterprise.contact_email || enterprise.contactEmail || 'No email'}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

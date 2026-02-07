@@ -66,7 +66,7 @@ export function Enterprises() {
 
         // Separate active and inactive (V3: pending applications are in enterprise_applications table)
         setActiveEnterprises(enterprises.filter(e => e.status === 'active'));
-        setInactiveEnterprises(enterprises.filter(e => e.status === 'inactive' || e.status === 'suspended'));
+        setInactiveEnterprises(enterprises.filter(e => e.status === 'inactive' || (e.status as any) === 'suspended'));
       }
     } catch (error) {
       console.error('Error fetching enterprises:', error);
@@ -92,7 +92,7 @@ export function Enterprises() {
       e.contactEmail?.toLowerCase().includes(q) ||
       e.gstNumber?.toLowerCase().includes(q) ||
       e.contactPerson?.toLowerCase().includes(q) ||
-      e.industry?.toLowerCase().includes(q)
+      (e as any).industry?.toLowerCase().includes(q)
     );
   }, [activeEnterprises, searchQuery]);
 
@@ -104,7 +104,7 @@ export function Enterprises() {
       e.contactEmail?.toLowerCase().includes(q) ||
       e.gstNumber?.toLowerCase().includes(q) ||
       e.contactPerson?.toLowerCase().includes(q) ||
-      e.industry?.toLowerCase().includes(q)
+      (e as any).industry?.toLowerCase().includes(q)
     );
   }, [inactiveEnterprises, searchQuery]);
 
@@ -300,7 +300,7 @@ export function Enterprises() {
                     Industry
                   </label>
                   <p className="font-mono text-sm text-black dark:text-white capitalize">
-                    {selectedEnterprise.industry || '-'}
+                    {(selectedEnterprise as any).industry || '-'}
                   </p>
                 </div>
                 <div>
@@ -308,7 +308,7 @@ export function Enterprises() {
                     Company Size
                   </label>
                   <p className="font-mono text-sm text-black dark:text-white">
-                    {selectedEnterprise.companySize || '-'}
+                    {(selectedEnterprise as any).companySize || '-'}
                   </p>
                 </div>
               </div>
@@ -350,7 +350,7 @@ export function Enterprises() {
                       {selectedEnterprise.address.line1}
                       {selectedEnterprise.address.line2 && `, ${selectedEnterprise.address.line2}`}
                       <br />
-                      {selectedEnterprise.address.city}, {selectedEnterprise.address.state} {selectedEnterprise.address.pinCode}
+                      {selectedEnterprise.address.city}, {selectedEnterprise.address.state} {selectedEnterprise.address.pincode || (selectedEnterprise.address as any).pinCode}
                       <br />
                       {selectedEnterprise.address.country}
                     </p>

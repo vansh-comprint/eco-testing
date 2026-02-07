@@ -307,9 +307,9 @@ def generate_otp() -> str:
     Returns:
         str: 6-digit OTP
     """
-    import random
+    import secrets
 
-    return str(random.randint(100000, 999999))
+    return str(secrets.randbelow(900000) + 100000)
 
 
 # =============================================================================
