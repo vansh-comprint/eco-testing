@@ -4,26 +4,19 @@
  */
 
 // Resolve API base URL:
-// 1. Explicit VITE_API_URL always wins (set at build time)
+// 1. Explicit VITE_API_URL always wins (set at build time, used as-is)
 // 2. Localhost/127.0.0.1 → same host, backend port 8000
 // 3. Production → same origin + /api/v1 (reverse proxy routes to backend)
 const resolveApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    // If the page is HTTPS but the env var is HTTP, upgrade to HTTPS
-    // to prevent mixed content errors in production
-    if (window.location.protocol === 'https:' && envUrl.startsWith('http://')) {
-      return envUrl.replace('http://', 'https://');
-    }
-    return envUrl;
-  }
+  if (envUrl) return envUrl;
 
   const { protocol, hostname, host } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `${protocol}//${hostname}:8000/api/v1`;
   }
 
-  // Production: use same origin (reverse proxy must route /api/v1 → backend)
+  // Production: use same origin (nginx reverse proxy routes /api/v1 → backend)
   return `${protocol}//${host}/api/v1`;
 };
 
