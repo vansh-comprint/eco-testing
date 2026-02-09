@@ -151,10 +151,6 @@ if settings.debug:
         "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
         "http://localhost:5173",
         "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:5173",
-        "http://172.20.0.25:3000", "http://172.20.0.25:3001", "http://172.20.0.25:3002",
-        "http://172.19.224.1:3000", "http://172.19.224.1:3001", "http://172.19.224.1:3002",
-        "http://172.28.160.1:3000", "http://172.28.160.1:3001", "http://172.28.160.1:3002",
-        "http://172.20.1.228:1228",
     ]
     _cors_origins = list(set(_cors_origins + _dev_origins))
 if settings.cors_allow_credentials:

@@ -40,15 +40,14 @@ async def login(
     _: None = Depends(rate_limit_login),
 ):
     """
-    Login endpoint for admin users (password-based).
+    Login endpoint for all users (password-based).
 
     Authenticates user with email and password, returns JWT tokens.
-    Employees must use OTP-based login instead.
 
     Rate limited to 5 attempts per minute per IP address.
 
-    **Roles:** All admin roles (Super Admin, OPS Admin, Org Admin, IT Admin,
-    Logistics Admin, Logistics User)
+    **Roles:** All roles (Super Admin, OPS Admin, Org Admin, IT Admin,
+    Employee, Logistics Admin, Logistics User)
     """
     auth_service = AuthService(db)
     access_token, refresh_token, user = await auth_service.login(request)
@@ -188,7 +187,7 @@ async def change_password(
     Requires the current password for verification. After changing,
     all existing sessions are invalidated for security.
 
-    **Roles:** All admin roles (not employees — they use OTP)
+    **Roles:** All authenticated users
     """
     auth_service = AuthService(db)
     await auth_service.change_password(

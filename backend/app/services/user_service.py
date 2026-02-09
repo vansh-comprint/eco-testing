@@ -97,7 +97,7 @@ class UserService:
         """
         Create a new user.
 
-        - For employees (role=EMPLOYEE): no password required, OTP-based auth
+        - For employees (role=EMPLOYEE): defaults to 'password123' if no password provided
         - For all other roles: password required
         """
         # Check if email already exists
@@ -112,8 +112,8 @@ class UserService:
         is_employee = user_data.role == UserRole.EMPLOYEE
 
         if is_employee:
-            # Employees use OTP-based login — set a random unusable password
-            password_hash = get_password_hash(secrets.token_urlsafe(32))
+            # Employees get a default password for portal login
+            password_hash = get_password_hash(user_data.password or "password123")
             initial_status = UserStatus.ACTIVE.value
         else:
             # All other roles require password
@@ -222,7 +222,7 @@ class UserService:
                     employee_id=user_item.employee_id,
                     department=user_item.department,
                     designation=user_item.designation,
-                    password_hash=get_password_hash(user_item.password) if user_item.password else (get_password_hash(secrets.token_urlsafe(32)) if is_employee else None),
+                    password_hash=get_password_hash(user_item.password or "password123") if (user_item.password or is_employee) else None,
                     status=UserStatus.ACTIVE.value,
                     created_by=created_by,
                     updated_by=created_by,

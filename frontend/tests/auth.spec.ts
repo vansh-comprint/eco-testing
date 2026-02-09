@@ -134,15 +134,19 @@ test.describe('Authentication', () => {
     // Password should be hidden by default
     await expect(passwordInput).toHaveAttribute('type', 'password');
 
-    // Find the toggle button (it's inside the password field container)
-    const passwordContainer = page.locator('div').filter({ has: passwordInput });
-    const toggleButton = passwordContainer.locator('button[type="button"]');
+    // Find the eye toggle button - it's the button inside the password input wrapper
+    // Use the button that's a sibling of the password input (the eye icon with no text)
+    const toggleButton = page.locator('[data-testid="login-password"]').locator('..').locator('button').last();
 
     // Click toggle button if visible
     if (await toggleButton.isVisible()) {
       await toggleButton.click();
       // Password should now be visible
       await expect(passwordInput).toHaveAttribute('type', 'text');
+
+      // Toggle back
+      await toggleButton.click();
+      await expect(passwordInput).toHaveAttribute('type', 'password');
     } else {
       // Skip test if no toggle button
       console.log('Password toggle button not found, skipping');

@@ -188,6 +188,7 @@ export function useUpdateBatch() {
       const apiData: BatchUpdateRequest = {
         name: updates.name,
         description: updates.description,
+        status: updates.status,
       };
       const response = await batchesApi.update(batchId, apiData);
       if (!response.success) throw new Error(response.error?.message || 'Failed to update batch');

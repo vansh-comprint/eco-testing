@@ -91,6 +91,13 @@ class Settings(BaseSettings):
         default="", description="Path to GCP service account JSON"
     )
 
+    # Trusted Proxy Configuration
+    trusted_proxy_ips: str = Field(
+        default="",
+        description="Comma-separated list of trusted proxy IPs (e.g., '127.0.0.1,10.0.0.1'). "
+        "X-Forwarded-For is only trusted when request comes from these IPs.",
+    )
+
     # Frontend URL (for password reset links etc.)
     frontend_url: str = Field(
         default="http://localhost:5173",
@@ -105,6 +112,13 @@ class Settings(BaseSettings):
     smtp_from_email: str = Field(default="noreply@ecotribe.io", description="From email address")
     smtp_from_name: str = Field(default="EcoTribe", description="From display name")
     smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP")
+
+    @property
+    def trusted_proxy_ips_set(self) -> set:
+        """Parse trusted proxy IPs from comma-separated string"""
+        if not self.trusted_proxy_ips.strip():
+            return set()
+        return {ip.strip() for ip in self.trusted_proxy_ips.split(",") if ip.strip()}
 
     @property
     def cors_origins_list(self) -> List[str]:

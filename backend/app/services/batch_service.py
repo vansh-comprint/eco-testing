@@ -277,6 +277,20 @@ class BatchService:
         if batch.status != BatchStatus.DRAFT.value:
             raise ValidationError("Only draft batches can be submitted for approval")
 
+        # Validate batch has at least one verified asset before allowing submission
+        verified_statuses = [
+            AssetStatus.CONDITIONALLY_ACCEPTED.value,
+            AssetStatus.READY_FOR_PICKUP.value,
+        ]
+        verified_assets = await self.asset_repo.get_assets_by_batch_and_statuses(
+            batch_id, verified_statuses
+        )
+        if not verified_assets:
+            raise ValidationError(
+                "Cannot submit batch for approval: no verified assets. "
+                "Assets must be reviewed and accepted before submitting."
+            )
+
         old_status = batch.status
         batch.status = BatchStatus.PENDING_APPROVAL.value
         batch.requires_approval = True

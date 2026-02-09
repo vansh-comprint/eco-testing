@@ -147,7 +147,7 @@ export function EnterpriseDetail() {
 
         // Sub-users (employees)
         const subUsersList = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'employee')
+          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
           .map((u) => ({
             id: u.id,
             name: u.name,

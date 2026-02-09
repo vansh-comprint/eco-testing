@@ -180,9 +180,9 @@ PUBLIC_UPLOAD_RATE_LIMIT = RateLimitConfig(
     key_prefix="public_upload"
 )
 
-# General API - 1000 requests per minute per IP
+# General API - 100 requests per minute per IP
 GENERAL_RATE_LIMIT = RateLimitConfig(
-    requests=1000,
+    requests=100,
     window_seconds=60,
     key_prefix="general"
 )
@@ -190,25 +190,29 @@ GENERAL_RATE_LIMIT = RateLimitConfig(
 
 def get_client_ip(request: Request) -> str:
     """
-    Get client IP address from request, handling proxies.
+    Get client IP address from request.
 
-    Checks X-Forwarded-For and X-Real-IP headers for proxy scenarios.
+    Only trusts X-Forwarded-For / X-Real-IP headers when the direct
+    connection comes from a configured trusted proxy IP. This prevents
+    attackers from bypassing rate limits by spoofing these headers.
     """
-    # Check for forwarded IP (behind proxy/load balancer)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # Take the first IP in the chain (original client)
-        return forwarded.split(",")[0].strip()
+    from app.core.config import settings
 
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
+    direct_ip = request.client.host if request.client else "unknown"
+    trusted_proxies = settings.trusted_proxy_ips_set
 
-    # Fall back to direct client IP
-    if request.client:
-        return request.client.host
+    # Only trust forwarded headers if the direct connection is from a trusted proxy
+    if trusted_proxies and direct_ip in trusted_proxies:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # Take the first IP in the chain (original client set by the outermost proxy)
+            return forwarded.split(",")[0].strip()
 
-    return "unknown"
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+
+    return direct_ip
 
 
 def check_rate_limit(key: str, config: RateLimitConfig, endpoint_name: str = "") -> None:

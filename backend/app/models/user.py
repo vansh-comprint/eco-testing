@@ -111,6 +111,10 @@ class User(BaseModel):
     otp_token = Column(String, nullable=True, index=True)
     otp_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Password Reset (separate from OTP to prevent token collision)
+    password_reset_token = Column(String, nullable=True, index=True)
+    password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
+
     # ==================== Employee-specific fields ====================
     # (role = EMPLOYEE)
     employee_id = Column(String, nullable=True, index=True)  # Company employee ID

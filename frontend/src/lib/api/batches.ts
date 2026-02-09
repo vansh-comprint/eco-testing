@@ -77,6 +77,7 @@ export interface BatchCreateRequest {
 export interface BatchUpdateRequest {
   name?: string;
   description?: string;
+  status?: string;
   pickup_address?: Record<string, unknown>;
   pickup_date?: string;
   pickup_time_slot?: string;

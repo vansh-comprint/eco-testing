@@ -240,7 +240,7 @@ export function SuperEnterpriseDetail() {
 
         // Sub-users (employees) are also in users table with role 'employee'
         const subUsersList = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'employee')
+          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
           .map((u) => ({
             id: u.id,
             name: u.name,

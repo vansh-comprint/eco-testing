@@ -17,7 +17,8 @@ import {
   MapPin,
   Calendar,
   Loader2,
-  Package
+  Package,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useRejectBatch, useApiError } from '@/hooks';
 import { ConfirmationModal } from '@/components/ui';
@@ -590,8 +591,12 @@ export function PickupApprovals() {
                         </div>
                       ))}
                       {verifiedAssets.length === 0 && (
-                        <div className="p-6 text-center">
-                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">No verified assets in this batch</p>
+                        <div className="p-6 text-center space-y-2">
+                          <AlertTriangle className="w-8 h-8 mx-auto text-amber-400" />
+                          <p className="font-mono text-xs font-bold text-slate-700 dark:text-white/70">No verified assets in this batch</p>
+                          <p className="font-mono text-[10px] text-slate-500 dark:text-white/40 max-w-xs mx-auto">
+                            Assets must be reviewed and accepted (conditionally accepted or ready for pickup) before this batch can be approved. Reject or return to IT Admin.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -625,20 +630,24 @@ export function PickupApprovals() {
                       </p>
                       <div className="grid grid-cols-2 gap-3">
                         <button
-                          onClick={() => setDecision('approve')}
+                          onClick={() => verifiedAssets.length > 0 && setDecision('approve')}
+                          disabled={verifiedAssets.length === 0}
+                          title={verifiedAssets.length === 0 ? 'Cannot approve — no verified assets in this batch' : 'Approve this batch for pickup'}
                           className={`interactive p-4 border transition-all ${
-                            decision === 'approve'
-                              ? 'border-emerald-400 bg-emerald-400/10'
-                              : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
+                            verifiedAssets.length === 0
+                              ? 'border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/[0.01] opacity-50 cursor-not-allowed'
+                              : decision === 'approve'
+                                ? 'border-emerald-400 bg-emerald-400/10'
+                                : 'border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-emerald-400/50'
                           }`}
                         >
                           <CheckCircle className={`w-8 h-8 mx-auto mb-2 ${
-                            decision === 'approve' ? 'text-emerald-400' : 'text-slate-500 dark:text-white/50'
+                            verifiedAssets.length === 0 ? 'text-slate-300 dark:text-white/20' : decision === 'approve' ? 'text-emerald-400' : 'text-slate-500 dark:text-white/50'
                           }`} />
                           <p className={`font-mono font-bold text-xs uppercase tracking-widest ${
-                            decision === 'approve' ? 'text-emerald-400' : 'text-slate-500 dark:text-white/50'
+                            verifiedAssets.length === 0 ? 'text-slate-300 dark:text-white/20' : decision === 'approve' ? 'text-emerald-400' : 'text-slate-500 dark:text-white/50'
                           }`}>
-                            Approve
+                            {verifiedAssets.length === 0 ? 'Cannot Approve' : 'Approve'}
                           </p>
                         </button>
                         <button

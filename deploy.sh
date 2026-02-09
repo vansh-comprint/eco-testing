@@ -1,6 +1,5 @@
 #!/bin/bash
 # EcoTribe Deployment Script
-# Server: 172.20.1.228
 # Frontend: port 1228 | Backend: port 2228
 
 set -e
@@ -82,10 +81,11 @@ echo ""
 echo "========================================="
 echo "  Deployment Complete!"
 echo "========================================="
-echo "  Frontend:  http://172.20.1.228:1228"
-echo "  Backend:   http://172.20.1.228:2228"
-echo "  API Docs:  http://172.20.1.228:2228/docs (disabled in production)"
-echo "  Health:    http://172.20.1.228:2228/health"
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+echo "  Frontend:  http://${SERVER_IP}:1228"
+echo "  Backend:   http://${SERVER_IP}:2228"
+echo "  API Docs:  http://${SERVER_IP}:2228/docs (disabled in production)"
+echo "  Health:    http://${SERVER_IP}:2228/health"
 echo ""
 echo "  Logs:"
 echo "    tail -f backend.log"

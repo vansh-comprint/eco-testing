@@ -44,8 +44,10 @@ async def get_platform_stats(
     asset_result = await db.execute(asset_query)
     total_assets = asset_result.scalar() or 0
 
-    # Total users
+    # Total users (scoped)
     user_query = select(func.count()).select_from(User)
+    if scoped_filters.get("enterprise_id"):
+        user_query = user_query.where(User.enterprise_id == scoped_filters["enterprise_id"])
     user_result = await db.execute(user_query)
     total_users = user_result.scalar() or 0
 

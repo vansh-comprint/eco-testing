@@ -17,7 +17,7 @@ from app.schemas.batch import (
 )
 from app.services.batch_service import BatchService
 from app.utils.response import success_response, paginated_response
-from app.utils.scoping import get_scoped_filters, auto_fill_context
+from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin
 
 router = APIRouter()
 
@@ -28,6 +28,8 @@ async def list_batches(
     limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
     status: Optional[BatchStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name or description"),
+    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.BATCH_READ)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -35,13 +37,20 @@ async def list_batches(
     List batches with automatic role-based scoping.
 
     Data is automatically scoped based on user's role:
-    - Super Admin / OPS Admin: All batches
+    - Super Admin / OPS Admin: Can filter by enterprise_id/branch_id
     - Org Admin: Batches in their enterprise
     - IT Admin: Batches in their branch
 
     **Permissions:** BATCH_READ
     """
     scoped_filters = get_scoped_filters(current_user)
+
+    # Only platform admins can explicitly filter by enterprise/branch
+    if is_platform_admin(current_user):
+        if enterprise_id:
+            scoped_filters["enterprise_id"] = enterprise_id
+        if branch_id:
+            scoped_filters["branch_id"] = branch_id
 
     service = BatchService(db)
     batches, total = await service.list_batches(

@@ -272,6 +272,7 @@ export function BatchList() {
             const statusConfig = getStatusConfig(batch.status as BatchStatus);
             // V3: Use snake_case from database
             const batchAssets = assets.filter(a => a.batch_id === batch.id);
+            const verifiedAssets = batchAssets.filter(a => a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup');
             return (
               <motion.div
                 key={batch.id}
@@ -341,9 +342,9 @@ export function BatchList() {
                       {batch.status === 'draft' && (
                         <button
                           onClick={(e) => handleSubmitForApproval(batch.id, e)}
-                          disabled={batchAssets.length === 0}
-                          title={batchAssets.length === 0 ? 'Add assets to this batch before submitting' : undefined}
-                          className={`interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${batchAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
+                          disabled={verifiedAssets.length === 0}
+                          title={verifiedAssets.length === 0 ? (batchAssets.length === 0 ? 'Add assets to this batch before submitting' : 'No verified assets yet — assets must be reviewed and accepted first') : `Submit ${verifiedAssets.length} verified asset(s) for approval`}
+                          className={`interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${verifiedAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
                         >
                           <Send className="w-3 h-3" />
                           <span className="hidden sm:inline">Submit for Approval</span>

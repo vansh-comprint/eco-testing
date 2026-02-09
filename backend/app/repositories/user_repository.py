@@ -286,6 +286,32 @@ class UserRepository:
         await self.db.refresh(user)
         return user
 
+    async def set_password_reset_token(
+        self, user_id: str, token: str, expires_at: datetime
+    ) -> Optional[User]:
+        """Set password reset token (separate from OTP)"""
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+
+        user.password_reset_token = token
+        user.password_reset_expires_at = expires_at
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
+    async def clear_password_reset_token(self, user_id: str) -> Optional[User]:
+        """Clear password reset token after use"""
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+
+        user.password_reset_token = None
+        user.password_reset_expires_at = None
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
     async def count_by_role(self, role: UserRole) -> int:
         """Count users by role"""
         query = select(func.count(User.id)).where(User.role == role.value)

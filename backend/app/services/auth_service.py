@@ -27,8 +27,8 @@ class AuthService:
     Service for authentication operations.
 
     Supports:
-    - Password-based login for admin users
-    - OTP-based login for employees
+    - Password-based login for all users (including employees)
+    - OTP-based login for employees (legacy, kept for backward compat)
     - Token refresh
     """
 
@@ -88,7 +88,7 @@ class AuthService:
         """
         Authenticate user with email and password.
 
-        For admin users (all roles except EMPLOYEE).
+        For all users (including employees).
 
         Args:
             request: Login request with email and password
@@ -327,10 +327,6 @@ class AuthService:
         Raises:
             AuthenticationError: If current password is incorrect
         """
-        # Employees use OTP, not passwords
-        if user.role == UserRole.EMPLOYEE.value:
-            raise AuthenticationError("Employees use OTP-based authentication and cannot change passwords")
-
         # Verify current password
         if not user.password_hash or not verify_password(current_password, user.password_hash):
             raise AuthenticationError("Current password is incorrect")
@@ -366,10 +362,6 @@ class AuthService:
         if not user:
             return None
 
-        # Employees use OTP, not passwords
-        if user.role == UserRole.EMPLOYEE.value:
-            return None
-
         # Check if user is active
         if user.status != UserStatus.ACTIVE.value:
             return None
@@ -377,9 +369,9 @@ class AuthService:
         # Generate a secure random token (URL-safe, 48 bytes = 64 chars)
         reset_token = secrets.token_urlsafe(48)
 
-        # Store token with 1-hour expiration (reuse OTP fields)
+        # Store token with 1-hour expiration (dedicated columns, not OTP)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-        await self.user_repo.set_otp(user.id, reset_token, expires_at)
+        await self.user_repo.set_password_reset_token(user.id, reset_token, expires_at)
 
         # Build reset URL
         frontend_url = settings.frontend_url.rstrip("/")
@@ -403,8 +395,8 @@ class AuthService:
         """
         from sqlalchemy import select
 
-        # Find user by reset token
-        query = select(User).where(User.otp_token == token)
+        # Find user by password reset token (dedicated column, not OTP)
+        query = select(User).where(User.password_reset_token == token)
         result = await self.db.execute(query)
         user = result.scalar_one_or_none()
 
@@ -412,9 +404,11 @@ class AuthService:
             raise AuthenticationError("Invalid or expired reset token")
 
         # Check expiration
-        if not user.otp_expires_at or user.otp_expires_at < datetime.now(timezone.utc):
+        if not user.password_reset_expires_at or user.password_reset_expires_at < datetime.now(
+            timezone.utc
+        ):
             # Clear expired token
-            await self.user_repo.clear_otp(user.id)
+            await self.user_repo.clear_password_reset_token(user.id)
             raise AuthenticationError("Reset token has expired. Please request a new one.")
 
         # Update password
@@ -423,7 +417,7 @@ class AuthService:
         await self.user_repo.update(user)
 
         # Clear the reset token
-        await self.user_repo.clear_otp(user.id)
+        await self.user_repo.clear_password_reset_token(user.id)
 
         # Invalidate all sessions
         session_limiter.clear_all_sessions(user.id)

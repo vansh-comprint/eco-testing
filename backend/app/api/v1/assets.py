@@ -12,7 +12,7 @@ from app.models.asset import AssetStatus
 from app.schemas.asset import AssetCreate, AssetUpdate, AssetBulkCreate
 from app.services.asset_service import AssetService
 from app.utils.response import success_response, paginated_response
-from app.utils.scoping import get_scoped_filters, auto_fill_context, can_access_enterprise, can_access_branch
+from app.utils.scoping import get_scoped_filters, auto_fill_context, can_access_enterprise, can_access_branch, is_platform_admin
 from app.utils.state_machine import get_allowed_asset_transitions, get_workflow_path
 from app.utils.exceptions import AuthorizationError
 
@@ -36,6 +36,8 @@ async def list_assets(
     batch_id: Optional[str] = Query(None, description="Filter by batch"),
     status: Optional[AssetStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by serial number, brand, model"),
+    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.ASSET_READ)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -43,7 +45,7 @@ async def list_assets(
     List assets with automatic role-based scoping.
 
     Data is automatically scoped based on user's role:
-    - Super Admin / OPS Admin: All assets
+    - Super Admin / OPS Admin: Can filter by enterprise_id/branch_id
     - Org Admin: Assets in their enterprise
     - IT Admin: Assets in their branch
     - Employee: Assets assigned to them
@@ -52,6 +54,13 @@ async def list_assets(
     """
     # Get scoped filters based on current user's role
     scoped_filters = get_scoped_filters(current_user)
+
+    # Only platform admins can explicitly filter by enterprise/branch
+    if is_platform_admin(current_user):
+        if enterprise_id:
+            scoped_filters["enterprise_id"] = enterprise_id
+        if branch_id:
+            scoped_filters["branch_id"] = branch_id
 
     service = AssetService(db)
     assets, total = await service.list_assets(

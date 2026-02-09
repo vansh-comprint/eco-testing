@@ -15,7 +15,7 @@ from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import AuthorizationError
-from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin
+from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin, can_access_enterprise
 
 router = APIRouter()
 
@@ -112,6 +112,10 @@ async def get_branches_summary(
 
     **Permissions:** BRANCH_READ
     """
+    # Verify current user has access to this enterprise
+    if not can_access_enterprise(current_user, enterprise_id):
+        raise AuthorizationError("You don't have access to branches from this enterprise")
+
     # Query branches for this enterprise
     branches_query = (
         select(Branch)
@@ -177,6 +181,10 @@ async def bulk_create_branches(
 
     **Permissions:** BRANCH_CREATE
     """
+    # Verify current user has access to this enterprise
+    if not can_access_enterprise(current_user, enterprise_id):
+        raise AuthorizationError("You don't have access to create branches for this enterprise")
+
     bulk_data.enterprise_id = enterprise_id
 
     service = BranchService(db)

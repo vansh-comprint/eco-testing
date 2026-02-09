@@ -1,41 +1,41 @@
 import { Page, expect } from '@playwright/test';
 
-// Test user credentials - these should match the backend seeded users
-// From seed_test_data.py
+// Test user credentials - from seed_demo_accounts.py
+// All demo accounts use password: Demo@123456
 export const TEST_USERS = {
   super_admin: {
-    email: 'superadmin@ecotribe.io',
-    password: 'password123',
+    email: 'demo.superadmin@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/super',
   },
   ops_admin: {
-    email: 'opsadmin@ecotribe.io',
-    password: 'password123',
+    email: 'demo.opsadmin@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/ops',
   },
   org_admin: {
-    email: 'orgadmin@techcorp.com',
-    password: 'password123',
+    email: 'demo.orgadmin@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/org-admin',
   },
   it_admin: {
-    email: 'itadmin@techcorp.com',
-    password: 'password123',
+    email: 'demo.itadmin@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/admin',
   },
   employee: {
-    email: 'employee@techcorp.com',
-    password: 'password123',
+    email: 'demo.employee@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/check-in',
   },
   logistics_admin: {
-    email: 'logisticsadmin@express.com',
-    password: 'password123',
+    email: 'demo.logisticsadmin@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/logistics-admin',
   },
   logistics_user: {
-    email: 'driver@express.com',
-    password: 'password123',
+    email: 'demo.logisticsuser@ecotribe.com',
+    password: 'Demo@123456',
     expectedPath: '/logistics',
   },
 };
@@ -44,25 +44,44 @@ export type UserRole = keyof typeof TEST_USERS;
 
 /**
  * Login as a specific user role
+ * Handles rate limiting with automatic retry
  */
-export async function loginAs(page: Page, role: UserRole) {
+export async function loginAs(page: Page, role: UserRole, maxRetries = 3) {
   const user = TEST_USERS[role];
 
-  // Go to login page
-  await page.goto('/login');
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // Go to login page
+    await page.goto('/login');
 
-  // Wait for page to load
-  await page.waitForLoadState('networkidle');
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
 
-  // Fill in credentials using data-testid
-  await page.getByTestId('login-email').fill(user.email);
-  await page.getByTestId('login-password').fill(user.password);
+    // Fill in credentials using data-testid
+    await page.getByTestId('login-email').fill(user.email);
+    await page.getByTestId('login-password').fill(user.password);
 
-  // Click submit
-  await page.getByTestId('login-submit').click();
+    // Click submit
+    await page.getByTestId('login-submit').click();
 
-  // Wait for navigation to expected path
-  await page.waitForURL(`**${user.expectedPath}**`, { timeout: 15000 });
+    // Check for rate limit error and retry if needed
+    try {
+      // Try to navigate - if it works, login succeeded
+      await page.waitForURL(`**${user.expectedPath}**`, { timeout: 10000 });
+      return user;
+    } catch {
+      // Check if rate limited
+      const errorText = await page.locator('[class*="error"], [class*="alert"]').textContent().catch(() => '');
+      if (errorText?.includes('Rate limit') && attempt < maxRetries) {
+        // Extract wait time from error message (e.g., "Please try again in 41 seconds")
+        const match = errorText.match(/(\d+)\s*seconds?/);
+        const waitTime = match ? parseInt(match[1]) * 1000 + 1000 : 15000;
+        console.log(`Rate limited, waiting ${waitTime/1000}s before retry ${attempt + 1}/${maxRetries}`);
+        await page.waitForTimeout(waitTime);
+        continue;
+      }
+      throw new Error(`Login failed for ${role}: ${errorText || 'Navigation timeout'}`);
+    }
+  }
 
   return user;
 }

@@ -125,7 +125,7 @@ async def list_enterprise_applications(
     limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
     status: Optional[EnterpriseApplicationStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by company name, email, or ref"),
-    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -133,7 +133,7 @@ async def list_enterprise_applications(
 
     Only platform admins (Super Admin / OPS Admin) can view applications.
 
-    **Permissions:** ENTERPRISE_CREATE
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
     """
     service = EnterpriseApplicationService(db)
     applications, total = await service.list_applications(
@@ -260,13 +260,13 @@ async def create_enterprise_application(
 @router.get("/applications/{application_id}", response_model=dict)
 async def get_enterprise_application(
     application_id: str,
-    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get enterprise application by ID.
 
-    **Permissions:** ENTERPRISE_CREATE
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
     """
     try:
         service = EnterpriseApplicationService(db)
@@ -280,7 +280,7 @@ async def get_enterprise_application(
 async def approve_enterprise_application(
     application_id: str,
     review_data: EnterpriseApplicationReview,
-    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -288,7 +288,7 @@ async def approve_enterprise_application(
 
     This creates the enterprise and org admin user.
 
-    **Permissions:** ENTERPRISE_CREATE
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
     """
     try:
         service = EnterpriseApplicationService(db)
@@ -320,13 +320,13 @@ async def approve_enterprise_application(
 async def reject_enterprise_application(
     application_id: str,
     reject_data: EnterpriseApplicationReject,
-    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Reject an enterprise application.
 
-    **Permissions:** ENTERPRISE_CREATE
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
     """
     try:
         service = EnterpriseApplicationService(db)
@@ -350,13 +350,13 @@ async def reject_enterprise_application(
 async def request_more_info_enterprise_application(
     application_id: str,
     info_data: EnterpriseApplicationRequestInfo,
-    current_user: User = Depends(require_permission(Permission.ENTERPRISE_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Request more information for an enterprise application.
 
-    **Permissions:** ENTERPRISE_CREATE
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
     """
     try:
         service = EnterpriseApplicationService(db)

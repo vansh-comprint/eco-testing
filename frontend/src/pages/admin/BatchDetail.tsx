@@ -129,12 +129,19 @@ export function BatchDetail() {
   const batch = batches.find(b => b.id === batchId);
 
   // Auto-open submit modal when navigated with ?action=submit from batch list
+  // Only open if there are verified assets to submit
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('action') === 'submit' && batch?.status === 'draft') {
-      setShowSubmitModal(true);
+      const currentBatchAssets = assets.filter(a => a.batch_id === batchId);
+      const currentVerified = currentBatchAssets.filter(a =>
+        a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
+      );
+      if (currentVerified.length > 0) {
+        setShowSubmitModal(true);
+      }
     }
-  }, [location.search, batch?.status]);
+  }, [location.search, batch?.status, assets, batchId]);
 
   // V3: Use snake_case field names
   const batchAssets = assets.filter(a => a.batch_id === batchId);
@@ -998,10 +1005,10 @@ export function BatchDetail() {
               </button>
               <button
                 onClick={handleSubmitForApproval}
-                disabled={!submitForm.preferredDate || isSubmitting}
+                disabled={!submitForm.preferredDate || isSubmitting || verifiedAssets.length === 0}
                 className="px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+                {isSubmitting ? 'Submitting...' : `Submit for Approval (${verifiedAssets.length} verified)`}
               </button>
             </div>
           </motion.div>

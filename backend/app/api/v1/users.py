@@ -15,7 +15,7 @@ from app.services.user_service import UserService
 from app.utils.response import success_response, paginated_response
 
 # Exceptions are handled by middleware - no need to import here
-from app.utils.scoping import get_scoped_filters, auto_fill_context
+from app.utils.scoping import get_scoped_filters, auto_fill_context, can_access_enterprise, is_platform_admin
 
 router = APIRouter()
 
@@ -44,6 +44,8 @@ async def list_users(
     role: Optional[UserRole] = Query(None, description="Filter by role (e.g., employee, it_admin)"),
     status: Optional[UserStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name, email, phone, or employee ID"),
+    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID (platform/enterprise admins only)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -51,7 +53,7 @@ async def list_users(
     List users with optional filters and pagination.
 
     Data is automatically scoped based on user's role:
-    - Super Admin / OPS Admin: All users
+    - Super Admin / OPS Admin: Can filter by enterprise_id/branch_id
     - Org Admin: Users in their enterprise
     - IT Admin: Users in their branch
     - Logistics Admin: Their logistics users
@@ -69,6 +71,14 @@ async def list_users(
 
     # Get scoped filters based on current user's role
     scoped_filters = get_scoped_filters(current_user)
+
+    # Only platform admins can explicitly filter by enterprise/branch
+    # Non-platform admins are locked to their scoped_filters from get_scoped_filters()
+    if is_platform_admin(current_user):
+        if enterprise_id:
+            scoped_filters["enterprise_id"] = enterprise_id
+        if branch_id:
+            scoped_filters["branch_id"] = branch_id
 
     service = UserService(db)
     users, total = await service.list_users(
@@ -97,7 +107,7 @@ async def create_user(
     """
     Create a new user.
 
-    - For employees (role=employee): No password required, uses OTP-based auth
+    - For employees (role=employee): Password defaults to 'password123' if not provided
     - For all other roles: Password is required
 
     Enterprise/branch context is automatically derived from current user's role
@@ -160,6 +170,11 @@ async def list_it_admins_with_branches(
 
     **Permissions:** USER_READ
     """
+    # Verify current user has access to this enterprise
+    if not can_access_enterprise(current_user, enterprise_id):
+        from app.utils.exceptions import AuthorizationError
+        raise AuthorizationError("You don't have access to users from this enterprise")
+
     # Query IT admins for this enterprise
     users_query = (
         select(User)
