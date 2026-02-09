@@ -76,14 +76,14 @@ export function FinancialReports() {
 
   // Calculate metrics from filtered assets
   const completedAssets = useMemo(() => filteredAssets.filter(a => a.status === 'completed'), [filteredAssets]);
-  const totalDisbursed = useMemo(() => completedAssets.reduce((sum, a) => sum + (a.final_price || 0), 0), [completedAssets]);
+  const totalDisbursed = useMemo(() => completedAssets.reduce((sum, a) => sum + (Number(a.final_price) || 0), 0), [completedAssets]);
   const pendingAssets = useMemo(() => filteredAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending'), [filteredAssets]);
-  const pendingPayout = useMemo(() => pendingAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0), [pendingAssets]);
+  const pendingPayout = useMemo(() => pendingAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0), [pendingAssets]);
   const avgAssetValue = completedAssets.length > 0 ? totalDisbursed / completedAssets.length : 0;
 
   // Compute growth percentages by comparing to previous period
   const prevCompleted = useMemo(() => previousPeriodAssets.filter(a => a.status === 'completed'), [previousPeriodAssets]);
-  const prevDisbursed = prevCompleted.reduce((sum, a) => sum + (a.final_price || 0), 0);
+  const prevDisbursed = prevCompleted.reduce((sum, a) => sum + (Number(a.final_price) || 0), 0);
 
   const disbursedGrowth = prevDisbursed > 0
     ? ((totalDisbursed - prevDisbursed) / prevDisbursed) * 100
@@ -125,9 +125,9 @@ export function FinancialReports() {
     return enterprises.map(ent => {
       const enterpriseAssets = filteredAssets.filter(a => a.enterprise_id === ent.id);
       const completed = enterpriseAssets.filter(a => a.status === 'completed');
-      const totalValue = completed.reduce((sum, a) => sum + (a.final_price || 0), 0);
+      const totalValue = completed.reduce((sum, a) => sum + (Number(a.final_price) || 0), 0);
       const pending = enterpriseAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
-      const pendingValue = pending.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+      const pendingValue = pending.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
       return {
         ...ent,

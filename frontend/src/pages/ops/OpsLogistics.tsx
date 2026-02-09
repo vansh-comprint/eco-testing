@@ -56,8 +56,8 @@ export function OpsLogistics() {
     try {
       // Fetch logistics admins and users from REST API
       const [adminsResult, usersResult] = await Promise.all([
-        logisticsApi.listAdmins({ limit: 1000 }),
-        logisticsApi.listUsers({ limit: 1000 }),
+        logisticsApi.listAdmins({ limit: 100 }),
+        logisticsApi.listUsers({ limit: 100 }),
       ]);
 
       const admins: LogisticsAdmin[] = (adminsResult.success && adminsResult.data)

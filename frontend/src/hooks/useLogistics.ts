@@ -40,7 +40,7 @@ export function useLogisticsAdmins() {
   return useQuery({
     queryKey: logisticsKeys.adminsList(),
     queryFn: async () => {
-      const response = await logisticsApi.listAdmins({ limit: 1000 });
+      const response = await logisticsApi.listAdmins({ limit: 100 });
       return response.data || [];
     },
     staleTime: 60000,
@@ -74,7 +74,7 @@ export function useLogisticsUsers(logisticsAdminId?: string) {
     queryFn: async () => {
       const response = await logisticsApi.listUsers({
         logistics_admin_id: logisticsAdminId,
-        limit: 1000,
+        limit: 100,
       });
       return response.data || [];
     },

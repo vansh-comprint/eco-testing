@@ -21,7 +21,7 @@ router = APIRouter()
 @router.get("", response_model=dict)
 async def list_epr_certificates(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     status_filter: Optional[EPRCertificateStatus] = Query(
         None, alias="status", description="Filter by status"
     ),

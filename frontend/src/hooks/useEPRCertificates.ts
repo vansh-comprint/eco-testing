@@ -35,7 +35,7 @@ export function useEPRCertificates(params: { status?: string; search?: string } 
     queryFn: async () => {
       const response = await eprCertificatesApi.list({
         ...params,
-        limit: 1000,
+        limit: 100,
       });
       return response.data ?? [];
     },

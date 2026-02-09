@@ -34,7 +34,7 @@ export function useSubUsers(enterpriseId: string) {
     queryFn: async () => {
       const response = await subUsersApi.list({
         enterprise_id: enterpriseId,
-        limit: 1000,
+        limit: 100,
       });
       return response.data;
     },
@@ -50,7 +50,7 @@ export function useAllSubUsers() {
   return useQuery({
     queryKey: [...subUserKeys.all, 'all'],
     queryFn: async () => {
-      const response = await subUsersApi.list({ limit: 1000 });
+      const response = await subUsersApi.list({ limit: 100 });
       return response.data;
     },
     staleTime: 30000,

@@ -115,7 +115,7 @@ export const usersApi = {
     query.set('enterprise_id', enterpriseId);
     query.set('role', 'it_admin');
     if (status) query.set('status', status);
-    query.set('limit', '1000');
+    query.set('limit', '100');
     return fetchWithAuth<UserResponse[]>(`/users?${query.toString()}`);
   },
 

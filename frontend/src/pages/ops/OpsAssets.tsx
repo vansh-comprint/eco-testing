@@ -76,7 +76,7 @@ export function OpsAssets() {
     // Sort with snake_case
     return [...filtered].sort((a, b) => {
       if (sortBy === 'value') {
-        return (b.final_price || b.base_price || 0) - (a.final_price || a.base_price || 0);
+        return (Number(b.final_price) || Number(b.base_price) || 0) - (Number(a.final_price) || Number(a.base_price) || 0);
       }
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
@@ -232,7 +232,7 @@ export function OpsAssets() {
                     {(assetStatusLabels as Record<string, string>)[asset.status]}
                   </span>
                   <span className="font-mono text-sm font-bold text-ecotribe-primary">
-                    ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
+                    ₹{(Number(asset.final_price) || Number(asset.base_price) || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-2 text-xs">
@@ -326,7 +326,7 @@ export function OpsAssets() {
                       </td>
                       <td className="p-4">
                         <p className="font-mono text-ecotribe-primary">
-                          ₹{(asset.final_price || asset.base_price || 0).toLocaleString()}
+                          ₹{(Number(asset.final_price) || Number(asset.base_price) || 0).toLocaleString()}
                         </p>
                       </td>
                       <td className="p-4">
@@ -417,7 +417,7 @@ export function OpsAssets() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            ₹{(filteredAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0) / 1000).toFixed(0)}K
+            ₹{(filteredAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
           </p>
         </div>
       </motion.div>

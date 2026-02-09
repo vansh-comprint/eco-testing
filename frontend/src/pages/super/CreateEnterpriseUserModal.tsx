@@ -96,7 +96,7 @@ export function CreateEnterpriseUserModal({
   // Fetch active enterprises (only if not pre-filled)
   useEffect(() => {
     const fetchEnterprises = async () => {
-      const result = await enterprisesApi.list({ limit: 1000, status: 'active' });
+      const result = await enterprisesApi.list({ limit: 100, status: 'active' });
       if (result.success && result.data) {
         setEnterprises(result.data.map(e => ({
           id: e.id,
@@ -114,7 +114,7 @@ export function CreateEnterpriseUserModal({
   // Fetch branches when enterprise is selected and role is it_admin
   useEffect(() => {
     const fetchBranches = async (entId: string) => {
-      const result = await branchesApi.list({ enterprise_id: entId, limit: 1000 });
+      const result = await branchesApi.list({ enterprise_id: entId, limit: 100 });
       if (result.success && result.data) {
         setBranches(result.data.map(b => ({
           id: b.id,

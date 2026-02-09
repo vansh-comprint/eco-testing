@@ -37,7 +37,7 @@ export function AllUsers() {
   const fetchAllUsers = async () => {
     setIsLoading(true);
     try {
-      const result = await usersApi.list({ limit: 1000 });
+      const result = await usersApi.list({ limit: 100 });
       if (result.success && result.data) {
         const mappedUsers = result.data.map(u => ({
           id: u.id,

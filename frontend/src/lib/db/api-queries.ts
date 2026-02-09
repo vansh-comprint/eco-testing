@@ -66,12 +66,12 @@ export async function fetchUsersByEnterprise(enterpriseId: string) {
 // ============================================
 
 export async function fetchAllAssets() {
-  const response = await assetsApi.list({ limit: 10000 });
+  const response = await assetsApi.list({ limit: 100 });
   return response.data || [];
 }
 
 export async function fetchAssets(enterpriseId: string) {
-  const response = await assetsApi.list({ enterprise_id: enterpriseId, limit: 10000 });
+  const response = await assetsApi.list({ enterprise_id: enterpriseId, limit: 100 });
   return response.data || [];
 }
 
@@ -97,7 +97,7 @@ export async function fetchAssetsByBatch(batchId: string) {
 export async function fetchAssetsByITAdmin(itAdminId: string) {
   // The backend /assets endpoint already supports filtering by the current user's scope
   // For IT admins, it returns only assets in their assigned branches
-  const response = await assetsApi.list({ limit: 1000 });
+  const response = await assetsApi.list({ limit: 100 });
   return response.data || [];
 }
 
@@ -106,7 +106,7 @@ export async function fetchAssetsByITAdmin(itAdminId: string) {
  */
 export async function fetchSelfAssignedAssets(userId: string) {
   // Self-assigned assets are assets where the user is both the IT admin and the assigned user
-  const response = await assetsApi.list({ limit: 1000 });
+  const response = await assetsApi.list({ limit: 100 });
   const assets = response.data || [];
   // Filter client-side for self-assigned (assigned_to_user_id matches the current user)
   return Array.isArray(assets) ? assets.filter((a: any) => a.assigned_to_user_id === userId) : [];
@@ -116,7 +116,7 @@ export async function fetchSelfAssignedAssets(userId: string) {
  * Fetch pending self-evaluations
  */
 export async function fetchPendingSelfEvaluations(userId: string) {
-  const response = await assetsApi.list({ status: 'pending_evaluation', limit: 1000 });
+  const response = await assetsApi.list({ status: 'pending_evaluation', limit: 100 });
   return response.data || [];
 }
 

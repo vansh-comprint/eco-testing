@@ -119,7 +119,7 @@ export function EnterpriseDetail() {
       }
 
       // Fetch branches for this enterprise
-      const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 1000 });
+      const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 100 });
       if (branchesResult.success && branchesResult.data) {
         const branchMap: Record<string, string> = {};
         branchesResult.data.forEach((b) => {
@@ -129,7 +129,7 @@ export function EnterpriseDetail() {
       }
 
       // Fetch users for this enterprise via REST API
-      const usersResult = await usersApi.list({ enterprise_id: id, limit: 1000 });
+      const usersResult = await usersApi.list({ enterprise_id: id, limit: 100 });
       if (usersResult.success && usersResult.data) {
         // Filter to only org_admin and it_admin roles
         const adminUsers = usersResult.data

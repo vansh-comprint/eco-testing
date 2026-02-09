@@ -33,7 +33,7 @@ export function useEnterpriseApplications(status?: string) {
   return useQuery({
     queryKey: applicationKeys.list(status),
     queryFn: async () => {
-      const response = await enterpriseApplicationsApi.list({ status, limit: 1000 });
+      const response = await enterpriseApplicationsApi.list({ status, limit: 100 });
       return response.data || [];
     },
     staleTime: 30000,
@@ -47,7 +47,7 @@ export function usePendingApplications() {
   return useQuery({
     queryKey: applicationKeys.pending(),
     queryFn: async () => {
-      const response = await enterpriseApplicationsApi.list({ status: 'pending', limit: 1000 });
+      const response = await enterpriseApplicationsApi.list({ status: 'pending', limit: 100 });
       return response.data || [];
     },
     staleTime: 10000, // Refresh more frequently for pending items

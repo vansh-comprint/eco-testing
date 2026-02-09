@@ -213,7 +213,7 @@ export function SuperEnterpriseDetail() {
       }
 
       // Fetch branches for this enterprise
-      const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 1000 });
+      const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 100 });
       if (branchesResult.success && branchesResult.data) {
         const branchMap: Record<string, string> = {};
         branchesResult.data.forEach((b) => {
@@ -223,7 +223,7 @@ export function SuperEnterpriseDetail() {
       }
 
       // Fetch users for this enterprise
-      const usersResult = await usersApi.list({ enterprise_id: id, limit: 1000 });
+      const usersResult = await usersApi.list({ enterprise_id: id, limit: 100 });
       if (usersResult.success && usersResult.data) {
         const adminUsers = usersResult.data
           .filter((u) => u.role === 'org_admin' || u.role === 'it_admin')

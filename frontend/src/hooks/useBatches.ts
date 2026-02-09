@@ -39,7 +39,7 @@ export function useBatches(enterpriseId: string) {
     queryFn: async () => {
       const response = await batchesApi.list({
         enterprise_id: enterpriseId,
-        limit: 1000,
+        limit: 100,
       });
       return response.data;
     },
@@ -55,7 +55,7 @@ export function useAllBatches() {
   return useQuery({
     queryKey: batchKeys.all,
     queryFn: async () => {
-      const response = await batchesApi.list({ limit: 1000 });
+      const response = await batchesApi.list({ limit: 100 });
       return response.data;
     },
     staleTime: 30000,
@@ -85,7 +85,7 @@ export function useBatchesByBranch(branchId: string) {
     queryFn: async () => {
       const response = await batchesApi.list({
         branch_id: branchId,
-        limit: 1000,
+        limit: 100,
       });
       return response.data;
     },
@@ -102,7 +102,7 @@ export function useBatchesByITAdmin(userId: string) {
     queryKey: batchKeys.byITAdmin(userId),
     queryFn: async () => {
       // API handles role-based scoping automatically
-      const response = await batchesApi.list({ limit: 1000 });
+      const response = await batchesApi.list({ limit: 100 });
       return response.data;
     },
     enabled: !!userId,

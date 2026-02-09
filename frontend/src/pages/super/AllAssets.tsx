@@ -66,9 +66,9 @@ export function AllAssets() {
     try {
       // Fetch all data from REST APIs
       const [enterprisesResult, batchesResult, assetsResult] = await Promise.all([
-        enterprisesApi.list({ limit: 1000 }),
-        batchesApi.list({ limit: 1000 }),
-        assetsApi.list({ limit: 1000 }),
+        enterprisesApi.list({ limit: 100 }),
+        batchesApi.list({ limit: 100 }),
+        assetsApi.list({ limit: 100 }),
       ]);
 
       const enterprises: Enterprise[] = (enterprisesResult.success && enterprisesResult.data)

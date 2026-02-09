@@ -17,7 +17,7 @@ export function Analytics() {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users', 'all'],
     queryFn: async () => {
-      const response = await usersApi.list({ limit: 1000 });
+      const response = await usersApi.list({ limit: 100 });
       return response.data || [];
     },
     staleTime: 30000,
@@ -26,7 +26,7 @@ export function Analytics() {
   const isLoading = enterprisesLoading || assetsLoading || usersLoading;
 
   const analyticsData = useMemo(() => {
-    const totalRevenue = assets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+    const totalRevenue = assets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
     return {
       totalEnterprises: enterprises.length,
       totalUsers: users.length,

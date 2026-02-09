@@ -37,7 +37,7 @@ export function EnterpriseList() {
   const getEnterpriseStats = (enterpriseId: string) => {
     const enterpriseAssets = assets.filter(a => a.enterprise_id === enterpriseId);
     const enterpriseBatches = batches.filter(b => b.enterprise_id === enterpriseId);
-    const totalValue = enterpriseAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+    const totalValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
     const pendingCount = enterpriseAssets.filter(a => !['completed', 'final_accepted', 'final_rejected', 'remote_rejected'].includes(a.status)).length;
 
     return {
@@ -108,6 +108,35 @@ export function EnterpriseList() {
               {status === 'all' ? 'All' : status.replace(/_/g, ' ')}
             </button>
           ))}
+        </div>
+      </motion.div>
+
+      {/* Summary Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Enterprises</p>
+          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{enterprises.length}</p>
+        </div>
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Active</p>
+          <p className="font-brand font-bold text-3xl text-emerald-400">
+            {enterprises.filter(e => e.status === 'active').length}
+          </p>
+        </div>
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Assets</p>
+          <p className="font-brand font-bold text-3xl text-blue-400">{assets.length}</p>
+        </div>
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Value</p>
+          <p className="font-brand font-bold text-3xl text-ecotribe-primary">
+            ₹{(assets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
+          </p>
         </div>
       </motion.div>
 
@@ -239,34 +268,6 @@ export function EnterpriseList() {
         </motion.div>
       )}
 
-      {/* Summary Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
-      >
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Enterprises</p>
-          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{enterprises.length}</p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Active</p>
-          <p className="font-brand font-bold text-3xl text-emerald-400">
-            {enterprises.filter(e => e.status === 'active').length}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Assets</p>
-          <p className="font-brand font-bold text-3xl text-blue-400">{assets.length}</p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Value</p>
-          <p className="font-brand font-bold text-3xl text-ecotribe-primary">
-            ₹{(assets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0) / 1000).toFixed(0)}K
-          </p>
-        </div>
-      </motion.div>
     </div>
   );
 }

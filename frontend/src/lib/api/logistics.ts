@@ -178,6 +178,6 @@ export const logisticsApi = {
   /** List available (active) logistics users for assignment */
   listAvailableUsers: (logisticsAdminId: string) =>
     fetchWithAuth<LogisticsUserResponse[]>(
-      `/users?role=logistics_user&status=active&limit=1000`
+      `/users?role=logistics_user&status=active&limit=100`
     ),
 };

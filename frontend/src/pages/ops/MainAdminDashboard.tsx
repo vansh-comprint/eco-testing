@@ -55,7 +55,7 @@ export function MainAdminDashboard() {
   // Calculate total payout value
   const totalPayoutValue = filteredAssets
     .filter(a => a.status === 'completed')
-    .reduce((sum, a) => sum + (a.final_price || 0), 0);
+    .reduce((sum, a) => sum + (Number(a.final_price) || 0), 0);
 
   // Handle clicking on enterprise row
   const handleEnterpriseClick = (enterpriseId: string) => {
@@ -360,7 +360,7 @@ export function MainAdminDashboard() {
                 const enterprisePending = enterpriseAssets.filter(a =>
                   ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
                 ).length;
-                const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+                const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
                 return (
                   <div
@@ -424,7 +424,7 @@ export function MainAdminDashboard() {
                     const enterprisePending = enterpriseAssets.filter(a =>
                       ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
                     ).length;
-                    const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (a.final_price || a.base_price || 0), 0);
+                    const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
                     return (
                       <tr

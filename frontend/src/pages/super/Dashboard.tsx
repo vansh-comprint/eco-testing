@@ -31,13 +31,13 @@ export function SuperAdminDashboard() {
     setLoading(true);
     try {
       // Fetch enterprises
-      const enterprisesResult = await enterprisesApi.list({ limit: 1000 });
+      const enterprisesResult = await enterprisesApi.list({ limit: 100 });
       if (enterprisesResult.success && enterprisesResult.data) {
         setEnterpriseCount(enterprisesResult.data.length);
       }
 
       // Fetch all users count
-      const usersResult = await usersApi.list({ limit: 1000 });
+      const usersResult = await usersApi.list({ limit: 100 });
       if (usersResult.success && usersResult.data) {
         setUserCount(usersResult.data.length);
 

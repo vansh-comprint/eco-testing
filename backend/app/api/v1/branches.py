@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("", response_model=dict)
 async def list_branches(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     status: Optional[BranchStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name, code, or city"),
     enterprise_id: Optional[str] = Query(

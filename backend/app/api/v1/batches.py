@@ -25,7 +25,7 @@ router = APIRouter()
 @router.get("", response_model=dict)
 async def list_batches(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     status: Optional[BatchStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name or description"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
@@ -72,7 +72,7 @@ async def list_batches(
 @router.get("/pending-approval", response_model=dict)
 async def list_pending_approval(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=1000),
+    limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(require_permission(Permission.BATCH_APPROVE)),
     db: AsyncSession = Depends(get_db),
 ):

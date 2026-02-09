@@ -38,7 +38,7 @@ async def get_pricing_config(
 @router.get("/rules", response_model=dict)
 async def list_pricing_rules(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     category: Optional[str] = Query(None, description="Filter by category"),
     brand: Optional[str] = Query(None, description="Filter by brand"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),

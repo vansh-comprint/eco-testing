@@ -35,7 +35,7 @@ export function Admins() {
   const fetchAdmins = async () => {
     setIsLoading(true);
     try {
-      const result = await usersApi.list({ limit: 1000 });
+      const result = await usersApi.list({ limit: 100 });
       if (result.success && result.data) {
         // Filter for admin roles
         const adminRoles = ['super_admin', 'ops_admin'];
