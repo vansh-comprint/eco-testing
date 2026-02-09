@@ -170,6 +170,7 @@ export function useCreateDispute() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -191,6 +192,7 @@ export function useResolveDispute() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

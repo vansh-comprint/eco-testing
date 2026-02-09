@@ -111,6 +111,7 @@ export function useCreateSubUser() {
     },
     onSuccess: (data) => {
       if (data) queryClient.invalidateQueries({ queryKey: subUserKeys.list(data.enterprise_id) });
+      queryClient.invalidateQueries({ queryKey: subUserKeys.all });
     },
   });
 }
@@ -154,6 +155,8 @@ export function useDeleteSubUser() {
     onSuccess: (_, subUserId) => {
       queryClient.removeQueries({ queryKey: subUserKeys.detail(subUserId) });
       queryClient.invalidateQueries({ queryKey: subUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -230,6 +233,7 @@ export function useAssignAsset() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: subUserKeys.detail(variables.subUserId) });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

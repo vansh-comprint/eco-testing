@@ -152,6 +152,7 @@ export function useApproveEnterpriseApplication() {
       queryClient.invalidateQueries({ queryKey: applicationKeys.all });
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -175,6 +176,7 @@ export function useRejectEnterpriseApplication() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: applicationKeys.detail(variables.applicationId) });
       queryClient.invalidateQueries({ queryKey: applicationKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

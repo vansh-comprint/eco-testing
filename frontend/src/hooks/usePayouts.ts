@@ -98,6 +98,9 @@ export function useCreatePayout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -129,6 +132,8 @@ export function useUpdatePayoutStatus() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.detail(variables.payoutId) });
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -155,6 +160,9 @@ export function useCompletePayout() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.detail(variables.payoutId) });
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

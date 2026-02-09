@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30000, // 30 seconds
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
     },
   },
 });

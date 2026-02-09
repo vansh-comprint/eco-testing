@@ -275,6 +275,8 @@ export function useDeleteBranch() {
       queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
     },
   });
 }
@@ -479,6 +481,8 @@ export function useBulkCreateITAdmins() {
       if (variables.length > 0) {
         queryClient.invalidateQueries({ queryKey: itAdminKeys.list(variables[0].enterprise_id) });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(variables[0].enterprise_id) });
+        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: branchKeys.summary(variables[0].enterprise_id) });
       }
     },
   });
@@ -500,6 +504,8 @@ export function useUpdateITAdminStatus() {
       if (data?.enterprise_id) {
         queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
+        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
       }
     },
   });

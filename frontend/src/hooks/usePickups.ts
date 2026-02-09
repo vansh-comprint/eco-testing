@@ -167,6 +167,8 @@ export function useCreatePickupRequest() {
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
         queryClient.refetchQueries({ queryKey: batchKeys.all }),
       ]);
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -191,7 +193,8 @@ export function useUpdatePickupRequest() {
     },
     onSuccess: (data, variables) => {
       queryClient.setQueryData(pickupKeys.detail(variables.requestId), data);
-      queryClient.invalidateQueries({ queryKey: pickupKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -212,6 +215,8 @@ export function useAssignToLogisticsAdmin() {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(pickupKeys.detail(variables.requestId), data);
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -237,6 +242,7 @@ export function useAssignToLogisticsUser() {
       queryClient.setQueryData(pickupKeys.detail(variables.requestId), data);
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -259,6 +265,8 @@ export function useStartPickup() {
         queryClient.refetchQueries({ queryKey: pickupKeys.all }),
         queryClient.refetchQueries({ queryKey: ['logistics'] }),
       ]);
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -284,6 +292,8 @@ export function useCompletePickup() {
         queryClient.refetchQueries({ queryKey: ['logistics'] }),
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
       ]);
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -303,6 +313,10 @@ export function useCancelPickup() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: pickupKeys.detail(variables.requestId) });
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -349,6 +363,8 @@ export function useUpdatePickupStatus() {
         queryClient.refetchQueries({ queryKey: ['logistics'] }),
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
       ]);
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

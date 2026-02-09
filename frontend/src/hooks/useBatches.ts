@@ -173,6 +173,7 @@ export function useCreateBatch() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -197,6 +198,7 @@ export function useUpdateBatch() {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(batchKeys.detail(variables.batchId), data);
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -218,6 +220,8 @@ export function useDeleteBatch() {
     onSuccess: (_, { batchId }) => {
       queryClient.removeQueries({ queryKey: batchKeys.detail(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -256,6 +260,8 @@ export function useSubmitBatchForApproval() {
       queryClient.setQueryData(batchKeys.detail(variables.batchId), data);
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -282,7 +288,9 @@ export function useApproveBatch() {
       queryClient.setQueryData(batchKeys.detail(variables.batchId), data);
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -321,6 +329,7 @@ export function useApproveBatchWithPrices() {
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -347,6 +356,8 @@ export function useRejectBatch() {
       queryClient.setQueryData(batchKeys.detail(variables.batchId), data);
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -365,7 +376,9 @@ export function useAddAssetToBatch() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.batchId) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -384,7 +397,9 @@ export function useRemoveAssetFromBatch() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.batchId) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

@@ -173,6 +173,8 @@ export function useCreateAsset() {
     onSuccess: () => {
       // Invalidate all asset queries (lists, byBatch, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -191,6 +193,8 @@ export function useUpdateAsset() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -208,6 +212,8 @@ export function useDeleteAsset() {
       queryClient.removeQueries({ queryKey: assetKeys.detail(assetId) });
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -225,6 +231,7 @@ export function useAssignAssetToSubUser() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -242,6 +249,7 @@ export function useAssignAssetToSelf() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries including self-assigned
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -258,6 +266,7 @@ export function useUnassignAsset() {
       queryClient.setQueryData(assetKeys.detail(assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -275,6 +284,9 @@ export function useUpdateAssetStatus() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
@@ -289,6 +301,8 @@ export function useBulkCreateAssets() {
     mutationFn: (assets: CreateAssetInput[]) => bulkCreateAssets(assets as unknown as Record<string, unknown>[]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }
