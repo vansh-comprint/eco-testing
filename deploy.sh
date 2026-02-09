@@ -8,6 +8,32 @@ echo "========================================="
 echo "  EcoTribe Deployment"
 echo "========================================="
 
+# --- KILL EXISTING SERVICES ---
+echo ""
+echo "[0/4] Stopping existing services..."
+
+# Kill anything on backend port
+BACKEND_PIDS=$(lsof -ti :2228 2>/dev/null || true)
+if [ -n "$BACKEND_PIDS" ]; then
+    echo "$BACKEND_PIDS" | xargs kill -9 2>/dev/null || true
+    echo "  Killed backend processes on port 2228"
+    sleep 1
+else
+    echo "  No backend running"
+fi
+
+# Kill anything on frontend port
+FRONTEND_PIDS=$(lsof -ti :1228 2>/dev/null || true)
+if [ -n "$FRONTEND_PIDS" ]; then
+    echo "$FRONTEND_PIDS" | xargs kill -9 2>/dev/null || true
+    echo "  Killed frontend processes on port 1228"
+    sleep 1
+else
+    echo "  No frontend running"
+fi
+
+rm -f .backend.pid .frontend.pid
+
 # --- BACKEND ---
 echo ""
 echo "[1/4] Setting up backend..."
