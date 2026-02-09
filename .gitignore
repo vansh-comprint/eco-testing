@@ -6,7 +6,7 @@
 .env
 .env.local
 .env.*.local
-.env.production
+backend/.env.production
 
 # PID files
 .backend.pid

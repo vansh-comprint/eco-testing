@@ -43,13 +43,11 @@ echo ""
 echo "[2/4] Setting up frontend..."
 cd frontend
 
-# The dist/ folder should already be built with production env
-# If not, rebuild:
-if [ ! -d "dist" ]; then
-    echo "  Building frontend..."
-    npm install
-    npm run build -- --mode production
-fi
+# Always rebuild to pick up latest code and production env vars
+echo "  Installing dependencies..."
+npm install --quiet
+echo "  Building frontend (production mode)..."
+npm run build -- --mode production
 
 echo "  Frontend ready."
 cd ..
