@@ -18,9 +18,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit2,
-  Key
+  Save,
+  X,
+  Power,
+  PowerOff,
+  Ban,
 } from 'lucide-react';
-import { PageHeader, Card, Spinner, BulkImportModal } from '@/components/ui';
+import { PageHeader, Card, Spinner, BulkImportModal, ConfirmationModal } from '@/components/ui';
 import type { BulkImportColumn, BulkImportResult } from '@/components/ui';
 import { CreateEnterpriseUserModal, EditUserModal } from '@/pages/super';
 import { enterprisesApi } from '@/lib/api/enterprises';
@@ -28,6 +32,7 @@ import { usersApi } from '@/lib/api/users';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { branchesApi } from '@/lib/api/branches';
 import { glass, text, iconSize } from '@/lib/design-tokens';
+import { useUserRole } from '@/stores/authStoreApi';
 
 interface Enterprise {
   id: string;
@@ -42,6 +47,7 @@ interface Enterprise {
   contactPhone?: string;
   industry?: string;
   employeeCount?: number;
+  companySize?: string;
   createdAt: Date;
 }
 
@@ -65,9 +71,32 @@ interface SubUser {
   status: string;
 }
 
+interface EditForm {
+  name: string;
+  legal_name: string;
+  gst_number: string;
+  pan_number: string;
+  contact_person: string;
+  contact_email: string;
+  contact_phone: string;
+  industry: string;
+  employee_count: string;
+  company_size: string;
+  address_line1: string;
+  address_line2: string;
+  address_city: string;
+  address_state: string;
+  address_pinCode: string;
+  address_country: string;
+}
+
 export function EnterpriseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const userRole = useUserRole();
+  const isSuperAdmin = userRole === 'super_admin';
+  const basePath = isSuperAdmin ? '/super' : '/ops';
+
   const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
   const [admins, setAdmins] = useState<EnterpriseUser[]>([]);
   const [subUsers, setSubUsers] = useState<SubUser[]>([]);
@@ -78,6 +107,20 @@ export function EnterpriseDetail() {
   const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'employee' | null>(null);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<EnterpriseUser | null>(null);
+
+  // Super admin only: edit mode & status management
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm>({
+    name: '', legal_name: '', gst_number: '', pan_number: '',
+    contact_person: '', contact_email: '', contact_phone: '',
+    industry: '', employee_count: '', company_size: '',
+    address_line1: '', address_line2: '', address_city: '',
+    address_state: '', address_pinCode: '', address_country: '',
+  });
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string>('');
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   // Pagination state
   const PAGE_SIZE = 5;
@@ -95,13 +138,12 @@ export function EnterpriseDetail() {
     if (!id) return;
     setIsLoading(true);
     try {
-      // Fetch enterprise via REST API
       const enterpriseResult = await enterprisesApi.get(id);
 
       if (enterpriseResult.success && enterpriseResult.data) {
         const row = enterpriseResult.data;
         const addressData = typeof row.address === 'string' ? JSON.parse(row.address) : row.address;
-        setEnterprise({
+        const ent: Enterprise = {
           id: row.id,
           name: row.name,
           legalName: row.legal_name,
@@ -114,11 +156,33 @@ export function EnterpriseDetail() {
           contactPhone: row.contact_phone,
           industry: row.industry,
           employeeCount: row.employee_count,
+          companySize: row.company_size || row.companySize,
           createdAt: new Date(row.created_at),
+        };
+        setEnterprise(ent);
+
+        // Initialize edit form
+        setEditForm({
+          name: ent.name || '',
+          legal_name: ent.legalName || '',
+          gst_number: ent.gstNumber || '',
+          pan_number: ent.panNumber || '',
+          contact_person: ent.contactPerson || '',
+          contact_email: ent.contactEmail || '',
+          contact_phone: ent.contactPhone || '',
+          industry: ent.industry || '',
+          employee_count: ent.employeeCount?.toString() || '',
+          company_size: ent.companySize || '',
+          address_line1: addressData?.line1 || '',
+          address_line2: addressData?.line2 || '',
+          address_city: addressData?.city || '',
+          address_state: addressData?.state || '',
+          address_pinCode: addressData?.pinCode || '',
+          address_country: addressData?.country || 'India',
         });
       }
 
-      // Fetch branches for this enterprise
+      // Fetch branches
       const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 100 });
       if (branchesResult.success && branchesResult.data) {
         const branchMap: Record<string, string> = {};
@@ -128,10 +192,9 @@ export function EnterpriseDetail() {
         setBranches(branchMap);
       }
 
-      // Fetch users for this enterprise via REST API
+      // Fetch users
       const usersResult = await usersApi.list({ enterprise_id: id, limit: 100 });
       if (usersResult.success && usersResult.data) {
-        // Filter to only org_admin and it_admin roles
         const adminUsers = usersResult.data
           .filter((u) => u.role === 'org_admin' || u.role === 'it_admin')
           .map((u) => ({
@@ -145,7 +208,6 @@ export function EnterpriseDetail() {
           }));
         setAdmins(adminUsers);
 
-        // Sub-users (employees)
         const subUsersList = usersResult.data
           .filter((u) => u.role === 'employee' || u.role === 'sub_user')
           .map((u) => ({
@@ -172,7 +234,7 @@ export function EnterpriseDetail() {
 
   const handleUserCreated = () => {
     setIsUserModalOpen(false);
-    fetchEnterpriseDetails(); // Refresh the user list
+    fetchEnterpriseDetails();
   };
 
   const itAdminBulkColumns: BulkImportColumn[] = [
@@ -223,6 +285,57 @@ export function EnterpriseDetail() {
     }
   };
 
+  // Super admin: save enterprise edits
+  const handleSaveEnterprise = async () => {
+    if (!id || !enterprise) return;
+    setIsSaving(true);
+    try {
+      const updateData: Record<string, unknown> = {
+        name: editForm.name,
+        legal_name: editForm.legal_name || undefined,
+        gst_number: editForm.gst_number || undefined,
+        pan_number: editForm.pan_number || undefined,
+        contact_person: editForm.contact_person || undefined,
+        contact_email: editForm.contact_email || undefined,
+        contact_phone: editForm.contact_phone || undefined,
+        industry: editForm.industry || undefined,
+        employee_count: editForm.employee_count ? parseInt(editForm.employee_count) : undefined,
+        company_size: editForm.company_size || undefined,
+        address: {
+          line1: editForm.address_line1,
+          line2: editForm.address_line2,
+          city: editForm.address_city,
+          state: editForm.address_state,
+          pinCode: editForm.address_pinCode,
+          country: editForm.address_country,
+        },
+      };
+      await enterprisesApi.update(id, updateData as any);
+      setIsEditing(false);
+      fetchEnterpriseDetails();
+    } catch (error) {
+      console.error('Failed to update enterprise:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Super admin: status change
+  const handleStatusChange = async () => {
+    if (!id || !pendingStatus) return;
+    setIsChangingStatus(true);
+    try {
+      await enterprisesApi.update(id, { status: pendingStatus });
+      setShowStatusModal(false);
+      setPendingStatus('');
+      fetchEnterpriseDetails();
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    } finally {
+      setIsChangingStatus(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -238,7 +351,7 @@ export function EnterpriseDetail() {
         <h2 className={`font-brand font-bold text-xl mb-2 ${text.primary}`}>Enterprise Not Found</h2>
         <p className={`${text.muted} mb-6`}>The enterprise you're looking for doesn't exist.</p>
         <button
-          onClick={() => navigate('/ops/enterprises')}
+          onClick={() => navigate(`${basePath}/enterprises`)}
           className="px-4 py-2 bg-lime-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-lime-400 transition-all"
         >
           Back to Enterprises
@@ -268,12 +381,15 @@ export function EnterpriseDetail() {
   const getStatusBadge = (status: string) => {
     if (status === 'active') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400';
     if (status === 'inactive') return 'border-slate-400/30 bg-slate-400/10 text-slate-400';
+    if (status === 'suspended') return 'border-red-400/30 bg-red-400/10 text-red-400';
     return 'border-amber-400/30 bg-amber-400/10 text-amber-400';
   };
 
-  // Separate org_admin and it_admin
   const orgAdmins = admins.filter(u => u.role === 'org_admin');
   const itAdmins = admins.filter(u => u.role === 'it_admin');
+
+  const inputClasses = "w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-ecotribe-primary focus:outline-none transition-colors";
+  const labelClasses = `font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`;
 
   return (
     <div className="space-y-6">
@@ -283,13 +399,73 @@ export function EnterpriseDetail() {
         title={enterprise.name}
         subtitle={`Registered on ${enterprise.createdAt.toLocaleDateString()}`}
         actions={
-          <button
-            onClick={() => navigate('/ops/enterprises')}
-            className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
-          >
-            <ArrowLeft className={iconSize.sm} />
-            Back
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Super Admin: Edit / Save / Cancel */}
+            {isSuperAdmin && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 border border-blue-400/30 bg-blue-400/10 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
+              >
+                <Edit2 className={iconSize.sm} />
+                Edit
+              </button>
+            )}
+            {isSuperAdmin && isEditing && (
+              <>
+                <button
+                  onClick={handleSaveEnterprise}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-lime-400 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Save className={iconSize.sm} />
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
+                >
+                  <X className={iconSize.sm} />
+                  Cancel
+                </button>
+              </>
+            )}
+            {/* Super Admin: Status buttons */}
+            {isSuperAdmin && !isEditing && enterprise.status === 'active' && (
+              <>
+                <button
+                  onClick={() => { setPendingStatus('suspended'); setShowStatusModal(true); }}
+                  className="px-4 py-2 border border-red-400/30 bg-red-400/5 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-400/20 transition-all flex items-center gap-2"
+                >
+                  <Ban className={iconSize.sm} />
+                  Suspend
+                </button>
+                <button
+                  onClick={() => { setPendingStatus('inactive'); setShowStatusModal(true); }}
+                  className="px-4 py-2 border border-amber-400/30 bg-amber-400/5 text-amber-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400/20 transition-all flex items-center gap-2"
+                >
+                  <PowerOff className={iconSize.sm} />
+                  Deactivate
+                </button>
+              </>
+            )}
+            {isSuperAdmin && !isEditing && (enterprise.status === 'inactive' || enterprise.status === 'suspended') && (
+              <button
+                onClick={() => { setPendingStatus('active'); setShowStatusModal(true); }}
+                className="px-4 py-2 border border-emerald-400/30 bg-emerald-400/5 text-emerald-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-emerald-400/20 transition-all flex items-center gap-2"
+              >
+                <Power className={iconSize.sm} />
+                Activate
+              </button>
+            )}
+            {/* Back button */}
+            <button
+              onClick={() => navigate(`${basePath}/enterprises`)}
+              className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className={iconSize.sm} />
+              Back
+            </button>
+          </div>
         }
       />
 
@@ -311,108 +487,178 @@ export function EnterpriseDetail() {
               <span className={`px-3 py-1 border font-mono font-bold text-xs uppercase tracking-widest ${getStatusBadge(enterprise.status)}`}>
                 {enterprise.status === 'active' && <CheckCircle className="w-3 h-3 inline mr-1" />}
                 {enterprise.status === 'pending_verification' && <Clock className="w-3 h-3 inline mr-1" />}
+                {enterprise.status === 'suspended' && <Ban className="w-3 h-3 inline mr-1" />}
                 {enterprise.status}
               </span>
             </div>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-4">
-                {enterprise.legalName && (
+            {isEditing && isSuperAdmin ? (
+              /* Edit Mode (Super Admin only) */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
                   <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Legal Name
-                    </label>
-                    <p className={`font-display text-sm ${text.primary}`}>{enterprise.legalName}</p>
+                    <label className={labelClasses}>Company Name</label>
+                    <input className={inputClasses} value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} />
                   </div>
-                )}
-                {enterprise.gstNumber && (
                   <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      GST Number
-                    </label>
-                    <p className={`font-mono text-sm ${text.primary}`}>{enterprise.gstNumber}</p>
+                    <label className={labelClasses}>Legal Name</label>
+                    <input className={inputClasses} value={editForm.legal_name} onChange={(e) => setEditForm(f => ({ ...f, legal_name: e.target.value }))} />
                   </div>
-                )}
-                {enterprise.panNumber && (
                   <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      PAN Number
-                    </label>
-                    <p className={`font-mono text-sm ${text.primary}`}>{enterprise.panNumber}</p>
+                    <label className={labelClasses}>GST Number</label>
+                    <input className={inputClasses} value={editForm.gst_number} onChange={(e) => setEditForm(f => ({ ...f, gst_number: e.target.value }))} />
                   </div>
-                )}
-                {enterprise.industry && (
                   <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Industry
-                    </label>
-                    <p className={`font-display text-sm ${text.primary}`}>{enterprise.industry}</p>
+                    <label className={labelClasses}>PAN Number</label>
+                    <input className={inputClasses} value={editForm.pan_number} onChange={(e) => setEditForm(f => ({ ...f, pan_number: e.target.value }))} />
                   </div>
-                )}
-                {enterprise.employeeCount && (
                   <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Employee Count
-                    </label>
-                    <p className={`font-display text-sm ${text.primary}`}>{enterprise.employeeCount}</p>
+                    <label className={labelClasses}>Industry</label>
+                    <input className={inputClasses} value={editForm.industry} onChange={(e) => setEditForm(f => ({ ...f, industry: e.target.value }))} />
                   </div>
-                )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Employee Count</label>
+                      <input className={inputClasses} type="number" value={editForm.employee_count} onChange={(e) => setEditForm(f => ({ ...f, employee_count: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Company Size</label>
+                      <input className={inputClasses} value={editForm.company_size} onChange={(e) => setEditForm(f => ({ ...f, company_size: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className={labelClasses}>Contact Person</label>
+                    <input className={inputClasses} value={editForm.contact_person} onChange={(e) => setEditForm(f => ({ ...f, contact_person: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Contact Email</label>
+                    <input className={inputClasses} type="email" value={editForm.contact_email} onChange={(e) => setEditForm(f => ({ ...f, contact_email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Contact Phone</label>
+                    <input className={inputClasses} value={editForm.contact_phone} onChange={(e) => setEditForm(f => ({ ...f, contact_phone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Address Line 1</label>
+                    <input className={inputClasses} value={editForm.address_line1} onChange={(e) => setEditForm(f => ({ ...f, address_line1: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Address Line 2</label>
+                    <input className={inputClasses} value={editForm.address_line2} onChange={(e) => setEditForm(f => ({ ...f, address_line2: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>City</label>
+                      <input className={inputClasses} value={editForm.address_city} onChange={(e) => setEditForm(f => ({ ...f, address_city: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>State</label>
+                      <input className={inputClasses} value={editForm.address_state} onChange={(e) => setEditForm(f => ({ ...f, address_state: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>PIN Code</label>
+                      <input className={inputClasses} value={editForm.address_pinCode} onChange={(e) => setEditForm(f => ({ ...f, address_pinCode: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Country</label>
+                      <input className={inputClasses} value={editForm.address_country} onChange={(e) => setEditForm(f => ({ ...f, address_country: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
               </div>
+            ) : (
+              /* View Mode (Both roles) */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column */}
+                <div className="space-y-4">
+                  {enterprise.legalName && (
+                    <div>
+                      <label className={labelClasses}>Legal Name</label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.legalName}</p>
+                    </div>
+                  )}
+                  {enterprise.gstNumber && (
+                    <div>
+                      <label className={labelClasses}>GST Number</label>
+                      <p className={`font-mono text-sm ${text.primary}`}>{enterprise.gstNumber}</p>
+                    </div>
+                  )}
+                  {enterprise.panNumber && (
+                    <div>
+                      <label className={labelClasses}>PAN Number</label>
+                      <p className={`font-mono text-sm ${text.primary}`}>{enterprise.panNumber}</p>
+                    </div>
+                  )}
+                  {enterprise.industry && (
+                    <div>
+                      <label className={labelClasses}>Industry</label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.industry}</p>
+                    </div>
+                  )}
+                  {enterprise.employeeCount && (
+                    <div>
+                      <label className={labelClasses}>Employee Count</label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.employeeCount}</p>
+                    </div>
+                  )}
+                  {enterprise.companySize && (
+                    <div>
+                      <label className={labelClasses}>Company Size</label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.companySize}</p>
+                    </div>
+                  )}
+                </div>
 
-              {/* Right Column */}
-              <div className="space-y-4">
-                {enterprise.contactPerson && (
-                  <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Contact Person
-                    </label>
-                    <p className={`font-display text-sm ${text.primary}`}>{enterprise.contactPerson}</p>
-                  </div>
-                )}
-                {enterprise.contactEmail && (
-                  <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Email
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Mail className={`${iconSize.sm} ${text.muted}`} />
-                      <p className={`font-mono text-sm ${text.primary}`}>{enterprise.contactEmail}</p>
+                {/* Right Column */}
+                <div className="space-y-4">
+                  {enterprise.contactPerson && (
+                    <div>
+                      <label className={labelClasses}>Contact Person</label>
+                      <p className={`font-display text-sm ${text.primary}`}>{enterprise.contactPerson}</p>
                     </div>
-                  </div>
-                )}
-                {enterprise.contactPhone && (
-                  <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Phone
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Phone className={`${iconSize.sm} ${text.muted}`} />
-                      <p className={`font-mono text-sm ${text.primary}`}>{enterprise.contactPhone}</p>
+                  )}
+                  {enterprise.contactEmail && (
+                    <div>
+                      <label className={labelClasses}>Email</label>
+                      <div className="flex items-center gap-2">
+                        <Mail className={`${iconSize.sm} ${text.muted}`} />
+                        <p className={`font-mono text-sm ${text.primary}`}>{enterprise.contactEmail}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {enterprise.address && (
-                  <div>
-                    <label className={`font-mono text-xs uppercase tracking-widest ${text.muted} mb-1 block`}>
-                      Address
-                    </label>
-                    <div className="flex items-start gap-2">
-                      <MapPin className={`${iconSize.sm} ${text.muted} mt-0.5`} />
-                      <p className={`font-display text-sm ${text.primary}`}>
-                        {enterprise.address.line1}
-                        {enterprise.address.line2 && `, ${enterprise.address.line2}`}
-                        <br />
-                        {enterprise.address.city}, {enterprise.address.state} {enterprise.address.pinCode}
-                        <br />
-                        {enterprise.address.country}
-                      </p>
+                  )}
+                  {enterprise.contactPhone && (
+                    <div>
+                      <label className={labelClasses}>Phone</label>
+                      <div className="flex items-center gap-2">
+                        <Phone className={`${iconSize.sm} ${text.muted}`} />
+                        <p className={`font-mono text-sm ${text.primary}`}>{enterprise.contactPhone}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                  {enterprise.address && (
+                    <div>
+                      <label className={labelClasses}>Address</label>
+                      <div className="flex items-start gap-2">
+                        <MapPin className={`${iconSize.sm} ${text.muted} mt-0.5`} />
+                        <p className={`font-display text-sm ${text.primary}`}>
+                          {enterprise.address.line1}
+                          {enterprise.address.line2 && `, ${enterprise.address.line2}`}
+                          <br />
+                          {enterprise.address.city}, {enterprise.address.state} {enterprise.address.pinCode}
+                          <br />
+                          {enterprise.address.country}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </Card>
       </motion.div>
@@ -772,6 +1018,34 @@ export function EnterpriseDetail() {
             { value: 'org_admin', label: 'Org Admin' },
             { value: 'it_admin', label: 'IT Admin' },
           ]}
+        />
+      )}
+
+      {/* Status Change Confirmation Modal (Super Admin only) */}
+      {showStatusModal && (
+        <ConfirmationModal
+          isOpen={showStatusModal}
+          onClose={() => { setShowStatusModal(false); setPendingStatus(''); }}
+          onConfirm={handleStatusChange}
+          title={
+            pendingStatus === 'active' ? 'Activate Enterprise' :
+            pendingStatus === 'suspended' ? 'Suspend Enterprise' :
+            'Deactivate Enterprise'
+          }
+          description={
+            pendingStatus === 'active'
+              ? `Activate "${enterprise.name}"? This will restore access for all users.`
+              : pendingStatus === 'suspended'
+              ? `Suspend "${enterprise.name}"? Users will lose access immediately.`
+              : `Deactivate "${enterprise.name}"? This will restrict access for all users.`
+          }
+          confirmText={
+            pendingStatus === 'active' ? 'Activate' :
+            pendingStatus === 'suspended' ? 'Suspend' :
+            'Deactivate'
+          }
+          variant={pendingStatus === 'active' ? 'info' : 'danger'}
+          isLoading={isChangingStatus}
         />
       )}
     </div>

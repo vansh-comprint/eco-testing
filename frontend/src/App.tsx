@@ -24,10 +24,11 @@ import { LoginPage, PendingApproval, EnterpriseRegister } from '@/pages/auth';
 import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, EmployeeList, EmployeeDetail, EmployeeInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
 import { ReviewDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/review';
-import { MainAdminDashboard, EnterpriseList, EnterpriseDetail, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, PickupQueue, OpsLogistics, OpsBranches, EnterpriseApplications, OpsSettings } from '@/pages/ops';
+import { MainAdminDashboard, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, OpsBranches, EnterpriseApplications, OpsSettings } from '@/pages/ops';
+import { EnterpriseList, EnterpriseDetail, LogisticsManagement, PickupQueue } from '@/pages/shared';
 // V3: Org Admin pages
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite, EnterpriseAssets, EnterpriseBatches, EnterpriseEmployees, EnterprisePickups, EnterpriseDisputes, OrgAdminSettings } from '@/pages/org-admin';
-import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Enterprises, Admins, Logistics, Pickups as SuperPickups, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
+import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Admins, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
 import { PrivacyPolicy, TermsOfService, CookiePolicy } from '@/pages/legal/LegalPage';
 import { LogisticsAdminDashboard, LogisticsAssignmentQueue, LogisticsUserManagement } from '@/pages/logistics-admin';
 import { LogisticsAssignments } from '@/pages/logistics-user';
@@ -295,7 +296,7 @@ function AppRoutes() {
             <Route path="assets/:assetId" element={<AssetDetail />} />
             <Route path="payouts" element={<PayoutProcessing />} />
             <Route path="disputes" element={<OpsDisputes />} />
-            <Route path="logistics" element={<OpsLogistics />} />
+            <Route path="logistics" element={<LogisticsManagement />} />
             <Route path="qc" element={<QCQueue />} />
             <Route path="qc/:assetId" element={<FacilityQC />} />
             <Route path="settings" element={<OpsSettings />} />
@@ -394,14 +395,15 @@ function AppRoutes() {
           >
             <Route index element={<SuperAdminDashboard />} />
             <Route path="applications" element={<EnterpriseApplications />} />
-            <Route path="enterprises" element={<Enterprises />} />
+            <Route path="enterprises" element={<EnterpriseList />} />
             <Route path="enterprises/create" element={<CreateEnterprise />} />
+            <Route path="enterprises/:id" element={<EnterpriseDetail />} />
             <Route path="assets" element={<AllAssets />} />
             <Route path="assets/:assetId" element={<AssetDetail />} />
             <Route path="users" element={<AllUsers />} />
             <Route path="admins" element={<Admins />} />
-            <Route path="logistics" element={<Logistics />} />
-            <Route path="pickups" element={<SuperPickups />} />
+            <Route path="logistics" element={<LogisticsManagement />} />
+            <Route path="pickups" element={<PickupQueue />} />
             <Route path="pricing" element={<Pricing />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<SuperSettings />} />

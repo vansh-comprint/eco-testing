@@ -26,7 +26,7 @@ export function usePayouts(enterpriseId: string) {
   return useQuery({
     queryKey: payoutKeys.list(enterpriseId),
     queryFn: async () => {
-      const response = await payoutsApi.list();
+      const response = await payoutsApi.list({ limit: 1000 });
       if (!response.success) throw new Error(response.error?.message || 'Failed to fetch payouts');
       return response.data || [];
     },
@@ -42,7 +42,7 @@ export function useAllPayouts() {
   return useQuery({
     queryKey: payoutKeys.all,
     queryFn: async () => {
-      const response = await payoutsApi.list();
+      const response = await payoutsApi.list({ limit: 1000 });
       if (!response.success) throw new Error(response.error?.message || 'Failed to fetch payouts');
       return response.data || [];
     },

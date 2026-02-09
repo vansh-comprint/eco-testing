@@ -1,11 +1,17 @@
+/**
+ * Shared Logistics Management Page
+ * Used by both Super Admin and OPS Admin portals
+ * Based on OPS Admin version (uses dedicated logisticsApi)
+ */
+
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Truck, Search, ArrowLeft, ChevronDown, ChevronRight, Mail, Phone, Edit2, UserPlus } from 'lucide-react';
+import { Truck, Search, ChevronDown, ChevronRight, Mail, Phone, Edit2, UserPlus } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
 import { CreateLogisticsAdminModal, CreateLogisticsUserModal, EditUserModal } from '@/pages/super';
-import { usersApi } from '@/lib/api/users';
-import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
+import { logisticsApi } from '@/lib/api/logistics';
+import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
+import { useUserRole } from '@/stores/authStoreApi';
 
 interface LogisticsAdmin {
   id: string;
@@ -25,7 +31,6 @@ interface LogisticsUser {
   role: string;
   status: string;
   created_at: string;
-  // logistics_admin_id would link user to admin in real implementation
 }
 
 interface LogisticsAdminWithUsers {
@@ -34,8 +39,11 @@ interface LogisticsAdminWithUsers {
   expanded: boolean;
 }
 
-export function Logistics() {
-  const navigate = useNavigate();
+export function LogisticsManagement() {
+  const userRole = useUserRole();
+  const isSuperAdmin = userRole === 'super_admin';
+  const headerLabel = isSuperAdmin ? 'Super Admin' : 'Operations';
+
   const [logisticsData, setLogisticsData] = useState<LogisticsAdminWithUsers[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,24 +60,42 @@ export function Logistics() {
   const fetchLogisticsData = async () => {
     setIsLoading(true);
     try {
-      console.log('🚚 Fetching logistics data...');
+      const [adminsResult, usersResult] = await Promise.all([
+        logisticsApi.listAdmins({ limit: 100 }),
+        logisticsApi.listUsers({ limit: 100 }),
+      ]);
 
-      // Fetch logistics admins from unified users table with role filter
-      const adminsResponse = await usersApi.list({ role: 'logistics_admin', limit: 100 });
-      const admins = (adminsResponse as any).data || [];
+      const admins: LogisticsAdmin[] = (adminsResult.success && adminsResult.data)
+        ? adminsResult.data.map(a => ({
+            id: a.id,
+            email: a.email,
+            name: a.name || a.contact_person,
+            phone: a.phone,
+            role: 'logistics_admin',
+            status: a.status,
+            created_at: a.created_at,
+          }))
+        : [];
 
-      // Fetch logistics users from unified users table with role filter
-      const usersResponse = await usersApi.list({ role: 'logistics_user', limit: 100 });
-      const allUsers = (usersResponse as any).data || [];
+      const allUsers: (LogisticsUser & { parent_user_id?: string })[] = (usersResult.success && usersResult.data)
+        ? usersResult.data.map(u => ({
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            phone: u.phone,
+            role: 'logistics_user',
+            status: u.status,
+            created_at: u.created_at,
+            parent_user_id: (u as any).parent_user_id,
+          }))
+        : [];
 
-      // Group users by their parent_user_id (logistics_admin)
-      const grouped: LogisticsAdminWithUsers[] = admins.map((admin: LogisticsAdmin) => ({
+      const grouped: LogisticsAdminWithUsers[] = admins.map(admin => ({
         admin,
-        users: allUsers.filter((user: any) => user.parent_user_id === admin.id),
+        users: allUsers.filter(user => user.parent_user_id === admin.id),
         expanded: false,
       }));
 
-      console.log(`✅ Found ${admins.length} logistics admins and ${allUsers.length} logistics users`);
       setLogisticsData(grouped);
     } catch (error) {
       console.error('Error fetching logistics data:', error);
@@ -105,26 +131,17 @@ export function Logistics() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        label="Super Admin"
+        label={headerLabel}
         title="Logistics Management"
         subtitle={`${totalAdmins} logistics admins, ${totalUsers} field users`}
         actions={
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => setIsLogisticsAdminModalOpen(true)}
-              leftIcon={<Truck className={iconSize.sm} />}
-            >
-              Add Logistics Admin
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            onClick={() => setIsLogisticsAdminModalOpen(true)}
+            leftIcon={<Truck className={iconSize.sm} />}
+          >
+            Add Logistics Admin
+          </Button>
         }
       />
 
@@ -198,10 +215,11 @@ export function Logistics() {
                   className={`p-6 bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-900/10 dark:to-transparent border-b border-slate-200/80 dark:border-zinc-800 ${hoverStyles.card} cursor-pointer`}
                   onClick={() => toggleExpand(item.admin.id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                       <button
-                        className={`p-2 hover:bg-amber-500/10 transition-colors ${text.muted} hover:text-amber-500`}
+                        type="button"
+                        className={`p-2 hover:bg-amber-500/10 transition-colors ${text.muted} hover:text-amber-500 flex-shrink-0`}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleExpand(item.admin.id);
@@ -213,23 +231,25 @@ export function Logistics() {
                           <ChevronRight className={iconSize.md} />
                         )}
                       </button>
-                      <div className="w-12 h-12 border border-amber-500/30 dark:border-amber-400/20 bg-amber-50/80 dark:bg-amber-500/10 flex items-center justify-center font-brand font-bold text-amber-700 dark:text-amber-400">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 border border-amber-500/30 dark:border-amber-400/20 bg-amber-50/80 dark:bg-amber-500/10 flex items-center justify-center font-brand font-bold text-amber-700 dark:text-amber-400 flex-shrink-0 text-sm sm:text-base">
                         {item.admin.name?.split(' ').map(n => n[0]).join('').toUpperCase() || item.admin.email[0].toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <p className={`font-display text-lg font-bold uppercase ${text.primary}`}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                          <p className={`font-display text-base sm:text-lg font-bold uppercase truncate ${text.primary}`}>
                             {item.admin.name || 'Logistics Admin'}
                           </p>
-                          <Badge variant="warning" size="sm">Logistics Admin</Badge>
-                          <Badge variant={item.admin.status === 'active' ? 'success' : 'default'} size="sm">
-                            {item.admin.status}
-                          </Badge>
+                          <div className="flex gap-1.5">
+                            <Badge variant="warning" size="sm">Logistics Admin</Badge>
+                            <Badge variant={item.admin.status === 'active' ? 'success' : 'default'} size="sm">
+                              {item.admin.status}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 mt-1">
+                        <div className="flex items-center gap-4 mt-1 flex-wrap">
                           <div className="flex items-center gap-2">
                             <Mail className={`${iconSize.xs} ${text.muted}`} />
-                            <p className={`font-mono text-xs ${text.muted}`}>{item.admin.email}</p>
+                            <p className={`font-mono text-xs ${text.muted} truncate`}>{item.admin.email}</p>
                           </div>
                           {item.admin.phone && (
                             <div className="flex items-center gap-2">
@@ -240,12 +260,13 @@ export function Logistics() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
                       <div className="text-right">
                         <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Field Users</p>
                         <p className={`font-brand text-xl font-bold ${text.primary}`}>{item.users.length}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedUser(item.admin);
@@ -274,6 +295,7 @@ export function Logistics() {
                         Field Users ({item.users.length})
                       </p>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedLogisticsAdminId(item.admin.id);
@@ -299,7 +321,7 @@ export function Logistics() {
                             className={`p-4 flex items-center justify-between ${hoverStyles.row}`}
                           >
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 border border-blue-500/30 dark:border-blue-400/20 bg-blue-50/80 dark:bg-blue-500/10 flex items-center justify-center font-brand font-bold text-blue-700 dark:text-blue-400 text-sm ml-16">
+                              <div className="w-10 h-10 border border-blue-500/30 dark:border-blue-400/20 bg-blue-50/80 dark:bg-blue-500/10 flex items-center justify-center font-brand font-bold text-blue-700 dark:text-blue-400 text-sm ml-0 sm:ml-16">
                                 {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || user.email[0].toUpperCase()}
                               </div>
                               <div>
@@ -327,6 +349,7 @@ export function Logistics() {
                               </div>
                             </div>
                             <button
+                              type="button"
                               onClick={() => {
                                 setSelectedUser(user);
                                 setIsEditUserModalOpen(true);

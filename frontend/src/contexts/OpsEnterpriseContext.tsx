@@ -71,3 +71,8 @@ export function useOpsEnterprise() {
   }
   return context;
 }
+
+/** Safe version that returns null when outside OpsEnterpriseProvider (e.g. Super Admin portal) */
+export function useOptionalOpsEnterprise() {
+  return useContext(OpsEnterpriseContext) ?? null;
+}

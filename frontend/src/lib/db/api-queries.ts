@@ -19,7 +19,7 @@ import {
 // ============================================
 
 export async function fetchEnterprises() {
-  const response = await enterprisesApi.list();
+  const response = await enterprisesApi.list({ limit: 100 });
   return response.data || [];
 }
 
@@ -47,7 +47,7 @@ export async function fetchEnterpriseApplicationById(id: string) {
 // ============================================
 
 export async function fetchAllUsers() {
-  const response = await usersApi.list();
+  const response = await usersApi.list({ limit: 1000 });
   return response.data || [];
 }
 
@@ -57,7 +57,7 @@ export async function fetchUserById(userId: string) {
 }
 
 export async function fetchUsersByEnterprise(enterpriseId: string) {
-  const response = await usersApi.list({ enterprise_id: enterpriseId });
+  const response = await usersApi.list({ enterprise_id: enterpriseId, limit: 1000 });
   return response.data || [];
 }
 
@@ -209,12 +209,12 @@ export async function bulkCreateAssets(assets: Array<Record<string, unknown>>) {
 // ============================================
 
 export async function fetchAllBatches() {
-  const response = await batchesApi.list();
+  const response = await batchesApi.list({ limit: 1000 });
   return response.data || [];
 }
 
 export async function fetchBatches(enterpriseId: string) {
-  const response = await batchesApi.list({ enterprise_id: enterpriseId });
+  const response = await batchesApi.list({ enterprise_id: enterpriseId, limit: 1000 });
   return response.data || [];
 }
 
@@ -247,12 +247,12 @@ export async function fetchBranchById(branchId: string) {
 // ============================================
 
 export async function fetchAllPickupRequests() {
-  const response = await pickupsApi.list();
+  const response = await pickupsApi.list({ limit: 1000 });
   return response.data || [];
 }
 
 export async function fetchPickupRequests(enterpriseId: string) {
-  const response = await pickupsApi.list({ enterprise_id: enterpriseId });
+  const response = await pickupsApi.list({ enterprise_id: enterpriseId, limit: 1000 });
   return response.data || [];
 }
 

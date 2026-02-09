@@ -41,8 +41,8 @@ export function Enterprises() {
   const fetchEnterprises = async () => {
     setIsLoading(true);
     try {
-      // Fetch all enterprises via REST API
-      const response = await enterprisesApi.list();
+      // Fetch all enterprises via REST API (high limit to get all, not just default 10)
+      const response = await enterprisesApi.list({ limit: 100 });
 
       if (response.data) {
         const enterprises: Enterprise[] = response.data.map((row: any) => ({

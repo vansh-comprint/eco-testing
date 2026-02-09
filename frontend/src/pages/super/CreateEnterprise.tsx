@@ -348,11 +348,11 @@ export function CreateEnterprise() {
         duration: 5000,
       });
 
-      // Navigate back
-      if ((currentUser?.role as string) === 'ops_admin' || (currentUser?.role as string) === 'ops_admin') {
+      // Navigate back to enterprise list
+      if ((currentUser?.role as string) === 'ops_admin') {
         navigate('/ops/enterprises');
       } else {
-        navigate('/super');
+        navigate('/super/enterprises');
       }
     } catch (error) {
       console.error('Error creating enterprise:', error);
@@ -656,7 +656,7 @@ export function CreateEnterprise() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => navigate(currentUser?.role === 'ops_admin' ? '/ops/enterprises' : '/super')}
+              onClick={() => navigate(currentUser?.role === 'ops_admin' ? '/ops/enterprises' : '/super/enterprises')}
               disabled={isSubmitting}
             >
               Cancel

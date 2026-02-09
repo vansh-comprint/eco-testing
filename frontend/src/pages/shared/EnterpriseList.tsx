@@ -11,18 +11,30 @@ import {
   MapPin,
   CheckCircle,
   Clock,
-  Laptop
+  Laptop,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 import { useAllAssets, useEnterprises, useAllBatches } from '@/hooks';
+import { useUserRole } from '@/stores/authStoreApi';
+import { enterprisesApi } from '@/lib/api/enterprises';
+import { ConfirmationModal } from '@/components/ui';
 
 export function EnterpriseList() {
   const navigate = useNavigate();
-  // V3: Use React Query hooks for database data
+  const userRole = useUserRole();
+  const isSuperAdmin = userRole === 'super_admin';
+  const basePath = isSuperAdmin ? '/super' : '/ops';
+
   const { data: assets = [] } = useAllAssets();
-  const { data: enterprises = [] } = useEnterprises();
+  const { data: enterprises = [], refetch: refetchEnterprises } = useEnterprises();
   const { data: batches = [] } = useAllBatches();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Status change state (super admin only)
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{ id: string; name: string; newStatus: string } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   // Filter enterprises
   const filteredEnterprises = enterprises
@@ -33,7 +45,6 @@ export function EnterpriseList() {
     )
     .filter(e => statusFilter === 'all' || e.status === statusFilter);
 
-  // V3: Use snake_case field names from database
   const getEnterpriseStats = (enterpriseId: string) => {
     const enterpriseAssets = assets.filter(a => a.enterprise_id === enterpriseId);
     const enterpriseBatches = batches.filter(b => b.enterprise_id === enterpriseId);
@@ -46,6 +57,20 @@ export function EnterpriseList() {
       totalValue,
       pendingCount,
     };
+  };
+
+  const handleStatusChange = async () => {
+    if (!statusChangeTarget) return;
+    setIsChangingStatus(true);
+    try {
+      await enterprisesApi.update(statusChangeTarget.id, { status: statusChangeTarget.newStatus });
+      refetchEnterprises();
+    } catch (error) {
+      console.error('Failed to update enterprise status:', error);
+    } finally {
+      setIsChangingStatus(false);
+      setStatusChangeTarget(null);
+    }
   };
 
   return (
@@ -70,7 +95,7 @@ export function EnterpriseList() {
         <motion.button
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          onClick={() => navigate('/ops/enterprises/create')}
+          onClick={() => navigate(`${basePath}/enterprises/create`)}
           className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -235,14 +260,32 @@ export function EnterpriseList() {
                   </div>
                 </div>
 
-                <div className="p-4 border-t border-slate-200 dark:border-white/10">
+                <div className="p-4 border-t border-slate-200 dark:border-white/10 flex gap-2">
                   <button
-                    onClick={() => navigate(`/ops/enterprises/${enterprise.id}`)}
-                    className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
+                    onClick={() => navigate(`${basePath}/enterprises/${enterprise.id}`)}
+                    className="flex-1 interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
                   >
                     View Details
                     <ArrowRight className="w-4 h-4" />
                   </button>
+                  {isSuperAdmin && enterprise.status === 'active' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'inactive' }); }}
+                      className="px-3 py-2.5 border border-red-400/30 bg-red-400/5 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-400/20 transition-all flex items-center gap-1.5"
+                      title="Deactivate"
+                    >
+                      <PowerOff className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {isSuperAdmin && enterprise.status === 'inactive' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'active' }); }}
+                      className="px-3 py-2.5 border border-emerald-400/30 bg-emerald-400/5 text-emerald-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-emerald-400/20 transition-all flex items-center gap-1.5"
+                      title="Activate"
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             );
@@ -268,6 +311,19 @@ export function EnterpriseList() {
         </motion.div>
       )}
 
+      {/* Status Change Confirmation Modal (Super Admin only) */}
+      {statusChangeTarget && (
+        <ConfirmationModal
+          isOpen={!!statusChangeTarget}
+          onClose={() => setStatusChangeTarget(null)}
+          onConfirm={handleStatusChange}
+          title={statusChangeTarget.newStatus === 'active' ? 'Activate Enterprise' : 'Deactivate Enterprise'}
+          description={`Are you sure you want to ${statusChangeTarget.newStatus === 'active' ? 'activate' : 'deactivate'} "${statusChangeTarget.name}"? ${statusChangeTarget.newStatus === 'inactive' ? 'This will restrict access for all users in this enterprise.' : 'This will restore access for all users.'}`}
+          confirmText={statusChangeTarget.newStatus === 'active' ? 'Activate' : 'Deactivate'}
+          variant={statusChangeTarget.newStatus === 'active' ? 'info' : 'warning'}
+          isLoading={isChangingStatus}
+        />
+      )}
     </div>
   );
 }

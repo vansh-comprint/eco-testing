@@ -9,10 +9,10 @@ export { EditUserModal } from './EditUserModal';
 export { AddUserModal } from './AddUserModal';
 export { AllAssets } from './AllAssets';
 export { AllUsers } from './AllUsers';
-export { Enterprises } from './Enterprises';
+// Enterprises moved to @/pages/shared/EnterpriseList (shared with OPS Admin)
 export { Admins } from './Admins';
-export { Logistics } from './Logistics';
-export { Pickups } from './Pickups';
+// Logistics moved to @/pages/shared/LogisticsManagement (shared with OPS Admin)
+// Pickups moved to @/pages/shared/PickupQueue (shared with OPS Admin)
 export { Pricing } from './Pricing';
 export { Analytics } from './Analytics';
 export { Settings } from './Settings';

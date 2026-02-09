@@ -22,10 +22,11 @@ import {
   ChevronUp,
   Pencil,
 } from 'lucide-react';
-import { useAuth, useITAdmins, useITAdminBranches, useBranches, useCreateITAdmin, useUpdateITAdmin, useUpdateITAdminStatus } from '@/hooks';
+import { useAuth, useITAdmins, useITAdminBranches, useBranches, useUpdateITAdmin, useUpdateITAdminStatus } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { USER_STATUS_DISPLAY } from '@/lib/status-display';
 import { ConfirmationModal } from '@/components/ui';
+import { AddITAdminModal } from './AddITAdminModal';
 
 type ITAdminStatus = 'active' | 'inactive';
 
@@ -56,7 +57,7 @@ export function ITAdminManagement() {
 
   const { data: itAdmins = [], isLoading } = useITAdmins(enterpriseId);
   const { data: itAdminBranches = [] } = useITAdminBranches(enterpriseId);
-  const createITAdmin = useCreateITAdmin();
+
   const updateITAdmin = useUpdateITAdmin();
   const updateStatus = useUpdateITAdminStatus();
 
@@ -415,16 +416,11 @@ export function ITAdminManagement() {
         </p>
       )}
 
-      {/* Add IT Admin Modal - V3.2: No branch assignment (done via BranchManagement) */}
+      {/* Add IT Admin Modal — shared component with optional branch selector */}
       <AddITAdminModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        enterpriseId={enterpriseId}
-        onSubmit={async (data) => {
-          await createITAdmin.mutateAsync(data);
-          setIsAddModalOpen(false);
-        }}
-        isLoading={createITAdmin.isPending}
+        onSuccess={() => setIsAddModalOpen(false)}
       />
 
       {/* Edit IT Admin Modal */}
@@ -489,176 +485,6 @@ function StatBox({
         <span className={`${highlight ? 'text-amber-500' : 'text-slate-500 dark:text-zinc-500'} group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors`}>{icon}</span>
       </div>
       <div className={`font-brand font-bold text-3xl ${highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>{value}</div>
-    </div>
-  );
-}
-
-// Add IT Admin Modal - with branch selector
-function AddITAdminModal({
-  isOpen,
-  onClose,
-  enterpriseId,
-  onSubmit,
-  isLoading
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  enterpriseId: string;
-  onSubmit: (data: any) => Promise<void>;
-  isLoading: boolean;
-}) {
-  const { data: branches = [] } = useBranches(enterpriseId);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    branch_id: '',
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-    if (!formData.name.trim() || formData.name.trim().length < 2) {
-      errors.name = 'Name must be at least 2 characters';
-    }
-    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Valid email address is required';
-    }
-    if (!formData.password || formData.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    }
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    await onSubmit({
-      enterprise_id: enterpriseId,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || undefined,
-      password: formData.password,
-      branch_id: formData.branch_id || undefined,
-    });
-    setFormData({ name: '', email: '', phone: '', password: '', branch_id: '' });
-    setFormErrors({});
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md shadow-xl"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
-          <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Add IT Admin</h2>
-          <button type="button" onClick={onClose} className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
-            <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Full Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value })); setFormErrors(prev => ({ ...prev, name: '' })); }}
-              placeholder="John Doe"
-              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
-            />
-            {formErrors.name && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.name}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Email Address *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => { setFormData(prev => ({ ...prev, email: e.target.value })); setFormErrors(prev => ({ ...prev, email: '' })); }}
-              placeholder="john@company.com"
-              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
-            />
-            {formErrors.email && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.email}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Password *</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => { setFormData(prev => ({ ...prev, password: e.target.value })); setFormErrors(prev => ({ ...prev, password: '' })); }}
-              placeholder="Min. 8 characters"
-              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.password ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
-            />
-            {formErrors.password && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.password}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Phone Number</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+91 9876543210"
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">
-              Assign to Branch
-            </label>
-            <select
-              value={formData.branch_id}
-              onChange={(e) => { setFormData(prev => ({ ...prev, branch_id: e.target.value })); setFormErrors(prev => ({ ...prev, branch_id: '' })); }}
-              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 appearance-none select-themed cursor-pointer ${formErrors.branch_id ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
-            >
-              <option value="">Select a branch...</option>
-              {branches.map((branch: any) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name} {branch.branch_code ? `(${branch.branch_code})` : ''}
-                </option>
-              ))}
-            </select>
-            {formErrors.branch_id && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.branch_id}</p>}
-            {branches.length === 0 && (
-              <p className="mt-1 text-xs text-amber-500 font-mono">
-                No branches found. Create a branch first in Branch Management.
-              </p>
-            )}
-          </div>
-
-          <p className="text-xs text-slate-500 dark:text-white/50 font-mono">
-            Branch assignment is optional. You can assign branches later via Branch Management.
-          </p>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
-            >
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Add IT Admin
-            </button>
-          </div>
-        </form>
-      </motion.div>
     </div>
   );
 }

@@ -357,10 +357,8 @@ class UserService:
             if not user_data.enterprise_id:
                 raise ValidationError("Employee must be assigned to an enterprise")
 
-        # IT Admin must have branch_id and enterprise_id
+        # IT Admin must have enterprise_id (branch_id is optional - can be assigned later)
         elif role == UserRole.IT_ADMIN:
-            if not user_data.branch_id:
-                raise ValidationError("IT Admin must be assigned to a branch")
             if not user_data.enterprise_id:
                 raise ValidationError("IT Admin must be assigned to an enterprise")
 

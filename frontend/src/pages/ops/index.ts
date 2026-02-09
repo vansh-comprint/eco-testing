@@ -5,13 +5,12 @@
 
 export { MainAdminDashboard } from './MainAdminDashboard';
 export { EnterpriseApplications } from './EnterpriseApplications';
-export { EnterpriseList } from './EnterpriseList';
-export { EnterpriseDetail } from './EnterpriseDetail';
+// EnterpriseList and EnterpriseDetail moved to @/pages/shared (shared with Super Admin)
 export { OpsAssets } from './OpsAssets';
 export { OpsDisputes } from './OpsDisputes';
 export { PayoutProcessing } from './PayoutProcessing';
-export { PickupQueue } from './PickupQueue';
+// PickupQueue moved to @/pages/shared (shared with Super Admin)
 export { RemoteReviewQueue } from './RemoteReviewQueue';
-export { OpsLogistics } from './OpsLogistics';
+// OpsLogistics moved to @/pages/shared/LogisticsManagement (shared with Super Admin)
 export { OpsBranches } from './OpsBranches';
 export { OpsSettings } from './OpsSettings';
