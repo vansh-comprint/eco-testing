@@ -16,8 +16,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { Badge } from '@/components/ui';
-import { useAuth, usePickupRequests, usePickupsByITAdmin, useAssets, useAssetsByITAdmin } from '@/hooks';
+import { Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useAuth, useInfinitePickups } from '@/hooks';
 // PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
@@ -55,45 +55,41 @@ export function PickupRequests() {
   // V3: Use React Query hook for auth
   const { enterprise, user } = useAuth();
   const enterpriseId = enterprise?.id || '';
-  const userId = user?.id || '';
 
   // Determine if org admin context
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
-  // V3.2: React Query hooks - use different hooks based on role
-  const { data: orgPickups = [], isLoading: orgPickupsLoading } = usePickupRequests(isOrgAdmin ? enterpriseId : '');
-  const { data: itPickups = [], isLoading: itPickupsLoading } = usePickupsByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
-  const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
-
-  const pickupRequests = isOrgAdmin ? orgPickups : itPickups;
-  const requestsLoading = isOrgAdmin ? orgPickupsLoading : itPickupsLoading;
-  const assets = isOrgAdmin ? orgAssets : itAssets;
-  const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
-
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  // Calculate stats from data
-  const stats = useMemo(() => {
-    const readyForPickup = assets.filter(a => a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted').length;
-    const requested = pickupRequests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
-    const scheduled = pickupRequests.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
-    const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
-    const completed = pickupRequests.filter(r => r.status === 'completed').length;
-    const exceptions = pickupRequests.filter(r => r.status === 'failed' || r.status === 'cancelled').length;
+  // Build server-side params
+  const apiParams = useMemo(() => {
+    const params: Record<string, string | undefined> = {};
+    if (statusFilter) params.status = statusFilter;
+    if (enterpriseId) params.enterprise_id = enterpriseId;
+    return params;
+  }, [statusFilter, enterpriseId]);
 
-    return { readyForPickup, requested, scheduled, inProgress, completed, exceptions };
-  }, [pickupRequests, assets]);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfinitePickups(apiParams);
 
-  // Filter requests
+  // Flatten pages into a single pickup list
+  const allPickups = useMemo(
+    () => data?.pages.flatMap(p => p.data ?? []) ?? [],
+    [data]
+  );
+
+  const totalCount = data?.pages[0]?.pagination?.total ?? 0;
+
+  // Client-side search (pickups API doesn't support search param)
   const filteredRequests = useMemo(() => {
-    let result = [...pickupRequests];
-
-    if (statusFilter) {
-      result = result.filter(r => r.status === statusFilter);
-    }
+    let result = [...allPickups];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -113,19 +109,30 @@ export function PickupRequests() {
     result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return result;
-  }, [pickupRequests, statusFilter, searchQuery]);
+  }, [allPickups, searchQuery]);
+
+  // Calculate stats from loaded data
+  const stats = useMemo(() => {
+    const requested = allPickups.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
+    const scheduled = allPickups.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
+    const inProgress = allPickups.filter(r => r.status === 'in_progress').length;
+    const completed = allPickups.filter(r => r.status === 'completed').length;
+    const exceptions = allPickups.filter(r => r.status === 'failed' || r.status === 'cancelled').length;
+
+    return { requested, scheduled, inProgress, completed, exceptions };
+  }, [allPickups]);
 
   // V3.2: Get branch name from joined data
-  const getBranchName = (request: typeof pickupRequests[0]) => {
+  const getBranchName = (request: typeof allPickups[0]) => {
     return request.branches?.branch_name || 'Unknown Branch';
   };
 
-  const getBranchCity = (request: typeof pickupRequests[0]) => {
+  const getBranchCity = (request: typeof allPickups[0]) => {
     return request.branches?.city || '';
   };
 
   // Loading state
-  if (requestsLoading || assetsLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -148,7 +155,9 @@ export function PickupRequests() {
           <h1 className="font-brand font-bold text-3xl md:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
             Pickup Requests
           </h1>
-          <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">Track and monitor device pickup requests</p>
+          <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
+            {totalCount} total pickup requests
+          </p>
         </motion.div>
       </div>
 
@@ -157,14 +166,8 @@ export function PickupRequests() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
       >
-        <StatBox
-          label="Ready"
-          value={stats.readyForPickup}
-          icon={<Package className="w-4 h-4" />}
-          highlight={stats.readyForPickup > 0}
-        />
         <StatBox
           label="Requested"
           value={stats.requested}
@@ -337,6 +340,16 @@ export function PickupRequests() {
           </div>
         )}
       </motion.div>
+
+      <InfiniteScrollTrigger
+        hasNextPage={!!hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
+      <InfiniteScrollInfo
+        loadedCount={allPickups.length}
+        totalCount={totalCount}
+      />
 
       {/* Info Banner */}
       <div className="p-4 border border-blue-400/20 bg-blue-400/5">

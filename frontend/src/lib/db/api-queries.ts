@@ -201,7 +201,8 @@ export async function bulkCreateAssets(assets: Array<Record<string, unknown>>) {
   };
   const response = await assetsApi.createBulk(payload as any);
   if (!response.success) throw new Error(response.error?.message || 'Failed to bulk create assets');
-  return response.data || [];
+  // Return full bulk response with created, errors, counts
+  return response.data || { created: [], errors: [], created_count: 0, error_count: 0 };
 }
 
 // ============================================

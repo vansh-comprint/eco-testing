@@ -89,5 +89,8 @@ export { BranchSelector } from './BranchSelector';
 export { BulkImportModal } from './BulkImportModal';
 export type { BulkImportColumn, BulkImportResult } from './BulkImportModal';
 
+// InfiniteScroll
+export { InfiniteScrollTrigger, InfiniteScrollInfo } from './InfiniteScroll';
+
 // ErrorBoundary
 export { ErrorBoundary } from './ErrorBoundary';

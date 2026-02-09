@@ -23,9 +23,12 @@ class AssetRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_by_serial_number(self, serial_number: str) -> Optional[Asset]:
-        """Get asset by serial number"""
-        result = await self.db.execute(select(Asset).where(Asset.serial_number == serial_number))
+    async def get_by_serial_number(self, serial_number: str, enterprise_id: str | None = None) -> Optional[Asset]:
+        """Get asset by serial number, optionally scoped to an enterprise"""
+        query = select(Asset).where(Asset.serial_number == serial_number)
+        if enterprise_id:
+            query = query.where(Asset.enterprise_id == enterprise_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_all(

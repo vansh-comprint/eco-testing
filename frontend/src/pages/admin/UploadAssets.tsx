@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Upload, Info, AlertTriangle } from 'lucide-react';
-import { CSVUpload, type BulkUploadMetadata } from '@/components/assets';
+import { CSVUpload, type BulkUploadMetadata, type BulkUploadResult } from '@/components/assets';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { usersApi } from '@/lib/api/users';
@@ -67,7 +67,7 @@ export function UploadAssets() {
   const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || undefined;
   const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
 
-  const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata) => {
+  const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata): Promise<BulkUploadResult | void> => {
     if (!enterprise || !user) return;
 
     // Step 1: Collect unique emails and check if they are IT Admins first
@@ -180,15 +180,19 @@ export function UploadAssets() {
     });
 
     // Step 5: Create all assets
-    const createdAssets = await bulkCreateAssetsMutation.mutateAsync(assetsWithAssignments);
+    const bulkResult = await bulkCreateAssetsMutation.mutateAsync(assetsWithAssignments);
 
     // Count IT Admin assignments for tracking
     const itAdminAssignments = assetsWithAssignments.filter(a => a.assigned_to_user_id).length;
 
-    // Step 6: Bulk upload tracking metadata
-    // TODO: Add bulk_uploads REST API endpoint when needed for audit trail
-    // For now, upload tracking is handled via the created assets themselves
-    console.info(`Bulk upload complete: ${createdAssets.length} assets created, ${newSubUsers.length} users created, ${itAdminAssignments} IT admin assignments`);
+    console.info(`Bulk upload: ${bulkResult.created_count} created, ${bulkResult.error_count} errors, ${newSubUsers.length} users created, ${itAdminAssignments} IT admin assignments`);
+
+    // Return result so CSVUpload can display partial failure info
+    return {
+      created_count: bulkResult.created_count,
+      error_count: bulkResult.error_count,
+      errors: bulkResult.errors,
+    };
   };
 
   if (!enterprise) {

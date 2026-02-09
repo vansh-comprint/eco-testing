@@ -3,12 +3,13 @@
  * Handles the new registration workflow: Apply -> Review -> Approve/Reject
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   enterpriseApplicationsApi,
   type EnterpriseApplicationResponse,
   type EnterpriseApplicationCreateRequest,
   type EnterpriseApplicationUpdateDocsRequest,
+  type EnterpriseApplicationListParams,
 } from '@/lib/api/applications';
 import { filesApi } from '@/lib/api/files';
 
@@ -17,6 +18,7 @@ export const applicationKeys = {
   all: ['enterpriseApplications'] as const,
   lists: () => [...applicationKeys.all, 'list'] as const,
   list: (status?: string) => [...applicationKeys.lists(), status] as const,
+  infinite: (params: Record<string, unknown>) => [...applicationKeys.all, 'infinite', params] as const,
   details: () => [...applicationKeys.all, 'detail'] as const,
   detail: (id: string) => [...applicationKeys.details(), id] as const,
   pending: () => [...applicationKeys.all, 'pending'] as const,
@@ -65,6 +67,27 @@ export function useEnterpriseApplication(applicationId: string) {
       return response.data;
     },
     enabled: !!applicationId,
+  });
+}
+
+/**
+ * Infinite scroll hook - loads enterprise applications 5 at a time via REST API
+ */
+export function useInfiniteEnterpriseApplications(params: Omit<EnterpriseApplicationListParams, 'skip' | 'limit'> = {}) {
+  return useInfiniteQuery({
+    queryKey: applicationKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await enterpriseApplicationsApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      return res;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
+    staleTime: 10000,
   });
 }
 

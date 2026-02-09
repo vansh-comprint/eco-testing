@@ -88,6 +88,13 @@ export interface AssetBulkCreateRequest {
   assets: AssetCreateRequest[];
 }
 
+export interface AssetBulkCreateResponse {
+  created: AssetResponse[];
+  errors: { index: number; serial_number: string; error: string }[];
+  created_count: number;
+  error_count: number;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -114,7 +121,7 @@ export const assetsApi = {
     }),
 
   createBulk: (data: AssetBulkCreateRequest) =>
-    fetchWithAuth<AssetResponse[]>('/assets/bulk', {
+    fetchWithAuth<AssetBulkCreateResponse>('/assets/bulk', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

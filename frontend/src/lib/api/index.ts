@@ -83,6 +83,7 @@ export type {
   AssetCreateRequest,
   AssetUpdateRequest,
   AssetBulkCreateRequest,
+  AssetBulkCreateResponse,
 } from './assets';
 
 // Batches

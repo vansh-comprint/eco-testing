@@ -18,10 +18,11 @@ import {
   Trash2,
   TrendingUp,
   Truck,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
-import { Badge, Dropdown, useToast } from '@/components/ui';
-import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch } from '@/hooks';
+import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
@@ -59,19 +60,35 @@ export function AssetList() {
   const itBranchCtx = useContext(ITAdminBranchContext);
   const orgBranchCtx = useOrgBranchSafe();
   const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
+  const isOrgAllBranches = isOrgAdmin && (orgBranchCtx?.isAllBranches ?? true);
 
-  // V3.2: React Query hooks - use different hooks based on role
-  // Only enable the appropriate queries to avoid unnecessary requests
-  const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
-  const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
+  // V4: Infinite scroll for assets — server-side pagination + filtering
+  const infiniteApiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
+    // IT admins: backend auto-scopes, no explicit enterprise_id needed
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
+    return params;
+  }, [isOrgAdmin, enterpriseId, activeBranchFilter]);
+
+  const {
+    data: infiniteData,
+    isLoading: assetsLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteAssets(infiniteApiParams);
+
+  // Flatten infinite pages into a single array
+  const assets = useMemo(() => infiniteData?.pages.flatMap(p => p.data || []) ?? [], [infiniteData]);
+  const totalAssetCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
+
   const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
   const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
   const { data: subUsers = [] } = useSubUsers(enterpriseId); // Sub-users remain enterprise-wide
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
   const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
 
-  const assets = isOrgAdmin ? orgAssets : itAssets;
-  const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
   const batches = isOrgAdmin ? orgBatches : itBatches;
   const batchesLoading = isOrgAdmin ? orgBatchesLoading : itBatchesLoading;
   const branches = isOrgAdmin ? orgBranches : itBranches;
@@ -109,11 +126,8 @@ export function AssetList() {
   const enterpriseSubUsers = subUsers;
   const enterpriseBatches = batches;
 
-  // Apply branch filter to assets for stats and filtering
-  const enterpriseAssets = useMemo(() => {
-    if (activeBranchFilter) return assets.filter(a => a.branch_id === activeBranchFilter);
-    return assets;
-  }, [assets, activeBranchFilter]);
+  // Assets are already branch-filtered via server-side API params
+  const enterpriseAssets = assets;
 
   const batchOptions = [
     { label: 'All Batches', value: '' },
@@ -174,7 +188,7 @@ export function AssetList() {
   }, [enterpriseAssets, searchQuery, statusFilter, batchFilter, branchFilter, sortBy]);
 
   const stats = {
-    total: enterpriseAssets.length,
+    total: totalAssetCount,
     pending: enterpriseAssets.filter(a => a.status === 'pending_assignment').length,
     // V3.2: Ready for pickup includes both ready_for_pickup and conditionally_accepted
     readyForPickup: enterpriseAssets.filter(a =>
@@ -397,22 +411,31 @@ export function AssetList() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex gap-3"
+          className="flex gap-3 items-center"
         >
-          <button
-            onClick={() => navigate(`${basePath}/assets/upload`)}
-            className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all flex items-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            Upload CSV
-          </button>
-          <button
-            onClick={() => navigate(`${basePath}/assets/new`)}
-            className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Asset
-          </button>
+          {isOrgAllBranches ? (
+            <div className="flex items-center gap-2 px-4 py-2 border border-blue-400/20 bg-blue-400/5 text-blue-400 font-mono text-xs">
+              <Info className="w-4 h-4 flex-shrink-0" />
+              Select a specific branch to add assets
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate(`${basePath}/assets/upload`)}
+                className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Upload CSV
+              </button>
+              <button
+                onClick={() => navigate(`${basePath}/assets/new`)}
+                className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Asset
+              </button>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -747,33 +770,41 @@ export function AssetList() {
                 : 'Add your first asset to get started'}
             </p>
             {!searchQuery && !statusFilter && !batchFilter && !branchFilter && (
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => navigate(`${basePath}/assets/upload`)}
-                  className="interactive px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload CSV
-                </button>
-                <button
-                  onClick={() => navigate(`${basePath}/assets/new`)}
-                  className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white dark:hover:bg-white transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Asset
-                </button>
-              </div>
+              isOrgAllBranches ? (
+                <div className="flex items-center gap-2 justify-center px-4 py-2 border border-blue-400/20 bg-blue-400/5 text-blue-400 font-mono text-xs">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  Select a specific branch to add assets
+                </div>
+              ) : (
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => navigate(`${basePath}/assets/upload`)}
+                    className="interactive px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload CSV
+                  </button>
+                  <button
+                    onClick={() => navigate(`${basePath}/assets/new`)}
+                    className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white dark:hover:bg-white transition-all flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Asset
+                  </button>
+                </div>
+              )
             )}
           </div>
         )}
       </motion.div>
 
-      {/* Results count */}
-      {filteredAssets.length > 0 && (
-        <p className="font-mono text-xs text-slate-500 dark:text-zinc-600 text-center uppercase tracking-widest">
-          Showing {filteredAssets.length} of {enterpriseAssets.length} assets
-        </p>
-      )}
+      {/* Infinite Scroll Controls */}
+      <InfiniteScrollInfo loadedCount={assets.length} totalCount={totalAssetCount} />
+      <InfiniteScrollTrigger
+        hasNextPage={!!hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
 
       {/* Bulk Assign Modal */}
       {showBulkAssignModal && (

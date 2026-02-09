@@ -54,6 +54,7 @@ class AssetUpdate(BaseModel):
     asset_tag: Optional[str] = Field(None, max_length=50)
     specs: Optional[Dict[str, Any]] = None
     purchase_date: Optional[date] = None
+    branch_id: Optional[str] = None
     batch_id: Optional[str] = None
     assigned_to_user_id: Optional[str] = None
     status: Optional[AssetStatus] = None

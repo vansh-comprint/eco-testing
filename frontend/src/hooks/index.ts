@@ -14,6 +14,7 @@ export { useApiError } from './useApiError';
 export {
   useAssets,
   useAllAssets,
+  useInfiniteAssets,
   useAsset,
   useAssetsByBranch,
   useAssetsByBatch,
@@ -35,6 +36,7 @@ export {
 export {
   useBatches,
   useAllBatches,
+  useInfiniteBatches,
   useBatch,
   useBatchesByBranch,
   useBatchesByITAdmin,
@@ -96,6 +98,7 @@ export {
   usePickupRequest,
   usePickupLocations,
   useAllPickupRequests,
+  useInfinitePickups,
   usePendingPickups,
   useMyAssignments,
   usePickupsByITAdmin,
@@ -136,6 +139,7 @@ export {
 // Enterprise Applications (V3 new)
 export {
   useEnterpriseApplications,
+  useInfiniteEnterpriseApplications,
   usePendingApplications,
   useEnterpriseApplication,
   useCreateEnterpriseApplication,
@@ -152,6 +156,7 @@ export {
 // Enterprises (V3 - for OPS Admin portal)
 export {
   useEnterprises,
+  useInfiniteEnterprises,
   useEnterprise,
   useUpdateEnterprise,
   useUpdateEnterpriseStatus,

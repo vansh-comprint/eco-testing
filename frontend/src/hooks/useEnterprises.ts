@@ -3,7 +3,7 @@
  * Used by OPS Admin to view and manage all enterprises
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchEnterprises,
   fetchEnterpriseById,
@@ -14,6 +14,7 @@ import { enterprisesApi } from '@/lib/api';
 export const enterpriseKeys = {
   all: ['enterprises'] as const,
   lists: () => [...enterpriseKeys.all, 'list'] as const,
+  infinite: (params: Record<string, unknown>) => [...enterpriseKeys.all, 'infinite', params] as const,
   details: () => [...enterpriseKeys.all, 'detail'] as const,
   detail: (id: string) => [...enterpriseKeys.details(), id] as const,
 };
@@ -29,6 +30,27 @@ export function useEnterprises() {
   return useQuery({
     queryKey: enterpriseKeys.lists(),
     queryFn: () => fetchEnterprises(),
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Fetch enterprises with infinite scroll (server-side pagination)
+ */
+export function useInfiniteEnterprises(params: Record<string, string | undefined> = {}) {
+  return useInfiniteQuery({
+    queryKey: enterpriseKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await enterprisesApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      return res;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
     staleTime: 30000,
   });
 }

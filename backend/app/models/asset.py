@@ -1,6 +1,6 @@
 """Asset model for IT devices"""
 
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Numeric, JSON
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Numeric, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 
@@ -60,6 +60,9 @@ class Asset(BaseModel):
     """
 
     __tablename__ = "assets"
+    __table_args__ = (
+        UniqueConstraint("enterprise_id", "serial_number", name="uq_assets_enterprise_serial"),
+    )
 
     # Primary Key
     id = Column(String, primary_key=True, index=True)
@@ -80,7 +83,7 @@ class Asset(BaseModel):
     )
 
     # Device Identification
-    serial_number = Column(String, unique=True, nullable=False, index=True)
+    serial_number = Column(String, nullable=False, index=True)
     brand = Column(String, nullable=False)
     model = Column(String, nullable=False)
     asset_tag = Column(String, nullable=True)

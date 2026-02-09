@@ -3,7 +3,7 @@
  * All asset data fetching and mutations
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import {
   fetchAssets,
   fetchAllAssets,
@@ -22,6 +22,8 @@ import {
   updateAssetStatus,
   bulkCreateAssets,
 } from '@/lib/db/api-queries';
+import { assetsApi } from '@/lib/api';
+import type { AssetListParams } from '@/lib/api/assets';
 
 // Query keys for cache management
 export const assetKeys = {
@@ -33,6 +35,7 @@ export const assetKeys = {
   byITAdmin: (userId: string) => [...assetKeys.all, 'it-admin', userId] as const,
   selfAssigned: (userId: string) => [...assetKeys.all, 'self-assigned', userId] as const,
   pendingEvaluations: (userId: string) => [...assetKeys.all, 'pending-evaluations', userId] as const,
+  infinite: (params: Record<string, unknown>) => [...assetKeys.all, 'infinite', params] as const,
   details: () => [...assetKeys.all, 'detail'] as const,
   detail: (id: string) => [...assetKeys.details(), id] as const,
 };
@@ -133,6 +136,28 @@ export function usePendingSelfEvaluations(userId: string) {
     queryFn: () => fetchPendingSelfEvaluations(userId),
     enabled: !!userId,
     staleTime: 10000, // Refresh more frequently for pending items
+  });
+}
+
+/**
+ * Infinite scroll hook - loads assets 5 at a time via REST API
+ * Server-side filtering via params (status, search, branch_id, etc.)
+ */
+export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'> = {}) {
+  return useInfiniteQuery({
+    queryKey: assetKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await assetsApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      return res;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
+    staleTime: 30000,
   });
 }
 
@@ -292,17 +317,19 @@ export function useUpdateAssetStatus() {
 }
 
 /**
- * Bulk create assets
+ * Bulk create assets — returns { created, errors, created_count, error_count }
  */
 export function useBulkCreateAssets() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (assets: CreateAssetInput[]) => bulkCreateAssets(assets as unknown as Record<string, unknown>[]),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+    onSuccess: (result) => {
+      if (result.created_count > 0) {
+        queryClient.invalidateQueries({ queryKey: assetKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['batches'] });
+        queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      }
     },
   });
 }

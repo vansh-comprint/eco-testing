@@ -27,12 +27,12 @@ import {
 import {
   useAuth,
   useApiError,
-  useEnterpriseApplications,
+  useInfiniteEnterpriseApplications,
   useApproveEnterpriseApplication,
   useRejectEnterpriseApplication,
   useRequestMoreInfo,
 } from '@/hooks';
-import { ConfirmationModal, useToast } from '@/components/ui';
+import { ConfirmationModal, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'more_info_requested' | 'all';
@@ -71,15 +71,26 @@ export function EnterpriseApplications() {
   const { handleError, showSuccess } = useApiError();
   const { addToast } = useToast();
 
-  // V3: React Query hooks for data fetching and mutations
-  const { data: applications = [], isLoading } = useEnterpriseApplications();
-  const approveMutation = useApproveEnterpriseApplication();
-  const rejectMutation = useRejectEnterpriseApplication();
-  const requestInfoMutation = useRequestMoreInfo();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>('pending');
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
+
+  // V3: React Query hooks for data fetching and mutations
+  // Pass status as server-side filter ('pending' includes more_info_requested client-side, 'all' = no filter)
+  const apiStatus = statusFilter === 'all' || statusFilter === 'pending' ? undefined : statusFilter;
+  const {
+    data: infiniteData,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteEnterpriseApplications(apiStatus ? { status: apiStatus } : {});
+
+  const applications = infiniteData?.pages.flatMap(p => p.data || []) ?? [];
+  const totalCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
+  const approveMutation = useApproveEnterpriseApplication();
+  const rejectMutation = useRejectEnterpriseApplication();
+  const requestInfoMutation = useRequestMoreInfo();
   const [decision, setDecision] = useState<'approve' | 'reject' | 'request_info' | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [infoRequestMessage, setInfoRequestMessage] = useState('');
@@ -161,8 +172,8 @@ export function EnterpriseApplications() {
     rejected: applications.filter(app => app.status === 'rejected').length,
   };
 
-  // V3: Loading state
-  if (isLoading) {
+  // V3: Loading state (only initial load — subsequent pages show inline spinner)
+  if (isLoading && !infiniteData) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -403,6 +414,13 @@ export function EnterpriseApplications() {
               </p>
             </div>
           )}
+          {/* Infinite scroll */}
+          <InfiniteScrollInfo loadedCount={applications.length} totalCount={totalCount} />
+          <InfiniteScrollTrigger
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </motion.div>
 
         {/* Review Panel */}

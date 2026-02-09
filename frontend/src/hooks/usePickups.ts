@@ -3,7 +3,7 @@
  * Handles pickup requests and logistics coordination
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   pickupsApi,
   pickupLocationsApi,
@@ -22,6 +22,7 @@ export const pickupKeys = {
   all: ['pickups'] as const,
   lists: () => [...pickupKeys.all, 'list'] as const,
   list: (enterpriseId: string) => [...pickupKeys.lists(), enterpriseId] as const,
+  infinite: (params: Record<string, unknown>) => [...pickupKeys.all, 'infinite', params] as const,
   details: () => [...pickupKeys.all, 'detail'] as const,
   detail: (id: string) => [...pickupKeys.details(), id] as const,
   pendingAssignment: () => [...pickupKeys.all, 'pending-assignment'] as const,
@@ -33,6 +34,32 @@ export const pickupKeys = {
 // ============================================
 // QUERIES
 // ============================================
+
+/**
+ * Fetch pickup requests with infinite scroll (server-side pagination)
+ */
+export function useInfinitePickups(params: Record<string, string | undefined> = {}) {
+  return useInfiniteQuery({
+    queryKey: pickupKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 1 }) => {
+      const res = await pickupsApi.list({
+        ...(params.status ? { status: params.status } : {}),
+        ...(params.enterprise_id ? { enterprise_id: params.enterprise_id } : {}),
+        page: pageParam as number,
+        pageSize: 5,
+      });
+      return res;
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return (lastPage.pagination?.page ?? allPages.length) + 1;
+      return undefined;
+    },
+    staleTime: 10000,
+  });
+}
 
 /**
  * Fetch all pickup requests (for OPS Admin - uses API with role-based filtering)

@@ -1,2 +1,2 @@
 export { AssetForm } from './AssetForm';
-export { CSVUpload, type BulkUploadMetadata } from './CSVUpload';
+export { CSVUpload, type BulkUploadMetadata, type BulkUploadResult } from './CSVUpload';

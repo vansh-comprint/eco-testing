@@ -28,7 +28,7 @@ import {
   User,
   Power
 } from 'lucide-react';
-import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists } from '@/hooks';
+import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists, useCreateITAdmin } from '@/hooks';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { validateBranchCode } from '@/lib/validations/branch';
@@ -80,6 +80,7 @@ export function BranchManagement() {
   const updateBranch = useUpdateBranch();
   const updateBranchStatus = useUpdateBranchStatus();
   const deleteBranch = useDeleteBranch();
+  const createITAdmin = useCreateITAdmin();
   
   // Org Admin can fully manage branches; IT Admin can only create new ones
   const canManageBranches = isOrgAdmin;
@@ -285,14 +286,29 @@ export function BranchManagement() {
         isOrgAdmin={isOrgAdmin}
         currentUser={user ? { id: user.id, name: user.name } : undefined}
         onSubmit={async (data) => {
+          const { new_it_admin, ...branchData } = data as any;
+
+          // If creating a new IT Admin inline, do that first
+          if (new_it_admin) {
+            const newAdmin = await createITAdmin.mutateAsync({
+              enterprise_id: enterpriseId,
+              name: new_it_admin.name,
+              email: new_it_admin.email,
+              phone: new_it_admin.phone || undefined,
+              password: new_it_admin.password,
+            });
+            if (!newAdmin) throw new Error('Failed to create IT Admin');
+            branchData.it_admin_id = newAdmin.id;
+          }
+
           if (editingBranch) {
-            await updateBranch.mutateAsync({ branchId: editingBranch.id, updates: data });
+            await updateBranch.mutateAsync({ branchId: editingBranch.id, updates: branchData });
           } else {
-            await createBranch.mutateAsync({ ...data, enterprise_id: enterpriseId } as any);
+            await createBranch.mutateAsync({ ...branchData, enterprise_id: enterpriseId } as any);
           }
           setIsModalOpen(false);
         }}
-        isLoading={createBranch.isPending || updateBranch.isPending}
+        isLoading={createBranch.isPending || updateBranch.isPending || createITAdmin.isPending}
       />
 
       {/* Delete Confirmation Modal */}
@@ -651,6 +667,16 @@ function BranchFormModal({
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // New IT Admin inline creation state
+  const [isCreatingNewAdmin, setIsCreatingNewAdmin] = useState(false);
+  const [newAdminData, setNewAdminData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+  const [newAdminErrors, setNewAdminErrors] = useState<Record<string, string>>({});
+
   // Parse operating_hours string (e.g., "Mon-Sat 09:00 - 18:00" or "09:00 - 18:00") into parts
   const parseOperatingHours = (hours: string | undefined) => {
     if (!hours) return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
@@ -725,6 +751,9 @@ function BranchFormModal({
       }
       setCodeError(null);
       setValidationErrors({});
+      setIsCreatingNewAdmin(false);
+      setNewAdminData({ name: '', email: '', phone: '', password: '' });
+      setNewAdminErrors({});
     }
   }, [isOpen, branch]);
 
@@ -838,6 +867,24 @@ function BranchFormModal({
     if (cityError) errors.city = cityError;
     if (stateError) errors.state = stateError;
 
+    // Validate new IT admin fields if creating one
+    if (isCreatingNewAdmin) {
+      const adminErrors: Record<string, string> = {};
+      if (!newAdminData.name.trim()) adminErrors.name = 'Name is required';
+      if (!newAdminData.email.trim()) adminErrors.email = 'Email is required';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAdminData.email)) adminErrors.email = 'Enter a valid email';
+      if (!newAdminData.password) adminErrors.password = 'Password is required';
+      else if (newAdminData.password.length < 8) adminErrors.password = 'Minimum 8 characters';
+      if (newAdminData.phone) {
+        const cleaned = newAdminData.phone.replace(/\D/g, '');
+        if (cleaned.length !== 10 || !/^[6-9]\d{9}$/.test(cleaned)) adminErrors.phone = 'Enter a valid 10-digit mobile number';
+      }
+      if (Object.keys(adminErrors).length > 0) {
+        setNewAdminErrors(adminErrors);
+        return;
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
@@ -850,11 +897,21 @@ function BranchFormModal({
       : '';
 
     const { opening_hours, closing_hours, opening_day, closing_day, ...rest } = formData;
-    const submitData = {
+    const submitData: Record<string, unknown> = {
       ...rest,
       operating_hours,
-      it_admin_id: formData.it_admin_id || null,
+      it_admin_id: isCreatingNewAdmin ? null : (formData.it_admin_id || null),
     };
+
+    // Attach new admin data for parent to create first
+    if (isCreatingNewAdmin) {
+      submitData.new_it_admin = {
+        name: newAdminData.name.trim(),
+        email: newAdminData.email.trim().toLowerCase(),
+        phone: newAdminData.phone.trim() || undefined,
+        password: newAdminData.password,
+      };
+    }
 
     await onSubmit(submitData);
     // Clear draft on successful submission
@@ -946,15 +1003,25 @@ function BranchFormModal({
 
         {/* IT Admin Assignment - Only shown to Org Admin */}
         {isOrgAdmin && (
-          <div>
-            <label className={`block text-sm font-medium mb-1.5 ${text.primary}`}>
+          <div className="space-y-3">
+            <label className={`block text-sm font-medium ${text.primary}`}>
               Assign IT Admin
               <span className={`font-normal ml-1 ${text.muted}`}>(Optional)</span>
             </label>
             <select
               name="it_admin_id"
-              value={formData.it_admin_id || ''}
-              onChange={handleChange}
+              value={isCreatingNewAdmin ? '__new__' : (formData.it_admin_id || '')}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setIsCreatingNewAdmin(true);
+                  setFormData(prev => ({ ...prev, it_admin_id: '' }));
+                } else {
+                  setIsCreatingNewAdmin(false);
+                  setNewAdminData({ name: '', email: '', phone: '', password: '' });
+                  setNewAdminErrors({});
+                  handleChange(e);
+                }
+              }}
               className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
             >
               <option value="">No Admin (needs_admin status)</option>
@@ -966,10 +1033,99 @@ function BranchFormModal({
                   {admin.name} ({admin.email})
                 </option>
               ))}
+              <option value="__new__">+ Create New IT Admin</option>
             </select>
-            <p className={`text-xs mt-1 ${text.muted}`}>
-              Select "Myself" to manage this branch directly, or assign an IT Admin
-            </p>
+            {!isCreatingNewAdmin && (
+              <p className={`text-xs ${text.muted}`}>
+                Select "Myself" to manage this branch directly, or assign an IT Admin
+              </p>
+            )}
+
+            {/* Inline New IT Admin Form */}
+            {isCreatingNewAdmin && (
+              <div className="p-4 border border-lime-500/30 bg-lime-50/50 dark:bg-lime-500/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-semibold text-lime-700 dark:text-lime-400 uppercase tracking-wider">New IT Admin Details</h5>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewAdmin(false);
+                      setNewAdminData({ name: '', email: '', phone: '', password: '' });
+                      setNewAdminErrors({});
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={newAdminData.name}
+                      onChange={(e) => {
+                        setNewAdminData(prev => ({ ...prev, name: e.target.value }));
+                        if (newAdminErrors.name) setNewAdminErrors(prev => ({ ...prev, name: '' }));
+                      }}
+                      placeholder="Full Name *"
+                      className={`w-full px-3 py-2 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
+                        newAdminErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800 focus:border-lime-500/50'
+                      }`}
+                    />
+                    {newAdminErrors.name && <p className="text-xs text-red-500 mt-1">{newAdminErrors.name}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="email"
+                      value={newAdminData.email}
+                      onChange={(e) => {
+                        setNewAdminData(prev => ({ ...prev, email: e.target.value }));
+                        if (newAdminErrors.email) setNewAdminErrors(prev => ({ ...prev, email: '' }));
+                      }}
+                      placeholder="Email Address *"
+                      className={`w-full px-3 py-2 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
+                        newAdminErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800 focus:border-lime-500/50'
+                      }`}
+                    />
+                    {newAdminErrors.email && <p className="text-xs text-red-500 mt-1">{newAdminErrors.email}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="tel"
+                      value={newAdminData.phone}
+                      onChange={(e) => {
+                        setNewAdminData(prev => ({ ...prev, phone: e.target.value }));
+                        if (newAdminErrors.phone) setNewAdminErrors(prev => ({ ...prev, phone: '' }));
+                      }}
+                      placeholder="Phone (Optional)"
+                      maxLength={10}
+                      className={`w-full px-3 py-2 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
+                        newAdminErrors.phone ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800 focus:border-lime-500/50'
+                      }`}
+                    />
+                    {newAdminErrors.phone && <p className="text-xs text-red-500 mt-1">{newAdminErrors.phone}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="password"
+                      value={newAdminData.password}
+                      onChange={(e) => {
+                        setNewAdminData(prev => ({ ...prev, password: e.target.value }));
+                        if (newAdminErrors.password) setNewAdminErrors(prev => ({ ...prev, password: '' }));
+                      }}
+                      placeholder="Password (min 8 chars) *"
+                      className={`w-full px-3 py-2 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
+                        newAdminErrors.password ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800 focus:border-lime-500/50'
+                      }`}
+                    />
+                    {newAdminErrors.password && <p className="text-xs text-red-500 mt-1">{newAdminErrors.password}</p>}
+                  </div>
+                </div>
+                <p className={`text-xs ${text.muted}`}>
+                  A new IT Admin account will be created and assigned to this branch.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

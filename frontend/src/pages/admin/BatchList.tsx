@@ -16,8 +16,8 @@ import {
   Bell,
   Loader2
 } from 'lucide-react';
-import { Badge, Dropdown, useToast } from '@/components/ui';
-import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
+import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -60,22 +60,11 @@ export function BatchList() {
   // Debug logging
   console.log('📋 BatchList - user:', user?.name, 'userId:', userId, 'role:', user?.role, 'isOrgAdmin:', isOrgAdmin);
 
-  // V3.2: React Query hooks - use different hooks based on role
-  // Only enable the appropriate queries to avoid unnecessary/problematic requests
-  // Org Admin: sees all batches/assets in enterprise
-  // IT Admin: sees only their assigned branches
-  const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
-  const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
-  const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
-
-  const batches = isOrgAdmin ? orgBatches : itBatches;
+  // V3.2: Assets still fetched via regular query (needed for batch asset counts in cards)
+  const { data: orgAssets = [] } = useAssets(isOrgAdmin ? enterpriseId : '');
+  const { data: itAssets = [] } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
   const assets = isOrgAdmin ? orgAssets : itAssets;
-  const batchesLoading = isOrgAdmin ? orgBatchesLoading : itBatchesLoading;
-  const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
 
-  // Debug: log batches received
-  console.log('📋 BatchList - batches received:', batches.length);
   const updateBatchMutation = useUpdateBatch();
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
@@ -89,21 +78,35 @@ export function BatchList() {
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
-  // Filter and sort batches (data already filtered by enterprise from React Query)
+  // Build server-side params for infinite query
+  // Only pass single status values to API; comma-separated (multi-status) stays client-side
+  const apiStatus = statusFilter && !statusFilter.includes(',') ? statusFilter : undefined;
+  const infiniteParams = {
+    ...(isOrgAdmin && enterpriseId ? { enterprise_id: enterpriseId } : {}),
+    ...(activeBranchFilter ? { branch_id: activeBranchFilter } : {}),
+    ...(apiStatus ? { status: apiStatus } : {}),
+    ...(searchQuery ? { search: searchQuery } : {}),
+  };
+
+  const {
+    data,
+    isLoading: batchesLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteBatches(infiniteParams);
+
+  // Flatten pages into a single array
+  const allBatches = data?.pages.flatMap(p => p.data || []) ?? [];
+  const totalCount = data?.pages[0]?.pagination?.total ?? 0;
+
+  // Client-side filtering for multi-status filters (e.g. "approved,pickup_in_progress")
+  // and sorting (API doesn't support sort param)
   const filteredBatches = useMemo(() => {
-    let result = [...batches];
+    let result = [...allBatches];
 
-    // Filter by branch if active
-    if (activeBranchFilter) {
-      result = result.filter(b => b.branch_id === activeBranchFilter);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(b => b.name.toLowerCase().includes(query));
-    }
-
-    if (statusFilter) {
+    // Multi-status client filter (single status already handled by API)
+    if (statusFilter && statusFilter.includes(',')) {
       const statuses = statusFilter.split(',');
       result = result.filter(b => statuses.includes(b.status));
     }
@@ -123,20 +126,15 @@ export function BatchList() {
     });
 
     return result;
-  }, [batches, searchQuery, statusFilter, sortBy, activeBranchFilter]);
+  }, [allBatches, statusFilter, sortBy]);
 
-  // Branch-scoped batches for stats
-  const scopedBatches = useMemo(() => {
-    if (activeBranchFilter) return batches.filter(b => b.branch_id === activeBranchFilter);
-    return batches;
-  }, [batches, activeBranchFilter]);
-
+  // Stats from total count (server-side) and loaded batches
   const stats = {
-    total: scopedBatches.length,
-    draft: scopedBatches.filter(b => b.status === 'draft').length,
-    pendingApproval: scopedBatches.filter(b => b.status === 'pending_approval').length,
-    active: scopedBatches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
-    totalValue: scopedBatches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
+    total: totalCount,
+    draft: allBatches.filter(b => b.status === 'draft').length,
+    pendingApproval: allBatches.filter(b => b.status === 'pending_approval').length,
+    active: allBatches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
+    totalValue: allBatches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
   };
 
   // V3: Use centralized status display helper
@@ -162,8 +160,8 @@ export function BatchList() {
     setStatusFilter(filterValue);
   };
 
-  // Loading state
-  if (batchesLoading || assetsLoading) {
+  // Loading state (only initial load — subsequent pages show inline spinner)
+  if (batchesLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -421,12 +419,13 @@ export function BatchList() {
         )}
       </motion.div>
 
-      {/* Results count */}
-      {filteredBatches.length > 0 && (
-        <p className="font-mono text-xs text-slate-500 dark:text-white/50 text-center uppercase tracking-widest">
-          Showing {filteredBatches.length} of {batches.length} batches
-        </p>
-      )}
+      {/* Infinite scroll */}
+      <InfiniteScrollInfo loadedCount={allBatches.length} totalCount={totalCount} />
+      <InfiniteScrollTrigger
+        hasNextPage={!!hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
     </div>
   );
 }

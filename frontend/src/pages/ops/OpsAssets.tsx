@@ -4,17 +4,11 @@ import { motion } from 'framer-motion';
 import {
   Laptop,
   Search,
-  Filter,
-  ArrowUpDown,
   Eye,
   Building2,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Package,
-  Loader2
 } from 'lucide-react';
-import { useAllAssets } from '@/hooks';
+import { useInfiniteAssets } from '@/hooks';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { assetStatusLabels, type AssetStatus } from '@/types/asset';
 
@@ -32,19 +26,37 @@ export function OpsAssets() {
   const [searchParams] = useSearchParams();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
 
-  // V3: React Query hook for all assets
-  const { data: assets = [], isLoading } = useAllAssets();
-
   const initialStatus = searchParams.get('status') || 'all';
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'value'>('newest');
 
-  // V3: Filter assets based on status using useMemo with snake_case
-  const filteredAssets = useMemo(() => {
-    let filtered = assets;
+  // Build API params for server-side filtering
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (searchQuery) params.search = searchQuery;
+    if (!isAllEnterprises && selectedEnterpriseId) params.enterprise_id = selectedEnterpriseId;
+    return params;
+  }, [searchQuery, isAllEnterprises, selectedEnterpriseId]);
 
-    // Filter by status
+  // V4: Infinite scroll hook — loads 5 assets at a time via REST API
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteAssets(apiParams);
+
+  // Flatten all loaded pages into a single array
+  const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
+  const totalCount = data?.pages[0]?.pagination?.total ?? 0;
+
+  // Client-side status group filtering on loaded assets
+  const filteredAssets = useMemo(() => {
+    let filtered = allAssets;
+
+    // Filter by status group
     switch (statusFilter) {
       case 'review':
         filtered = filtered.filter(a => ['submitted', 'remote_review'].includes(a.status));
@@ -63,17 +75,7 @@ export function OpsAssets() {
         break;
     }
 
-    // Search filter with snake_case
-    filtered = filtered.filter(a =>
-      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Enterprise filter with snake_case
-    filtered = filtered.filter(a => isAllEnterprises || a.enterprise_id === selectedEnterpriseId);
-
-    // Sort with snake_case
+    // Sort
     return [...filtered].sort((a, b) => {
       if (sortBy === 'value') {
         return (Number(b.final_price) || Number(b.base_price) || 0) - (Number(a.final_price) || Number(a.base_price) || 0);
@@ -82,7 +84,7 @@ export function OpsAssets() {
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
-  }, [assets, statusFilter, searchQuery, isAllEnterprises, selectedEnterpriseId, sortBy]);
+  }, [allAssets, statusFilter, sortBy]);
 
   const getStatusColor = (status: AssetStatus) => {
     const colorMap: Record<string, string> = {
@@ -138,7 +140,7 @@ export function OpsAssets() {
             All Assets
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
-            {filteredAssets.length} assets {isAllEnterprises ? 'across all enterprises' : `for ${selectedEnterprise?.name || 'selected enterprise'}`}
+            {totalCount} assets {isAllEnterprises ? 'across all enterprises' : `for ${selectedEnterprise?.name || 'selected enterprise'}`}
           </p>
         </motion.div>
       </div>
@@ -368,47 +370,28 @@ export function OpsAssets() {
         </motion.div>
       )}
 
-      {/* Summary Stats - respects enterprise filter */}
+      {/* Infinite Scroll Controls */}
+      <InfiniteScrollInfo loadedCount={allAssets.length} totalCount={totalCount} />
+      <InfiniteScrollTrigger
+        hasNextPage={!!hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
+
+      {/* Summary Stats */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"
+        className="grid grid-cols-2 gap-4"
       >
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-amber-400" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending Review</span>
+            <Laptop className="w-4 h-4 text-ecotribe-primary" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Assets</span>
           </div>
-          <p className="font-brand font-bold text-2xl text-amber-400">
-            {assets.filter(a => ['submitted', 'remote_review'].includes(a.status) && (isAllEnterprises || a.enterprise_id === selectedEnterpriseId)).length}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Package className="w-4 h-4 text-blue-400" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending QC</span>
-          </div>
-          <p className="font-brand font-bold text-2xl text-blue-400">
-            {assets.filter(a => ['in_transit', 'facility_qc', 'conditionally_accepted'].includes(a.status) && (isAllEnterprises || a.enterprise_id === selectedEnterpriseId)).length}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Completed</span>
-          </div>
-          <p className="font-brand font-bold text-2xl text-emerald-400">
-            {assets.filter(a => ['final_accepted', 'completed'].includes(a.status) && (isAllEnterprises || a.enterprise_id === selectedEnterpriseId)).length}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <XCircle className="w-4 h-4 text-red-400" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Rejected</span>
-          </div>
-          <p className="font-brand font-bold text-2xl text-red-400">
-            {assets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status) && (isAllEnterprises || a.enterprise_id === selectedEnterpriseId)).length}
+          <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+            {totalCount}
           </p>
         </div>
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
@@ -417,7 +400,7 @@ export function OpsAssets() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            ₹{(filteredAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
+            ₹{(allAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
           </p>
         </div>
       </motion.div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -11,14 +11,14 @@ import {
   MapPin,
   CheckCircle,
   Clock,
-  Laptop,
   Power,
   PowerOff,
+  Loader2,
 } from 'lucide-react';
-import { useAllAssets, useEnterprises, useAllBatches } from '@/hooks';
+import { useInfiniteEnterprises } from '@/hooks';
 import { useUserRole } from '@/stores/authStoreApi';
 import { enterprisesApi } from '@/lib/api/enterprises';
-import { ConfirmationModal } from '@/components/ui';
+import { ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 
 export function EnterpriseList() {
   const navigate = useNavigate();
@@ -26,9 +26,6 @@ export function EnterpriseList() {
   const isSuperAdmin = userRole === 'super_admin';
   const basePath = isSuperAdmin ? '/super' : '/ops';
 
-  const { data: assets = [] } = useAllAssets();
-  const { data: enterprises = [], refetch: refetchEnterprises } = useEnterprises();
-  const { data: batches = [] } = useAllBatches();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -36,35 +33,37 @@ export function EnterpriseList() {
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ id: string; name: string; newStatus: string } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
 
-  // Filter enterprises
-  const filteredEnterprises = enterprises
-    .filter(e =>
-      e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.contact_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.gst_number?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .filter(e => statusFilter === 'all' || e.status === statusFilter);
+  // Build server-side params
+  const apiParams = useMemo(() => {
+    const params: Record<string, string | undefined> = {};
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    if (statusFilter !== 'all') params.status = statusFilter;
+    return params;
+  }, [searchQuery, statusFilter]);
 
-  const getEnterpriseStats = (enterpriseId: string) => {
-    const enterpriseAssets = assets.filter(a => a.enterprise_id === enterpriseId);
-    const enterpriseBatches = batches.filter(b => b.enterprise_id === enterpriseId);
-    const totalValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
-    const pendingCount = enterpriseAssets.filter(a => !['completed', 'final_accepted', 'final_rejected', 'remote_rejected'].includes(a.status)).length;
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useInfiniteEnterprises(apiParams);
 
-    return {
-      assetCount: enterpriseAssets.length,
-      batchCount: enterpriseBatches.length,
-      totalValue,
-      pendingCount,
-    };
-  };
+  // Flatten pages into a single enterprise list
+  const enterprises = useMemo(
+    () => data?.pages.flatMap(p => p.data ?? []) ?? [],
+    [data]
+  );
+
+  const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
   const handleStatusChange = async () => {
     if (!statusChangeTarget) return;
     setIsChangingStatus(true);
     try {
       await enterprisesApi.update(statusChangeTarget.id, { status: statusChangeTarget.newStatus });
-      refetchEnterprises();
+      refetch();
     } catch (error) {
       console.error('Failed to update enterprise status:', error);
     } finally {
@@ -88,7 +87,7 @@ export function EnterpriseList() {
             Enterprises
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
-            {filteredEnterprises.length} registered enterprises
+            {totalCount} registered enterprises
           </p>
         </motion.div>
 
@@ -141,37 +140,39 @@ export function EnterpriseList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 gap-4"
       >
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Enterprises</p>
-          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{enterprises.length}</p>
+          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{totalCount}</p>
         </div>
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Active</p>
-          <p className="font-brand font-bold text-3xl text-emerald-400">
-            {enterprises.filter(e => e.status === 'active').length}
-          </p>
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Showing</p>
+          <p className="font-brand font-bold text-3xl text-blue-400">{enterprises.length}</p>
         </div>
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Assets</p>
-          <p className="font-brand font-bold text-3xl text-blue-400">{assets.length}</p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Value</p>
-          <p className="font-brand font-bold text-3xl text-ecotribe-primary">
-            ₹{(assets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Filter</p>
+          <p className="font-brand font-bold text-lg text-ecotribe-primary uppercase">
+            {statusFilter === 'all' ? 'All Statuses' : statusFilter.replace(/_/g, ' ')}
           </p>
         </div>
       </motion.div>
 
-      {/* Enterprise Grid */}
-      {filteredEnterprises.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredEnterprises.map((enterprise, idx) => {
-            const stats = getEnterpriseStats(enterprise.id);
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-ecotribe-primary mx-auto mb-4" />
+            <p className="font-display font-bold uppercase tracking-wide text-slate-500 dark:text-white/50">Loading enterprises...</p>
+          </div>
+        </div>
+      )}
 
-            return (
+      {/* Enterprise Grid */}
+      {!isLoading && enterprises.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {enterprises.map((enterprise, idx) => (
               <motion.div
                 key={enterprise.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -236,28 +237,6 @@ export function EnterpriseList() {
                       </div>
                     )}
                   </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
-                    <div>
-                      <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{stats.assetCount}</p>
-                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Assets</p>
-                    </div>
-                    <div>
-                      <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{stats.batchCount}</p>
-                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Batches</p>
-                    </div>
-                    <div>
-                      <p className="font-brand font-bold text-xl text-amber-400">{stats.pendingCount}</p>
-                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Pending</p>
-                    </div>
-                    <div>
-                      <p className="font-brand font-bold text-xl text-ecotribe-primary">
-                        ₹{(stats.totalValue / 1000).toFixed(0)}K
-                      </p>
-                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Value</p>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="p-4 border-t border-slate-200 dark:border-white/10 flex gap-2">
@@ -288,10 +267,20 @@ export function EnterpriseList() {
                   )}
                 </div>
               </motion.div>
-            );
-          })}
-        </div>
-      ) : (
+            ))}
+          </div>
+
+          <InfiniteScrollTrigger
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
+          <InfiniteScrollInfo
+            loadedCount={enterprises.length}
+            totalCount={totalCount}
+          />
+        </>
+      ) : !isLoading ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -309,7 +298,7 @@ export function EnterpriseList() {
               : 'Get started by adding your first enterprise.'}
           </p>
         </motion.div>
-      )}
+      ) : null}
 
       {/* Status Change Confirmation Modal (Super Admin only) */}
       {statusChangeTarget && (

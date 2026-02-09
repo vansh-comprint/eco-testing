@@ -3,12 +3,13 @@
  * All batch data fetching and mutations
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   batchesApi,
   type BatchResponse,
   type BatchCreateRequest,
   type BatchUpdateRequest,
+  type BatchListParams,
 } from '@/lib/api/batches';
 import { assetsApi } from '@/lib/api/assets';
 import { assetKeys } from './useAssets';
@@ -20,6 +21,7 @@ export const batchKeys = {
   list: (enterpriseId: string) => [...batchKeys.lists(), enterpriseId] as const,
   byBranch: (branchId: string) => [...batchKeys.all, 'branch', branchId] as const,
   byITAdmin: (userId: string) => [...batchKeys.all, 'it-admin', userId] as const,
+  infinite: (params: Record<string, unknown>) => [...batchKeys.all, 'infinite', params] as const,
   details: () => [...batchKeys.all, 'detail'] as const,
   detail: (id: string) => [...batchKeys.details(), id] as const,
   approvalQueue: (enterpriseId: string) => [...batchKeys.all, 'approvals', enterpriseId] as const,
@@ -136,6 +138,27 @@ export function usePendingApprovalBatches() {
       return response.data;
     },
     staleTime: 10000,
+  });
+}
+
+/**
+ * Infinite scroll hook - loads batches 5 at a time via REST API
+ */
+export function useInfiniteBatches(params: Omit<BatchListParams, 'skip' | 'limit'> = {}) {
+  return useInfiniteQuery({
+    queryKey: batchKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await batchesApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      return res;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
+    staleTime: 30000,
   });
 }
 

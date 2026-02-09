@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset import Asset, AssetStatus
 from app.repositories.asset_repository import AssetRepository
+from app.repositories.branch_repository import BranchRepository
 from app.schemas.asset import AssetCreate, AssetUpdate, AssetResponse, AssetBulkCreate
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.utils.state_machine import validate_asset_transition, StateTransitionError
@@ -63,16 +64,22 @@ class AssetService:
 
     async def create_asset(self, asset_data: AssetCreate, created_by: str) -> AssetResponse:
         """Create a new asset"""
-        # Check if serial number already exists
-        existing = await self.repository.get_by_serial_number(asset_data.serial_number)
-        if existing:
-            raise ConflictError(
-                f"Asset with serial number {asset_data.serial_number} already exists"
-            )
-
         # Validate enterprise_id is provided
         if not asset_data.enterprise_id:
             raise ValidationError("Enterprise ID is required")
+
+        # Validate branch_id is provided
+        if not asset_data.branch_id:
+            raise ValidationError("Branch ID is required. Please select a branch before adding assets.")
+
+        # Check if serial number already exists within this enterprise
+        existing = await self.repository.get_by_serial_number(
+            asset_data.serial_number, enterprise_id=asset_data.enterprise_id
+        )
+        if existing:
+            raise ConflictError(
+                f"Asset with serial number {asset_data.serial_number} already exists in this enterprise"
+            )
 
         # If assigned_to_user_id is provided, mark as assigned immediately
         if asset_data.assigned_to_user_id:
@@ -114,13 +121,19 @@ class AssetService:
         if not bulk_data.enterprise_id:
             raise ValidationError("Enterprise ID is required for bulk creation")
 
+        # Validate branch_id
+        if not bulk_data.branch_id:
+            raise ValidationError("Branch ID is required. Please select a branch before adding assets.")
+
         for idx, item in enumerate(bulk_data.assets):
             try:
-                # Check if serial number already exists
-                existing = await self.repository.get_by_serial_number(item.serial_number)
+                # Check if serial number already exists within this enterprise
+                existing = await self.repository.get_by_serial_number(
+                    item.serial_number, enterprise_id=bulk_data.enterprise_id
+                )
                 if existing:
                     errors.append(
-                        f"Row {idx + 1}: Serial number {item.serial_number} already exists"
+                        f"Row {idx + 1}: Serial number {item.serial_number} already exists in this enterprise"
                     )
                     continue
 
@@ -178,6 +191,41 @@ class AssetService:
         status_changed = False
         old_status = None
         new_status = None
+        branch_transferred = False
+        old_branch_id = None
+
+        # Validate branch transfer if branch_id is changing
+        if "branch_id" in update_data and update_data["branch_id"] != asset.branch_id:
+            new_branch_id = update_data["branch_id"]
+            old_branch_id = asset.branch_id
+
+            # Verify new branch exists
+            branch_repo = BranchRepository(self.db)
+            new_branch = await branch_repo.get_by_id(new_branch_id)
+            if not new_branch:
+                raise NotFoundError("Branch", new_branch_id)
+
+            # Verify new branch is in same enterprise
+            if new_branch.enterprise_id != asset.enterprise_id:
+                raise ValidationError(
+                    "Cannot transfer asset to a branch in a different enterprise"
+                )
+
+            # Verify asset is not in an active batch
+            if asset.batch_id:
+                from app.models.batch import Batch
+                from sqlalchemy import select
+                result = await self.db.execute(
+                    select(Batch.status).where(Batch.id == asset.batch_id)
+                )
+                batch_status = result.scalar_one_or_none()
+                if batch_status and batch_status not in ("draft", "cancelled", "completed"):
+                    raise ValidationError(
+                        "Cannot transfer asset that is in an active batch. "
+                        "Remove the asset from the batch first or wait until the batch is completed."
+                    )
+
+            branch_transferred = True
 
         # Handle enum conversions
         if "status" in update_data and update_data["status"]:
@@ -231,6 +279,22 @@ class AssetService:
                     "serial_number": asset.serial_number,
                     "grade": asset.grade,
                 }
+            )
+
+        # Log branch transfer to audit trail
+        if branch_transferred:
+            audit = AuditService(self.db)
+            await audit.log(
+                entity_type="asset",
+                entity_id=asset_id,
+                action="branch_transfer",
+                old_values={"branch_id": old_branch_id},
+                new_values={"branch_id": asset.branch_id},
+                details=f"Asset transferred from branch {old_branch_id} to branch {asset.branch_id}",
+                user_id=updated_by,
+                enterprise_id=asset.enterprise_id,
+                branch_id=asset.branch_id,
+                extra_data={"serial_number": asset.serial_number},
             )
 
         return AssetResponse.model_validate(asset)

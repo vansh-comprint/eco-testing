@@ -264,6 +264,8 @@ class BatchService:
                 }
             )
 
+        # Refresh batch to load server-computed fields (updated_at via onupdate=func.now())
+        await self.db.refresh(batch)
         return BatchResponse.model_validate(batch)
 
     async def submit_for_approval(
@@ -322,6 +324,8 @@ class BatchService:
             }
         )
 
+        # Refresh batch to load server-computed fields (updated_at via onupdate=func.now())
+        await self.db.refresh(batch)
         return BatchResponse.model_validate(batch)
 
     async def process_approval(
@@ -389,6 +393,8 @@ class BatchService:
 
             await self._auto_create_pickup(batch, processed_by)
 
+        # Refresh batch to load server-computed fields (updated_at via onupdate=func.now())
+        await self.db.refresh(batch)
         response = BatchResponse.model_validate(batch)
         # Attach progress stats
         status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
