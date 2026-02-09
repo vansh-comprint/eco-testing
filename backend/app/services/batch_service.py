@@ -282,7 +282,7 @@ class BatchService:
             AssetStatus.CONDITIONALLY_ACCEPTED.value,
             AssetStatus.READY_FOR_PICKUP.value,
         ]
-        verified_assets = await self.asset_repo.get_assets_by_batch_and_statuses(
+        verified_assets = await self.asset_repository.get_assets_by_batch_and_statuses(
             batch_id, verified_statuses
         )
         if not verified_assets:

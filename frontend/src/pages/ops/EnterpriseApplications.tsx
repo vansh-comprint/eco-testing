@@ -133,6 +133,14 @@ export function EnterpriseApplications() {
 
       const actionLabel = decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'updated';
       showSuccess('Application Processed', `Application has been ${actionLabel} successfully`);
+
+      // Switch filter to show the result of the action
+      if (decision === 'approve') {
+        setStatusFilter('approved');
+      } else if (decision === 'reject') {
+        setStatusFilter('rejected');
+      }
+
       setSelectedApp(null);
       setDecision(null);
       setRejectionReason('');
@@ -784,10 +792,10 @@ export function EnterpriseApplications() {
         }
         description={
           decision === 'approve'
-            ? 'This will create a new enterprise account and activate the Org Admin user. They will receive login credentials via email.'
+            ? 'This will create a new enterprise account and activate the Org Admin user. They can log in with the password they set during registration.'
             : decision === 'reject'
-            ? 'This application will be permanently rejected. The applicant will be notified via email.'
-            : 'The applicant will be notified to provide the requested information. They can update and resubmit their application.'
+            ? 'This application will be permanently rejected.'
+            : 'The applicant will need to provide the requested information and resubmit their application.'
         }
         confirmText={
           decision === 'approve'
