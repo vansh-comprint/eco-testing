@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { User, Key, Save } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, Badge, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useQueryClient } from '@tanstack/react-query';
 import { text } from '@/lib/design-tokens';
 
 interface UserData {
@@ -65,6 +66,7 @@ const ALL_ROLES: RoleOption[] = [
 export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, hideRole }: EditUserModalProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'password'>('details');
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // User Details Form
@@ -111,7 +113,9 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
         throw new Error(result.error?.message || 'Failed to update user');
       }
 
-      console.log('✅ User details updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['it-admins'] });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
 
       addToast({
         type: 'success',

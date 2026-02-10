@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Search, ArrowLeft, UserPlus, Mail, Phone, Edit2 } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
 import { CreateOpsAdminModal, EditUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
+import { useQuery } from '@tanstack/react-query';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface Admin {
@@ -20,26 +21,19 @@ interface Admin {
 
 export function Admins() {
   const navigate = useNavigate();
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
 
-  useEffect(() => {
-    fetchAdmins();
-  }, []);
-
-  const fetchAdmins = async () => {
-    setIsLoading(true);
-    try {
+  const { data: admins = [], isLoading } = useQuery({
+    queryKey: ['users', 'admins'],
+    queryFn: async () => {
       const result = await usersApi.list({ limit: 100 });
       if (result.success && result.data) {
-        // Filter for admin roles
         const adminRoles = ['super_admin', 'ops_admin'];
-        const adminUsers = result.data
+        return result.data
           .filter(u => adminRoles.includes(u.role))
           .map(u => ({
             id: u.id,
@@ -51,14 +45,11 @@ export function Admins() {
             created_at: u.created_at,
             last_login_at: u.last_login_at,
           }));
-        setAdmins(adminUsers);
       }
-    } catch (error) {
-      console.error('Error fetching admins:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return [];
+    },
+    staleTime: 30000,
+  });
 
   const getRoleBadgeVariant = (role: string) => {
     const variants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
@@ -303,7 +294,6 @@ export function Admins() {
         isOpen={isOpsAdminModalOpen}
         onClose={() => setIsOpsAdminModalOpen(false)}
         onSuccess={() => {
-          fetchAdmins();
           setIsOpsAdminModalOpen(false);
         }}
       />
@@ -314,9 +304,7 @@ export function Admins() {
             setIsEditUserModalOpen(false);
             setSelectedAdmin(null);
           }}
-          onSuccess={() => {
-            fetchAdmins();
-          }}
+          onSuccess={() => {}}
           user={selectedAdmin}
           allowedRoles={[
             { value: 'super_admin', label: 'Super Admin' },

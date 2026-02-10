@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -33,6 +33,7 @@ import { subUsersApi } from '@/lib/api/sub-users';
 import { branchesApi } from '@/lib/api/branches';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Enterprise {
   id: string;
@@ -97,11 +98,82 @@ export function EnterpriseDetail() {
   const isSuperAdmin = userRole === 'super_admin';
   const basePath = isSuperAdmin ? '/super' : '/ops';
 
-  const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
-  const [admins, setAdmins] = useState<EnterpriseUser[]>([]);
-  const [subUsers, setSubUsers] = useState<SubUser[]>([]);
-  const [branches, setBranches] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const { data: enterpriseData, isLoading } = useQuery({
+    queryKey: ['enterprise-detail', id],
+    queryFn: async () => {
+      const [enterpriseResult, branchesResult, usersResult] = await Promise.all([
+        enterprisesApi.get(id!),
+        branchesApi.list({ enterprise_id: id!, limit: 100 }),
+        usersApi.list({ enterprise_id: id!, limit: 100 }),
+      ]);
+
+      let enterprise: Enterprise | null = null;
+      if (enterpriseResult.success && enterpriseResult.data) {
+        const row = enterpriseResult.data;
+        const addressData = typeof row.address === 'string' ? JSON.parse(row.address) : row.address;
+        enterprise = {
+          id: row.id,
+          name: row.name,
+          legalName: row.legal_name,
+          gstNumber: row.gst_number,
+          panNumber: row.pan_number,
+          address: addressData,
+          status: row.status,
+          contactPerson: row.contact_person,
+          contactEmail: row.contact_email,
+          contactPhone: row.contact_phone,
+          industry: row.industry,
+          employeeCount: row.employee_count,
+          companySize: row.company_size || row.companySize,
+          createdAt: new Date(row.created_at),
+        };
+      }
+
+      const branches: Record<string, string> = {};
+      if (branchesResult.success && branchesResult.data) {
+        branchesResult.data.forEach((b) => {
+          branches[b.id] = b.name || '';
+        });
+      }
+
+      let admins: EnterpriseUser[] = [];
+      let subUsers: SubUser[] = [];
+      if (usersResult.success && usersResult.data) {
+        admins = usersResult.data
+          .filter((u) => u.role === 'org_admin' || u.role === 'it_admin')
+          .map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            status: u.status,
+            phone: u.phone,
+            branch_id: u.branch_id,
+          }));
+        subUsers = usersResult.data
+          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
+          .map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone,
+            department: u.department,
+            status: u.status,
+          }));
+      }
+
+      return { enterprise, branches, admins, subUsers };
+    },
+    enabled: !!id,
+  });
+
+  const enterprise = enterpriseData?.enterprise ?? null;
+  const admins = enterpriseData?.admins ?? [];
+  const subUsers = enterpriseData?.subUsers ?? [];
+  const branches = enterpriseData?.branches ?? {};
+
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'employee'>('employee');
   const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'employee' | null>(null);
@@ -128,105 +200,6 @@ export function EnterpriseDetail() {
   const [itAdminPage, setItAdminPage] = useState(1);
   const [employeePage, setEmployeePage] = useState(1);
 
-  useEffect(() => {
-    if (id) {
-      fetchEnterpriseDetails();
-    }
-  }, [id]);
-
-  const fetchEnterpriseDetails = async () => {
-    if (!id) return;
-    setIsLoading(true);
-    try {
-      const enterpriseResult = await enterprisesApi.get(id);
-
-      if (enterpriseResult.success && enterpriseResult.data) {
-        const row = enterpriseResult.data;
-        const addressData = typeof row.address === 'string' ? JSON.parse(row.address) : row.address;
-        const ent: Enterprise = {
-          id: row.id,
-          name: row.name,
-          legalName: row.legal_name,
-          gstNumber: row.gst_number,
-          panNumber: row.pan_number,
-          address: addressData,
-          status: row.status,
-          contactPerson: row.contact_person,
-          contactEmail: row.contact_email,
-          contactPhone: row.contact_phone,
-          industry: row.industry,
-          employeeCount: row.employee_count,
-          companySize: row.company_size || row.companySize,
-          createdAt: new Date(row.created_at),
-        };
-        setEnterprise(ent);
-
-        // Initialize edit form
-        setEditForm({
-          name: ent.name || '',
-          legal_name: ent.legalName || '',
-          gst_number: ent.gstNumber || '',
-          pan_number: ent.panNumber || '',
-          contact_person: ent.contactPerson || '',
-          contact_email: ent.contactEmail || '',
-          contact_phone: ent.contactPhone || '',
-          industry: ent.industry || '',
-          employee_count: ent.employeeCount?.toString() || '',
-          company_size: ent.companySize || '',
-          address_line1: addressData?.line1 || '',
-          address_line2: addressData?.line2 || '',
-          address_city: addressData?.city || '',
-          address_state: addressData?.state || '',
-          address_pinCode: addressData?.pinCode || '',
-          address_country: addressData?.country || 'India',
-        });
-      }
-
-      // Fetch branches
-      const branchesResult = await branchesApi.list({ enterprise_id: id, limit: 100 });
-      if (branchesResult.success && branchesResult.data) {
-        const branchMap: Record<string, string> = {};
-        branchesResult.data.forEach((b) => {
-          branchMap[b.id] = b.name || '';
-        });
-        setBranches(branchMap);
-      }
-
-      // Fetch users
-      const usersResult = await usersApi.list({ enterprise_id: id, limit: 100 });
-      if (usersResult.success && usersResult.data) {
-        const adminUsers = usersResult.data
-          .filter((u) => u.role === 'org_admin' || u.role === 'it_admin')
-          .map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            role: u.role,
-            status: u.status,
-            phone: u.phone,
-            branch_id: u.branch_id,
-          }));
-        setAdmins(adminUsers);
-
-        const subUsersList = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
-          .map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            phone: u.phone,
-            department: u.department,
-            status: u.status,
-          }));
-        setSubUsers(subUsersList);
-      }
-    } catch (error) {
-      console.error('Error fetching enterprise details:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleAddUser = (role: 'it_admin' | 'org_admin' | 'employee') => {
     setSelectedRole(role);
     setIsUserModalOpen(true);
@@ -234,7 +207,8 @@ export function EnterpriseDetail() {
 
   const handleUserCreated = () => {
     setIsUserModalOpen(false);
-    fetchEnterpriseDetails();
+    queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
   };
 
   const itAdminBulkColumns: BulkImportColumn[] = [
@@ -312,7 +286,8 @@ export function EnterpriseDetail() {
       };
       await enterprisesApi.update(id, updateData as any);
       setIsEditing(false);
-      fetchEnterpriseDetails();
+      queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['enterprises'] });
     } catch (error) {
       console.error('Failed to update enterprise:', error);
     } finally {
@@ -328,7 +303,8 @@ export function EnterpriseDetail() {
       await enterprisesApi.update(id, { status: pendingStatus });
       setShowStatusModal(false);
       setPendingStatus('');
-      fetchEnterpriseDetails();
+      queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['enterprises'] });
     } catch (error) {
       console.error('Failed to update status:', error);
     } finally {
@@ -403,7 +379,30 @@ export function EnterpriseDetail() {
             {/* Super Admin: Edit / Save / Cancel */}
             {isSuperAdmin && !isEditing && (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  if (enterprise) {
+                    const addr = enterprise.address;
+                    setEditForm({
+                      name: enterprise.name || '',
+                      legal_name: enterprise.legalName || '',
+                      gst_number: enterprise.gstNumber || '',
+                      pan_number: enterprise.panNumber || '',
+                      contact_person: enterprise.contactPerson || '',
+                      contact_email: enterprise.contactEmail || '',
+                      contact_phone: enterprise.contactPhone || '',
+                      industry: enterprise.industry || '',
+                      employee_count: enterprise.employeeCount?.toString() || '',
+                      company_size: enterprise.companySize || '',
+                      address_line1: addr?.line1 || '',
+                      address_line2: addr?.line2 || '',
+                      address_city: addr?.city || '',
+                      address_state: addr?.state || '',
+                      address_pinCode: addr?.pinCode || '',
+                      address_country: addr?.country || 'India',
+                    });
+                  }
+                  setIsEditing(true);
+                }}
                 className="px-4 py-2 border border-blue-400/30 bg-blue-400/10 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
               >
                 <Edit2 className={iconSize.sm} />
@@ -994,7 +993,8 @@ export function EnterpriseDetail() {
         columns={bulkImportType === 'it_admin' ? itAdminBulkColumns : subUserBulkColumns}
         onImport={handleBulkImport}
         onSuccess={() => {
-          fetchEnterpriseDetails();
+          queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
+          queryClient.invalidateQueries({ queryKey: ['users'] });
         }}
       />
 
@@ -1003,7 +1003,7 @@ export function EnterpriseDetail() {
         <EditUserModal
           isOpen={isEditUserModalOpen}
           onClose={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}
-          onSuccess={() => { fetchEnterpriseDetails(); }}
+          onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] }); queryClient.invalidateQueries({ queryKey: ['users'] }); }}
           user={{
             id: editingUser.id,
             email: editingUser.email,

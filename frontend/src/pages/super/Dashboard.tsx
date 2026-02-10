@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Users, IndianRupee, Shield, Plus, FileText, Settings, BarChart3, UserPlus, Truck, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,7 +8,7 @@ import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens
 import { CreateOpsAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { useDashboardStats } from '@/hooks';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import type { UserResponse } from '@/lib/api/auth';
 
@@ -23,28 +23,19 @@ export function SuperAdminDashboard() {
   const { stats } = useDashboardStats();
   const queryClient = useQueryClient();
 
-  // Admin users list for the table (still needs full objects)
-  const [admins, setAdmins] = useState<UserResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchAdminUsers();
-  }, []);
-
-  const fetchAdminUsers = async () => {
-    setLoading(true);
-    try {
+  // Admin users list for the table via React Query
+  const { data: admins = [], isLoading: loading } = useQuery({
+    queryKey: ['users', 'platform-admins'],
+    queryFn: async () => {
       const usersResult = await usersApi.list({ limit: 100 });
       if (usersResult.success && usersResult.data) {
         const adminRoles = ['super_admin', 'ops_admin', 'logistics_admin'];
-        setAdmins(usersResult.data.filter(u => adminRoles.includes(u.role)));
+        return usersResult.data.filter(u => adminRoles.includes(u.role));
       }
-    } catch (error) {
-      console.error('Failed to fetch admin users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return [] as UserResponse[];
+    },
+    staleTime: 30000,
+  });
 
   const systemServices = [
     { service: 'Database', status: 'operational', uptime: '100%' },
@@ -305,18 +296,12 @@ export function SuperAdminDashboard() {
       <CreateOpsAdminModal
         isOpen={isOpsAdminModalOpen}
         onClose={() => setIsOpsAdminModalOpen(false)}
-        onSuccess={() => {
-          fetchAdminUsers();
-          queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
-        }}
+        onSuccess={() => {}}
       />
       <CreateLogisticsAdminModal
         isOpen={isLogisticsAdminModalOpen}
         onClose={() => setIsLogisticsAdminModalOpen(false)}
-        onSuccess={() => {
-          fetchAdminUsers();
-          queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
-        }}
+        onSuccess={() => {}}
       />
     </div>
   );

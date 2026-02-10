@@ -18,6 +18,7 @@ import {
 import { useInfiniteEnterprises } from '@/hooks';
 import { useUserRole } from '@/stores/authStoreApi';
 import { enterprisesApi } from '@/lib/api/enterprises';
+import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 
 export function EnterpriseList() {
@@ -32,6 +33,7 @@ export function EnterpriseList() {
   // Status change state (super admin only)
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ id: string; name: string; newStatus: string } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const queryClient = useQueryClient();
 
   // Build server-side params
   const apiParams = useMemo(() => {
@@ -63,6 +65,7 @@ export function EnterpriseList() {
     setIsChangingStatus(true);
     try {
       await enterprisesApi.update(statusChangeTarget.id, { status: statusChangeTarget.newStatus });
+      queryClient.invalidateQueries({ queryKey: ['enterprises'] });
       refetch();
     } catch (error) {
       console.error('Failed to update enterprise status:', error);

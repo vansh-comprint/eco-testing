@@ -7,6 +7,7 @@ import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { branchesApi } from '@/lib/api/branches';
+import { useQueryClient } from '@tanstack/react-query';
 import { text } from '@/lib/design-tokens';
 
 interface Enterprise {
@@ -72,6 +73,7 @@ export function CreateEnterpriseUserModal({
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -175,6 +177,10 @@ export function CreateEnterpriseUserModal({
         duration: 5000,
       });
 
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['it-admins'] });
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['subUsers'] });
       reset();
       onClose();
       onSuccess?.();

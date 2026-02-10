@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/hooks';
 import { useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useAuthStoreApi } from '@/stores';
 import { PasswordChange } from '@/components/settings';
 
 type SettingsTab = 'profile' | 'security' | 'enterprise' | 'notifications' | 'bank';
@@ -89,6 +90,8 @@ export function OrgAdminSettings() {
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to save profile');
         }
+        // Refresh auth store so sidebar/header reflects new name
+        await useAuthStoreApi.getState().refreshUser();
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
       } else if (activeTab === 'bank') {
         localStorage.setItem('ecotribe-org-bank-details', JSON.stringify(bankForm));

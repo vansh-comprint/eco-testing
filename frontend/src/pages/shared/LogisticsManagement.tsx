@@ -4,7 +4,7 @@
  * Based on OPS Admin version (uses dedicated logisticsApi)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Truck, Search, ChevronDown, ChevronRight, Mail, Phone, Edit2, UserPlus } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
@@ -12,6 +12,7 @@ import { CreateLogisticsAdminModal, CreateLogisticsUserModal, EditUserModal } fr
 import { logisticsApi } from '@/lib/api/logistics';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface LogisticsAdmin {
   id: string;
@@ -44,22 +45,11 @@ export function LogisticsManagement() {
   const isSuperAdmin = userRole === 'super_admin';
   const headerLabel = isSuperAdmin ? 'Super Admin' : 'Operations';
 
-  const [logisticsData, setLogisticsData] = useState<LogisticsAdminWithUsers[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isLogisticsAdminModalOpen, setIsLogisticsAdminModalOpen] = useState(false);
-  const [isLogisticsUserModalOpen, setIsLogisticsUserModalOpen] = useState(false);
-  const [selectedLogisticsAdminId, setSelectedLogisticsAdminId] = useState<string | undefined>(undefined);
-  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<LogisticsAdmin | LogisticsUser | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchLogisticsData();
-  }, []);
-
-  const fetchLogisticsData = async () => {
-    setIsLoading(true);
-    try {
+  const { data: logisticsQueryData, isLoading } = useQuery({
+    queryKey: ['logistics-management'],
+    queryFn: async () => {
       const [adminsResult, usersResult] = await Promise.all([
         logisticsApi.listAdmins({ limit: 100 }),
         logisticsApi.listUsers({ limit: 100 }),
@@ -90,28 +80,36 @@ export function LogisticsManagement() {
           }))
         : [];
 
-      const grouped: LogisticsAdminWithUsers[] = admins.map(admin => ({
-        admin,
-        users: allUsers.filter(user => user.parent_user_id === admin.id),
-        expanded: false,
-      }));
+      return { admins, allUsers };
+    },
+  });
 
-      setLogisticsData(grouped);
-    } catch (error) {
-      console.error('Error fetching logistics data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Maintain local expanded state separately from query data
+  const [expandedAdmins, setExpandedAdmins] = useState<Set<string>>(new Set());
+  const logisticsData = useMemo(() => {
+    if (!logisticsQueryData) return [];
+    const { admins, allUsers } = logisticsQueryData;
+    return admins.map(admin => ({
+      admin,
+      users: allUsers.filter(user => user.parent_user_id === admin.id),
+      expanded: expandedAdmins.has(admin.id),
+    }));
+  }, [logisticsQueryData, expandedAdmins]);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLogisticsAdminModalOpen, setIsLogisticsAdminModalOpen] = useState(false);
+  const [isLogisticsUserModalOpen, setIsLogisticsUserModalOpen] = useState(false);
+  const [selectedLogisticsAdminId, setSelectedLogisticsAdminId] = useState<string | undefined>(undefined);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<LogisticsAdmin | LogisticsUser | null>(null);
 
   const toggleExpand = (adminId: string) => {
-    setLogisticsData(prev =>
-      prev.map(item =>
-        item.admin.id === adminId
-          ? { ...item, expanded: !item.expanded }
-          : item
-      )
-    );
+    setExpandedAdmins(prev => {
+      const next = new Set(prev);
+      if (next.has(adminId)) next.delete(adminId);
+      else next.add(adminId);
+      return next;
+    });
   };
 
   const filteredData = logisticsData.filter(item =>
@@ -376,7 +374,7 @@ export function LogisticsManagement() {
         isOpen={isLogisticsAdminModalOpen}
         onClose={() => setIsLogisticsAdminModalOpen(false)}
         onSuccess={() => {
-          fetchLogisticsData();
+          queryClient.invalidateQueries({ queryKey: ['logistics-management'] });
           setIsLogisticsAdminModalOpen(false);
         }}
       />
@@ -387,7 +385,7 @@ export function LogisticsManagement() {
           setSelectedLogisticsAdminId(undefined);
         }}
         onSuccess={() => {
-          fetchLogisticsData();
+          queryClient.invalidateQueries({ queryKey: ['logistics-management'] });
           setIsLogisticsUserModalOpen(false);
           setSelectedLogisticsAdminId(undefined);
         }}
@@ -401,7 +399,7 @@ export function LogisticsManagement() {
             setSelectedUser(null);
           }}
           onSuccess={() => {
-            fetchLogisticsData();
+            queryClient.invalidateQueries({ queryKey: ['logistics-management'] });
           }}
           user={selectedUser}
           hideRole

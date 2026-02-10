@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Validation schema
 const createOpsAdminSchema = z.object({
@@ -25,6 +26,7 @@ interface CreateOpsAdminModalProps {
 export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdminModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -58,6 +60,7 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
         duration: 5000,
       });
 
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       reset();
       onClose();
       onSuccess?.();

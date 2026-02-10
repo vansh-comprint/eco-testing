@@ -34,6 +34,7 @@ import {
 } from '@/hooks';
 import { useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useAuthStoreApi } from '@/stores';
 import { PermissionGate, Permission } from '@/permissions';
 import { PasswordChange } from '@/components/settings';
 
@@ -160,6 +161,8 @@ export function Settings() {
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to save profile');
         }
+        // Refresh auth store so sidebar/header reflects new name
+        await useAuthStoreApi.getState().refreshUser();
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
       } else if (activeTab === 'bank') {
         // Bank details: persist to localStorage until backend endpoint is available

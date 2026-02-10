@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Truck } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Validation schema
 const createLogisticsAdminSchema = z.object({
@@ -26,6 +27,7 @@ interface CreateLogisticsAdminModalProps {
 export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: CreateLogisticsAdminModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -59,6 +61,8 @@ export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: Create
         duration: 5000,
       });
 
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
       // Reset form and close modal
       reset();
       onClose();

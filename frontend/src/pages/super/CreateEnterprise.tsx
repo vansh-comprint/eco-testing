@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize } from '@/lib/design-tokens';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Dropdown options (matching registration page)
 const industryOptions = [
@@ -199,6 +200,7 @@ export function CreateEnterprise() {
   // V3: Use React Query hook for auth
   const { user: currentUser } = useAuth();
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   // Document upload state
   const [documents, setDocuments] = useState<Record<DocField, string>>({
@@ -347,6 +349,9 @@ export function CreateEnterprise() {
         message: `${data.name} has been created successfully`,
         duration: 5000,
       });
+
+      // Invalidate cache so enterprise list shows the new entry
+      queryClient.invalidateQueries({ queryKey: ['enterprises'] });
 
       // Navigate back to enterprise list
       if ((currentUser?.role as string) === 'ops_admin') {

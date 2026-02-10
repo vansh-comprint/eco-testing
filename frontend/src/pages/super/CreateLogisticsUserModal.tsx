@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Validation schema
 const createLogisticsUserSchema = z.object({
@@ -28,6 +29,7 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logisticsAdmins, setLogisticsAdmins] = useState<Array<{ id: string; name: string }>>([]);
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -87,6 +89,8 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
         duration: 5000,
       });
 
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
       // Reset form and close modal
       reset();
       onClose();
