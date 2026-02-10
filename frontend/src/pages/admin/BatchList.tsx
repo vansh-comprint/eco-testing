@@ -97,7 +97,7 @@ export function BatchList() {
   } = useInfiniteBatches(infiniteParams);
 
   // Flatten pages into a single array
-  const allBatches = data?.pages.flatMap(p => p.data || []) ?? [];
+  const allBatches = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
   // Client-side filtering for multi-status filters (e.g. "approved,pickup_in_progress")

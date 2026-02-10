@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -13,7 +13,8 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAllAssets, useAllDisputes, useResolveDispute, useApiError } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes, useResolveDispute, useApiError } from '@/hooks';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 
 type DisputeFilter = 'all' | 'pending' | 'resolved';
@@ -21,10 +22,36 @@ type DisputeFilter = 'all' | 'pending' | 'resolved';
 export function OpsDisputes() {
   const { user } = useAuth();
   const { data: assets = [] } = useAllAssets();
-  const { data: rawDisputes = [], isLoading } = useAllDisputes();
   const resolveDisputeMutation = useResolveDispute();
   const { handleError, showSuccess } = useApiError();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<DisputeFilter>('pending');
+  const [selectedDispute, setSelectedDispute] = useState<string | null>(null);
+  const [resolution, setResolution] = useState<'overturned' | 'upheld' | null>(null);
+  const [resolverNotes, setResolverNotes] = useState('');
+
+  // Infinite scroll disputes — pass status filter to server when applicable
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (statusFilter === 'pending') params.status = 'pending';
+    // 'resolved' and 'all' are handled client-side since there's no single "resolved" status value
+    return params;
+  }, [statusFilter]);
+
+  const {
+    data: disputeData,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteDisputes(apiParams);
+
+  const rawDisputes = useMemo(
+    () => disputeData?.pages.flatMap(p => p.data || []) ?? [],
+    [disputeData]
+  );
 
   // Map API disputes to the format used in this page
   const disputes = rawDisputes.map(d => ({
@@ -38,23 +65,21 @@ export function OpsDisputes() {
     createdAt: d.created_at,
   }));
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<DisputeFilter>('pending');
-  const [selectedDispute, setSelectedDispute] = useState<string | null>(null);
-  const [resolution, setResolution] = useState<'overturned' | 'upheld' | null>(null);
-  const [resolverNotes, setResolverNotes] = useState('');
-
   // Filter disputes (respects global enterprise filter)
   const filteredDisputes = disputes
     .filter(d => {
       // Apply global enterprise filter via associated asset
       const asset = assets.find(a => a.id === d.assetId);
       if (!isAllEnterprises && asset?.enterprise_id !== selectedEnterpriseId) return false;
-      if (statusFilter === 'pending') return !d.resolution;
+      // Client-side status filter for 'resolved' (server handles 'pending')
       if (statusFilter === 'resolved') return !!d.resolution;
+      if (statusFilter === 'all') return true;
+      // 'pending' is handled server-side, but double-check client-side
+      if (statusFilter === 'pending') return !d.resolution;
       return true;
     })
     .filter(d => {
+      if (!searchQuery) return true;
       const asset = assets.find(a => a.id === d.assetId);
       if (!asset) return d.itAdminNotes.toLowerCase().includes(searchQuery.toLowerCase());
       return (
@@ -218,73 +243,77 @@ export function OpsDisputes() {
           className="space-y-4"
         >
           {filteredDisputes.length > 0 ? (
-            filteredDisputes.map((dispute, idx) => {
-              const asset = getAsset(dispute.assetId);
-              const isSelected = selectedDispute === dispute.id;
+            <>
+              {filteredDisputes.map((dispute, idx) => {
+                const asset = getAsset(dispute.assetId);
+                const isSelected = selectedDispute === dispute.id;
 
-              return (
-                <motion.div
-                  key={dispute.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  onClick={() => setSelectedDispute(dispute.id)}
-                  className={`border cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-ecotribe-primary bg-ecotribe-primary/5'
-                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                  }`}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
-                        dispute.resolution
-                          ? dispute.resolution === 'overturned'
-                            ? 'border-emerald-400/30 bg-emerald-400/10'
-                            : 'border-red-400/30 bg-red-400/10'
-                          : 'border-amber-400/30 bg-amber-400/10'
-                      }`}>
-                        <AlertTriangle className={`w-6 h-6 ${
+                return (
+                  <motion.div
+                    key={dispute.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 * Math.min(idx, 10) }}
+                    onClick={() => setSelectedDispute(dispute.id)}
+                    className={`border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-ecotribe-primary bg-ecotribe-primary/5'
+                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
                           dispute.resolution
                             ? dispute.resolution === 'overturned'
-                              ? 'text-emerald-400'
-                              : 'text-red-400'
-                            : 'text-amber-400'
-                        }`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
-                              {asset ? `${asset.brand} ${asset.model}` : 'Unknown Asset'}
-                            </p>
-                            <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                              {asset?.serial_number || dispute.assetId}
-                            </p>
-                          </div>
-                          <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${
+                              ? 'border-emerald-400/30 bg-emerald-400/10'
+                              : 'border-red-400/30 bg-red-400/10'
+                            : 'border-amber-400/30 bg-amber-400/10'
+                        }`}>
+                          <AlertTriangle className={`w-6 h-6 ${
                             dispute.resolution
                               ? dispute.resolution === 'overturned'
-                                ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
-                                : 'border-red-400/30 bg-red-400/10 text-red-400'
-                              : 'border-amber-400/30 bg-amber-400/10 text-amber-400'
-                          }`}>
-                            {dispute.resolution || 'Pending'}
-                          </span>
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
+                              : 'text-amber-400'
+                          }`} />
                         </div>
-                        <p className="font-display text-sm text-slate-500 dark:text-white/50 mt-2 line-clamp-2">
-                          {dispute.itAdminNotes}
-                        </p>
-                        <div className="flex items-center gap-4 mt-3 text-xs font-mono text-slate-500 dark:text-white/50">
-                          <span>Type: {dispute.type}</span>
-                          <span>{new Date(dispute.createdAt).toLocaleDateString()}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
+                                {asset ? `${asset.brand} ${asset.model}` : 'Unknown Asset'}
+                              </p>
+                              <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+                                {asset?.serial_number || dispute.assetId}
+                              </p>
+                            </div>
+                            <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${
+                              dispute.resolution
+                                ? dispute.resolution === 'overturned'
+                                  ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
+                                  : 'border-red-400/30 bg-red-400/10 text-red-400'
+                                : 'border-amber-400/30 bg-amber-400/10 text-amber-400'
+                            }`}>
+                              {dispute.resolution || 'Pending'}
+                            </span>
+                          </div>
+                          <p className="font-display text-sm text-slate-500 dark:text-white/50 mt-2 line-clamp-2">
+                            {dispute.itAdminNotes}
+                          </p>
+                          <div className="flex items-center gap-4 mt-3 text-xs font-mono text-slate-500 dark:text-white/50">
+                            <span>Type: {dispute.type}</span>
+                            <span>{new Date(dispute.createdAt).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })
+                  </motion.div>
+                );
+              })}
+              <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+              <InfiniteScrollInfo loadedCount={filteredDisputes.length} totalCount={disputeData?.pages[0]?.pagination?.total} />
+            </>
           ) : (
             <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-16 text-center">
               <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">

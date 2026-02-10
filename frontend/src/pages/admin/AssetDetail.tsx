@@ -29,11 +29,12 @@ import {
   FileText,
   PlayCircle,
   CheckSquare,
-  Plus
+  Plus,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Badge, Button, Input, Dropdown, useToast } from '@/components/ui';
 import { useAuditStore, useSubmissionStore, useReviewStore, useNotificationStore } from '@/stores';
-import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute, useCreateBatch } from '@/hooks';
+import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute, useCreateBatch } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { AssetStatus, QCImage } from '@/types';
 import { getAssetStatusDisplay } from '@/lib/status-display';
@@ -74,6 +75,11 @@ export function AssetDetail() {
   const { data: orgBatches = [] } = useBatches(isOrgAdmin ? enterpriseId : '');
   const { data: itBatches = [] } = useBatchesByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
   const { data: subUsers = [] } = useSubUsers(enterpriseId);
+
+  // Branches for transfer
+  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBranches = [] } = useBranchesByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
+  const availableBranches = (isOrgAdmin ? orgBranches : itBranches).filter((b: { status: string }) => b.status === 'active');
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const batches = isOrgAdmin ? orgBatches : itBatches;
@@ -116,6 +122,9 @@ export function AssetDetail() {
   const [isDisputing, setIsDisputing] = useState(false);
   const [assignMode, setAssignMode] = useState<'self' | 'select' | 'create'>('self');
   const [newUserForm, setNewUserForm] = useState({ name: '', email: '', phone: '', department: '' });
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferBranchId, setTransferBranchId] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     brand: '',
@@ -608,6 +617,15 @@ export function AssetDetail() {
                 >
                   <Package className="w-4 h-4" />
                   {asset.batch_id ? 'Change Batch' : 'Add to Batch'}
+                </button>
+              )}
+              {!isEditing && ['pending_assignment', 'assigned'].includes(asset.status) && availableBranches.length > 1 && (
+                <button
+                  onClick={() => { setTransferBranchId(''); setShowTransferModal(true); }}
+                  className="interactive px-5 py-2.5 bg-purple-500/10 border border-purple-500/30 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-500/20 transition-all flex items-center gap-2"
+                >
+                  <ArrowRightLeft className="w-4 h-4" />
+                  Transfer Branch
                 </button>
               )}
               {['remote_rejected', 'final_rejected'].includes(asset.status) && !isEditing && (
@@ -1452,6 +1470,120 @@ export function AssetDetail() {
                   <>
                     <UserPlus className="w-4 h-4" />
                     {assignMode === 'self' ? 'Assign to Me' : assignMode === 'create' ? 'Create & Assign' : 'Assign'}
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Transfer Branch Modal */}
+      {showTransferModal && asset && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a]"
+          >
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ArrowRightLeft className="w-5 h-5 text-purple-400" />
+                <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Transfer Branch</h3>
+              </div>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-4 border border-purple-500/20 bg-purple-500/5">
+                <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase mb-1">
+                  {asset.brand} {asset.model}
+                </p>
+                <p className="font-mono text-xs text-zinc-500">
+                  Current branch: {asset.branch_name || availableBranches.find((b: { id: string }) => b.id === asset.branch_id)?.branch_name || 'Unknown'}
+                </p>
+              </div>
+
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Transfer to Branch <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={transferBranchId}
+                  onChange={(e) => setTransferBranchId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
+                >
+                  <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a branch...</option>
+                  {availableBranches
+                    .filter((b: { id: string }) => b.id !== asset.branch_id)
+                    .map((b: { id: string; branch_name: string; branch_code: string }) => (
+                      <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
+                        {b.branch_name} ({b.branch_code})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {transferBranchId && (
+                <div className="p-3 border border-amber-500/20 bg-amber-500/5">
+                  <p className="font-mono text-xs text-amber-400">
+                    This will move the asset to a different branch. The asset must not be in an active batch.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!transferBranchId) return;
+                  setIsTransferring(true);
+                  try {
+                    await updateAssetMutation.mutateAsync({
+                      assetId: asset.id,
+                      updates: { branch_id: transferBranchId } as any,
+                    });
+                    const targetBranch = availableBranches.find((b: { id: string }) => b.id === transferBranchId);
+                    addToast({
+                      type: 'success',
+                      title: 'Branch Transferred',
+                      message: `Asset moved to ${targetBranch?.branch_name || 'new branch'}`,
+                    });
+                    setShowTransferModal(false);
+                    setTransferBranchId('');
+                  } catch (error: any) {
+                    addToast({
+                      type: 'error',
+                      title: 'Transfer Failed',
+                      message: error?.message || 'Could not transfer asset. It may be in an active batch.',
+                    });
+                  } finally {
+                    setIsTransferring(false);
+                  }
+                }}
+                disabled={!transferBranchId || isTransferring}
+                className="px-5 py-2.5 bg-purple-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isTransferring ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin" />
+                    Transferring...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightLeft className="w-4 h-4" />
+                    Transfer
                   </>
                 )}
               </button>

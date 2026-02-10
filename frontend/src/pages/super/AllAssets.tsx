@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Laptop, Search, Download, Eye, ArrowLeft, Building2, ChevronDown, ChevronRight, Layers } from 'lucide-react';
-import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
-import { enterprisesApi } from '@/lib/api/enterprises';
+import { Laptop, Search, Download, Eye, ArrowLeft, Building2, ChevronDown, ChevronRight, Layers, Loader2 } from 'lucide-react';
+import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { batchesApi } from '@/lib/api/batches';
 import { assetsApi } from '@/lib/api/assets';
+import { useInfiniteEnterprises } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface Asset {
@@ -31,119 +31,90 @@ interface Batch {
   created_at: string;
 }
 
-interface Enterprise {
-  id: string;
-  name: string;
-  status: string;
-  created_at: string;
-}
-
-interface EnterpriseWithData {
-  enterprise: Enterprise;
-  batches: BatchWithAssets[];
-  unbatchedAssets: Asset[];
-}
-
-interface BatchWithAssets {
-  batch: Batch;
+interface ExpandedEnterpriseData {
+  batches: Batch[];
   assets: Asset[];
+  loading: boolean;
 }
 
 export function AllAssets() {
   const navigate = useNavigate();
-  const [enterpriseData, setEnterpriseData] = useState<EnterpriseWithData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedEnterprises, setExpandedEnterprises] = useState<Set<string>>(new Set());
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const [expandedData, setExpandedData] = useState<Record<string, ExpandedEnterpriseData>>({});
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  // Infinite scroll for enterprises
+  const { data: enterprisePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteEnterprises();
 
-  const fetchAllData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch all data from REST APIs
-      const [enterprisesResult, batchesResult, assetsResult] = await Promise.all([
-        enterprisesApi.list({ limit: 100 }),
-        batchesApi.list({ limit: 100 }),
-        assetsApi.list({ limit: 100 }),
-      ]);
+  const enterprises = useMemo(() => {
+    return (enterprisePages?.pages.flatMap(p => p.data || []) ?? []).map(e => ({
+      id: e.id,
+      name: e.name,
+      status: e.status,
+      created_at: e.created_at,
+    }));
+  }, [enterprisePages]);
 
-      const enterprises: Enterprise[] = (enterprisesResult.success && enterprisesResult.data)
-        ? enterprisesResult.data.map(e => ({
-            id: e.id,
-            name: e.name,
-            status: e.status,
-            created_at: e.created_at,
-          }))
-        : [];
+  const total = enterprisePages?.pages[0]?.pagination?.total ?? 0;
 
-      const batches: Batch[] = (batchesResult.success && batchesResult.data)
-        ? batchesResult.data.map(b => ({
-            id: b.id,
-            name: b.name,
-            enterprise_id: b.enterprise_id,
-            status: b.status,
-            asset_count: b.asset_count || 0,
-            created_at: b.created_at,
-          }))
-        : [];
-
-      const assets: Asset[] = (assetsResult.success && assetsResult.data)
-        ? assetsResult.data.map(a => ({
-            id: a.id,
-            enterprise_id: a.enterprise_id,
-            batch_id: a.batch_id,
-            serial_number: a.serial_number,
-            brand: a.brand || '',
-            model: a.model || '',
-            status: a.status,
-            base_price: a.base_price || 0,
-            assigned_to_user_id: a.assigned_to_user_id,
-            created_at: a.created_at,
-          }))
-        : [];
-
-      // Group data by enterprise and batch
-      const grouped: EnterpriseWithData[] = enterprises.map(enterprise => {
-        const enterpriseBatches = batches.filter(b => b.enterprise_id === enterprise.id);
-
-        const batchesWithAssets: BatchWithAssets[] = enterpriseBatches.map(batch => ({
-          batch,
-          assets: assets.filter(a => a.batch_id === batch.id && a.enterprise_id === enterprise.id),
-        }));
-
-        const unbatchedAssets = assets.filter(
-          a => a.enterprise_id === enterprise.id && !a.batch_id
-        );
-
-        return {
-          enterprise,
-          batches: batchesWithAssets,
-          unbatchedAssets,
-        };
+  const toggleEnterprise = async (enterpriseId: string) => {
+    if (expandedEnterprises.has(enterpriseId)) {
+      setExpandedEnterprises(prev => {
+        const n = new Set(prev);
+        n.delete(enterpriseId);
+        return n;
       });
-
-      setEnterpriseData(grouped);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleEnterprise = (enterpriseId: string) => {
-    setExpandedEnterprises(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(enterpriseId)) {
-        newSet.delete(enterpriseId);
-      } else {
-        newSet.add(enterpriseId);
+    } else {
+      setExpandedEnterprises(prev => new Set(prev).add(enterpriseId));
+      // Lazy load batches and assets for this enterprise
+      if (!expandedData[enterpriseId]) {
+        setExpandedData(prev => ({
+          ...prev,
+          [enterpriseId]: { batches: [], assets: [], loading: true },
+        }));
+        try {
+          const [batchRes, assetRes] = await Promise.all([
+            batchesApi.list({ enterprise_id: enterpriseId, limit: 100 }),
+            assetsApi.list({ enterprise_id: enterpriseId, limit: 100 }),
+          ]);
+          const batches: Batch[] = (batchRes.success && batchRes.data)
+            ? batchRes.data.map(b => ({
+                id: b.id,
+                name: b.name,
+                enterprise_id: b.enterprise_id,
+                status: b.status,
+                asset_count: b.asset_count || 0,
+                created_at: b.created_at,
+              }))
+            : [];
+          const assets: Asset[] = (assetRes.success && assetRes.data)
+            ? assetRes.data.map(a => ({
+                id: a.id,
+                enterprise_id: a.enterprise_id,
+                batch_id: a.batch_id,
+                serial_number: a.serial_number,
+                brand: a.brand || '',
+                model: a.model || '',
+                status: a.status,
+                base_price: a.base_price || 0,
+                assigned_to_user_id: a.assigned_to_user_id,
+                created_at: a.created_at,
+              }))
+            : [];
+          setExpandedData(prev => ({
+            ...prev,
+            [enterpriseId]: { batches, assets, loading: false },
+          }));
+        } catch (error) {
+          console.error('Error fetching enterprise data:', error);
+          setExpandedData(prev => ({
+            ...prev,
+            [enterpriseId]: { batches: [], assets: [], loading: false },
+          }));
+        }
       }
-      return newSet;
-    });
+    }
   };
 
   const toggleBatch = (batchId: string) => {
@@ -185,43 +156,81 @@ export function AllAssets() {
     return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
-  // Calculate total stats
-  const totalAssets = enterpriseData.reduce(
-    (sum, ed) => sum + ed.batches.reduce((bSum, b) => bSum + b.assets.length, 0) + ed.unbatchedAssets.length,
-    0
-  );
-  const totalBatches = enterpriseData.reduce((sum, ed) => sum + ed.batches.length, 0);
-  const totalEnterprises = enterpriseData.length;
+  // Build grouped data from enterprises + lazy loaded expanded data
+  const enterpriseData = useMemo(() => {
+    return enterprises.map(enterprise => {
+      const eData = expandedData[enterprise.id];
+      if (!eData || eData.loading) {
+        return {
+          enterprise,
+          batches: [] as { batch: Batch; assets: Asset[] }[],
+          unbatchedAssets: [] as Asset[],
+          loading: eData?.loading ?? false,
+        };
+      }
+
+      const batchesWithAssets = eData.batches.map(batch => ({
+        batch,
+        assets: eData.assets.filter(a => a.batch_id === batch.id),
+      }));
+
+      const unbatchedAssets = eData.assets.filter(a => !a.batch_id);
+
+      return {
+        enterprise,
+        batches: batchesWithAssets,
+        unbatchedAssets,
+        loading: false,
+      };
+    });
+  }, [enterprises, expandedData]);
+
+  // Calculate total stats from loaded data
+  const loadedStats = useMemo(() => {
+    let totalAssets = 0;
+    let totalBatches = 0;
+    for (const eData of Object.values(expandedData)) {
+      if (!eData.loading) {
+        totalAssets += eData.assets.length;
+        totalBatches += eData.batches.length;
+      }
+    }
+    return { totalAssets, totalBatches, totalEnterprises: enterprises.length };
+  }, [expandedData, enterprises.length]);
 
   // Filter data based on search
-  const filteredData = enterpriseData
-    .map(ed => ({
-      ...ed,
-      batches: ed.batches
-        .map(b => ({
-          ...b,
-          assets: b.assets.filter(
-            a =>
-              a.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              a.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              a.model.toLowerCase().includes(searchTerm.toLowerCase())
-          ),
-        }))
-        .filter(b => b.assets.length > 0 || searchTerm === ''),
-      unbatchedAssets: ed.unbatchedAssets.filter(
-        a =>
-          a.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          a.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          a.model.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    }))
-    .filter(
-      ed =>
-        ed.enterprise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ed.batches.length > 0 ||
-        ed.unbatchedAssets.length > 0 ||
-        searchTerm === ''
-    );
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return enterpriseData;
+    const term = searchTerm.toLowerCase();
+    return enterpriseData
+      .map(ed => ({
+        ...ed,
+        batches: ed.batches
+          .map(b => ({
+            ...b,
+            assets: b.assets.filter(
+              a =>
+                a.serial_number.toLowerCase().includes(term) ||
+                a.brand.toLowerCase().includes(term) ||
+                a.model.toLowerCase().includes(term)
+            ),
+          }))
+          .filter(b => b.assets.length > 0 || searchTerm === ''),
+        unbatchedAssets: ed.unbatchedAssets.filter(
+          a =>
+            a.serial_number.toLowerCase().includes(term) ||
+            a.brand.toLowerCase().includes(term) ||
+            a.model.toLowerCase().includes(term)
+        ),
+      }))
+      .filter(
+        ed =>
+          ed.enterprise.name.toLowerCase().includes(term) ||
+          ed.batches.length > 0 ||
+          ed.unbatchedAssets.length > 0 ||
+          searchTerm === ''
+      );
+  }, [enterpriseData, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -260,7 +269,7 @@ export function AllAssets() {
           <div className="flex items-center justify-between">
             <div>
               <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total Enterprises</p>
-              <p className={`font-brand text-3xl font-bold ${text.primary} mt-1`}>{totalEnterprises}</p>
+              <p className={`font-brand text-3xl font-bold ${text.primary} mt-1`}>{loadedStats.totalEnterprises}</p>
             </div>
             <Building2 className={`${iconSize.xl} text-blue-500`} />
           </div>
@@ -269,7 +278,7 @@ export function AllAssets() {
           <div className="flex items-center justify-between">
             <div>
               <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total Batches</p>
-              <p className={`font-brand text-3xl font-bold text-amber-500 mt-1`}>{totalBatches}</p>
+              <p className={`font-brand text-3xl font-bold text-amber-500 mt-1`}>{loadedStats.totalBatches}</p>
             </div>
             <Layers className={`${iconSize.xl} text-amber-500`} />
           </div>
@@ -278,7 +287,7 @@ export function AllAssets() {
           <div className="flex items-center justify-between">
             <div>
               <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total Assets</p>
-              <p className={`font-brand text-3xl font-bold text-emerald-500 mt-1`}>{totalAssets}</p>
+              <p className={`font-brand text-3xl font-bold text-emerald-500 mt-1`}>{loadedStats.totalAssets}</p>
             </div>
             <Laptop className={`${iconSize.xl} text-emerald-500`} />
           </div>
@@ -310,7 +319,7 @@ export function AllAssets() {
       >
         {isLoading ? (
           <Card className="p-12 text-center">
-            <p className={`font-mono text-sm ${text.muted}`}>Loading assets...</p>
+            <p className={`font-mono text-sm ${text.muted}`}>Loading enterprises...</p>
           </Card>
         ) : filteredData.length === 0 ? (
           <Card className="p-12 text-center">
@@ -351,9 +360,11 @@ export function AllAssets() {
                           >
                             {enterpriseItem.enterprise.status}
                           </Badge>
-                          <p className={`font-mono text-xs ${text.muted}`}>
-                            {enterpriseItem.batches.length} batches • {enterpriseAssetCount} assets
-                          </p>
+                          {isEnterpriseExpanded && !enterpriseItem.loading && (
+                            <p className={`font-mono text-xs ${text.muted}`}>
+                              {enterpriseItem.batches.length} batches • {enterpriseAssetCount} assets
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -367,7 +378,12 @@ export function AllAssets() {
                   {/* Batches and Assets */}
                   {isEnterpriseExpanded && (
                     <div className="border-t border-slate-200/80 dark:border-zinc-800">
-                      {enterpriseItem.batches.length === 0 && enterpriseItem.unbatchedAssets.length === 0 ? (
+                      {enterpriseItem.loading ? (
+                        <div className="p-8 text-center flex items-center justify-center gap-2">
+                          <Loader2 className={`${iconSize.sm} ${text.muted} animate-spin`} />
+                          <p className={`font-mono text-sm ${text.muted}`}>Loading batches and assets...</p>
+                        </div>
+                      ) : enterpriseItem.batches.length === 0 && enterpriseItem.unbatchedAssets.length === 0 ? (
                         <div className="p-8 text-center">
                           <p className={`font-mono text-sm ${text.muted}`}>
                             No batches or assets yet
@@ -517,6 +533,17 @@ export function AllAssets() {
           })
         )}
       </motion.div>
+
+      {/* Infinite Scroll Trigger + Info */}
+      <InfiniteScrollTrigger
+        hasNextPage={hasNextPage ?? false}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
+      <InfiniteScrollInfo
+        loadedCount={enterprises.length}
+        totalCount={total}
+      />
     </div>
   );
 }

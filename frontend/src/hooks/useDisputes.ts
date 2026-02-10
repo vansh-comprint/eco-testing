@@ -3,14 +3,15 @@
  * Handles dispute CRUD operations via REST API
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { disputesApi, type DisputeResponse } from '@/lib/api/disputes';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { disputesApi, type DisputeResponse, type DisputeListParams } from '@/lib/api/disputes';
 
 // Query keys
 export const disputeKeys = {
   all: ['disputes'] as const,
   lists: () => [...disputeKeys.all, 'list'] as const,
   list: (filters: Record<string, unknown>) => [...disputeKeys.lists(), filters] as const,
+  infinite: (params: Record<string, unknown>) => [...disputeKeys.all, 'infinite', params] as const,
   details: () => [...disputeKeys.all, 'detail'] as const,
   detail: (id: string) => [...disputeKeys.details(), id] as const,
   byAsset: (assetId: string) => [...disputeKeys.all, 'byAsset', assetId] as const,
@@ -98,6 +99,26 @@ function mapDisputeResponse(d: DisputeResponse): Dispute {
     resolved_at: d.resolved_at,
     created_at: d.created_at,
   };
+}
+
+// Infinite scroll hook - loads disputes page by page
+export function useInfiniteDisputes(params: Omit<DisputeListParams, 'page' | 'page_size'> = {}) {
+  return useInfiniteQuery({
+    queryKey: disputeKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 1 }) => {
+      const res = await disputesApi.list({ ...params, page: pageParam as number, page_size: 5 });
+      if (!res.success) throw new Error(res.error?.message || 'Failed to fetch disputes');
+      return { data: (res.data || []).map(mapDisputeResponse), pagination: res.pagination };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return (lastPage.pagination?.page ?? 0) + 1;
+      return undefined;
+    },
+    staleTime: 30000,
+  });
 }
 
 // Fetch disputes by enterprise

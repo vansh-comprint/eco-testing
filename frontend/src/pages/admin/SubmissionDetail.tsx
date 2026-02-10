@@ -20,7 +20,7 @@ import {
   AlertCircle,
   Building2,
   Star,
-  DollarSign,
+  IndianRupee,
   FileText,
   ChevronLeft,
   ChevronRight,
@@ -863,7 +863,7 @@ export function SubmissionDetail() {
           {/* Estimated Value */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider mb-2">
-              <DollarSign className="w-3.5 h-3.5 inline mr-1" />
+              <IndianRupee className="w-3.5 h-3.5 inline mr-1" />
               Estimated Value (optional)
             </label>
             <div className="relative">

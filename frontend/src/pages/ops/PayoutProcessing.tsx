@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  DollarSign,
+  IndianRupee,
   Search,
   Building2,
   CheckCircle,
@@ -308,7 +308,7 @@ export function PayoutProcessing() {
 
         <div className="border border-ecotribe-primary/30 bg-ecotribe-primary/5 p-5">
           <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="w-4 h-4 text-ecotribe-primary" />
+            <IndianRupee className="w-4 h-4 text-ecotribe-primary" />
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
@@ -524,7 +524,7 @@ export function PayoutProcessing() {
           className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
         >
           <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
-            <DollarSign className="w-10 h-10 text-slate-500 dark:text-white/50" />
+            <IndianRupee className="w-10 h-10 text-slate-500 dark:text-white/50" />
           </div>
           <h3 className="font-brand font-bold text-xl text-slate-500 dark:text-white/50 uppercase tracking-tight mb-2">
             No Payouts Found

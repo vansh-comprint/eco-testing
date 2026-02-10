@@ -560,15 +560,6 @@ export function BatchDetail() {
                 {batchAssets.length} asset{batchAssets.length !== 1 ? 's' : ''}
               </span>
             )}
-            {canAddAssets && (
-              <button
-                onClick={() => openAddAssetModal('existing')}
-                className="px-3 py-2 bg-ecotribe-primary text-black font-mono text-[11px] uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Asset
-              </button>
-            )}
           </div>
         </div>
 

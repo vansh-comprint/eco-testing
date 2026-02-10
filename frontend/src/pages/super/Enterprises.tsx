@@ -1,22 +1,58 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search, Power, CheckCircle } from 'lucide-react';
-import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal } from '@/components/ui';
+import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
+import { useInfiniteEnterprises } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Enterprise } from '@/types';
 
 export function Enterprises() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
-  const [activeEnterprises, setActiveEnterprises] = useState<Enterprise[]>([]);
-  const [inactiveEnterprises, setInactiveEnterprises] = useState<Enterprise[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ enterprise: Enterprise; newStatus: 'active' | 'inactive' } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  // Infinite scroll query for enterprises
+  const { data: enterprisePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteEnterprises();
+
+  // Flatten pages into enterprise list
+  const allRawEnterprises = useMemo(() => {
+    return enterprisePages?.pages.flatMap(p => p.data || []) ?? [];
+  }, [enterprisePages]);
+
+  const total = enterprisePages?.pages[0]?.pagination?.total ?? 0;
+
+  // Map to Enterprise type
+  const allEnterprises: Enterprise[] = useMemo(() => {
+    return allRawEnterprises.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      legalName: row.legal_name,
+      gstNumber: row.gst_number,
+      panNumber: row.pan_number,
+      address: row.address,
+      status: row.status,
+      contactPerson: row.contact_person,
+      contactEmail: row.contact_email,
+      contactPhone: row.contact_phone,
+      industry: row.industry,
+      companySize: row.company_size,
+      logoUrl: row.logo_url,
+      bankDetails: row.bank_details,
+      createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    }));
+  }, [allRawEnterprises]);
+
+  // Separate active and inactive
+  const activeEnterprises = useMemo(() => allEnterprises.filter(e => e.status === 'active'), [allEnterprises]);
+  const inactiveEnterprises = useMemo(() => allEnterprises.filter(e => e.status === 'inactive' || (e.status as any) === 'suspended'), [allEnterprises]);
 
   const handleStatusChange = async () => {
     if (!statusChangeTarget) return;
@@ -26,7 +62,7 @@ export function Enterprises() {
         status: statusChangeTarget.newStatus,
       });
       if (result.success) {
-        await fetchEnterprises();
+        queryClient.invalidateQueries({ queryKey: ['enterprises'] });
         setIsModalOpen(false);
         setSelectedEnterprise(null);
       }
@@ -37,47 +73,6 @@ export function Enterprises() {
       setStatusChangeTarget(null);
     }
   };
-
-  const fetchEnterprises = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch all enterprises via REST API (high limit to get all, not just default 10)
-      const response = await enterprisesApi.list({ limit: 100 });
-
-      if (response.data) {
-        const enterprises: Enterprise[] = response.data.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          legalName: row.legal_name,
-          gstNumber: row.gst_number,
-          panNumber: row.pan_number,
-          address: row.address,
-          status: row.status,
-          contactPerson: row.contact_person,
-          contactEmail: row.contact_email,
-          contactPhone: row.contact_phone,
-          industry: row.industry,
-          companySize: row.company_size,
-          logoUrl: row.logo_url,
-          bankDetails: row.bank_details,
-          createdAt: row.created_at ? new Date(row.created_at) : new Date(),
-          updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-        }));
-
-        // Separate active and inactive (V3: pending applications are in enterprise_applications table)
-        setActiveEnterprises(enterprises.filter(e => e.status === 'active'));
-        setInactiveEnterprises(enterprises.filter(e => e.status === 'inactive' || (e.status as any) === 'suspended'));
-      }
-    } catch (error) {
-      console.error('Error fetching enterprises:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEnterprises();
-  }, []);
 
   const handleViewDetails = (enterprise: Enterprise) => {
     setSelectedEnterprise(enterprise);
@@ -245,6 +240,17 @@ export function Enterprises() {
           )}
         </AnimatePresence>
       )}
+
+      {/* Infinite Scroll Trigger + Info */}
+      <InfiniteScrollTrigger
+        hasNextPage={hasNextPage ?? false}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
+      <InfiniteScrollInfo
+        loadedCount={allEnterprises.length}
+        totalCount={total}
+      />
 
       {/* Details Modal */}
       <Modal

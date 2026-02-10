@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Building2,
   Laptop,
-  DollarSign,
+  IndianRupee,
   AlertTriangle,
   TrendingUp,
   ArrowRight,
@@ -97,7 +97,7 @@ export function MainAdminDashboard() {
           label: 'Total Payouts',
           value: `₹${(totalPayoutValue / 1000).toFixed(0)}K`,
           subLabel: 'Completed',
-          icon: <DollarSign className={`${iconSize.lg} text-lime-500`} />,
+          icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
           onClick: () => navigate('/ops/payouts'),
         },
@@ -131,7 +131,7 @@ export function MainAdminDashboard() {
           label: 'Credits Earned',
           value: `₹${(totalPayoutValue / 1000).toFixed(0)}K`,
           subLabel: 'Total value',
-          icon: <DollarSign className={`${iconSize.lg} text-lime-500`} />,
+          icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
           onClick: () => navigate('/ops/payouts'),
         },
@@ -242,7 +242,7 @@ export function MainAdminDashboard() {
                   className={`w-full p-4 flex items-center gap-4 ${hoverStyles.row} group`}
                 >
                   <div className="w-12 h-12 border border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10 flex items-center justify-center">
-                    <DollarSign className={`${iconSize.xl} text-emerald-500`} />
+                    <IndianRupee className={`${iconSize.xl} text-emerald-500`} />
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-emerald-500 transition-colors ${text.primary}`}>
@@ -523,7 +523,7 @@ export function MainAdminDashboard() {
                   className={`w-full p-4 flex items-center gap-4 ${hoverStyles.row} group`}
                 >
                   <div className="w-12 h-12 border border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10 flex items-center justify-center">
-                    <DollarSign className={`${iconSize.xl} text-emerald-500`} />
+                    <IndianRupee className={`${iconSize.xl} text-emerald-500`} />
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-emerald-500 transition-colors ${text.primary}`}>

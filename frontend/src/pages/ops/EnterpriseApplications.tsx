@@ -3,7 +3,7 @@
  * V3: Review and approve enterprise registration applications
  * Enterprise registration flow: Submit documents → OPS Admin review → Approve/Reject
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -86,7 +86,7 @@ export function EnterpriseApplications() {
     fetchNextPage,
   } = useInfiniteEnterpriseApplications(apiStatus ? { status: apiStatus } : {});
 
-  const applications = infiniteData?.pages.flatMap(p => p.data || []) ?? [];
+  const applications = useMemo(() => infiniteData?.pages.flatMap(p => p.data || []) ?? [], [infiniteData]);
   const totalCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
   const approveMutation = useApproveEnterpriseApplication();
   const rejectMutation = useRejectEnterpriseApplication();
@@ -310,7 +310,7 @@ export function EnterpriseApplications() {
                   key={app.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
+                  transition={{ delay: 0.05 * Math.min(idx, 10) }}
                   onClick={() => setSelectedApp(app.id)}
                   className={`border cursor-pointer transition-all ${
                     isSelected

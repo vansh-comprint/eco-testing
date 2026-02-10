@@ -177,7 +177,7 @@ export function EnterpriseList() {
                 key={enterprise.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
+                transition={{ delay: 0.05 * Math.min(idx, 10) }}
                 className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20 transition-all"
               >
                 <div className="p-5 border-b border-slate-200 dark:border-white/10">

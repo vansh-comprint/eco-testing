@@ -4,7 +4,7 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  IndianRupee,
   Calendar,
   Download,
   Building2,
@@ -287,7 +287,7 @@ export function FinancialReports() {
       >
         <div className="border border-emerald-400/30 bg-emerald-400/5 p-5">
           <div className="flex items-center justify-between mb-3">
-            <DollarSign className="w-5 h-5 text-emerald-400" />
+            <IndianRupee className="w-5 h-5 text-emerald-400" />
             <GrowthBadge value={disbursedGrowth} color="text-emerald-400" />
           </div>
           <p className="font-brand font-bold text-3xl text-emerald-400">

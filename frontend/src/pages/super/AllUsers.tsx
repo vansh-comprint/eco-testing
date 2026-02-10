@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Search, Download, Edit2, ArrowLeft, Mail, Phone, UserPlus } from 'lucide-react';
-import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
+import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { EditUserModal, AddUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface User {
@@ -22,43 +23,48 @@ interface User {
 
 export function AllUsers() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    fetchAllUsers();
-  }, []);
+  // Infinite scroll query for users
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
+    queryKey: ['users', 'infinite', roleFilter],
+    queryFn: async ({ pageParam = 0 }) => {
+      const params: any = { skip: pageParam, limit: 5 };
+      if (roleFilter !== 'all') params.role = roleFilter;
+      return usersApi.list(params);
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
+    staleTime: 30000,
+  });
 
-  const fetchAllUsers = async () => {
-    setIsLoading(true);
-    try {
-      const result = await usersApi.list({ limit: 100 });
-      if (result.success && result.data) {
-        const mappedUsers = result.data.map(u => ({
-          id: u.id,
-          enterprise_id: u.enterprise_id,
-          enterprise_name: u.enterprise_name,
-          email: u.email,
-          name: u.name,
-          phone: u.phone,
-          role: u.role,
-          status: u.status,
-          created_at: u.created_at,
-          last_login_at: u.last_login_at,
-        }));
-        setUsers(mappedUsers);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const total = data?.pages[0]?.pagination?.total ?? 0;
+
+  // Flatten pages into users list
+  const users: User[] = useMemo(() => data?.pages.flatMap(p =>
+    (p.data || []).map(u => ({
+      id: u.id,
+      enterprise_id: u.enterprise_id,
+      enterprise_name: u.enterprise_name,
+      email: u.email,
+      name: u.name,
+      phone: u.phone,
+      role: u.role,
+      status: u.status,
+      created_at: u.created_at,
+      last_login_at: u.last_login_at,
+    }))
+  ) ?? [], [data]);
 
   const getRoleBadgeVariant = (role: string) => {
     const variants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
@@ -91,9 +97,7 @@ export function AllUsers() {
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.enterprise_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   const stats = {
@@ -103,6 +107,10 @@ export function AllUsers() {
     itAdmins: users.filter(u => u.role === 'it_admin').length,
     orgAdmins: users.filter(u => u.role === 'org_admin').length,
     logistics: users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
+  };
+
+  const handleModalSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
   };
 
   return (
@@ -260,7 +268,7 @@ export function AllUsers() {
                       key={user.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: 0.05 * index }}
+                      transition={{ delay: 0.05 * Math.min(index, 10) }}
                       className={hoverStyles.row}
                     >
                       <td className="px-6 py-4">
@@ -334,6 +342,17 @@ export function AllUsers() {
         </Card>
       </motion.div>
 
+      {/* Infinite Scroll Trigger + Info */}
+      <InfiniteScrollTrigger
+        hasNextPage={hasNextPage ?? false}
+        isFetchingNextPage={isFetchingNextPage}
+        fetchNextPage={fetchNextPage}
+      />
+      <InfiniteScrollInfo
+        loadedCount={users.length}
+        totalCount={total}
+      />
+
       {/* Edit User Modal */}
       {selectedUser && (
         <EditUserModal
@@ -342,9 +361,7 @@ export function AllUsers() {
             setIsEditUserModalOpen(false);
             setSelectedUser(null);
           }}
-          onSuccess={() => {
-            fetchAllUsers();
-          }}
+          onSuccess={handleModalSuccess}
           user={selectedUser}
         />
       )}
@@ -353,9 +370,7 @@ export function AllUsers() {
       <AddUserModal
         isOpen={isAddUserModalOpen}
         onClose={() => setIsAddUserModalOpen(false)}
-        onSuccess={() => {
-          fetchAllUsers();
-        }}
+        onSuccess={handleModalSuccess}
       />
     </div>
   );

@@ -3,7 +3,7 @@
  * Sub-users are enterprise employees who submit their devices
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import {
   subUsersApi,
   type SubUserResponse,
@@ -17,6 +17,7 @@ export const subUserKeys = {
   all: ['subUsers'] as const,
   lists: () => [...subUserKeys.all, 'list'] as const,
   list: (enterpriseId: string) => [...subUserKeys.lists(), enterpriseId] as const,
+  infinite: (params: Record<string, unknown>) => [...subUserKeys.all, 'infinite', params] as const,
   details: () => [...subUserKeys.all, 'detail'] as const,
   detail: (id: string) => [...subUserKeys.details(), id] as const,
 };
@@ -53,6 +54,28 @@ export function useAllSubUsers() {
       const response = await subUsersApi.list({ limit: 100 });
       return response.data;
     },
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Infinite scroll hook - loads sub-users page by page via skip/limit
+ */
+export function useInfiniteSubUsers(params: { enterprise_id: string; [key: string]: string | undefined } = { enterprise_id: '' }) {
+  return useInfiniteQuery({
+    queryKey: subUserKeys.infinite(params as Record<string, unknown>),
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await subUsersApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      return res;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+      const total = lastPage.pagination?.total ?? 0;
+      if (totalFetched < total) return totalFetched;
+      return undefined;
+    },
+    enabled: !!params.enterprise_id,
     staleTime: 30000,
   });
 }

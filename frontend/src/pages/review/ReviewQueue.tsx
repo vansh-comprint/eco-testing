@@ -1,20 +1,21 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, Laptop, Clock, ArrowRight, Filter, Search } from 'lucide-react';
-import { useState } from 'react';
-import { useAllAssets } from '@/hooks';
+import { useState, useMemo } from 'react';
+import { useInfiniteAssets } from '@/hooks';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 
 export function ReviewQueue() {
   const navigate = useNavigate();
-  const { data: assets = [] } = useAllAssets();
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets({ status: 'submitted' });
+  const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
+  const totalCount = data?.pages[0]?.pagination?.total;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
 
-  // Get assets pending remote review
-  const pendingAssets = assets.filter(a => a.status === 'submitted');
-
-  // Filter and sort
-  const filteredAssets = pendingAssets
+  // Client-side search + sort (server already filtered to status=submitted)
+  const filteredAssets = allAssets
     .filter(a =>
       (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -41,7 +42,7 @@ export function ReviewQueue() {
             Review Queue
           </h1>
           <p className="font-display text-zinc-500 text-sm mt-2 uppercase tracking-wide">
-            {filteredAssets.length} devices pending review
+            {totalCount ?? filteredAssets.length} devices pending review
           </p>
         </motion.div>
       </div>
@@ -100,7 +101,7 @@ export function ReviewQueue() {
                 key={asset.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.03 }}
+                transition={{ delay: 0.03 * Math.min(idx, 10) }}
                 className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
               >
                 <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
@@ -140,8 +141,17 @@ export function ReviewQueue() {
               </motion.div>
             ))}
           </div>
+          <InfiniteScrollTrigger
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
+          <InfiniteScrollInfo
+            loadedCount={allAssets.length}
+            totalCount={totalCount}
+          />
         </motion.div>
-      ) : (
+      ) : !isLoading ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -160,7 +170,7 @@ export function ReviewQueue() {
               : 'There are no devices waiting for remote review.'}
           </p>
         </motion.div>
-      )}
+      ) : null}
     </div>
   );
 }

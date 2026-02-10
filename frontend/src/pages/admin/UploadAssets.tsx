@@ -4,6 +4,8 @@ import { ArrowLeft, Upload, Info, AlertTriangle } from 'lucide-react';
 import { CSVUpload, type BulkUploadMetadata, type BulkUploadResult } from '@/components/assets';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useContext } from 'react';
 import { usersApi } from '@/lib/api/users';
 
 // V3: Input type for creating assets with snake_case
@@ -61,10 +63,14 @@ export function UploadAssets() {
 
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 
-  // V3.2: Determine branch_id - from batch or org branch context
-  // Do NOT silently fall back to first branch — require explicit selection
+  // V3.2: Determine branch_id - from batch, org branch context, or IT admin branch context
   const orgBranchCtx = useOrgBranchSafe();
-  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || undefined;
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  // IT Admin: use context selectedBranchId (auto-selects for single branch), or fallback to user.branchId
+  const itAdminBranchId = !isOrgAdmin
+    ? (itBranchCtx?.selectedBranchId || user?.branchId || undefined)
+    : undefined;
+  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || undefined;
   const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
 
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata): Promise<BulkUploadResult | void> => {

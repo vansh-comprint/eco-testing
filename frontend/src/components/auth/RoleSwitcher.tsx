@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, Check, Grid3X3, Crown, Shield, Briefcase, DollarSign, User, Truck, MapPin } from 'lucide-react';
+import { ChevronUp, Check, Grid3X3, Crown, Shield, Briefcase, IndianRupee, User, Truck, MapPin } from 'lucide-react';
 import { useThemeStore } from '@/stores';
 import { useAuth } from '@/hooks';
 import type { UserRole } from '@/types';
@@ -8,7 +8,7 @@ import type { UserRole } from '@/types';
 const roles: { role: UserRole; label: string; icon: React.ReactNode; color: string; path: string }[] = [
   { role: 'super_admin', label: 'Super Admin', icon: <Crown className="w-4 h-4" />, color: 'bg-purple-500', path: '/super' },
   { role: 'ops_admin', label: 'OPS Admin', icon: <Shield className="w-4 h-4" />, color: 'bg-blue-500', path: '/ops' },
-  { role: 'org_admin', label: 'Org Admin', icon: <DollarSign className="w-4 h-4" />, color: 'bg-yellow-500', path: '/org-admin' },
+  { role: 'org_admin', label: 'Org Admin', icon: <IndianRupee className="w-4 h-4" />, color: 'bg-yellow-500', path: '/org-admin' },
   { role: 'it_admin', label: 'IT Admin', icon: <Briefcase className="w-4 h-4" />, color: 'bg-ecotribe-primary', path: '/admin' },
   { role: 'employee', label: 'Employee', icon: <User className="w-4 h-4" />, color: 'bg-orange-500', path: '/check-in' },
   { role: 'logistics_admin', label: 'Logistics Admin', icon: <Truck className="w-4 h-4" />, color: 'bg-teal-500', path: '/logistics-admin' },

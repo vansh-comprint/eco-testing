@@ -206,7 +206,7 @@ export function OpsAssets() {
                 key={asset.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.02 }}
+                transition={{ delay: 0.02 * Math.min(idx, 10) }}
                 onClick={() => navigate(`/ops/assets/${asset.id}`)}
                 className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4 cursor-pointer active:scale-[0.98] transition-all"
               >
@@ -285,7 +285,7 @@ export function OpsAssets() {
                       key={asset.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.02 }}
+                      transition={{ delay: 0.02 * Math.min(idx, 10) }}
                       className="hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
                     >
                       <td className="p-4">

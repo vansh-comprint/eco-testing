@@ -12,7 +12,8 @@ import {
   Laptop,
   ArrowRight
 } from 'lucide-react';
-import { useAuth, useAllAssets, useDisputesByEnterprise } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes } from '@/hooks';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 type DisputeStatus = 'pending' | 'upheld' | 'overturned' | 'partial';
@@ -31,7 +32,6 @@ export function DisputeList() {
   // V3: Use React Query hooks for database data
   const { enterprise, user } = useAuth();
   const { data: assets = [] } = useAllAssets();
-  const { data: disputes = [], isLoading } = useDisputesByEnterprise(enterprise?.id || '');
 
   // Determine base path based on current location
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
@@ -39,6 +39,20 @@ export function DisputeList() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Infinite scroll disputes
+  const {
+    data: disputeData,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteDisputes(statusFilter ? { status: statusFilter } : {});
+
+  const disputes = useMemo(
+    () => disputeData?.pages.flatMap(p => p.data || []) ?? [],
+    [disputeData]
+  );
 
   // Enrich disputes with asset data from the already-fetched assets list
   const enrichedDisputes = useMemo(() => {
@@ -66,7 +80,7 @@ export function DisputeList() {
     ['remote_rejected', 'final_rejected'].includes(a.status)
   );
 
-  // Filter disputes
+  // Filter disputes (client-side search only — status is server-side via useInfiniteDisputes)
   const filteredDisputes = useMemo(() => {
     let result = [...enrichedDisputes];
 
@@ -81,16 +95,8 @@ export function DisputeList() {
       );
     }
 
-    if (statusFilter) {
-      if (statusFilter === 'pending') {
-        result = result.filter(d => !d.resolved_at);
-      } else {
-        result = result.filter(d => d.resolution === statusFilter);
-      }
-    }
-
     return result;
-  }, [enrichedDisputes, searchQuery, statusFilter]);
+  }, [enrichedDisputes, searchQuery]);
 
   // Stats
   const stats = {
@@ -298,6 +304,10 @@ export function DisputeList() {
           </div>
         )}
       </motion.div>
+
+      {/* Infinite scroll controls */}
+      <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+      <InfiniteScrollInfo loadedCount={filteredDisputes.length} totalCount={disputeData?.pages[0]?.pagination?.total} />
 
       {/* Rejected Assets Callout */}
       {stats.canDispute > 0 && (

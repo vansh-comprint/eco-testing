@@ -16,7 +16,8 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
-import { useAuth, useSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -56,7 +57,10 @@ export function EmployeeList() {
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
   // V3.2: React Query hooks - use different hooks based on role
-  const { data: subUsers = [], isLoading: subUsersLoading } = useSubUsers(enterpriseId);
+  const { data: subUserPages, isLoading: subUsersLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers({ enterprise_id: enterpriseId });
+  const subUsers = useMemo(() => subUserPages?.pages.flatMap(p => p.data || []) ?? [], [subUserPages]);
+  const totalSubUsers = subUserPages?.pages[0]?.pagination?.total;
+
   const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
   const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
 
@@ -424,12 +428,8 @@ export function EmployeeList() {
         )}
       </motion.div>
 
-      {/* Results count */}
-      {filteredUsers.length > 0 && (
-        <p className="font-mono text-xs text-slate-500 dark:text-white/50 text-center uppercase tracking-widest">
-          Showing {filteredUsers.length} of {enterpriseSubUsers.length} employees
-        </p>
-      )}
+      <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+      <InfiniteScrollInfo loadedCount={subUsers.length} totalCount={totalSubUsers} />
     </div>
   );
 }

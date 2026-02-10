@@ -21,8 +21,8 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useAssets, useBranches } from '@/hooks';
-import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
+import { useAuth, useInfiniteAssets, useBranches } from '@/hooks';
+import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
 import Papa from 'papaparse';
@@ -34,7 +34,9 @@ export function EnterpriseAssets() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: assets = [], isLoading } = useAssets(enterpriseId);
+  const { data: assetPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets({ enterprise_id: enterpriseId });
+  const assets = useMemo(() => assetPages?.pages.flatMap(p => p.data || []) ?? [], [assetPages]);
+  const totalAssets = assetPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,7 +166,7 @@ export function EnterpriseAssets() {
       <PageHeader
         label="Enterprise Overview"
         title="All Assets"
-        subtitle={`${assets.length} assets across ${branches.length} branches`}
+        subtitle={`${totalAssets ?? assets.length} assets across ${branches.length} branches`}
         actions={
           <button
             onClick={handleExport}
@@ -283,12 +285,12 @@ export function EnterpriseAssets() {
         {/* Table Body */}
         <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-200/60 dark:divide-white/5">
           {filteredAssets.length > 0 ? (
-            filteredAssets.slice(0, 100).map((asset, idx) => (
+            filteredAssets.map((asset, idx) => (
               <motion.div
                 key={asset.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: idx * 0.01 }}
+                transition={{ delay: 0.01 * Math.min(idx, 10) }}
                 onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
                 className="grid grid-cols-[1fr_120px_1fr_140px_100px_60px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 cursor-pointer transition-colors"
               >
@@ -341,15 +343,10 @@ export function EnterpriseAssets() {
         </div>
 
         </div>{/* min-w-[700px] */}
-        {/* Footer */}
-        {filteredAssets.length > 100 && (
-          <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-200 dark:border-white/10 text-center">
-            <p className="font-mono text-xs text-slate-400 dark:text-white/30">
-              Showing 100 of {filteredAssets.length} assets. Use filters to narrow results.
-            </p>
-          </div>
-        )}
       </motion.div>
+
+      <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+      <InfiniteScrollInfo loadedCount={assets.length} totalCount={totalAssets} />
     </div>
   );
 }

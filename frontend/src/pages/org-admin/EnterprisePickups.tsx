@@ -23,8 +23,8 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, usePickupRequests, useBranches } from '@/hooks';
-import { PageHeader, DashboardStatGrid } from '@/components/ui';
+import { useAuth, useInfinitePickups, useBranches } from '@/hooks';
+import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
 import Papa from 'papaparse';
@@ -36,7 +36,9 @@ export function EnterprisePickups() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: pickups = [], isLoading } = usePickupRequests(enterpriseId);
+  const { data: pickupPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfinitePickups({ enterprise_id: enterpriseId });
+  const pickups = useMemo(() => pickupPages?.pages.flatMap(p => p.data || []) ?? [], [pickupPages]);
+  const totalPickups = pickupPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,7 +226,7 @@ export function EnterprisePickups() {
                 key={pickup.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.03 }}
+                transition={{ delay: 0.03 * Math.min(idx, 10) }}
                 onClick={() => navigate(`/org-admin/pickups/${pickup.id}`)}
                 className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 hover:border-lime-500/25 dark:hover:border-lime-400/20 hover:shadow-md hover:shadow-lime-500/5 hover:-translate-y-0.5 cursor-pointer transition-all duration-200"
               >
@@ -306,6 +308,9 @@ export function EnterprisePickups() {
           </div>
         )}
       </motion.div>
+
+      <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+      <InfiniteScrollInfo loadedCount={pickups.length} totalCount={totalPickups} />
     </div>
   );
 }

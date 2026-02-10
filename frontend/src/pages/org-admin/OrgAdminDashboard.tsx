@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { safeNumber } from '@/utils/formatters';
 import {
   FileCheck,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   AlertCircle,
   ArrowRight,
@@ -147,7 +147,7 @@ export function OrgAdminDashboard() {
       label: 'Total Disbursed',
       value: `₹${(totalPayoutValue / 100000).toFixed(1)}L`,
       subLabel: 'Completed payouts',
-      icon: <DollarSign className={`${iconSize.lg} text-emerald-500`} />,
+      icon: <IndianRupee className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
       onClick: () => navigate('/org-admin/reports'),
     },

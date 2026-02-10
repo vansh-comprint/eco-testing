@@ -19,8 +19,8 @@ import {
   Download,
   Filter,
 } from 'lucide-react';
-import { useAuth, useSubUsers, useAssets, useBranches } from '@/hooks';
-import { PageHeader, DashboardStatGrid } from '@/components/ui';
+import { useAuth, useInfiniteSubUsers, useAssets, useBranches } from '@/hooks';
+import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
 import Papa from 'papaparse';
@@ -32,7 +32,10 @@ export function EnterpriseEmployees() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: employees = [], isLoading } = useSubUsers(enterpriseId);
+  const { data: employeePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers({ enterprise_id: enterpriseId });
+  const employees = useMemo(() => employeePages?.pages.flatMap(p => p.data || []) ?? [], [employeePages]);
+  const totalEmployees = employeePages?.pages[0]?.pagination?.total;
+
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
 
@@ -350,6 +353,9 @@ export function EnterpriseEmployees() {
           </div>
         )}
       </motion.div>
+
+      <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
+      <InfiniteScrollInfo loadedCount={employees.length} totalCount={totalEmployees} />
     </div>
   );
 }

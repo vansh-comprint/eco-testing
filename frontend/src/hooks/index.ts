@@ -80,6 +80,7 @@ export {
 export {
   useSubUsers,
   useAllSubUsers,
+  useInfiniteSubUsers,
   useSubUser,
   useCreateSubUser,
   useCreateSubUsers,
@@ -166,6 +167,7 @@ export {
 // Disputes
 export {
   useAllDisputes,
+  useInfiniteDisputes,
   useDisputesByEnterprise,
   useDispute,
   useDisputeByAsset,
