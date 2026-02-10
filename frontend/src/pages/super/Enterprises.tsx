@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search, Power, CheckCircle } from 'lucide-react';
 import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
-import { useInfiniteEnterprises } from '@/hooks';
+import { useInfiniteEnterprises, enterpriseKeys } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Enterprise } from '@/types';
 
@@ -62,7 +62,7 @@ export function Enterprises() {
         status: statusChangeTarget.newStatus,
       });
       if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ['enterprises'] });
+        queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
         setIsModalOpen(false);
         setSelectedEnterprise(null);
       }

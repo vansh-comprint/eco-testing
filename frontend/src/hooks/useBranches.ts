@@ -17,6 +17,8 @@ import {
   type ITAdminWithBranches,
   type UserCreateRequest,
 } from '@/lib/api/users';
+import { assetKeys } from './useAssets';
+import { batchKeys } from './useBatches';
 
 // Query keys for cache management
 export const branchKeys = {
@@ -275,8 +277,8 @@ export function useDeleteBranch() {
       queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }

@@ -195,7 +195,7 @@ export function useDeleteLogisticsAdmin() {
       queryClient.removeQueries({ queryKey: logisticsKeys.adminDetail(adminId) });
       queryClient.invalidateQueries({ queryKey: logisticsKeys.adminsList() });
       queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
-      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
 }
@@ -285,7 +285,7 @@ export function useDeleteLogisticsUser() {
     onSuccess: (_, userId) => {
       queryClient.removeQueries({ queryKey: logisticsKeys.userDetail(userId) });
       queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
-      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
 }

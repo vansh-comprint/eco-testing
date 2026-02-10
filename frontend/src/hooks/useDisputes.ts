@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { disputesApi, type DisputeResponse, type DisputeListParams } from '@/lib/api/disputes';
+import { assetKeys } from './useAssets';
 
 // Query keys
 export const disputeKeys = {
@@ -190,7 +191,7 @@ export function useCreateDispute() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -212,7 +213,7 @@ export function useResolveDispute() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });

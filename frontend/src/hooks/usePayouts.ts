@@ -5,6 +5,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { payoutsApi } from '@/lib/api/payouts';
+import { assetKeys } from './useAssets';
+import { batchKeys } from './useBatches';
 
 // Query keys for cache management
 export const payoutKeys = {
@@ -98,8 +100,8 @@ export function useCreatePayout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -132,7 +134,7 @@ export function useUpdatePayoutStatus() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.detail(variables.payoutId) });
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -160,8 +162,8 @@ export function useCompletePayout() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: payoutKeys.detail(variables.payoutId) });
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });

@@ -24,6 +24,8 @@ import {
 } from '@/lib/db/api-queries';
 import { assetsApi } from '@/lib/api';
 import type { AssetListParams } from '@/lib/api/assets';
+import { batchKeys } from './useBatches';
+import { pickupKeys } from './usePickups';
 
 // Query keys for cache management
 export const assetKeys = {
@@ -198,7 +200,7 @@ export function useCreateAsset() {
     onSuccess: () => {
       // Invalidate all asset queries (lists, byBatch, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -218,7 +220,7 @@ export function useUpdateAsset() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -237,7 +239,7 @@ export function useDeleteAsset() {
       queryClient.removeQueries({ queryKey: assetKeys.detail(assetId) });
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -309,8 +311,8 @@ export function useUpdateAssetStatus() {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['batches'] });
-      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -327,7 +329,7 @@ export function useBulkCreateAssets() {
     onSuccess: (result) => {
       if (result.created_count > 0) {
         queryClient.invalidateQueries({ queryKey: assetKeys.all });
-        queryClient.invalidateQueries({ queryKey: ['batches'] });
+        queryClient.invalidateQueries({ queryKey: batchKeys.all });
         queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       }
     },

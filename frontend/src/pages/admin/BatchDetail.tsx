@@ -29,6 +29,8 @@ import type { PickupTimeSlot } from '@/types/pickup';
 import { DeleteBatchModal, ConfirmationModal } from '@/components/ui';
 import { getBatchStatusDisplay, getAssetStatusDisplay } from '@/lib/status-display';
 import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
+import { assetKeys } from '@/hooks/useAssets';
+import { batchKeys } from '@/hooks/useBatches';
 
 export function BatchDetail() {
   const navigate = useNavigate();
@@ -100,6 +102,7 @@ export function BatchDetail() {
   const [isAddingAssets, setIsAddingAssets] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [isCreatingAsset, setIsCreatingAsset] = useState(false);
+  const [inlineCreateError, setInlineCreateError] = useState<string | null>(null);
   const [showReturnToDraftModal, setShowReturnToDraftModal] = useState(false);
   const [isReturningToDraft, setIsReturningToDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,7 +172,8 @@ export function BatchDetail() {
         )
       );
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       showSuccess('Assets Added', `${selectedAssetIds.length} asset(s) added to batch`);
       setShowAddAssetModal(false);
       setSelectedAssetIds([]);
@@ -184,6 +188,7 @@ export function BatchDetail() {
   // Handler to create a new asset inline and add it to the batch
   const handleCreateAssetInline = async (data: CreateAssetInput) => {
     setIsCreatingAsset(true);
+    setInlineCreateError(null);
     try {
       // Ensure batch_id and branch_id are set even if AssetForm didn't include them
       const assetData: CreateAssetInput = {
@@ -196,6 +201,8 @@ export function BatchDetail() {
       showSuccess('Asset Created', `Serial number: ${data.serial_number}`);
       setShowAddAssetModal(false);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to create asset';
+      setInlineCreateError(msg);
       handleError(error, 'Creating asset');
     } finally {
       setIsCreatingAsset(false);
@@ -207,6 +214,7 @@ export function BatchDetail() {
     setAddAssetTab(tab);
     setSelectedAssetIds([]);
     setAssetSearchQuery('');
+    setInlineCreateError(null);
     setShowAddAssetModal(true);
   };
 
@@ -1212,7 +1220,16 @@ export function BatchDetail() {
 
               {/* === Add New Tab === */}
               {addAssetTab === 'new' && (
-                <div className="p-5">
+                <div className="p-5 space-y-4">
+                  {inlineCreateError && (
+                    <div className="border border-red-400/30 bg-red-50 dark:bg-red-500/10 p-3 flex items-start gap-2.5">
+                      <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      <div>
+                        <p className="font-display font-bold text-xs text-red-700 dark:text-red-400 uppercase tracking-wide">Failed to add asset</p>
+                        <p className="font-mono text-xs text-red-600 dark:text-red-400/80 mt-0.5">{inlineCreateError}</p>
+                      </div>
+                    </div>
+                  )}
                   <AssetForm
                     enterpriseId={enterpriseId}
                     batchId={batchId}

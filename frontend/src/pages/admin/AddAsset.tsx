@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Laptop, CheckCircle, Info, Plus, ArrowRight, Building2 } from 'lucide-react';
+import { ArrowLeft, Laptop, CheckCircle, Info, Plus, ArrowRight, Building2, AlertCircle } from 'lucide-react';
 import { AssetForm } from '@/components/assets';
 import { useAuth, useCreateAsset, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useApiError } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -38,6 +38,7 @@ export function AddAsset() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [successState, setSuccessState] = useState<{ serialNumber: string } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const orgBranchCtx = useOrgBranchSafe();
   const [selectedBranchId, setSelectedBranchId] = useState<string>(orgBranchCtx?.selectedBranchId || '');
 
@@ -51,12 +52,15 @@ export function AddAsset() {
 
   const handleSubmit = async (data: CreateAssetInput) => {
     setIsLoading(true);
+    setFormError(null);
     try {
       // Create the asset
       await createAssetMutation.mutateAsync(data);
       setSuccessState({ serialNumber: data.serial_number });
       showSuccess('Asset Created', `Serial number: ${data.serial_number}`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to create asset';
+      setFormError(msg);
       handleError(error, 'Creating asset');
     } finally {
       setIsLoading(false);
@@ -242,6 +246,29 @@ export function AddAsset() {
                 : `${activeBranches[0]?.branch_name} (${activeBranches[0]?.branch_code})`}
             </p>
           </div>
+        </motion.div>
+      )}
+
+      {/* Inline Error Banner */}
+      {formError && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-red-400/30 bg-red-50 dark:bg-red-500/10 p-4 flex items-start gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold text-sm text-red-700 dark:text-red-400 uppercase tracking-wide">Failed to add asset</p>
+            <p className="font-mono text-xs text-red-600 dark:text-red-400/80 mt-1">{formError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormError(null)}
+            className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+          >
+            <span className="sr-only">Dismiss</span>
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+          </button>
         </motion.div>
       )}
 

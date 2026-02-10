@@ -30,6 +30,17 @@ import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
+// Query key factories
+const walletKeys = {
+  all: ['wallet'] as const,
+  detail: (enterpriseId: string) => [...walletKeys.all, enterpriseId] as const,
+};
+
+const transactionKeys = {
+  all: ['transactions'] as const,
+  list: (enterpriseId: string) => [...transactionKeys.all, enterpriseId] as const,
+};
+
 // Types
 interface EnterpriseWallet {
   id: string;
@@ -64,7 +75,7 @@ export function CreditsWallet() {
 
   // React Query hooks - using REST API
   const { data: rawWallet, isLoading: walletLoading } = useQuery({
-    queryKey: ['wallet', enterpriseId],
+    queryKey: walletKeys.detail(enterpriseId),
     queryFn: async () => {
       const response = await walletApi.get(enterpriseId);
       if (!response.success || !response.data) return null;
@@ -74,7 +85,7 @@ export function CreditsWallet() {
   });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions', enterpriseId],
+    queryKey: transactionKeys.list(enterpriseId),
     queryFn: async () => {
       const response = await walletApi.getTransactions(enterpriseId, { limit: 100 });
       if (!response.success) return [];
@@ -494,8 +505,8 @@ function RedemptionModal({
         throw new Error(response.error?.message || 'Failed to process redemption');
       }
       showSuccess('Redemption Requested', `${formatCurrency(requestAmount)} will be transferred to your bank account within 3-5 business days.`);
-      queryClient.invalidateQueries({ queryKey: ['wallet', enterpriseId] });
-      queryClient.invalidateQueries({ queryKey: ['transactions', enterpriseId] });
+      queryClient.invalidateQueries({ queryKey: walletKeys.detail(enterpriseId) });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.list(enterpriseId) });
       setAmount('');
       onClose();
     } catch (error) {

@@ -16,6 +16,7 @@ import {
 } from '@/lib/api/pickups';
 import { assetKeys } from './useAssets';
 import { batchKeys } from './useBatches';
+import { logisticsKeys } from './useLogistics';
 
 // Query keys for cache management
 export const pickupKeys = {
@@ -194,7 +195,7 @@ export function useCreatePickupRequest() {
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
         queryClient.refetchQueries({ queryKey: batchKeys.all }),
       ]);
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -242,7 +243,7 @@ export function useAssignToLogisticsAdmin() {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(pickupKeys.detail(variables.requestId), data);
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -268,7 +269,7 @@ export function useAssignToLogisticsUser() {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(pickupKeys.detail(variables.requestId), data);
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -290,7 +291,7 @@ export function useStartPickup() {
       queryClient.setQueryData(pickupKeys.detail(requestId), data);
       await Promise.all([
         queryClient.refetchQueries({ queryKey: pickupKeys.all }),
-        queryClient.refetchQueries({ queryKey: ['logistics'] }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
       ]);
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
@@ -316,7 +317,7 @@ export function useCompletePickup() {
       await Promise.all([
         queryClient.refetchQueries({ queryKey: pickupKeys.detail(variables.requestId) }),
         queryClient.refetchQueries({ queryKey: pickupKeys.all }),
-        queryClient.refetchQueries({ queryKey: ['logistics'] }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
       ]);
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
@@ -342,7 +343,7 @@ export function useCancelPickup() {
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -387,7 +388,7 @@ export function useUpdatePickupStatus() {
       await Promise.all([
         queryClient.refetchQueries({ queryKey: pickupKeys.all }),
         queryClient.refetchQueries({ queryKey: pickupKeys.byStatus(variables.status) }),
-        queryClient.refetchQueries({ queryKey: ['logistics'] }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
       ]);
       queryClient.invalidateQueries({ queryKey: batchKeys.all });

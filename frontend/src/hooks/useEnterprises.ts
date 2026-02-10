@@ -92,7 +92,7 @@ export function useUpdateEnterprise() {
     },
     onSuccess: (data, variables) => {
       queryClient.setQueryData(enterpriseKeys.detail(variables.enterpriseId), data);
-      queryClient.invalidateQueries({ queryKey: enterpriseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
     },
   });
 }
@@ -111,7 +111,7 @@ export function useUpdateEnterpriseStatus() {
     },
     onSuccess: (data, variables) => {
       queryClient.setQueryData(enterpriseKeys.detail(variables.enterpriseId), data);
-      queryClient.invalidateQueries({ queryKey: enterpriseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
     },
   });
 }

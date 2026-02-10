@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAssets, useBatches, useBranches, useITAdmins, useSubUsers, usePickupRequests, useDisputesByEnterprise } from '@/hooks';
+import { itAdminKeys } from '@/hooks/useBranches';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
@@ -502,7 +503,7 @@ export function OrgAdminDashboard() {
         isOpen={isAddITAdminModalOpen}
         onClose={() => setIsAddITAdminModalOpen(false)}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['it-admins'] });
+          queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
           setIsAddITAdminModalOpen(false);
         }}
       />

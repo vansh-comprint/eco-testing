@@ -14,6 +14,8 @@ import {
   Printer
 } from 'lucide-react';
 import { useAllAssets, useAllBatches, useCreatePayout } from '@/hooks';
+import { assetKeys } from '@/hooks/useAssets';
+import { payoutKeys } from '@/hooks/usePayouts';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { assetsApi } from '@/lib/api/assets';
 import { useQueryClient } from '@tanstack/react-query';
@@ -162,8 +164,8 @@ export function PayoutProcessing() {
       }
 
       // Refetch assets and payouts to update the UI
-      await queryClient.refetchQueries({ queryKey: ['assets'] });
-      await queryClient.refetchQueries({ queryKey: ['payouts'] });
+      await queryClient.refetchQueries({ queryKey: assetKeys.all });
+      await queryClient.refetchQueries({ queryKey: payoutKeys.all });
 
       setSelectedAssets([]);
       setShowConfirmModal(false);

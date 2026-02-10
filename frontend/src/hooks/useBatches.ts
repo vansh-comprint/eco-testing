@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/batches';
 import { assetsApi } from '@/lib/api/assets';
 import { assetKeys } from './useAssets';
+import { pickupKeys } from './usePickups';
 
 // Query keys for cache management
 export const batchKeys = {
@@ -312,7 +313,7 @@ export function useApproveBatch() {
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
@@ -351,7 +352,7 @@ export function useApproveBatchWithPrices() {
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['pickups'] });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
