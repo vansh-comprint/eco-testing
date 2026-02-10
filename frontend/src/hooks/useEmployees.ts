@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { dashboardStatsKeys } from './useDashboardStats';
 import {
   subUsersApi,
   type SubUserResponse,
@@ -181,6 +182,7 @@ export function useDeleteSubUser() {
       queryClient.invalidateQueries({ queryKey: subUserKeys.lists() });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -258,6 +260,7 @@ export function useAssignAsset() {
       queryClient.invalidateQueries({ queryKey: subUserKeys.detail(variables.subUserId) });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

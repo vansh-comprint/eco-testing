@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { dashboardStatsKeys } from './useDashboardStats';
 import {
   fetchAssets,
   fetchAllAssets,
@@ -202,6 +203,7 @@ export function useCreateAsset() {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -222,6 +224,7 @@ export function useUpdateAsset() {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -241,6 +244,7 @@ export function useDeleteAsset() {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -259,6 +263,7 @@ export function useAssignAssetToSubUser() {
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -277,6 +282,7 @@ export function useAssignAssetToSelf() {
       // Invalidate all asset queries including self-assigned
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -294,6 +300,7 @@ export function useUnassignAsset() {
       // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -314,6 +321,7 @@ export function useUpdateAssetStatus() {
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -331,6 +339,7 @@ export function useBulkCreateAssets() {
         queryClient.invalidateQueries({ queryKey: assetKeys.all });
         queryClient.invalidateQueries({ queryKey: batchKeys.all });
         queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
       }
     },
   });

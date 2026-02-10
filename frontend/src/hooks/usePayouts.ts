@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { dashboardStatsKeys } from './useDashboardStats';
 import { payoutsApi } from '@/lib/api/payouts';
 import { assetKeys } from './useAssets';
 import { batchKeys } from './useBatches';
@@ -103,6 +104,7 @@ export function useCreatePayout() {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -136,6 +138,7 @@ export function useUpdatePayoutStatus() {
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -165,6 +168,7 @@ export function useCompletePayout() {
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

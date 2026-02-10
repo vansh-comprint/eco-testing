@@ -7,7 +7,9 @@ import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 import { CreateOpsAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
-import { enterprisesApi } from '@/lib/api/enterprises';
+import { useDashboardStats } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import type { UserResponse } from '@/lib/api/auth';
 
 export function SuperAdminDashboard() {
@@ -17,37 +19,28 @@ export function SuperAdminDashboard() {
   const [adminPage, setAdminPage] = useState(1);
   const ADMIN_PAGE_SIZE = 5;
 
-  // Real-time data from REST API
-  const [enterpriseCount, setEnterpriseCount] = useState(0);
-  const [userCount, setUserCount] = useState(0);
+  // Dashboard stats from efficient backend COUNT queries
+  const { stats } = useDashboardStats();
+  const queryClient = useQueryClient();
+
+  // Admin users list for the table (still needs full objects)
   const [admins, setAdmins] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchAdminUsers();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchAdminUsers = async () => {
     setLoading(true);
     try {
-      // Fetch enterprises
-      const enterprisesResult = await enterprisesApi.list({ limit: 100 });
-      if (enterprisesResult.success && enterprisesResult.data) {
-        setEnterpriseCount(enterprisesResult.data.length);
-      }
-
-      // Fetch all users count
       const usersResult = await usersApi.list({ limit: 100 });
       if (usersResult.success && usersResult.data) {
-        setUserCount(usersResult.data.length);
-
-        // Filter admin users from the result
         const adminRoles = ['super_admin', 'ops_admin', 'logistics_admin'];
-        const adminUsers = usersResult.data.filter(u => adminRoles.includes(u.role));
-        setAdmins(adminUsers);
+        setAdmins(usersResult.data.filter(u => adminRoles.includes(u.role)));
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('Failed to fetch admin users:', error);
     } finally {
       setLoading(false);
     }
@@ -72,21 +65,21 @@ export function SuperAdminDashboard() {
   const statItems = [
     {
       label: 'Total Enterprises',
-      value: enterpriseCount,
+      value: stats.enterprise_count ?? 0,
       icon: <Building2 className={`${iconSize.lg} text-blue-500`} />,
       accent: 'info' as StatAccent,
       onClick: () => navigate('/super/enterprises'),
     },
     {
       label: 'Total Users',
-      value: userCount,
+      value: stats.user_count ?? 0,
       icon: <Users className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
       onClick: () => navigate('/super/users'),
     },
     {
       label: 'Active Admins',
-      value: admins.length,
+      value: stats.admin_count ?? 0,
       icon: <Shield className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
       onClick: () => navigate('/super/admins'),
@@ -313,16 +306,16 @@ export function SuperAdminDashboard() {
         isOpen={isOpsAdminModalOpen}
         onClose={() => setIsOpsAdminModalOpen(false)}
         onSuccess={() => {
-          fetchDashboardData();
-          console.log('OPS Admin created successfully');
+          fetchAdminUsers();
+          queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
         }}
       />
       <CreateLogisticsAdminModal
         isOpen={isLogisticsAdminModalOpen}
         onClose={() => setIsLogisticsAdminModalOpen(false)}
         onSuccess={() => {
-          fetchDashboardData();
-          console.log('Logistics Admin created successfully');
+          fetchAdminUsers();
+          queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
         }}
       />
     </div>

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStoreApi, useUser, useEnterprise, useIsAuthenticated, useIsInitialized, useUserRole } from '@/stores';
 import type { UserRole } from '@/types';
 
@@ -11,6 +12,7 @@ import type { UserRole } from '@/types';
  */
 export function useAuth() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useUser();
   const enterprise = useEnterprise();
   const isAuthenticated = useIsAuthenticated();
@@ -19,18 +21,22 @@ export function useAuth() {
   const { login, logout, switchRole, isLoading } = useAuthStoreApi();
 
   const handleLogin = useCallback(async (email: string, password: string) => {
+    // Clear any stale cache from a previous user session
+    queryClient.clear();
     const result = await login(email, password);
     if (result.success) {
       const currentUser = useAuthStoreApi.getState().user;
       navigate(getRoleDefaultPath(currentUser?.role));
     }
     return result.success;
-  }, [login, navigate]);
+  }, [login, navigate, queryClient]);
 
   const handleLogout = useCallback(() => {
+    // Clear React Query cache to prevent stale data from leaking across sessions
+    queryClient.clear();
     logout();
     navigate('/login');
-  }, [logout, navigate]);
+  }, [logout, navigate, queryClient]);
 
   const handleSwitchRole = useCallback((newRole: UserRole) => {
     switchRole(newRole);

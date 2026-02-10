@@ -28,7 +28,9 @@ class LocalStorageBackend(StorageBackend):
     
     def _get_file_path(self, bucket: str, key: str) -> Path:
         """Get full file path for bucket and key"""
-        return self.base_path / bucket / key
+        # Ensure enum values are used (not repr) when StorageBucket enum is passed
+        bucket_name = bucket.value if hasattr(bucket, 'value') else bucket
+        return self.base_path / bucket_name / key
     
     async def upload(
         self,
@@ -62,7 +64,8 @@ class LocalStorageBackend(StorageBackend):
             await f.write(content)
         
         # Return relative path
-        return f"/{bucket}/{key}"
+        bucket_name = bucket.value if hasattr(bucket, 'value') else bucket
+        return f"/{bucket_name}/{key}"
     
     async def download(self, bucket: str, key: str) -> bytes:
         """
@@ -140,7 +143,8 @@ class LocalStorageBackend(StorageBackend):
             URL path to the file
         """
         # In development, return path that can be served by FastAPI static files
-        return f"/storage/{bucket}/{key}"
+        bucket_name = bucket.value if hasattr(bucket, 'value') else bucket
+        return f"/storage/{bucket_name}/{key}"
     
     async def list_files(self, bucket: str, prefix: Optional[str] = None) -> list[str]:
         """
@@ -153,11 +157,12 @@ class LocalStorageBackend(StorageBackend):
         Returns:
             List of file keys
         """
-        bucket_path = self.base_path / bucket
-        
+        bucket_name = bucket.value if hasattr(bucket, 'value') else bucket
+        bucket_path = self.base_path / bucket_name
+
         if not bucket_path.exists():
             return []
-        
+
         files = []
         search_path = bucket_path / prefix if prefix else bucket_path
         

@@ -84,7 +84,18 @@ export interface EnterpriseApplicationUpdateDocsRequest {
 // API
 // ============================================================================
 
+export interface EnterpriseApplicationStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  more_info_requested: number;
+  total: number;
+}
+
 export const enterpriseApplicationsApi = {
+  stats: () =>
+    fetchWithAuth<EnterpriseApplicationStats>('/enterprises/applications/stats'),
+
   list: (params: EnterpriseApplicationListParams = {}) => {
     const query = new URLSearchParams();
     if (params.skip) query.set('skip', params.skip.toString());

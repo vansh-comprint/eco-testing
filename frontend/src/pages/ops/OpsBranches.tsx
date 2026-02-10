@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Building2,
   Plus,
@@ -16,7 +16,6 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  X,
   Phone,
   Clock,
 } from 'lucide-react';
@@ -28,7 +27,8 @@ import {
   useDeleteBranch,
   useActiveITAdmins,
 } from '@/hooks';
-import { PageHeader, Card, ConfirmationModal } from '@/components/ui';
+import { PageHeader, Modal, ConfirmationModal } from '@/components/ui';
+import { text } from '@/lib/design-tokens';
 import type { BranchResponse } from '@/lib/api/branches';
 
 type BranchFormData = {
@@ -59,6 +59,9 @@ const emptyForm: BranchFormData = {
   it_admin_id: '',
 };
 
+const inputClass = 'w-full px-3 py-2.5 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white text-sm focus:border-lime-500 focus:outline-none transition-colors';
+const labelClass = `font-mono text-[10px] uppercase tracking-widest block mb-1.5 ${text.muted}`;
+
 export function OpsBranches() {
   const { selectedEnterpriseId, isAllEnterprises, selectedEnterprise } = useOpsEnterprise();
   const enterpriseId = isAllEnterprises ? '' : (selectedEnterpriseId || '');
@@ -75,6 +78,7 @@ export function OpsBranches() {
   const [formError, setFormError] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<BranchResponse | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const filteredBranches = branches.filter((b: BranchResponse) =>
     b.branch_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -108,9 +112,38 @@ export function OpsBranches() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleFormChange = (field: keyof BranchFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = field === 'branch_code' ? e.target.value.toUpperCase() : e.target.value;
+    setFormData(f => ({ ...f, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
     if (!formData.branch_name || !formData.branch_code || !formData.address_line1 || !formData.city || !formData.state || !formData.pin_code) {
       setFormError('Please fill in all required fields.');
+      return;
+    }
+
+    // Validate PIN code (6 digits)
+    if (!/^\d{6}$/.test(formData.pin_code)) {
+      setFormError('PIN code must be exactly 6 digits.');
+      return;
+    }
+
+    // Validate phone if provided
+    if (formData.site_contact_phone) {
+      const cleaned = formData.site_contact_phone.replace(/\D/g, '');
+      if (cleaned.length !== 10 || !/^[6-9]\d{9}$/.test(cleaned)) {
+        setFormError('Contact phone must be a valid 10-digit Indian mobile number.');
+        return;
+      }
+    }
+
+    // Validate branch code format
+    if (!/^[A-Z0-9]{1,10}$/.test(formData.branch_code)) {
+      setFormError('Branch code must be 1-10 alphanumeric characters.');
       return;
     }
 
@@ -156,12 +189,13 @@ export function OpsBranches() {
 
   const handleDelete = async () => {
     if (!branchToDelete) return;
+    setDeleteError('');
     try {
       await deleteBranch.mutateAsync(branchToDelete.id);
       setIsDeleteModalOpen(false);
       setBranchToDelete(null);
     } catch (err: any) {
-      console.error('Failed to delete branch:', err);
+      setDeleteError(err.message || 'Failed to delete branch. It may have users or assets assigned.');
     }
   };
 
@@ -265,7 +299,7 @@ export function OpsBranches() {
                     <Building2 className="w-6 h-6 text-slate-500 dark:text-white/50" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-3 mb-1 flex-wrap">
                       <h3 className="font-display font-bold text-slate-900 dark:text-white">{branch.branch_name}</h3>
                       <span className="font-mono font-bold text-xs text-lime-500">{branch.branch_code}</span>
                       <span className={`px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(branch.status)}`}>
@@ -313,7 +347,7 @@ export function OpsBranches() {
                     <Edit className="w-4 h-4 text-slate-500 dark:text-white/50" />
                   </button>
                   <button
-                    onClick={() => { setBranchToDelete(branch); setIsDeleteModalOpen(true); }}
+                    onClick={() => { setBranchToDelete(branch); setDeleteError(''); setIsDeleteModalOpen(true); }}
                     className="p-2 border border-red-400/30 hover:bg-red-400/10 transition-colors"
                     title="Delete Branch"
                   >
@@ -350,194 +384,208 @@ export function OpsBranches() {
         </div>
       )}
 
-      {/* Create/Edit Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setIsModalOpen(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 w-full max-w-lg max-h-[90vh] overflow-auto"
+      {/* Create/Edit Modal — uses reusable Modal component */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingBranch ? 'Edit Branch' : 'Create Branch'}
+        description={editingBranch ? 'Update branch details' : 'Add a new branch to this enterprise'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }} className="space-y-5">
+          {formError && (
+            <div className="border border-red-400/30 bg-red-500/10 p-3 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <p className="font-mono text-xs text-red-400">{formError}</p>
+            </div>
+          )}
+
+          {/* Basic Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Branch Name *</label>
+              <input
+                type="text"
+                value={formData.branch_name}
+                onChange={handleFormChange('branch_name')}
+                className={inputClass}
+                placeholder="e.g. Mumbai HQ"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Branch Code *</label>
+              <input
+                type="text"
+                value={formData.branch_code}
+                onChange={handleFormChange('branch_code')}
+                maxLength={10}
+                className={`${inputClass} font-mono uppercase`}
+                placeholder="e.g. MUMHQ"
+              />
+              <p className={`text-[10px] mt-1 ${text.muted}`}>1-10 alphanumeric characters</p>
+            </div>
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className={labelClass}>Address Line 1 *</label>
+            <input
+              type="text"
+              value={formData.address_line1}
+              onChange={handleFormChange('address_line1')}
+              className={inputClass}
+              placeholder="Street address"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Address Line 2</label>
+            <input
+              type="text"
+              value={formData.address_line2}
+              onChange={handleFormChange('address_line2')}
+              className={inputClass}
+              placeholder="Suite, building, etc."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>City *</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={handleFormChange('city')}
+                className={inputClass}
+                placeholder="e.g. Mumbai"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>State *</label>
+              <input
+                type="text"
+                value={formData.state}
+                onChange={handleFormChange('state')}
+                className={inputClass}
+                placeholder="e.g. Maharashtra"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>PIN Code *</label>
+              <input
+                type="text"
+                value={formData.pin_code}
+                onChange={handleFormChange('pin_code')}
+                maxLength={6}
+                className={`${inputClass} font-mono`}
+                placeholder="e.g. 400001"
+              />
+            </div>
+          </div>
+
+          {/* Contact Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Contact Person</label>
+              <input
+                type="text"
+                value={formData.site_contact_person}
+                onChange={handleFormChange('site_contact_person')}
+                className={inputClass}
+                placeholder="e.g. Raj Kumar"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Contact Phone</label>
+              <input
+                type="text"
+                value={formData.site_contact_phone}
+                onChange={handleFormChange('site_contact_phone')}
+                maxLength={10}
+                className={`${inputClass} font-mono`}
+                placeholder="e.g. 9876543210"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Operating Hours</label>
+            <input
+              type="text"
+              value={formData.operating_hours}
+              onChange={handleFormChange('operating_hours')}
+              className={inputClass}
+              placeholder="e.g. Mon-Fri 9:00 - 18:00"
+            />
+          </div>
+
+          {/* IT Admin Assignment */}
+          <div>
+            <label className={labelClass}>Assign IT Admin</label>
+            <select
+              value={formData.it_admin_id}
+              onChange={handleFormChange('it_admin_id')}
+              className={inputClass}
             >
-              <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-                <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase tracking-tight">
-                  {editingBranch ? 'Edit Branch' : 'Create Branch'}
-                </h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                {formError && (
-                  <div className="border border-red-400/30 bg-red-400/10 p-3 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                    <p className="font-mono text-xs text-red-400">{formError}</p>
-                  </div>
-                )}
+              <option value="">No IT Admin</option>
+              {itAdmins.map((admin: any) => (
+                <option key={admin.id} value={admin.id}>
+                  {admin.name} ({admin.email})
+                </option>
+              ))}
+            </select>
+          </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Branch Name *</label>
-                    <input
-                      value={formData.branch_name}
-                      onChange={(e) => setFormData(f => ({ ...f, branch_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                      placeholder="e.g. Mumbai HQ"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Branch Code *</label>
-                    <input
-                      value={formData.branch_code}
-                      onChange={(e) => setFormData(f => ({ ...f, branch_code: e.target.value.toUpperCase() }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-sm focus:border-lime-500 focus:outline-none"
-                      placeholder="e.g. MUM-HQ"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Address Line 1 *</label>
-                  <input
-                    value={formData.address_line1}
-                    onChange={(e) => setFormData(f => ({ ...f, address_line1: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    placeholder="Street address"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Address Line 2</label>
-                  <input
-                    value={formData.address_line2}
-                    onChange={(e) => setFormData(f => ({ ...f, address_line2: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    placeholder="Suite, building, etc."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">City *</label>
-                    <input
-                      value={formData.city}
-                      onChange={(e) => setFormData(f => ({ ...f, city: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">State *</label>
-                    <input
-                      value={formData.state}
-                      onChange={(e) => setFormData(f => ({ ...f, state: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">PIN Code *</label>
-                    <input
-                      value={formData.pin_code}
-                      onChange={(e) => setFormData(f => ({ ...f, pin_code: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-sm focus:border-lime-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Contact Person</label>
-                    <input
-                      value={formData.site_contact_person}
-                      onChange={(e) => setFormData(f => ({ ...f, site_contact_person: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Contact Phone</label>
-                    <input
-                      value={formData.site_contact_phone}
-                      onChange={(e) => setFormData(f => ({ ...f, site_contact_phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-sm focus:border-lime-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Operating Hours</label>
-                  <input
-                    value={formData.operating_hours}
-                    onChange={(e) => setFormData(f => ({ ...f, operating_hours: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                    placeholder="e.g. Mon-Fri 9AM-6PM"
-                  />
-                </div>
-
-                {/* IT Admin Assignment */}
-                <div>
-                  <label className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest block mb-1">Assign IT Admin</label>
-                  <select
-                    value={formData.it_admin_id}
-                    onChange={(e) => setFormData(f => ({ ...f, it_admin_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-display text-sm focus:border-lime-500 focus:outline-none"
-                  >
-                    <option value="">No IT Admin</option>
-                    {itAdmins.map((admin: any) => (
-                      <option key={admin.id} value={admin.id}>
-                        {admin.name} ({admin.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 dark:border-white/20 text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={createBranch.isPending || updateBranch.isPending}
-                  className="px-5 py-2 bg-lime-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-lime-400 transition-all flex items-center gap-2 disabled:opacity-50"
-                >
-                  {(createBranch.isPending || updateBranch.isPending) ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      {editingBranch ? 'Update' : 'Create'}
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createBranch.isPending || updateBranch.isPending}
+              className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
+            >
+              {(createBranch.isPending || updateBranch.isPending) ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  {editingBranch ? 'Save Changes' : 'Create Branch'}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Delete Confirmation */}
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
-        onClose={() => { setIsDeleteModalOpen(false); setBranchToDelete(null); }}
+        onClose={() => { setIsDeleteModalOpen(false); setBranchToDelete(null); setDeleteError(''); }}
         onConfirm={handleDelete}
         isLoading={deleteBranch.isPending}
         variant="danger"
         title="Delete Branch?"
         description={`Are you sure you want to delete "${branchToDelete?.branch_name}"? This action cannot be undone.`}
         confirmText="Delete Branch"
+        details={deleteError ? (
+          <div className="border border-red-500/30 bg-red-500/10 p-3 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <p className="font-mono text-xs text-red-400">{deleteError}</p>
+          </div>
+        ) : undefined}
       />
     </div>
   );

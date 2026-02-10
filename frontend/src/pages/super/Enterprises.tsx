@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search, Power, CheckCircle } from 'lucide-react';
 import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
-import { useInfiniteEnterprises, enterpriseKeys } from '@/hooks';
+import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Enterprise } from '@/types';
 
@@ -17,6 +17,9 @@ export function Enterprises() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ enterprise: Enterprise; newStatus: 'active' | 'inactive' } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  // Server-side stats for accurate KPI counts (not affected by infinite scroll subset)
+  const { stats: dashStats } = useDashboardStats();
 
   // Infinite scroll query for enterprises
   const { data: enterprisePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteEnterprises();
@@ -148,13 +151,13 @@ export function Enterprises() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatBox
           label="Active Enterprises"
-          value={activeEnterprises.length}
+          value={dashStats.enterprise_active ?? activeEnterprises.length}
           icon={<Building2 className="w-5 h-5" />}
           accent="success"
         />
         <StatBox
           label="Inactive/Suspended"
-          value={inactiveEnterprises.length}
+          value={dashStats.enterprise_inactive ?? inactiveEnterprises.length}
           icon={<Ban className="w-5 h-5" />}
           accent="warning"
         />
@@ -170,7 +173,7 @@ export function Enterprises() {
               : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
           }`}
         >
-          Active ({activeEnterprises.length})
+          Active ({dashStats.enterprise_active ?? activeEnterprises.length})
         </button>
         <button
           onClick={() => setActiveTab('inactive')}
@@ -180,7 +183,7 @@ export function Enterprises() {
               : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
           }`}
         >
-          Inactive ({inactiveEnterprises.length})
+          Inactive ({dashStats.enterprise_inactive ?? inactiveEnterprises.length})
         </button>
       </div>
 

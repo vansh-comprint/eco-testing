@@ -141,6 +141,7 @@ export {
 export {
   useEnterpriseApplications,
   useInfiniteEnterpriseApplications,
+  useApplicationStats,
   usePendingApplications,
   useEnterpriseApplication,
   useCreateEnterpriseApplication,
@@ -204,6 +205,9 @@ export {
 // Sidebar Badges
 export { useSidebarBadges, getBadgeForPath } from './useSidebarBadges';
 export type { SidebarBadges } from './useSidebarBadges';
+
+// Dashboard Stats
+export { useDashboardStats, dashboardStatsKeys } from './useDashboardStats';
 
 // Types
 export type { CreateAssetInput } from './useAssets';

@@ -23,7 +23,8 @@ import {
   Settings,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth, useAssets, useBatches, useBranches, useITAdmins, useSubUsers, usePickupRequests, useDisputesByEnterprise } from '@/hooks';
+import { useAuth, useAssets, useBatches, useBranches, useDashboardStats } from '@/hooks';
+import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { itAdminKeys } from '@/hooks/useBranches';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
@@ -40,37 +41,13 @@ export function OrgAdminDashboard() {
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: batches = [] } = useBatches(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
-  const { data: itAdmins = [] } = useITAdmins(enterpriseId);
-  const { data: employees = [] } = useSubUsers(enterpriseId);
-  const { data: pickups = [] } = usePickupRequests(enterpriseId);
-  const { data: disputes = [] } = useDisputesByEnterprise(enterpriseId);
+  const { stats } = useDashboardStats();
 
-  // Batch metrics
-  const pendingApprovals = batches.filter(b => b.status === 'pending_approval');
+  // Batch lists for "Recent Decisions" section (needs full objects)
   const approvedBatches = batches.filter(b => ['approved', 'pickup_in_progress', 'completed'].includes(b.status));
   const rejectedBatches = batches.filter(b => b.status === 'rejected');
-  const pendingApprovalValue = pendingApprovals.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
 
-  // Asset metrics
-  const assetsByStatus = useMemo(() => {
-    const pending = assets.filter(a => ['pending_assignment', 'assigned', 'check_in_started'].includes(a.status)).length;
-    const inReview = assets.filter(a => ['submitted', 'remote_review', 'facility_review'].includes(a.status)).length;
-    const accepted = assets.filter(a => ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'].includes(a.status)).length;
-    const completed = assets.filter(a => a.status === 'completed').length;
-    const rejected = assets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status)).length;
-    return { pending, inReview, accepted, completed, rejected, total: assets.length };
-  }, [assets]);
-
-  // Financial metrics
-  const totalPayoutValue = assets
-    .filter(a => a.status === 'completed')
-    .reduce((sum, a) => sum + safeNumber(a.final_price), 0);
-
-  const pendingPayoutValue = assets
-    .filter(a => a.status === 'final_accepted' || a.status === 'payout_pending')
-    .reduce((sum, a) => sum + safeNumber(a.final_price || a.base_price), 0);
-
-  // Branch performance
+  // Branch performance (needs asset/batch objects for per-branch breakdown)
   const branchPerformance = useMemo(() => {
     return branches.map(branch => {
       const branchAssets = assets.filter(a => a.branch_id === branch.id);
@@ -91,46 +68,32 @@ export function OrgAdminDashboard() {
     }).sort((a, b) => b.assetCount - a.assetCount);
   }, [branches, assets, batches]);
 
-  // Action items
-  const branchesWithoutAdmin = branches.filter(b => !b.it_admin_id).length;
-  const stalledBatches = pendingApprovals.filter(b => {
-    const submittedAt = b.submitted_for_approval_at || b.created_at;
-    const daysSince = (Date.now() - new Date(submittedAt).getTime()) / (1000 * 60 * 60 * 24);
-    return daysSince > 7;
-  }).length;
-  const pendingDisputes = disputes.filter(d => d.status === 'pending').length;
-  const activePickups = pickups.filter(p => ['in_progress', 'scheduled'].includes(p.status)).length;
+  // Convenience aliases from stats
+  const pendingApprovalVal = stats.pending_approval_value ?? 0;
+  const branchesWithoutAdmin = stats.branch_without_admin ?? 0;
+  const pendingApprovalCount = stats.batch_pending_approval ?? 0;
 
-  // Batch pipeline counts
-  const pipeline = useMemo(() => ({
-    draft: batches.filter(b => b.status === 'draft').length,
-    pending: pendingApprovals.length,
-    approved: batches.filter(b => b.status === 'approved').length,
-    pickup: batches.filter(b => b.status === 'pickup_in_progress').length,
-    completed: batches.filter(b => b.status === 'completed').length,
-  }), [batches, pendingApprovals]);
-
-  // Top row: operational stats
+  // Top row: operational stats (from efficient backend COUNT queries)
   const operationalStats = [
     {
       label: 'Total Assets',
-      value: assetsByStatus.total,
-      subLabel: `${assetsByStatus.completed} completed`,
+      value: stats.asset_total ?? 0,
+      subLabel: `${stats.asset_completed ?? 0} completed`,
       icon: <Monitor className={`${iconSize.lg} text-slate-500`} />,
       accent: 'neutral' as StatAccent,
       onClick: () => navigate('/org-admin/enterprise-assets'),
     },
     {
       label: 'Pending Approvals',
-      value: pendingApprovals.length,
-      subLabel: pendingApprovalValue > 0 ? `₹${(pendingApprovalValue / 100000).toFixed(1)}L value` : 'None pending',
+      value: pendingApprovalCount,
+      subLabel: pendingApprovalVal > 0 ? `₹${(pendingApprovalVal / 100000).toFixed(1)}L value` : 'None pending',
       icon: <Clock className={`${iconSize.lg} text-amber-500`} />,
-      accent: (pendingApprovals.length > 0 ? 'warning' : 'neutral') as StatAccent,
+      accent: (pendingApprovalCount > 0 ? 'warning' : 'neutral') as StatAccent,
       onClick: () => navigate('/org-admin/approvals'),
     },
     {
       label: 'Active Branches',
-      value: branches.filter(b => b.status === 'active').length,
+      value: stats.branch_active ?? 0,
       subLabel: branchesWithoutAdmin > 0 ? `${branchesWithoutAdmin} need admin` : 'All staffed',
       icon: <Building2 className={`${iconSize.lg} text-blue-500`} />,
       accent: (branchesWithoutAdmin > 0 ? 'warning' : 'success') as StatAccent,
@@ -138,15 +101,15 @@ export function OrgAdminDashboard() {
     },
     {
       label: 'IT Admins',
-      value: itAdmins.filter(a => a.status === 'active').length,
-      subLabel: `${itAdmins.length} total`,
+      value: stats.it_admin_active ?? 0,
+      subLabel: `${stats.it_admin_total ?? 0} total`,
       icon: <Users className={`${iconSize.lg} text-purple-500`} />,
       accent: 'neutral' as StatAccent,
       onClick: () => navigate('/org-admin/it-admins'),
     },
     {
       label: 'Total Disbursed',
-      value: `₹${(totalPayoutValue / 100000).toFixed(1)}L`,
+      value: `₹${((stats.total_payout_value ?? 0) / 100000).toFixed(1)}L`,
       subLabel: 'Completed payouts',
       icon: <IndianRupee className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
@@ -154,7 +117,7 @@ export function OrgAdminDashboard() {
     },
     {
       label: 'Pending Payout',
-      value: `₹${(pendingPayoutValue / 100000).toFixed(1)}L`,
+      value: `₹${((stats.pending_payout_value ?? 0) / 100000).toFixed(1)}L`,
       subLabel: 'Ready to process',
       icon: <TrendingUp className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
@@ -181,20 +144,20 @@ export function OrgAdminDashboard() {
       />
 
       {/* Urgent Alerts */}
-      {(pendingApprovals.length > 0 || branchesWithoutAdmin > 0 || stalledBatches > 0) && (
+      {(pendingApprovalCount > 0 || branchesWithoutAdmin > 0 || (stats.stalled_batches ?? 0) > 0) && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          {pendingApprovals.length > 0 && (
+          {pendingApprovalCount > 0 && (
             <div className="border border-amber-500/40 bg-amber-50/80 dark:bg-amber-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 border border-amber-500/50 bg-amber-100/80 dark:bg-amber-500/20 flex items-center justify-center animate-pulse flex-shrink-0">
                 <AlertCircle className={`${iconSize.lg} text-amber-500`} />
               </div>
               <div className="flex-1">
                 <p className={`font-display font-bold uppercase text-sm ${text.primary}`}>
-                  {pendingApprovals.length} Batch{pendingApprovals.length > 1 ? 'es' : ''} Awaiting Approval
+                  {pendingApprovalCount} Batch{pendingApprovalCount > 1 ? 'es' : ''} Awaiting Approval
                 </p>
                 <p className="font-mono text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                  ₹{pendingApprovalValue.toLocaleString()} total value
-                  {stalledBatches > 0 && ` — ${stalledBatches} stalled (>7 days)`}
+                  ₹{pendingApprovalVal.toLocaleString()} total value
+                  {(stats.stalled_batches ?? 0) > 0 && ` — ${stats.stalled_batches} stalled (>7 days)`}
                 </p>
               </div>
               <button
@@ -255,11 +218,11 @@ export function OrgAdminDashboard() {
         <div className="p-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
-              { label: 'Draft', count: pipeline.draft, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-white/5' },
-              { label: 'Pending', count: pipeline.pending, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-              { label: 'Approved', count: pipeline.approved, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-              { label: 'Pickup', count: pipeline.pickup, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-              { label: 'Completed', count: pipeline.completed, color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-500/10' },
+              { label: 'Draft', count: stats.batch_draft ?? 0, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-white/5' },
+              { label: 'Pending', count: stats.batch_pending_approval ?? 0, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+              { label: 'Approved', count: stats.batch_approved ?? 0, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+              { label: 'Pickup', count: stats.batch_pickup_in_progress ?? 0, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+              { label: 'Completed', count: stats.batch_completed ?? 0, color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-500/10' },
             ].map((stage, i) => (
               <div key={stage.label} className="relative">
                 <div className={`p-4 ${stage.bg} border border-slate-200/60 dark:border-white/5 text-center`}>
@@ -361,7 +324,7 @@ export function OrgAdminDashboard() {
                 <span className={`font-display ${text.secondary}`}>Completed Payouts</span>
               </div>
               <span className="font-brand font-bold text-xl text-emerald-600 dark:text-emerald-400">
-                ₹{(totalPayoutValue / 100000).toFixed(2)}L
+                ₹{((stats.total_payout_value ?? 0) / 100000).toFixed(2)}L
               </span>
             </div>
             <div className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
@@ -370,7 +333,7 @@ export function OrgAdminDashboard() {
                 <span className={`font-display ${text.secondary}`}>Pending Payouts</span>
               </div>
               <span className="font-brand font-bold text-xl text-amber-600 dark:text-amber-400">
-                ₹{(pendingPayoutValue / 100000).toFixed(2)}L
+                ₹{((stats.pending_payout_value ?? 0) / 100000).toFixed(2)}L
               </span>
             </div>
             <div className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
@@ -379,7 +342,7 @@ export function OrgAdminDashboard() {
                 <span className={`font-display ${text.secondary}`}>Awaiting Approval</span>
               </div>
               <span className="font-brand font-bold text-xl text-blue-600 dark:text-blue-400">
-                ₹{(pendingApprovalValue / 100000).toFixed(2)}L
+                ₹{(pendingApprovalVal / 100000).toFixed(2)}L
               </span>
             </div>
             <div className="flex items-center justify-between py-3">
@@ -388,7 +351,7 @@ export function OrgAdminDashboard() {
                 <span className={`font-display ${text.secondary}`}>Total Pipeline</span>
               </div>
               <span className="font-brand font-bold text-xl text-lime-600 dark:text-lime-400">
-                ₹{((totalPayoutValue + pendingPayoutValue + pendingApprovalValue) / 100000).toFixed(2)}L
+                ₹{(((stats.total_payout_value ?? 0) + (stats.pending_payout_value ?? 0) + pendingApprovalVal) / 100000).toFixed(2)}L
               </span>
             </div>
           </div>
@@ -397,17 +360,23 @@ export function OrgAdminDashboard() {
           <div className="p-5 border-t border-slate-200/80 dark:border-zinc-800">
             <h3 className={`font-display font-bold text-xs uppercase tracking-wide ${text.muted} mb-3`}>Active Operations</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+              <div
+                onClick={() => navigate('/org-admin/enterprise-batches?status=pickup_in_progress')}
+                className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3 cursor-pointer hover:border-blue-500/30 transition-colors"
+              >
                 <Truck className="w-4 h-4 text-blue-500" />
                 <div>
-                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{activePickups}</p>
+                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{stats.active_pickups ?? 0}</p>
                   <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase">Active Pickups</p>
                 </div>
               </div>
-              <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+              <div
+                onClick={() => navigate('/org-admin/disputes')}
+                className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3 cursor-pointer hover:border-amber-500/30 transition-colors"
+              >
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 <div>
-                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{pendingDisputes}</p>
+                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{stats.pending_disputes ?? 0}</p>
                   <p className="font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase">Open Disputes</p>
                 </div>
               </div>
@@ -504,6 +473,7 @@ export function OrgAdminDashboard() {
         onClose={() => setIsAddITAdminModalOpen(false)}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+          queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
           setIsAddITAdminModalOpen(false);
         }}
       />

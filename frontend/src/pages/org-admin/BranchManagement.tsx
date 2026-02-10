@@ -922,7 +922,12 @@ function BranchFormModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={branch ? 'Edit Branch' : 'Add New Branch'} size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          // Prevent Enter key from auto-submitting the form in text inputs
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }} className="space-y-6">
         {/* Draft restored banner */}
         {hasDraft && !branch && (
           <div className="flex items-center justify-between gap-3 px-3 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-sm">

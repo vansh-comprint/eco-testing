@@ -199,7 +199,7 @@ export type { FileUploadResponse } from './files';
 
 // Dashboard
 export { dashboardApi } from './dashboard';
-export type { BadgeCounts } from './dashboard';
+export type { BadgeCounts, DashboardStats } from './dashboard';
 
 // EPR Certificates
 export { eprCertificatesApi } from './epr';

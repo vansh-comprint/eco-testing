@@ -119,6 +119,37 @@ async def create_enterprise(
 # ============================================================================
 
 
+@router.get("/applications/stats", response_model=dict)
+async def get_enterprise_application_stats(
+    current_user: User = Depends(require_permission(Permission.MANAGE_ENTERPRISE_APPLICATIONS)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get enterprise application counts by status.
+
+    Returns counts for pending, approved, rejected, and more_info_requested.
+
+    **Permissions:** MANAGE_ENTERPRISE_APPLICATIONS
+    """
+    from sqlalchemy import select, func
+    from app.models.enterprise import EnterpriseApplication
+
+    q = (
+        select(EnterpriseApplication.status, func.count())
+        .group_by(EnterpriseApplication.status)
+    )
+    result = await db.execute(q)
+    counts = {row[0]: row[1] for row in result.all()}
+
+    return success_response(data={
+        "pending": counts.get("pending", 0),
+        "approved": counts.get("approved", 0),
+        "rejected": counts.get("rejected", 0),
+        "more_info_requested": counts.get("more_info_requested", 0),
+        "total": sum(counts.values()),
+    })
+
+
 @router.get("/applications", response_model=dict)
 async def list_enterprise_applications(
     skip: int = Query(0, ge=0, description="Number of records to skip"),

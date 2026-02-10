@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, ListChecks, Truck, Users } from 'lucide-react';
-import { useLogisticsAdminPickups, useEnterprises, useAuth } from '@/hooks';
+import { useLogisticsAdminPickups, useAuth, useDashboardStats } from '@/hooks';
 import { PageHeader, ConnectedSection, Badge } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
 import { text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
@@ -11,15 +11,7 @@ export function LogisticsAdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: pickupRequests = [] } = useLogisticsAdminPickups(user?.id || '');
-  const { data: enterprises = [] } = useEnterprises();
-
-  // V3: Calculate summary from pickup requests - use snake_case field names
-  const summary = {
-    pendingAssignment: pickupRequests.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length,
-    assigned: pickupRequests.filter(r => r.status === 'assigned_to_logistics_user').length,
-    inProgress: pickupRequests.filter(r => r.status === 'in_progress').length,
-    completed: pickupRequests.filter(r => r.status === 'completed').length,
-  };
+  const { stats } = useDashboardStats();
 
   const upcoming = useMemo(() => {
     return [...pickupRequests]
@@ -36,28 +28,28 @@ export function LogisticsAdminDashboard() {
   const statItems: StatBoxItem[] = [
     {
       label: 'Pending Assignment',
-      value: summary.pendingAssignment,
+      value: stats.pickup_pending_assignment ?? 0,
       subLabel: 'Awaiting action',
-      icon: <Clock className={`${iconSize.lg} ${summary.pendingAssignment > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-zinc-400'}`} />,
-      accent: (summary.pendingAssignment > 0 ? 'warning' : 'neutral') as StatAccent,
+      icon: <Clock className={`${iconSize.lg} ${(stats.pickup_pending_assignment ?? 0) > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-zinc-400'}`} />,
+      accent: ((stats.pickup_pending_assignment ?? 0) > 0 ? 'warning' : 'neutral') as StatAccent,
     },
     {
       label: 'Scheduled',
-      value: summary.assigned + summary.inProgress,
+      value: (stats.pickup_assigned ?? 0) + (stats.pickup_in_progress ?? 0),
       subLabel: 'In progress',
       icon: <Truck className={`${iconSize.lg} text-blue-500`} />,
       accent: 'info' as StatAccent,
     },
     {
       label: 'Completed',
-      value: summary.completed,
+      value: stats.pickup_completed ?? 0,
       subLabel: 'This month',
       icon: <ListChecks className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
     },
     {
       label: 'Enterprises',
-      value: enterprises.length,
+      value: stats.enterprise_count ?? 0,
       subLabel: 'Active',
       icon: <Users className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,

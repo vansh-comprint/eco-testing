@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { dashboardStatsKeys } from './useDashboardStats';
 import { disputesApi, type DisputeResponse, type DisputeListParams } from '@/lib/api/disputes';
 import { assetKeys } from './useAssets';
 
@@ -193,6 +194,7 @@ export function useCreateDispute() {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -215,6 +217,7 @@ export function useResolveDispute() {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

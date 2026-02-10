@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { safeNumber } from '@/utils/formatters';
+
 import {
   Laptop,
   Clock,
@@ -16,7 +16,7 @@ import {
   UserPlus,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useBranches, useBranchesByITAdmin, useDashboardStats } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge, PageHeader, ConnectedSection } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
@@ -50,6 +50,9 @@ export function ITAdminDashboard() {
   const orgBranchCtx = useOrgBranchSafe();
   const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
+  // Efficient aggregated stats from backend COUNT/SUM queries
+  const { stats, isLoading: statsLoading } = useDashboardStats();
+
   const allAssets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
   const allBatches = isOrgAdmin ? orgBatches : itBatches;
@@ -75,42 +78,14 @@ export function ITAdminDashboard() {
     return subUsers.filter((su: { branch_id?: string }) => su.branch_id && myBranchIds.has(su.branch_id));
   }, [isOrgAdmin, subUsers, myBranchIds, activeBranchFilter]);
 
-  const isLoading = assetsLoading || batchesLoading || subUsersLoading;
+  const isLoading = assetsLoading || batchesLoading || subUsersLoading || statsLoading;
 
-  // Calculate asset stats from data
-  const assetStats = useMemo(() => {
-    const total = assets.length;
-    const pending = assets.filter(a => a.status === 'pending_assignment').length;
-    const inReview = assets.filter(a => ['assigned', 'check_in_started', 'submitted', 'remote_review'].includes(a.status)).length;
-    const accepted = assets.filter(a => ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'].includes(a.status)).length;
-    return { total, pending, inReview, accepted };
-  }, [assets]);
-
-  // Calculate batch stats from data
-  const batchStats = useMemo(() => {
-    const total = batches.length;
-    const completed = batches.filter(b => b.status === 'completed').length;
-    const active = batches.filter(b => !['completed', 'cancelled'].includes(b.status)).length;
-    const totalValue = batches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
-    return { total, completed, active, totalValue };
-  }, [batches]);
+  // Asset and batch stats now come from useDashboardStats() (efficient backend COUNT/SUM queries)
   // Assets and batches are already filtered by enterpriseId from the hooks
   const enterpriseAssets = assets;
   const enterpriseBatches = batches;
 
-  // Calculate dynamic percentages
-  const acceptanceRate = assetStats.total > 0
-    ? Math.round((assetStats.accepted / assetStats.total) * 100)
-    : 0;
-  const pendingRate = assetStats.total > 0
-    ? Math.round((assetStats.pending / assetStats.total) * 100)
-    : 0;
-  const reviewRate = assetStats.total > 0
-    ? Math.round((assetStats.inReview / assetStats.total) * 100)
-    : 0;
-  const completionRate = batchStats.total > 0
-    ? Math.round((batchStats.completed / batchStats.total) * 100)
-    : 0;
+  // Rates come from backend stats
 
   // Calculate action items
   const stalledAssets = enterpriseAssets.filter(a => {
@@ -220,11 +195,13 @@ export function ITAdminDashboard() {
     created: <Plus className={`${iconSize.md} text-slate-500 dark:text-zinc-400`} />,
   };
 
+  const stalledCount = stats.stalled_assets ?? stalledAssets.length;
+
   // Prepare stat items for the grid
   const statItems: StatBoxItem[] = [
     {
       label: 'Total Assets',
-      value: assetStats.total,
+      value: stats.asset_total ?? 0,
       subLabel: 'In System',
       icon: <Laptop className={`${iconSize.lg} text-slate-600 dark:text-zinc-400`} />,
       accent: 'brand' as StatAccent,
@@ -232,15 +209,15 @@ export function ITAdminDashboard() {
     },
     {
       label: 'Pending',
-      value: assetStats.pending,
-      subLabel: stalledAssets.length > 0 ? `${stalledAssets.length} stalled` : 'Assignment',
-      icon: <Clock className={`${iconSize.lg} ${stalledAssets.length > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-zinc-400'}`} />,
-      accent: (stalledAssets.length > 0 ? 'warning' : 'neutral') as StatAccent,
+      value: stats.asset_pending_assignment ?? 0,
+      subLabel: stalledCount > 0 ? `${stalledCount} stalled` : 'Assignment',
+      icon: <Clock className={`${iconSize.lg} ${stalledCount > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-zinc-400'}`} />,
+      accent: (stalledCount > 0 ? 'warning' : 'neutral') as StatAccent,
       onClick: () => navigate(`${basePath}/assets?status=pending_assignment`),
     },
     {
       label: 'In Progress',
-      value: assetStats.inReview,
+      value: stats.asset_in_review ?? 0,
       subLabel: 'Processing',
       icon: <TrendingUp className={`${iconSize.lg} text-blue-500`} />,
       accent: 'info' as StatAccent,
@@ -248,7 +225,7 @@ export function ITAdminDashboard() {
     },
     {
       label: 'Accepted',
-      value: assetStats.accepted,
+      value: stats.asset_accepted ?? 0,
       subLabel: 'Completed',
       icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
@@ -453,23 +430,27 @@ export function ITAdminDashboard() {
           stats={[
             {
               label: 'Total Batches',
-              value: batchStats.total,
+              value: stats.batch_total ?? 0,
               accent: 'neutral' as StatAccent,
+              onClick: () => navigate(`${basePath}/batches`),
             },
             {
               label: 'Expected Value',
-              value: `₹${(batchStats.totalValue / 100000).toFixed(1)}L`,
+              value: `₹${((stats.batch_total_value ?? 0) / 100000).toFixed(1)}L`,
               accent: 'brand' as StatAccent,
+              onClick: () => navigate(`${basePath}/batches`),
             },
             {
               label: 'Completed',
-              value: batchStats.completed,
+              value: stats.batch_completed ?? 0,
               accent: 'success' as StatAccent,
+              onClick: () => navigate(`${basePath}/batches?status=completed`),
             },
             {
               label: 'In Progress',
-              value: batchStats.active,
+              value: stats.batch_active ?? 0,
               accent: 'info' as StatAccent,
+              onClick: () => navigate(`${basePath}/batches?status=active`),
             },
           ]}
           statColumns={4}

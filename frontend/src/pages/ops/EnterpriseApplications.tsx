@@ -28,6 +28,7 @@ import {
   useAuth,
   useApiError,
   useInfiniteEnterpriseApplications,
+  useApplicationStats,
   useApproveEnterpriseApplication,
   useRejectEnterpriseApplication,
   useRequestMoreInfo,
@@ -74,6 +75,9 @@ export function EnterpriseApplications() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>('pending');
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
+
+  // KPI stats from dedicated endpoint (always accurate regardless of filter/pagination)
+  const { data: stats } = useApplicationStats();
 
   // V3: React Query hooks for data fetching and mutations
   // Pass status as server-side filter ('pending' includes more_info_requested client-side, 'all' = no filter)
@@ -165,11 +169,11 @@ export function EnterpriseApplications() {
     }
   };
 
-  // Stats
-  const stats = {
-    pending: applications.filter(app => app.status === 'pending').length,
-    approved: applications.filter(app => app.status === 'approved').length,
-    rejected: applications.filter(app => app.status === 'rejected').length,
+  // KPI values from server-side stats (defaults to 0 while loading)
+  const kpi = {
+    pending: (stats?.pending ?? 0) + (stats?.more_info_requested ?? 0),
+    approved: stats?.approved ?? 0,
+    rejected: stats?.rejected ?? 0,
   };
 
   // V3: Loading state (only initial load — subsequent pages show inline spinner)
@@ -225,7 +229,7 @@ export function EnterpriseApplications() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending Review</span>
           </div>
           <p className="font-brand font-bold text-3xl text-amber-400">
-            {stats.pending}
+            {kpi.pending}
           </p>
         </div>
 
@@ -242,7 +246,7 @@ export function EnterpriseApplications() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Approved</span>
           </div>
           <p className="font-brand font-bold text-3xl text-emerald-400">
-            {stats.approved}
+            {kpi.approved}
           </p>
         </div>
 
@@ -259,7 +263,7 @@ export function EnterpriseApplications() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Rejected</span>
           </div>
           <p className="font-brand font-bold text-3xl text-red-400">
-            {stats.rejected}
+            {kpi.rejected}
           </p>
         </div>
       </motion.div>

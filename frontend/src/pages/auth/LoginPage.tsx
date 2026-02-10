@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStoreApi } from '@/stores';
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { login, isLoading } = useAuthStoreApi();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,6 +70,8 @@ export function LoginPage() {
       return;
     }
 
+    // Clear stale React Query cache from any previous session
+    queryClient.clear();
     const result = await login(email, password);
     if (result.success) {
       navigateByRole();

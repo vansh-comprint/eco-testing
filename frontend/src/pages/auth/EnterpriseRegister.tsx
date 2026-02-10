@@ -34,6 +34,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { useCreateEnterpriseApplication, useCheckGSTExists, useCheckEmailExists, useUploadDocument } from '@/hooks';
+import { API_BASE_URL } from '@/lib/api/client';
 import { text } from '@/lib/design-tokens';
 
 // Required documents list
@@ -365,13 +366,12 @@ export function EnterpriseRegister() {
     }, 300);
 
     try {
-      const { API_BASE_URL: apiBaseUrl } = await import('@/lib/api/client');
       const docType = fieldToDocType[field] || 'gst';
       const formDataUpload = new window.FormData();
       formDataUpload.append('file', file);
       formDataUpload.append('document_type', docType);
 
-      const response = await fetch(`${apiBaseUrl}/enterprises/applications/upload-document`, {
+      const response = await fetch(`${API_BASE_URL}/enterprises/applications/upload-document`, {
         method: 'POST',
         body: formDataUpload,
       });
@@ -394,7 +394,12 @@ export function EnterpriseRegister() {
       setUploadProgress(prev => ({ ...prev, [field]: 100 }));
     } catch (error) {
       clearInterval(interval);
-      setUploadProgress(prev => ({ ...prev, [field]: 0 }));
+      // Remove progress entry entirely so isUploading becomes false and user can retry
+      setUploadProgress(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
       setErrors(prev => ({
         ...prev,
         [field]: error instanceof Error ? error.message : 'Upload failed. Please try again.',

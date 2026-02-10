@@ -6,6 +6,7 @@ import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, Infinite
 import { EditUserModal, AddUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useDashboardStats } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface User {
@@ -29,6 +30,7 @@ export function AllUsers() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const { stats: dashStats } = useDashboardStats();
 
   // Infinite scroll query for users
   const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
@@ -100,13 +102,14 @@ export function AllUsers() {
     return matchesSearch;
   });
 
+  // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {
-    total: users.length,
-    superAdmins: users.filter(u => u.role === 'super_admin').length,
-    opsAdmins: users.filter(u => u.role === 'ops_admin').length,
-    itAdmins: users.filter(u => u.role === 'it_admin').length,
-    orgAdmins: users.filter(u => u.role === 'org_admin').length,
-    logistics: users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
+    total: dashStats.user_total ?? users.length,
+    superAdmins: dashStats.user_super_admin ?? users.filter(u => u.role === 'super_admin').length,
+    opsAdmins: dashStats.user_ops_admin ?? users.filter(u => u.role === 'ops_admin').length,
+    itAdmins: dashStats.user_it_admin ?? users.filter(u => u.role === 'it_admin').length,
+    orgAdmins: dashStats.user_org_admin ?? users.filter(u => u.role === 'org_admin').length,
+    logistics: dashStats.user_logistics ?? users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
   };
 
   const handleModalSuccess = () => {

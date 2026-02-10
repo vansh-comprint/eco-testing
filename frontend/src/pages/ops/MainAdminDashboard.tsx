@@ -15,7 +15,7 @@ import {
   X,
   ClipboardCheck
 } from 'lucide-react';
-import { useAuth, useAllAssets, useEnterprises, useAllBatches, useAllDisputes } from '@/hooks';
+import { useAuth, useAllAssets, useEnterprises, useAllBatches, useAllDisputes, useDashboardStats } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
@@ -29,6 +29,7 @@ export function MainAdminDashboard() {
   const { data: batches = [] } = useAllBatches();
   const { data: disputes = [] } = useAllDisputes();
   const { selectedEnterprise, selectedEnterpriseId, setSelectedEnterpriseId, isAllEnterprises } = useOpsEnterprise();
+  const { stats } = useDashboardStats();
 
   // Filter data based on selected enterprise
   const filteredAssets = isAllEnterprises
@@ -72,22 +73,23 @@ export function MainAdminDashboard() {
     ? [
         {
           label: 'Active Enterprises',
-          value: activeEnterprises,
-          subLabel: `${totalEnterprises} total`,
+          value: stats.enterprise_active ?? 0,
+          subLabel: `${stats.enterprise_total ?? 0} total`,
           icon: <Building2 className={`${iconSize.lg} text-blue-500`} />,
           accent: 'info' as StatAccent,
           onClick: () => navigate('/ops/enterprises'),
         },
         {
           label: 'Total Assets',
-          value: totalAssets,
+          value: stats.asset_total ?? 0,
           subLabel: 'Across all enterprises',
           icon: <Laptop className={`${iconSize.lg} text-emerald-500`} />,
           accent: 'success' as StatAccent,
+          onClick: () => navigate('/ops/assets'),
         },
         {
           label: 'Pending Review',
-          value: pendingReview,
+          value: stats.pending_review ?? 0,
           subLabel: 'Awaiting action',
           icon: <Clock className={`${iconSize.lg} text-amber-500`} />,
           accent: 'warning' as StatAccent,
@@ -95,7 +97,7 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Total Payouts',
-          value: `₹${(totalPayoutValue / 1000).toFixed(0)}K`,
+          value: `₹${((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K`,
           subLabel: 'Completed',
           icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
@@ -214,7 +216,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-amber-500 transition-colors ${text.primary}`}>
-                      {pendingReview} Assets Pending Review
+                      {isAllEnterprises ? (stats.pending_review ?? 0) : pendingReview} Assets Pending Review
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Across all enterprises</p>
                   </div>
@@ -246,7 +248,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-emerald-500 transition-colors ${text.primary}`}>
-                      {pendingPayout} Payouts Pending
+                      {isAllEnterprises ? (stats.pending_payout ?? 0) : pendingPayout} Payouts Pending
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Ready for processing</p>
                   </div>
@@ -279,48 +281,60 @@ export function MainAdminDashboard() {
               className="space-y-4"
             >
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-emerald-500/20 dark:border-emerald-400/15 border-l-4 border-l-emerald-500">
+                <div
+                  onClick={() => navigate('/ops/assets?status=accepted')}
+                  className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-emerald-500/20 dark:border-emerald-400/15 border-l-4 border-l-emerald-500 cursor-pointer hover:border-emerald-500/40 transition-colors"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className={`${iconSize.md} text-emerald-500`} />
                     <span className={`font-mono text-xs uppercase ${text.muted}`}>Accepted</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-emerald-600 dark:text-emerald-400">
-                    {filteredAssets.filter(a => a.status === 'final_accepted' || a.status === 'completed').length}
+                    {stats.asset_accepted ?? 0}
                   </p>
                 </div>
 
-                <div className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-red-500/20 dark:border-red-400/15 border-l-4 border-l-red-500">
+                <div
+                  onClick={() => navigate('/ops/assets?status=rejected')}
+                  className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-red-500/20 dark:border-red-400/15 border-l-4 border-l-red-500 cursor-pointer hover:border-red-500/40 transition-colors"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <XCircle className={`${iconSize.md} text-red-500`} />
                     <span className={`font-mono text-xs uppercase ${text.muted}`}>Rejected</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-red-600 dark:text-red-400">
-                    {filteredAssets.filter(a => a.status === 'remote_rejected' || a.status === 'final_rejected').length}
+                    {stats.asset_rejected ?? 0}
                   </p>
                 </div>
 
-                <div className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-amber-500/20 dark:border-amber-400/15 border-l-4 border-l-amber-500">
+                <div
+                  onClick={() => navigate('/ops/assets?status=in_progress')}
+                  className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-amber-500/20 dark:border-amber-400/15 border-l-4 border-l-amber-500 cursor-pointer hover:border-amber-500/40 transition-colors"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className={`${iconSize.md} text-amber-500`} />
                     <span className={`font-mono text-xs uppercase ${text.muted}`}>In Progress</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">
-                    {filteredAssets.filter(a => !['completed', 'final_accepted', 'final_rejected', 'remote_rejected'].includes(a.status)).length}
+                    {stats.in_progress ?? 0}
                   </p>
                 </div>
 
-                <div className="p-5 bg-lime-50/80 dark:bg-lime-500/[0.08] backdrop-blur-md border border-lime-500/25 dark:border-lime-400/20 border-l-4 border-l-lime-500">
+                <div
+                  onClick={() => navigate('/ops/payouts')}
+                  className="p-5 bg-lime-50/80 dark:bg-lime-500/[0.08] backdrop-blur-md border border-lime-500/25 dark:border-lime-400/20 border-l-4 border-l-lime-500 cursor-pointer hover:border-lime-500/40 transition-colors"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className={`${iconSize.md} text-lime-500`} />
                     <span className="font-mono text-xs uppercase text-lime-600 dark:text-lime-400">This Month</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-lime-700 dark:text-lime-400">
-                    ₹{(totalPayoutValue / 1000).toFixed(0)}K
+                    ₹{((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K
                   </p>
                 </div>
               </div>
 
-              {pendingDisputes > 0 && (
+              {(stats.pending_disputes ?? 0) > 0 && (
                 <button
                   onClick={() => navigate('/ops/disputes')}
                   className={`w-full p-4 flex items-center gap-4 bg-red-50/80 dark:bg-red-500/10 border border-red-500/30 ${hoverStyles.row} group`}
@@ -330,7 +344,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-red-500 transition-colors ${text.primary}`}>
-                      {pendingDisputes} Disputes Pending
+                      {stats.pending_disputes ?? 0} Disputes Pending
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Requires resolution</p>
                   </div>

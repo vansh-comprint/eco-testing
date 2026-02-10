@@ -158,6 +158,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.USER_UPDATE,
         Permission.USER_DELETE,
         Permission.LOGISTICS_MANAGE,
+        Permission.MANAGE_LOGISTICS_USERS,
         Permission.EMPLOYEE_READ,
         Permission.EMPLOYEE_CREATE,
         Permission.EMPLOYEE_UPDATE,

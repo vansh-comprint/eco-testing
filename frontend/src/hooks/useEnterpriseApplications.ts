@@ -4,12 +4,14 @@
  */
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { dashboardStatsKeys } from './useDashboardStats';
 import {
   enterpriseApplicationsApi,
   type EnterpriseApplicationResponse,
   type EnterpriseApplicationCreateRequest,
   type EnterpriseApplicationUpdateDocsRequest,
   type EnterpriseApplicationListParams,
+  type EnterpriseApplicationStats,
 } from '@/lib/api/applications';
 import { filesApi } from '@/lib/api/files';
 import { enterpriseKeys } from './useEnterprises';
@@ -28,6 +30,20 @@ export const applicationKeys = {
 // ============================================
 // QUERIES
 // ============================================
+
+/**
+ * Fetch application status counts (for KPI cards)
+ */
+export function useApplicationStats() {
+  return useQuery({
+    queryKey: [...applicationKeys.all, 'stats'] as const,
+    queryFn: async () => {
+      const response = await enterpriseApplicationsApi.stats();
+      return (response.data ?? { pending: 0, approved: 0, rejected: 0, more_info_requested: 0, total: 0 }) as EnterpriseApplicationStats;
+    },
+    staleTime: 15000,
+  });
+}
 
 /**
  * Fetch all enterprise applications (optionally filtered by status)
@@ -177,6 +193,7 @@ export function useApproveEnterpriseApplication() {
       queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -201,6 +218,7 @@ export function useRejectEnterpriseApplication() {
       queryClient.invalidateQueries({ queryKey: applicationKeys.detail(variables.applicationId) });
       queryClient.invalidateQueries({ queryKey: applicationKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

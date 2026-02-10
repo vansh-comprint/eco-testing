@@ -25,10 +25,13 @@ def _get_required_permission(role: Optional[UserRole], action: str) -> Permissio
     Determine the required permission based on role and action.
 
     - For employees: use EMPLOYEE_* permissions
+    - For logistics users: use MANAGE_LOGISTICS_USERS (allows logistics admins to manage their users)
     - For other roles: use USER_* permissions
     """
     if role == UserRole.EMPLOYEE:
         return getattr(Permission, f"EMPLOYEE_{action}")
+    if role == UserRole.LOGISTICS_USER:
+        return Permission.MANAGE_LOGISTICS_USERS
     return getattr(Permission, f"USER_{action}")
 
 

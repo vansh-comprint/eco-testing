@@ -14,7 +14,7 @@ import {
   ClipboardCheck,
   RefreshCw,
 } from 'lucide-react';
-import { useAuth, useAllAssets } from '@/hooks';
+import { useAuth, useAllAssets, useDashboardStats } from '@/hooks';
 import { assetStatusLabels } from '@/types/asset';
 import type { AssetStatus } from '@/types/asset';
 import { glass, text, iconSize } from '@/lib/design-tokens';
@@ -24,8 +24,9 @@ export function SubUserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: assets = [] } = useAllAssets();
+  const { stats } = useDashboardStats();
 
-  // Get assets assigned to this sub-user
+  // Get assets assigned to this sub-user (still needed for rendering individual cards)
   const myAssets = assets.filter(a => a.assigned_to_user_id === user?.id);
   const pendingAssets = myAssets.filter(a => a.status === 'assigned' || a.status === 'check_in_started');
   const submittedAssets = myAssets.filter(a => !['pending_assignment', 'assigned', 'check_in_started'].includes(a.status));
@@ -87,15 +88,15 @@ export function SubUserDashboard() {
             transition={{ delay: 0.1 }}
             className="flex gap-3 mt-6"
           >
-            {pendingAssets.length > 0 && (
+            {(stats.pending ?? pendingAssets.length) > 0 && (
               <div className="flex-1 bg-amber-50 dark:bg-amber-500/10 border border-amber-500/30 dark:border-amber-400/20 border-l-4 border-l-amber-500 p-4 shadow-sm shadow-amber-500/5">
-                <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">{pendingAssets.length}</p>
+                <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">{stats.pending ?? pendingAssets.length}</p>
                 <p className="font-mono text-xs text-amber-700 dark:text-amber-300/80 uppercase tracking-wider">Pending</p>
               </div>
             )}
-            {submittedAssets.length > 0 && (
+            {(stats.submitted ?? submittedAssets.length) > 0 && (
               <div className="flex-1 bg-blue-50 dark:bg-blue-500/10 border border-blue-500/30 dark:border-blue-400/20 border-l-4 border-l-blue-500 p-4 shadow-sm shadow-blue-500/5">
-                <p className="font-brand font-bold text-2xl text-blue-600 dark:text-blue-400">{submittedAssets.length}</p>
+                <p className="font-brand font-bold text-2xl text-blue-600 dark:text-blue-400">{stats.submitted ?? submittedAssets.length}</p>
                 <p className="font-mono text-xs text-blue-700 dark:text-blue-300/80 uppercase tracking-wider">In Progress</p>
               </div>
             )}
