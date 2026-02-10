@@ -199,11 +199,9 @@ export function useCreateAsset() {
   return useMutation({
     mutationFn: (asset: CreateAssetInput) => createAsset(asset),
     onSuccess: () => {
-      // Invalidate all asset queries (lists, byBatch, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      // sidebar-badges + dashboard-stats handled by global MutationCache
     },
   });
 }
@@ -260,10 +258,8 @@ export function useAssignAssetToSubUser() {
       assignAssetToSubUser(assetId, subUserId),
     onSuccess: (data, variables) => {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
-      // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }
@@ -279,10 +275,8 @@ export function useAssignAssetToSelf() {
       assignAssetToSelf(assetId, userId),
     onSuccess: (data, variables) => {
       queryClient.setQueryData(assetKeys.detail(variables.assetId), data);
-      // Invalidate all asset queries including self-assigned
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }
@@ -297,10 +291,8 @@ export function useUnassignAsset() {
     mutationFn: (assetId: string) => unassignAsset(assetId),
     onSuccess: (data, assetId) => {
       queryClient.setQueryData(assetKeys.detail(assetId), data);
-      // Invalidate all asset queries (lists, byBranch, byITAdmin, etc.)
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }

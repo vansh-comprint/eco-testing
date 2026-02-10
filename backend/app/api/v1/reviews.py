@@ -90,6 +90,7 @@ async def create_remote_review(
     try:
         review = await service.create_review(data, current_user)
         await db.commit()
+        await db.refresh(review)
         return success_response(data=_remote_review_to_dict(review), message="Review created")
     except ValueError as e:
         await db.rollback()
@@ -130,6 +131,7 @@ async def update_remote_review(
         if not review:
             raise HTTPException(status_code=404, detail="Review not found")
         await db.commit()
+        await db.refresh(review)
         return success_response(data=_remote_review_to_dict(review), message="Review updated")
     except ValueError as e:
         await db.rollback()
@@ -205,6 +207,7 @@ async def create_facility_qc(
     try:
         qc = await service.create_qc(data, current_user)
         await db.commit()
+        await db.refresh(qc)
         return success_response(data=_facility_qc_to_dict(qc), message="Facility QC created")
     except ValueError as e:
         await db.rollback()
@@ -297,6 +300,7 @@ async def create_onsite_qc(
     try:
         qc = await service.create_qc(data, current_user)
         await db.commit()
+        await db.refresh(qc)
         return success_response(data=_onsite_qc_to_dict(qc), message="On-site QC created")
     except ValueError as e:
         await db.rollback()

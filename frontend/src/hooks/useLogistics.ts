@@ -148,7 +148,7 @@ export function useCreateLogisticsAdmin() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.adminsList() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
     },
   });
 }
@@ -176,7 +176,7 @@ export function useUpdateLogisticsAdmin() {
       if (data) {
         queryClient.setQueryData(logisticsKeys.adminDetail(variables.adminId), data);
       }
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.adminsList() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
     },
   });
 }
@@ -193,8 +193,7 @@ export function useDeleteLogisticsAdmin() {
     },
     onSuccess: (_, adminId) => {
       queryClient.removeQueries({ queryKey: logisticsKeys.adminDetail(adminId) });
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.adminsList() });
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
@@ -236,11 +235,8 @@ export function useCreateLogisticsUser() {
       if (!response.success) throw new Error(response.error?.message || 'Failed to create logistics user');
       return response.data;
     },
-    onSuccess: (data) => {
-      if (data) {
-        queryClient.invalidateQueries({ queryKey: logisticsKeys.usersList(data.logistics_admin_id) });
-      }
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
     },
   });
 }
@@ -267,7 +263,7 @@ export function useUpdateLogisticsUser() {
       if (data) {
         queryClient.setQueryData(logisticsKeys.userDetail(variables.userId), data);
       }
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
     },
   });
 }
@@ -284,7 +280,7 @@ export function useDeleteLogisticsUser() {
     },
     onSuccess: (_, userId) => {
       queryClient.removeQueries({ queryKey: logisticsKeys.userDetail(userId) });
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
@@ -306,7 +302,8 @@ export function useUpdateLogisticsUserStatus() {
       if (data) {
         queryClient.setQueryData(logisticsKeys.userDetail(variables.userId), data);
       }
-      queryClient.invalidateQueries({ queryKey: logisticsKeys.users() });
+      queryClient.invalidateQueries({ queryKey: logisticsKeys.all });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
 }

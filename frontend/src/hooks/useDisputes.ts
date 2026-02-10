@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import { dashboardStatsKeys } from './useDashboardStats';
 import { disputesApi, type DisputeResponse, type DisputeListParams } from '@/lib/api/disputes';
 import { assetKeys } from './useAssets';
+import { batchKeys } from './useBatches';
 
 // Query keys
 export const disputeKeys = {
@@ -216,8 +217,7 @@ export function useResolveDispute() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }

@@ -162,7 +162,7 @@ export function useUpdateSubUser() {
     },
     onSuccess: (data, variables) => {
       queryClient.setQueryData(subUserKeys.detail(variables.subUserId), data);
-      queryClient.invalidateQueries({ queryKey: subUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: subUserKeys.all });
     },
   });
 }

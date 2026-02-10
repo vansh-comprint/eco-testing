@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query';
 import { ToastProvider, ErrorBoundary } from '@/components/ui';
 import { ProtectedRoute } from '@/components/auth';
 import { DashboardLayout, OpsLayout } from '@/layouts';
@@ -8,7 +8,17 @@ import { AuthProviderApi } from '@/contexts/AuthContextApi';
 import { useSidebarBadges, getBadgeForPath } from '@/hooks';
 
 // Create a client for React Query - database-first architecture
+// Global MutationCache: after ANY successful mutation, refresh sidebar badges
+// and dashboard stats. This prevents stale counts across all portals without
+// needing every individual mutation hook to remember these invalidations.
+// See: https://tkdodo.eu/blog/automatic-query-invalidation-after-mutations
 const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 30000, // 30 seconds

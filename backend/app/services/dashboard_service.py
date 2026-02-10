@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
-from sqlalchemy import select, func, and_, case, coalesce
+from sqlalchemy import select, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
@@ -285,7 +285,7 @@ async def get_dashboard_stats(
         )
         stats["pending_payout_value"] = await _sum(
             db,
-            select(func.sum(coalesce(Asset.final_price, Asset.base_price))).where(
+            select(func.sum(func.coalesce(Asset.final_price, Asset.base_price))).where(
                 and_(
                     Asset.enterprise_id == eid,
                     Asset.status.in_([AssetStatus.FINAL_ACCEPTED.value, AssetStatus.PAYOUT_PENDING.value]),
@@ -323,7 +323,7 @@ async def get_dashboard_stats(
                 and_(
                     Batch.enterprise_id == eid,
                     Batch.status == BatchStatus.PENDING_APPROVAL.value,
-                    coalesce(Batch.submitted_for_approval_at, Batch.created_at) < cutoff,
+                    func.coalesce(Batch.submitted_for_approval_at, Batch.created_at) < cutoff,
                 )
             ),
         )

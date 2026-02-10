@@ -137,8 +137,7 @@ export function useUpdatePayoutStatus() {
       queryClient.invalidateQueries({ queryKey: payoutKeys.detail(variables.payoutId) });
       queryClient.invalidateQueries({ queryKey: payoutKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }

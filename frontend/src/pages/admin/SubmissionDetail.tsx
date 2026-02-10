@@ -217,7 +217,8 @@ export function SubmissionDetail() {
   );
 
   // Can this user take action on this submission?
-  const canReview = (user?.role === 'it_admin' || user?.role === 'ops_admin') &&
+  // Only OPS Admin (and Super Admin) can create remote reviews — IT Admin cannot
+  const canReview = (user?.role === 'ops_admin' || user?.role === 'super_admin') &&
     ['submitted', 'remote_review', 'disputed'].includes(asset?.status || '');
 
   // Can IT Admin / Org Admin dispute a rejected submission?
@@ -271,13 +272,17 @@ export function SubmissionDetail() {
     if (!asset) return;
     setIsProcessing(true);
     try {
-      await reviewsApi.createRemote({
+      const result = await reviewsApi.createRemote({
         asset_id: asset.id,
         decision: 'conditionally_accepted',
         grade: selectedGrade,
         ...(estimatedValue ? { estimated_value: Number(estimatedValue) } : {}),
         ...(reviewNotes.trim() ? { notes: reviewNotes.trim() } : {}),
       });
+      if (!result.success) {
+        alert(result.error?.message || 'Failed to approve submission');
+        return;
+      }
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowApproveModal(false);
@@ -294,11 +299,15 @@ export function SubmissionDetail() {
     if (!asset || !rejectionReason.trim()) return;
     setIsProcessing(true);
     try {
-      await reviewsApi.createRemote({
+      const result = await reviewsApi.createRemote({
         asset_id: asset.id,
         decision: 'rejected',
         rejection_reason: rejectionReason.trim(),
       });
+      if (!result.success) {
+        alert(result.error?.message || 'Failed to reject submission');
+        return;
+      }
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowRejectModal(false);

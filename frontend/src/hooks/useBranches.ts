@@ -223,13 +223,10 @@ export function useCreateBranch() {
       return response.data;
     },
     onSuccess: (data) => {
+      // Use branchKeys.all so OPS admin cross-enterprise views also refresh
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
       if (data) {
-        queryClient.invalidateQueries({ queryKey: branchKeys.list(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
-        if (data.it_admin_id) {
-          queryClient.invalidateQueries({ queryKey: branchKeys.byITAdmin(data.it_admin_id) });
-          queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
-        }
+        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
       }
     },
   });
@@ -250,14 +247,9 @@ export function useUpdateBranch() {
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.setQueryData(branchKeys.detail(variables.branchId), data);
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
-        // Invalidate IT admin branches queries
-        if (data.it_admin_id) {
-          queryClient.invalidateQueries({ queryKey: branchKeys.byITAdmin(data.it_admin_id) });
-        }
       }
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
     },
   });
 }
@@ -298,9 +290,12 @@ export function useUpdateBranchStatus() {
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.setQueryData(branchKeys.detail(variables.branchId), data);
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
       }
+      // Status change affects scoped views — inactive branch hides its assets/batches
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
     },
   });
 }
@@ -407,14 +402,10 @@ export function useCreateITAdmin() {
       if (!response.success) throw new Error(response.error?.message || 'Failed to create IT admin');
       return response.data;
     },
-    onSuccess: (data) => {
-      if (data && data.enterprise_id) {
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
-        // Also invalidate branch queries so branch pages reflect the new IT admin assignment
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }
@@ -431,13 +422,10 @@ export function useUpdateITAdmin() {
       if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin');
       return response.data;
     },
-    onSuccess: (data) => {
-      if (data && data.enterprise_id) {
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }
@@ -479,13 +467,10 @@ export function useBulkCreateITAdmins() {
 
       return { results: result.created || [], errors: result.errors || [] };
     },
-    onSuccess: (_, variables) => {
-      if (variables.length > 0) {
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.list(variables[0].enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(variables[0].enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(variables[0].enterprise_id) });
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }
@@ -502,13 +487,10 @@ export function useUpdateITAdminStatus() {
       if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin status');
       return response.data;
     },
-    onSuccess: (data) => {
-      if (data?.enterprise_id) {
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.list(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(data.enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(data.enterprise_id) });
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }

@@ -248,8 +248,7 @@ export function useDeleteBatch() {
       queryClient.removeQueries({ queryKey: batchKeys.detail(batchId) });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: pickupKeys.all });
     },
   });
 }
@@ -408,10 +407,9 @@ export function useAddAssetToBatch() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.batchId) });
-      queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
+      // Use batchKeys.all (not .lists()) to also hit byBranch, byITAdmin, infinite, pendingApproval, approvalQueue
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
@@ -430,10 +428,8 @@ export function useRemoveAssetFromBatch() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.batchId) });
-      queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }
