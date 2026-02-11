@@ -3,7 +3,7 @@
  * Authentication endpoints: login, logout, OTP flows
  */
 
-import { fetchWithAuth, fetchPublic, clearTokens } from './client';
+import { fetchWithAuth, fetchPublic, clearTokens, getRefreshToken } from './client';
 
 // ============================================================================
 // Types
@@ -54,8 +54,22 @@ export const authApi = {
 
   getMe: () => fetchWithAuth<UserResponse>('/auth/me'),
 
-  logout: () => {
-    clearTokens();
+  logout: async () => {
+    try {
+      // Call backend to invalidate tokens in Redis
+      // Send refresh token in body to invalidate both access and refresh tokens
+      const refreshToken = getRefreshToken();
+      await fetchWithAuth<null>('/auth/logout', {
+        method: 'POST',
+        body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
+      });
+    } catch (error) {
+      // Ignore errors - we'll clear local tokens regardless
+      console.warn('[Auth] Logout API call failed, clearing local tokens anyway:', error);
+    } finally {
+      // Always clear local tokens, even if API call fails
+      clearTokens();
+    }
     return Promise.resolve({ success: true });
   },
 
