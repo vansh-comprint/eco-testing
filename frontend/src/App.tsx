@@ -279,6 +279,7 @@ function AppRoutes() {
         <Route path="submissions" element={<SubUserDashboard />} />
         <Route path="submit" element={<SubUserDashboard />} />
         <Route path="submit/:assetId" element={<DeviceSubmit />} />
+        <Route path="submissions/:assetId" element={<SubmissionDetail />} />
         <Route path="success" element={<SubmissionSuccess />} />
         <Route path="help" element={<PlaceholderPage title="Help" />} />
       </Route>

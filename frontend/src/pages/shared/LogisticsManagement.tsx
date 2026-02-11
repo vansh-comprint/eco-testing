@@ -59,7 +59,7 @@ export function LogisticsManagement() {
         ? adminsResult.data.map(a => ({
             id: a.id,
             email: a.email,
-            name: a.name || a.contact_person,
+            name: a.name || a.contact_person || '',
             phone: a.phone,
             role: 'logistics_admin',
             status: a.status,

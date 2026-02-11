@@ -167,7 +167,8 @@ export function SubUserDashboard() {
               return (
                 <div
                   key={asset.id}
-                  className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-sm shadow-slate-900/[0.03]"
+                  onClick={() => navigate(`/check-in/submissions/${asset.id}`)}
+                  className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-sm shadow-slate-900/[0.03] cursor-pointer active:scale-[0.99] transition-all hover:border-lime-500/30 dark:hover:border-lime-400/20"
                 >
                   {/* Device Info */}
                   <div className="p-4 flex items-center gap-4">

@@ -13,7 +13,10 @@ import {
   Clock,
   Camera
 } from 'lucide-react';
-import { useAuth, useAllAssets, useUpdateAsset } from '@/hooks';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth, useAllAssets } from '@/hooks';
+import { assetKeys } from '@/hooks/useAssets';
+import { reviewsApi } from '@/lib/api/reviews';
 import { facilityQCTemplate, type FacilityQCChecklist, type FacilityQCDecision } from '@/types/review';
 import type { AssetGrade } from '@/types/asset';
 
@@ -30,9 +33,18 @@ export function FacilityQC() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: assets = [] } = useAllAssets();
-  const updateAssetMutation = useUpdateAsset();
-  // TODO: Add createFacilityQC mutation when facility_qc_reviews table is available
-  const isLoading = updateAssetMutation.isPending;
+  const queryClient = useQueryClient();
+
+  const createFacilityQCMutation = useMutation({
+    mutationFn: (data: { asset_id: string; decision: string; grade?: string; notes?: string; functional_tests?: Record<string, unknown> }) =>
+      reviewsApi.createFacility(data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['facility-qc'] });
+    },
+  });
+
+  const isLoading = createFacilityQCMutation.isPending;
 
   const asset = assets.find(a => a.id === assetId);
 
@@ -117,33 +129,30 @@ export function FacilityQC() {
 
   const handleSubmitQC = async () => {
     if (!decision || !user) return;
-    
+
     // Require all checklist items to be checked
     if (!isChecklistComplete()) {
       alert('Please complete all checklist items before submitting.');
       return;
     }
 
-    // TODO: Add createFacilityQC mutation when facility_qc_reviews table is available
-    // await createFacilityQCMutation.mutateAsync({
-    //   asset_id: asset.id,
-    //   reviewer_id: user.id,
-    //   checklist_data: checklist,
-    //   grade: grade || undefined,
-    //   decision,
-    //   reason: notes || undefined,
-    // });
+    // Map frontend decision to backend enum: 'final_accept' → 'accepted', 'final_reject' → 'rejected'
+    const backendDecision = decision === 'final_accept' ? 'accepted' : 'rejected';
 
-    // Update asset status
-    await updateAssetMutation.mutateAsync({
-      assetId: asset.id,
-      updates: {
-        status: decision === 'final_accept' ? 'final_accepted' : 'final_rejected',
+    try {
+      await createFacilityQCMutation.mutateAsync({
+        asset_id: asset.id,
+        decision: backendDecision,
         grade: grade || undefined,
-      } as any,
-    });
+        notes: notes || undefined,
+        functional_tests: checklist as unknown as Record<string, unknown>,
+      });
 
-    navigate(-1); // Go back to QC queue (works for both /review/qc and /ops/qc)
+      navigate(-1); // Go back to QC queue (works for both /review/qc and /ops/qc)
+    } catch (error) {
+      console.error('Failed to submit facility QC:', error);
+      alert('Failed to submit QC. Please try again.');
+    }
   };
 
   const totalProgress = getTotalProgress();

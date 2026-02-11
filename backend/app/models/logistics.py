@@ -88,6 +88,9 @@ class PickupRequest(BaseModel):
     special_instructions = Column(Text, nullable=True)
     logistics_notes = Column(Text, nullable=True)
 
+    # Progress tracking
+    started_at = Column(DateTime(timezone=True), nullable=True)  # When logistics user started the pickup
+
     # Completion
     completed_at = Column(DateTime(timezone=True), nullable=True)
     proof_of_pickup = Column(JSON, nullable=True)  # Photos, signatures, etc.

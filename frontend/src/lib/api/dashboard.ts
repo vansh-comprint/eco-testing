@@ -110,6 +110,9 @@ export interface DashboardStats {
   pending?: number;
   submitted?: number;
 
+  // Logistics Admin
+  field_user_count?: number;
+
   // OPS Admin
   pending_review?: number;
   pending_qc?: number;

@@ -131,11 +131,13 @@ export function SubmissionDetail() {
   // Context detection
   const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const basePath = isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
+  const isEmployee = user?.role === 'employee' || location.pathname.startsWith('/check-in');
+  const basePath = isEmployee ? '/check-in' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
 
   const queryClient = useQueryClient();
   const { data: assets = [] } = useAllAssets();
-  const { data: subUsers = [] } = useAllSubUsers();
+  // Employees don't have EMPLOYEE_READ permission — skip sub-users fetch for them
+  const { data: subUsers = [] } = useAllSubUsers({ enabled: !isEmployee });
 
   const getSubUserById = (id: string) => subUsers.find(u => u.id === id);
 
@@ -144,14 +146,22 @@ export function SubmissionDetail() {
   const subUserFromList = assignedUserId ? getSubUserById(assignedUserId) : null;
 
   // Fallback: fetch user by ID if not found in sub-users list (e.g. IT Admin self-assigned)
+  // Skip for employees — they are the submitter themselves
   const { data: fallbackUserResponse } = useQuery({
     queryKey: ['users', 'detail', assignedUserId],
     queryFn: () => usersApi.get(assignedUserId!),
-    enabled: !!assignedUserId && !subUserFromList,
+    enabled: !!assignedUserId && !subUserFromList && !isEmployee,
     staleTime: 60000,
   });
 
-  const subUser = subUserFromList || (fallbackUserResponse?.data ? {
+  // For employees, show their own info; for admins, resolve from sub-users or fallback
+  const subUser = isEmployee && user ? {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: (user as any).phone,
+    department: (user as any).department,
+  } : subUserFromList || (fallbackUserResponse?.data ? {
     id: fallbackUserResponse.data.id,
     name: fallbackUserResponse.data.name,
     email: fallbackUserResponse.data.email,
@@ -363,7 +373,7 @@ export function SubmissionDetail() {
           className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back to Queue</span>
+          <span className="text-sm font-medium">{isEmployee ? 'Back to Dashboard' : 'Back to Queue'}</span>
         </button>
 
       </div>

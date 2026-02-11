@@ -49,7 +49,7 @@ export function useSubUsers(enterpriseId: string) {
 /**
  * Fetch all sub-users across all enterprises (for OPS Admin)
  */
-export function useAllSubUsers() {
+export function useAllSubUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [...subUserKeys.all, 'all'],
     queryFn: async () => {
@@ -57,6 +57,7 @@ export function useAllSubUsers() {
       return response.data;
     },
     staleTime: 30000,
+    enabled: options?.enabled ?? true,
   });
 }
 

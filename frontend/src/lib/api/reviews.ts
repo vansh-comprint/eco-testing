@@ -57,6 +57,19 @@ export interface RemoteReviewCreateRequest {
   checklist_results?: Record<string, unknown>;
 }
 
+export interface FacilityQCCreateRequest {
+  asset_id: string;
+  decision: string;
+  grade?: string;
+  final_value?: number;
+  functional_tests?: Record<string, unknown>;
+  cosmetic_assessment?: Record<string, unknown>;
+  hardware_tests?: Record<string, unknown>;
+  photos?: Record<string, unknown>;
+  notes?: string;
+  rejection_reason?: string;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -93,6 +106,12 @@ export const reviewsApi = {
   },
 
   getFacility: (id: string) => fetchWithAuth<FacilityQCResponse>(`/reviews/facility/${id}`),
+
+  createFacility: (data: FacilityQCCreateRequest) =>
+    fetchWithAuth<FacilityQCResponse>('/reviews/facility', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   listOnsite: (params: ReviewListParams = {}) => {
     const query = new URLSearchParams();

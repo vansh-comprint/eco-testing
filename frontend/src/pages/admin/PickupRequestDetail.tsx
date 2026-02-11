@@ -204,9 +204,21 @@ export function PickupRequestDetail() {
   const pickedUpCount = (request.assets || []).filter(a => a.status === 'picked_up').length;
   const exceptionsCount = (request.assets || []).filter(a => ['no_show', 'qc_failed'].includes(a.status)).length;
 
-  // Determine timeline status
-  const statusOrder: string[] = ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress', 'completed'];
-  const currentIndex = statusOrder.indexOf(request.status);
+  // Determine timeline step (maps 8 statuses → 5 timeline steps)
+  const getTimelineStep = (status: string): number => {
+    const map: Record<string, number> = {
+      'pending': 0,
+      'assigned_to_logistics_admin': 1,
+      'assigned_to_logistics_user': 1, // still in assignment phase
+      'scheduled': 2,
+      'in_progress': 3,
+      'completed': 4,
+      'failed': 4,
+      'cancelled': -1,
+    };
+    return map[status] ?? -1;
+  };
+  const currentIndex = getTimelineStep(request.status);
 
   const handleCancel = async () => {
     if (!confirm('Are you sure you want to cancel this pickup request?')) return;
@@ -597,7 +609,7 @@ export function PickupRequestDetail() {
                 </p>
                 <p className="font-mono text-sm text-slate-900 dark:text-white">
                   {(request.confirmed_date || request.preferred_date)
-                    ? format(new Date(request.confirmed_date || request.preferred_date), 'EEEE, dd MMMM yyyy')
+                    ? format(new Date((request.confirmed_date || request.preferred_date)!), 'EEEE, dd MMMM yyyy')
                     : 'Not set'}
                 </p>
               </div>

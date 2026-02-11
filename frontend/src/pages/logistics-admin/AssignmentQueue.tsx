@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Filter, Plus, AlertCircle } from 'lucide-react';
+import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Filter, Plus, AlertCircle, AlertTriangle } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
 import { useToast } from '@/components/ui';
 import type { PickupResponse } from '@/lib/api/pickups';
@@ -226,6 +227,21 @@ export function LogisticsAssignmentQueue() {
                   {needsUserAssignment && (
                     <p className="font-mono text-xs text-amber-400 mt-1">
                       Needs field user assignment
+                    </p>
+                  )}
+                  {r.status === 'in_progress' && (
+                    <p className={`font-mono text-xs mt-1 flex items-center gap-1 ${
+                      r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000
+                        ? 'text-amber-500'
+                        : 'text-lime-500'
+                    }`}>
+                      {r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000 && (
+                        <AlertTriangle className="w-3 h-3" />
+                      )}
+                      {r.started_at
+                        ? `Started ${formatDistanceToNow(new Date(r.started_at), { addSuffix: true })}`
+                        : 'In progress — start time unknown'
+                      }
                     </p>
                   )}
                 </div>

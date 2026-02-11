@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, ListChecks, Truck, Users } from 'lucide-react';
+import { Calendar, Clock, ListChecks, Truck, Users, AlertTriangle } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useLogisticsAdminPickups, useAuth, useDashboardStats } from '@/hooks';
 import { PageHeader, ConnectedSection, Badge } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
@@ -22,6 +23,11 @@ export function LogisticsAdminDashboard() {
         return aDate - bDate;
       })
       .slice(0, 4);
+  }, [pickupRequests]);
+
+  // In-progress pickups — the ones logistics users are currently working on
+  const inProgress = useMemo(() => {
+    return pickupRequests.filter(r => r.status === 'in_progress');
   }, [pickupRequests]);
 
   // Prepare stat items for the grid
@@ -120,6 +126,69 @@ export function LogisticsAdminDashboard() {
           </div>
         </ConnectedSection>
       </motion.div>
+
+      {/* In-Progress Pickups — Active field activity */}
+      {inProgress.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/85"
+        >
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Truck className={`${iconSize.lg} text-amber-500`} />
+              <h2 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
+                Active Pickups
+              </h2>
+              <Badge variant="warning" size="sm">{inProgress.length} in progress</Badge>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+            {inProgress.map((r) => {
+              const location = r.pickup_locations;
+              const assetCount = Array.isArray(r.asset_ids) ? r.asset_ids.length : 0;
+              const startedAgo = r.started_at
+                ? formatDistanceToNow(new Date(r.started_at), { addSuffix: true })
+                : null;
+              // Flag stale pickups (started over 4 hours ago)
+              const isStale = r.started_at
+                ? (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000
+                : false;
+              return (
+                <div
+                  key={r.id}
+                  onClick={() => navigate(`/logistics-admin/pickups/${r.id}`)}
+                  className={`px-6 py-4 flex items-center gap-4 ${hoverStyles.row} cursor-pointer group`}
+                >
+                  <div className={`w-12 h-12 border flex items-center justify-center ${
+                    isStale
+                      ? 'border-amber-500/40 bg-amber-500/10'
+                      : 'border-lime-500/30 bg-lime-500/10'
+                  }`}>
+                    {isStale
+                      ? <AlertTriangle className={`${iconSize.lg} text-amber-500`} />
+                      : <Truck className={`${iconSize.lg} text-lime-600 dark:text-lime-400`} />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-display font-bold text-sm group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors ${text.primary}`}>
+                      {location?.name || 'Pickup'} — {assetCount} assets
+                    </p>
+                    <p className={`font-mono text-xs ${text.muted}`}>
+                      {startedAgo ? `Started ${startedAgo}` : 'In progress'}
+                    </p>
+                  </div>
+                  {isStale && (
+                    <Badge variant="warning" size="sm">Stale</Badge>
+                  )}
+                  <StatusChip status={r.status} />
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

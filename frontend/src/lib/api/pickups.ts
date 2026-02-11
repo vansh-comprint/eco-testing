@@ -89,6 +89,7 @@ export interface PickupResponse {
 export interface PickupListParams {
   page?: number;
   pageSize?: number;
+  limit?: number;
   status?: string;
   enterprise_id?: string;
 }
@@ -178,8 +179,9 @@ export const pickupsApi = {
   list: (params: PickupListParams = {}) => {
     const query = new URLSearchParams();
     query.set('page', (params.page ?? 1).toString());
-    query.set('page_size', (params.pageSize ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page_size', (params.limit ?? params.pageSize ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
+    if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
     return fetchWithAuth<PickupResponse[]>(`/pickups?${query.toString()}`);
   },
 

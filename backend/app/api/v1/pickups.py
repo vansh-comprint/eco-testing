@@ -61,7 +61,9 @@ def _to_response(
         "preferred_date": pickup.preferred_date,
         "preferred_time_slot": pickup.preferred_time_slot,
         "scheduled_date": pickup.scheduled_date,
+        "scheduled_at": pickup.scheduled_date,  # Alias for frontend timeline
         "assigned_at": pickup.assigned_at,
+        "started_at": pickup.started_at,
         "assigned_by_id": pickup.assigned_by_id,
         "status": pickup.status,
         "priority": getattr(pickup, "priority", "normal"),

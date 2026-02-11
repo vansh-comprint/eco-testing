@@ -278,6 +278,7 @@ class PickupService:
 
         old_status = pickup.status
         pickup.status = PickupStatus.IN_PROGRESS.value
+        pickup.started_at = datetime.now(timezone.utc)
         await self.session.flush()
 
         # Log to audit trail
