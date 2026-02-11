@@ -52,6 +52,7 @@ fi
 source venv/bin/activate
 echo "  Installing dependencies..."
 pip install -r requirements.txt --quiet
+poetry install
 
 # Run migrations
 echo "  Running database migrations..."
