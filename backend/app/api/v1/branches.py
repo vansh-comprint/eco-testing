@@ -3,19 +3,22 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models.user import User, UserRole
-from app.models.enterprise import Branch, BranchStatus
-from app.models.asset import Asset
+from app.models.enterprise import BranchStatus
 from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import AuthorizationError
-from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin, can_access_enterprise
+from app.utils.scoping import (
+    get_scoped_filters,
+    auto_fill_context,
+    is_platform_admin,
+    can_access_enterprise,
+)
 
 router = APIRouter()
 
@@ -29,9 +32,7 @@ async def list_branches(
     enterprise_id: Optional[str] = Query(
         None, description="Filter by enterprise ID (Super Admin only)"
     ),
-    it_admin_id: Optional[str] = Query(
-        None, description="Filter by IT Admin ID"
-    ),
+    it_admin_id: Optional[str] = Query(None, description="Filter by IT Admin ID"),
     current_user: User = Depends(require_permission(Permission.BRANCH_READ)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -116,52 +117,8 @@ async def get_branches_summary(
     if not can_access_enterprise(current_user, enterprise_id):
         raise AuthorizationError("You don't have access to branches from this enterprise")
 
-    # Query branches for this enterprise
-    branches_query = (
-        select(Branch)
-        .where(Branch.enterprise_id == enterprise_id)
-        .order_by(Branch.branch_name)
-    )
-    branches_result = await db.execute(branches_query)
-    branches = branches_result.scalars().all()
-
-    # Get asset counts per branch
-    asset_counts_query = (
-        select(
-            Asset.branch_id,
-            func.count(Asset.id).label("total"),
-            func.count(Asset.id).filter(Asset.status.in_([
-                "pending_assignment", "assigned", "check_in_started", "submitted",
-                "remote_review", "conditionally_accepted", "disputed",
-            ])).label("pending"),
-            func.count(Asset.id).filter(Asset.status.in_([
-                "final_accepted", "payout_pending", "completed",
-            ])).label("completed"),
-        )
-        .where(Asset.enterprise_id == enterprise_id)
-        .where(Asset.branch_id.isnot(None))
-        .group_by(Asset.branch_id)
-    )
-    asset_result = await db.execute(asset_counts_query)
-    asset_counts = {row.branch_id: row for row in asset_result}
-
-    # Build response
-    data = []
-    for branch in branches:
-        ac = asset_counts.get(branch.id)
-        data.append({
-            "id": branch.id,
-            "enterprise_id": branch.enterprise_id,
-            "branch_name": branch.branch_name,
-            "branch_code": branch.branch_code,
-            "city": branch.city,
-            "state": branch.state,
-            "status": branch.status,
-            "it_admin_count": 1 if branch.it_admin_id else 0,
-            "asset_count": ac.total if ac else 0,
-            "pending_assets": ac.pending if ac else 0,
-            "completed_assets": ac.completed if ac else 0,
-        })
+    service = BranchService(db)
+    data = await service.get_branches_summary(enterprise_id)
 
     return success_response(data=data)
 

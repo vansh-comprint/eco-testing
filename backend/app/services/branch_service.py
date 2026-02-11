@@ -1,6 +1,6 @@
 """Branch service for business logic"""
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -11,7 +11,13 @@ from app.models.user import User
 from app.models.asset import Asset
 from app.models.batch import Batch
 from app.repositories.branch_repository import BranchRepository
-from app.schemas.branch import BranchCreate, BranchUpdate, BranchResponse, BranchBulkCreate, ITAdminInfo
+from app.schemas.branch import (
+    BranchCreate,
+    BranchUpdate,
+    BranchResponse,
+    BranchBulkCreate,
+    ITAdminInfo,
+)
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 
 
@@ -33,9 +39,7 @@ class BranchService:
                 response.it_admin = ITAdminInfo.model_validate(admin)
             else:
                 # Fallback: load IT admin if not eagerly loaded
-                result = await self.db.execute(
-                    select(User).where(User.id == branch.it_admin_id)
-                )
+                result = await self.db.execute(select(User).where(User.id == branch.it_admin_id))
                 admin = result.scalar_one_or_none()
                 if admin:
                     response.it_admin = ITAdminInfo(
@@ -62,9 +66,7 @@ class BranchService:
     async def get_branch(self, branch_id: str) -> BranchResponse:
         """Get branch by ID with eager-loaded IT admin."""
         result = await self.db.execute(
-            select(Branch)
-            .options(joinedload(Branch.it_admin))
-            .where(Branch.id == branch_id)
+            select(Branch).options(joinedload(Branch.it_admin)).where(Branch.id == branch_id)
         )
         branch = result.unique().scalar_one_or_none()
         if not branch:
@@ -92,9 +94,7 @@ class BranchService:
         enriched = [await self._enrich_branch_response(b) for b in branches]
         return enriched, total
 
-    async def create_branch(
-        self, branch_data: BranchCreate, created_by: str
-    ) -> BranchResponse:
+    async def create_branch(self, branch_data: BranchCreate, created_by: str) -> BranchResponse:
         """Create a new branch"""
         if not branch_data.enterprise_id:
             raise ValidationError("Enterprise ID is required")
@@ -152,9 +152,7 @@ class BranchService:
                 branch.enterprise_id, update_data["branch_code"]
             )
             if existing and existing.id != branch_id:
-                raise ConflictError(
-                    f"Branch with code {update_data['branch_code']} already exists"
-                )
+                raise ConflictError(f"Branch with code {update_data['branch_code']} already exists")
 
         for key, value in update_data.items():
             setattr(branch, key, value)
@@ -226,10 +224,12 @@ class BranchService:
                     bulk_data.enterprise_id, item.branch_code
                 )
                 if existing:
-                    errors.append({
-                        "index": idx,
-                        "error": f"Branch code '{item.branch_code}' already exists",
-                    })
+                    errors.append(
+                        {
+                            "index": idx,
+                            "error": f"Branch code '{item.branch_code}' already exists",
+                        }
+                    )
                     continue
 
                 # Resolve IT admin by email if provided
@@ -245,10 +245,12 @@ class BranchService:
                     if admin:
                         it_admin_id = admin.id
                     else:
-                        errors.append({
-                            "index": idx,
-                            "error": f"IT admin with email '{item.it_admin_email}' not found",
-                        })
+                        errors.append(
+                            {
+                                "index": idx,
+                                "error": f"IT admin with email '{item.it_admin_email}' not found",
+                            }
+                        )
                         continue
 
                 branch = Branch(
@@ -284,3 +286,82 @@ class BranchService:
         enriched = [await self._enrich_branch_response(b) for b in created_branches]
         return enriched, errors
 
+    async def get_branches_summary(self, enterprise_id: str) -> List[Dict[str, Any]]:
+        """
+        Get branch summary with aggregated statistics for an enterprise.
+
+        Returns each branch with asset counts and IT admin count.
+
+        Args:
+            enterprise_id: Enterprise ID to fetch branches for
+
+        Returns:
+            List of branch dictionaries with aggregated statistics
+        """
+        # Query branches for this enterprise
+        branches_query = (
+            select(Branch).where(Branch.enterprise_id == enterprise_id).order_by(Branch.branch_name)
+        )
+        branches_result = await self.db.execute(branches_query)
+        branches = branches_result.scalars().all()
+
+        # Get asset counts per branch
+        asset_counts_query = (
+            select(
+                Asset.branch_id,
+                func.count(Asset.id).label("total"),
+                func.count(Asset.id)
+                .filter(
+                    Asset.status.in_(
+                        [
+                            "pending_assignment",
+                            "assigned",
+                            "check_in_started",
+                            "submitted",
+                            "remote_review",
+                            "conditionally_accepted",
+                            "disputed",
+                        ]
+                    )
+                )
+                .label("pending"),
+                func.count(Asset.id)
+                .filter(
+                    Asset.status.in_(
+                        [
+                            "final_accepted",
+                            "payout_pending",
+                            "completed",
+                        ]
+                    )
+                )
+                .label("completed"),
+            )
+            .where(Asset.enterprise_id == enterprise_id)
+            .where(Asset.branch_id.isnot(None))
+            .group_by(Asset.branch_id)
+        )
+        asset_result = await self.db.execute(asset_counts_query)
+        asset_counts = {row.branch_id: row for row in asset_result}
+
+        # Build response
+        data = []
+        for branch in branches:
+            ac = asset_counts.get(branch.id)
+            data.append(
+                {
+                    "id": branch.id,
+                    "enterprise_id": branch.enterprise_id,
+                    "branch_name": branch.branch_name,
+                    "branch_code": branch.branch_code,
+                    "city": branch.city,
+                    "state": branch.state,
+                    "status": branch.status,
+                    "it_admin_count": 1 if branch.it_admin_id else 0,
+                    "asset_count": ac.total if ac else 0,
+                    "pending_assets": ac.pending if ac else 0,
+                    "completed_assets": ac.completed if ac else 0,
+                }
+            )
+
+        return data

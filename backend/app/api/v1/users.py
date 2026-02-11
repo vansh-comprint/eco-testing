@@ -3,19 +3,22 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.core.database import get_db
 from app.middleware.auth import get_current_user, require_permission
 from app.core.permissions import Permission
 from app.models.user import User, UserRole, UserStatus
-from app.models.enterprise import Branch
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate, PasswordReset
 from app.services.user_service import UserService
 from app.utils.response import success_response, paginated_response
 
 # Exceptions are handled by middleware - no need to import here
-from app.utils.scoping import get_scoped_filters, auto_fill_context, can_access_enterprise, is_platform_admin
+from app.utils.scoping import (
+    get_scoped_filters,
+    auto_fill_context,
+    can_access_enterprise,
+    is_platform_admin,
+)
 
 router = APIRouter()
 
@@ -47,8 +50,12 @@ async def list_users(
     role: Optional[UserRole] = Query(None, description="Filter by role (e.g., employee, it_admin)"),
     status: Optional[UserStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name, email, phone, or employee ID"),
-    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
-    branch_id: Optional[str] = Query(None, description="Filter by branch ID (platform/enterprise admins only)"),
+    enterprise_id: Optional[str] = Query(
+        None, description="Filter by enterprise ID (platform admins only)"
+    ),
+    branch_id: Optional[str] = Query(
+        None, description="Filter by branch ID (platform/enterprise admins only)"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -133,6 +140,7 @@ async def create_user(
             user_data.parent_user_id = current_user.id  # Force to own ID
         else:
             from app.utils.exceptions import AuthorizationError
+
             raise AuthorizationError("Logistics admin can only create logistics users")
 
     service = UserService(db)
@@ -184,45 +192,11 @@ async def list_it_admins_with_branches(
     # Verify current user has access to this enterprise
     if not can_access_enterprise(current_user, enterprise_id):
         from app.utils.exceptions import AuthorizationError
+
         raise AuthorizationError("You don't have access to users from this enterprise")
 
-    # Query IT admins for this enterprise
-    users_query = (
-        select(User)
-        .where(User.enterprise_id == enterprise_id)
-        .where(User.role == UserRole.IT_ADMIN.value)
-    )
-    users_result = await db.execute(users_query)
-    it_admins = users_result.scalars().all()
-
-    # Query all branches for this enterprise to build the mapping
-    branches_query = (
-        select(Branch)
-        .where(Branch.enterprise_id == enterprise_id)
-        .where(Branch.it_admin_id.isnot(None))
-    )
-    branches_result = await db.execute(branches_query)
-    branches = branches_result.scalars().all()
-
-    # Build IT admin → branches map
-    admin_branches: dict = {}
-    for branch in branches:
-        if branch.it_admin_id not in admin_branches:
-            admin_branches[branch.it_admin_id] = []
-        admin_branches[branch.it_admin_id].append({
-            "id": branch.id,
-            "branch_name": branch.branch_name,
-            "branch_code": branch.branch_code,
-        })
-
-    # Build response
-    data = []
-    for admin in it_admins:
-        admin_data = UserResponse.model_validate(admin).model_dump()
-        branch_list = admin_branches.get(admin.id, [])
-        admin_data["branch_count"] = len(branch_list)
-        admin_data["branches"] = branch_list
-        data.append(admin_data)
+    service = UserService(db)
+    data = await service.get_it_admins_with_branches(enterprise_id)
 
     return success_response(data=data)
 
@@ -307,9 +281,7 @@ async def reset_user_password(
     Note: Employees use OTP-based auth and cannot have passwords reset.
     """
     service = UserService(db)
-    user = await service.reset_password(
-        user_id, password_data.new_password, actor=current_user
-    )
+    user = await service.reset_password(user_id, password_data.new_password, actor=current_user)
     return success_response(data=user.model_dump(), message="Password reset successfully")
 
 

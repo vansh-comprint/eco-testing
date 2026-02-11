@@ -1,7 +1,7 @@
 """User service for unified user model"""
 
 import secrets
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -166,9 +166,7 @@ class UserService:
 
         # If IT admin was assigned to a branch, also update the branch's it_admin_id
         if user_data.role == UserRole.IT_ADMIN and user_data.branch_id:
-            result = await self.db.execute(
-                select(Branch).where(Branch.id == user_data.branch_id)
-            )
+            result = await self.db.execute(select(Branch).where(Branch.id == user_data.branch_id))
             branch = result.scalar_one_or_none()
             if branch:
                 branch.it_admin_id = user.id
@@ -222,7 +220,11 @@ class UserService:
                     employee_id=user_item.employee_id,
                     department=user_item.department,
                     designation=user_item.designation,
-                    password_hash=get_password_hash(user_item.password or "password123") if (user_item.password or is_employee) else None,
+                    password_hash=(
+                        get_password_hash(user_item.password or "password123")
+                        if (user_item.password or is_employee)
+                        else None
+                    ),
                     status=UserStatus.ACTIVE.value,
                     created_by=created_by,
                     updated_by=created_by,
@@ -239,8 +241,7 @@ class UserService:
         return [UserResponse.model_validate(u) for u in created_users], errors
 
     async def update_user(
-        self, user_id: str, user_data: UserUpdate, updated_by: str,
-        actor: Optional[User] = None
+        self, user_id: str, user_data: UserUpdate, updated_by: str, actor: Optional[User] = None
     ) -> UserResponse:
         """
         Update an existing user with IDOR protection.
@@ -294,18 +295,14 @@ class UserService:
         if is_it_admin and "branch_id" in update_data and new_branch_id != old_branch_id:
             # Remove IT admin from old branch
             if old_branch_id:
-                result = await self.db.execute(
-                    select(Branch).where(Branch.id == old_branch_id)
-                )
+                result = await self.db.execute(select(Branch).where(Branch.id == old_branch_id))
                 old_branch = result.scalar_one_or_none()
                 if old_branch and old_branch.it_admin_id == user.id:
                     old_branch.it_admin_id = None
 
             # Assign IT admin to new branch
             if new_branch_id:
-                result = await self.db.execute(
-                    select(Branch).where(Branch.id == new_branch_id)
-                )
+                result = await self.db.execute(select(Branch).where(Branch.id == new_branch_id))
                 new_branch = result.scalar_one_or_none()
                 if new_branch:
                     new_branch.it_admin_id = user.id
@@ -419,3 +416,55 @@ class UserService:
 
         user = await self.repository.update(user)
         return UserResponse.model_validate(user)
+
+    async def get_it_admins_with_branches(self, enterprise_id: str) -> List[Dict[str, Any]]:
+        """
+        Get IT admins for an enterprise with their assigned branch details.
+
+        Args:
+            enterprise_id: Enterprise ID to fetch IT admins for
+
+        Returns:
+            List of IT admin dictionaries with branch_count and branches array
+        """
+        # Query IT admins for this enterprise
+        users_query = (
+            select(User)
+            .where(User.enterprise_id == enterprise_id)
+            .where(User.role == UserRole.IT_ADMIN.value)
+        )
+        users_result = await self.db.execute(users_query)
+        it_admins = users_result.scalars().all()
+
+        # Query all branches for this enterprise to build the mapping
+        branches_query = (
+            select(Branch)
+            .where(Branch.enterprise_id == enterprise_id)
+            .where(Branch.it_admin_id.isnot(None))
+        )
+        branches_result = await self.db.execute(branches_query)
+        branches = branches_result.scalars().all()
+
+        # Build IT admin → branches map
+        admin_branches: dict = {}
+        for branch in branches:
+            if branch.it_admin_id not in admin_branches:
+                admin_branches[branch.it_admin_id] = []
+            admin_branches[branch.it_admin_id].append(
+                {
+                    "id": branch.id,
+                    "branch_name": branch.branch_name,
+                    "branch_code": branch.branch_code,
+                }
+            )
+
+        # Build response
+        data = []
+        for admin in it_admins:
+            admin_data = UserResponse.model_validate(admin).model_dump()
+            branch_list = admin_branches.get(admin.id, [])
+            admin_data["branch_count"] = len(branch_list)
+            admin_data["branches"] = branch_list
+            data.append(admin_data)
+
+        return data
