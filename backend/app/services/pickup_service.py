@@ -304,11 +304,11 @@ class PickupService:
         if data.logistics_notes:
             pickup.logistics_notes = data.logistics_notes
 
-        # Update asset statuses to picked_up
+        # Update asset statuses to in_transit (picked up and heading to QC facility)
         for asset_id in pickup.asset_ids:
             asset = await self.asset_repo.get_by_id(asset_id)
             if asset:
-                asset.status = AssetStatus.PICKED_UP.value
+                asset.status = AssetStatus.IN_TRANSIT.value
 
         await self.session.flush()
 

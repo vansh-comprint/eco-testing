@@ -64,7 +64,7 @@ ASSET_TRANSITIONS: Dict[str, Set[str]] = {
     "pickup_requested": {"pickup_scheduled"},
 
     # Pickup scheduled - logistics will execute
-    "pickup_scheduled": {"picked_up", "pickup_failed_qc"},
+    "pickup_scheduled": {"picked_up", "in_transit", "pickup_failed_qc"},
 
     # Pickup failed on-site QC - back to scheduled or disputed
     "pickup_failed_qc": {"pickup_scheduled", "disputed"},
