@@ -119,15 +119,20 @@ export function PickupQueue() {
   const handleAssign = async () => {
     if (!selectedRequest || !selectedLogisticsAdmin || !user) return;
 
-    await assignMutation.mutateAsync({
-      requestId: selectedRequest,
-      logisticsAdminId: selectedLogisticsAdmin,
-    });
+    try {
+      await assignMutation.mutateAsync({
+        requestId: selectedRequest,
+        logisticsAdminId: selectedLogisticsAdmin,
+      });
 
-    setSelectedRequest(null);
-    setSelectedLogisticsAdmin('');
-    setShowConfirmModal(false);
-    setShowReassignMode(false);
+      setSelectedRequest(null);
+      setSelectedLogisticsAdmin('');
+      setShowConfirmModal(false);
+      setShowReassignMode(false);
+    } catch (error) {
+      console.error('Assignment failed:', error);
+      addToast({ type: 'error', title: 'Assignment Failed', message: error instanceof Error ? error.message : 'Failed to assign pickup', duration: 5000 });
+    }
   };
 
   const handleCreateAdmin = async () => {
@@ -150,8 +155,10 @@ export function PickupQueue() {
         password: newAdminPassword,
       });
 
+      if (!newAdmin) throw new Error('Failed to create logistics admin');
+
       // Auto-select the newly created admin
-      setSelectedLogisticsAdmin(newAdmin!.id);
+      setSelectedLogisticsAdmin(newAdmin.id);
 
       // Reset form
       setShowAddAdmin(false);
@@ -160,6 +167,9 @@ export function PickupQueue() {
       setNewAdminPhone('');
       setNewAdminEmail('');
       setNewAdminPassword('');
+    } catch (error) {
+      console.error('Error creating logistics admin:', error);
+      addToast({ type: 'error', title: 'Creation Failed', message: error instanceof Error ? error.message : 'Failed to create logistics admin', duration: 5000 });
     } finally {
       setIsCreatingAdmin(false);
     }
@@ -363,7 +373,7 @@ export function PickupQueue() {
                             </div>
                             <div className="flex flex-col items-end gap-1">
                               <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(request.status)}`}>
-                                {request.status.replace('_', ' ')}
+                                {request.status.replaceAll('_', ' ')}
                               </span>
                               <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getPriorityColor(request.priority)}`}>
                                 {request.priority}
@@ -469,7 +479,7 @@ export function PickupQueue() {
                     {selectedRequestData.priority} priority
                   </span>
                   <span className={`px-2 py-1 border font-mono font-bold text-xs uppercase ${getStatusColor(selectedRequestData.status)}`}>
-                    {selectedRequestData.status.replace('_', ' ')}
+                    {selectedRequestData.status.replaceAll('_', ' ')}
                   </span>
                 </div>
 

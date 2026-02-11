@@ -220,6 +220,18 @@ class PickupService:
         if pickup.status != PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value:
             raise ValueError("Pickup must be assigned to logistics admin first")
 
+        # Verify the logistics user exists and belongs to this logistics admin
+        from app.repositories.user_repository import UserRepository
+        user_repo = UserRepository(self.session)
+        target_user = await user_repo.get_by_id(data.logistics_user_id)
+        if not target_user:
+            raise ValueError("Logistics user not found")
+        if target_user.role != UserRole.LOGISTICS_USER.value:
+            raise ValueError("Target user is not a logistics user")
+        if user.role == UserRole.LOGISTICS_ADMIN.value:
+            if target_user.parent_user_id != user.id:
+                raise ValueError("This logistics user does not belong to you")
+
         old_status = pickup.status
         pickup.logistics_user_id = data.logistics_user_id
         pickup.status = PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value

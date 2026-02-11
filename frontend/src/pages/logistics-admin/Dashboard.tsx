@@ -48,9 +48,9 @@ export function LogisticsAdminDashboard() {
       accent: 'success' as StatAccent,
     },
     {
-      label: 'Enterprises',
-      value: stats.enterprise_count ?? 0,
-      subLabel: 'Active',
+      label: 'Field Users',
+      value: stats.field_user_count ?? 0,
+      subLabel: 'Your team',
       icon: <Users className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
     },
@@ -77,7 +77,7 @@ export function LogisticsAdminDashboard() {
           statColumns={4}
           action={
             <button
-              onClick={() => navigate('/logistics-admin/pickups')}
+              onClick={() => navigate('/logistics-admin/assignments')}
               className={`font-mono font-bold text-xs uppercase tracking-widest ${text.muted} hover:text-lime-600 dark:hover:text-lime-400 transition-colors`}
             >
               View All Pickups

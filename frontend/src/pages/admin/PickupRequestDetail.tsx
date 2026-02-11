@@ -24,7 +24,7 @@ import {
   Plus
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { Badge } from '@/components/ui';
+import { Badge, useToast } from '@/components/ui';
 import { useAuth, usePickupRequest, useAssets, useLogisticsUsers, useCancelPickup, useAssignToLogisticsUser, useUpdatePickupStatus, useCreateLogisticsUser } from '@/hooks';
 import type { PickupRequestStatus } from '@/types';
 import { pickupTimeSlotLabels } from '@/types/pickup';
@@ -125,6 +125,7 @@ export function PickupRequestDetail() {
   const location = useLocation();
   const { requestId } = useParams<{ requestId: string }>();
   const { enterprise, user } = useAuth();
+  const { addToast } = useToast();
   const enterpriseId = enterprise?.id || '';
   const { data: request } = usePickupRequest(requestId || '');
   const { data: assets = [] } = useAssets(enterpriseId);
@@ -228,25 +229,26 @@ export function PickupRequestDetail() {
 
   const handleAssign = async () => {
     if (!selectedUser || !request) return;
-    await assignMutation.mutateAsync({
-      requestId: request.id,
-      logisticsUserId: selectedUser,
-      scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
-    });
-    await updateStatusMutation.mutateAsync({
-      requestId: request.id,
-      status: 'scheduled',
-    });
-    setShowAssignModal(false);
+    try {
+      await assignMutation.mutateAsync({
+        requestId: request.id,
+        logisticsUserId: selectedUser,
+        scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+      });
+      setShowAssignModal(false);
+    } catch (error) {
+      console.error('Assignment failed:', error);
+      addToast({ type: 'error', title: 'Assignment Failed', message: error instanceof Error ? error.message : 'Failed to assign pickup' });
+    }
   };
 
   const handleCreateUser = async () => {
     if (!newUserName || !newUserEmail || !newUserPassword) {
-      alert('Name, email, and password are required');
+      addToast({ type: 'warning', title: 'Missing Fields', message: 'Name, email, and password are required' });
       return;
     }
     if (newUserPassword.length < 8) {
-      alert('Password must be at least 8 characters');
+      addToast({ type: 'warning', title: 'Invalid Password', message: 'Password must be at least 8 characters' });
       return;
     }
 
@@ -270,7 +272,7 @@ export function PickupRequestDetail() {
       setNewUserPassword('');
     } catch (error) {
       console.error('Error creating user:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create user');
+      addToast({ type: 'error', title: 'Creation Failed', message: error instanceof Error ? error.message : 'Failed to create user' });
     }
   };
 
@@ -594,7 +596,9 @@ export function PickupRequestDetail() {
                   {request.confirmed_date ? 'Confirmed Date' : 'Preferred Date'}
                 </p>
                 <p className="font-mono text-sm text-slate-900 dark:text-white">
-                  {format(new Date(request.confirmed_date || request.preferred_date || ''), 'EEEE, dd MMMM yyyy')}
+                  {(request.confirmed_date || request.preferred_date)
+                    ? format(new Date(request.confirmed_date || request.preferred_date), 'EEEE, dd MMMM yyyy')
+                    : 'Not set'}
                 </p>
               </div>
               <div>
@@ -616,7 +620,7 @@ export function PickupRequestDetail() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-none sm:max-w-2xl max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-none sm:max-w-2xl max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
             >
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">

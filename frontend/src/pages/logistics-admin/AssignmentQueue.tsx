@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Filter, Plus, AlertCircle } from 'lucide-react';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
+import { useToast } from '@/components/ui';
 import type { PickupResponse } from '@/lib/api/pickups';
 
 type StatusFilter = 'active' | 'all';
 
 export function LogisticsAssignmentQueue() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const currentLogisticsAdminId = user?.id || '';
   const { data: pickupRequests = [], isLoading } = useLogisticsAdminPickups(currentLogisticsAdminId);
   const { data: logisticsUsers = [] } = useLogisticsUsers(currentLogisticsAdminId);
@@ -32,7 +34,7 @@ export function LogisticsAssignmentQueue() {
 
   // Get users that belong to this logistics admin
   const myLogisticsUsers = useMemo(() => {
-    return logisticsUsers.filter(u => u.logistics_admin_id === currentLogisticsAdminId && u.status === 'active');
+    return logisticsUsers.filter(u => u.parent_user_id === currentLogisticsAdminId && u.status === 'active');
   }, [logisticsUsers, currentLogisticsAdminId]);
 
   const queue = useMemo(() => {
@@ -86,17 +88,17 @@ export function LogisticsAssignmentQueue() {
       setScheduledDate('');
     } catch (error) {
       console.error('Assignment failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to assign pickup');
+      addToast({ type: 'error', title: 'Assignment Failed', message: error instanceof Error ? error.message : 'Failed to assign pickup' });
     }
   };
 
   const handleCreateUser = async () => {
     if (!newUserName || !newUserEmail || !newUserPassword) {
-      alert('Name, email, and password are required');
+      addToast({ type: 'warning', title: 'Missing Fields', message: 'Name, email, and password are required' });
       return;
     }
     if (newUserPassword.length < 8) {
-      alert('Password must be at least 8 characters');
+      addToast({ type: 'warning', title: 'Invalid Password', message: 'Password must be at least 8 characters' });
       return;
     }
 
@@ -120,7 +122,7 @@ export function LogisticsAssignmentQueue() {
       setNewUserPassword('');
     } catch (error) {
       console.error('Error creating user:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create user');
+      addToast({ type: 'error', title: 'Creation Failed', message: error instanceof Error ? error.message : 'Failed to create user' });
     }
   };
 

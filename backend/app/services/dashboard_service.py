@@ -558,8 +558,12 @@ async def get_dashboard_stats(
         stats["pickup_assigned"] = pc.get(PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value, 0)
         stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
         stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
-        stats["enterprise_count"] = await _count(
-            db, select(func.count()).select_from(Enterprise).where(Enterprise.status == "active"),
+        # Count field users belonging to this logistics admin
+        stats["field_user_count"] = await _count(
+            db, select(func.count()).select_from(User).where(
+                User.parent_user_id == uid,
+                User.role == UserRole.LOGISTICS_USER.value,
+            ),
         )
 
     return stats

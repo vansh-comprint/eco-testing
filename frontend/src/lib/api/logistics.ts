@@ -12,23 +12,24 @@ import type { PickupResponse } from './pickups';
 
 export interface LogisticsAdminResponse {
   id: string;
-  company_name: string;
-  contact_person: string;
   name: string;
   email: string;
   phone: string;
-  gst_number?: string;
-  address?: string | Record<string, unknown>;
-  service_areas?: string[];
+  role: string;
   status: string;
+  company_name?: string;
+  contact_person?: string;
+  address?: string | Record<string, unknown>;
+  city?: string;
+  state?: string;
+  is_active?: boolean;
   created_at: string;
-  updated_at?: string;
-  logistics_users?: LogisticsUserResponse[];
+  last_login_at?: string;
 }
 
 export interface LogisticsUserResponse {
   id: string;
-  logistics_admin_id: string;
+  parent_user_id: string;
   name: string;
   email: string;
   phone: string;
@@ -37,7 +38,6 @@ export interface LogisticsUserResponse {
   status: string;
   created_at: string;
   updated_at?: string;
-  logistics_admins?: LogisticsAdminResponse;
 }
 
 export interface LogisticsAdminListParams {
@@ -178,6 +178,6 @@ export const logisticsApi = {
   /** List available (active) logistics users for assignment */
   listAvailableUsers: (logisticsAdminId: string) =>
     fetchWithAuth<LogisticsUserResponse[]>(
-      `/users?role=logistics_user&status=active&limit=100`
+      `/users?role=logistics_user&status=active&limit=100${logisticsAdminId ? `&parent_user_id=${logisticsAdminId}` : ''}`
     ),
 };

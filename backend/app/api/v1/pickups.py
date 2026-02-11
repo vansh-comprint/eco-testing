@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models import User, Asset
+from app.models.user import UserRole
 from app.models.enterprise import PickupLocation, Branch
 from app.schemas.pickup import (
     PickupRequestCreate,
@@ -521,6 +522,16 @@ async def get_pickup(
     pickup = await service.get_pickup(pickup_id)
     if not pickup:
         raise HTTPException(status_code=404, detail="Pickup request not found")
+
+    # Logistics admin can only view pickups assigned to them
+    if current_user.role == UserRole.LOGISTICS_ADMIN.value:
+        if pickup.logistics_admin_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You can only view pickups assigned to you")
+
+    # Logistics user can only view pickups assigned to them
+    if current_user.role == UserRole.LOGISTICS_USER.value:
+        if pickup.logistics_user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You can only view pickups assigned to you")
 
     return success_response(data=await _enrich_single(pickup, db))
 

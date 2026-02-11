@@ -166,11 +166,16 @@ export function BatchDetail() {
     setIsAddingAssets(true);
     try {
       // Update each selected asset's batch_id
-      await Promise.all(
+      const results = await Promise.all(
         selectedAssetIds.map(assetId =>
           assetsApi.update(assetId, { batch_id: batchId })
         )
       );
+      // Check for failures (fetchWithAuth returns { success: false } instead of throwing)
+      const failed = results.filter(r => !r.success);
+      if (failed.length > 0) {
+        throw new Error(failed[0].error?.message || `Failed to add ${failed.length} asset(s) to batch`);
+      }
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: batchKeys.all });

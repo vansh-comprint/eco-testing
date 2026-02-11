@@ -127,6 +127,14 @@ async def create_user(
         current_user, user_data.enterprise_id, user_data.branch_id
     )
 
+    # Logistics admin can only create logistics users under themselves
+    if current_user.role == UserRole.LOGISTICS_ADMIN.value:
+        if user_data.role == UserRole.LOGISTICS_USER:
+            user_data.parent_user_id = current_user.id  # Force to own ID
+        else:
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("Logistics admin can only create logistics users")
+
     service = UserService(db)
     user = await service.create_user(user_data, current_user.id)
     return success_response(data=user.model_dump(), message="User created successfully")
