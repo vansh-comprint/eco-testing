@@ -113,6 +113,19 @@ class Settings(BaseSettings):
     smtp_from_name: str = Field(default="EcoTribe", description="From display name")
     smtp_use_tls: bool = Field(default=True, description="Use TLS for SMTP")
 
+    # Redis Configuration (for session storage)
+    use_redis_sessions: bool = Field(
+        default=False,
+        description="Enable Redis-based session storage for token whitelist. "
+        "If False, tokens are stateless (no logout/revocation support).",
+    )
+    redis_host: str = Field(default="localhost", description="Redis server host")
+    redis_port: int = Field(default=6379, description="Redis server port")
+    redis_db: int = Field(default=0, description="Redis database number")
+    redis_password: str = Field(default="", description="Redis password (optional)")
+    redis_ssl: bool = Field(default=False, description="Use SSL for Redis connection")
+    redis_max_connections: int = Field(default=50, description="Maximum Redis connection pool size")
+
     @property
     def trusted_proxy_ips_set(self) -> set:
         """Parse trusted proxy IPs from comma-separated string"""

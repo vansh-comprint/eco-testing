@@ -34,6 +34,7 @@ import { branchesApi } from '@/lib/api/branches';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { userKeys } from '@/hooks/useUsers';
 
 interface Enterprise {
   id: string;
@@ -208,7 +209,7 @@ export function EnterpriseDetail() {
   const handleUserCreated = () => {
     setIsUserModalOpen(false);
     queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: userKeys.all });
   };
 
   const itAdminBulkColumns: BulkImportColumn[] = [
@@ -994,7 +995,7 @@ export function EnterpriseDetail() {
         onImport={handleBulkImport}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
-          queryClient.invalidateQueries({ queryKey: ['users'] });
+          queryClient.invalidateQueries({ queryKey: userKeys.all });
         }}
       />
 
@@ -1003,7 +1004,7 @@ export function EnterpriseDetail() {
         <EditUserModal
           isOpen={isEditUserModalOpen}
           onClose={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}
-          onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] }); queryClient.invalidateQueries({ queryKey: ['users'] }); }}
+          onSuccess={() => { queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] }); queryClient.invalidateQueries({ queryKey: userKeys.all }); }}
           user={{
             id: editingUser.id,
             email: editingUser.email,
@@ -1029,20 +1030,20 @@ export function EnterpriseDetail() {
           onConfirm={handleStatusChange}
           title={
             pendingStatus === 'active' ? 'Activate Enterprise' :
-            pendingStatus === 'suspended' ? 'Suspend Enterprise' :
-            'Deactivate Enterprise'
+              pendingStatus === 'suspended' ? 'Suspend Enterprise' :
+                'Deactivate Enterprise'
           }
           description={
             pendingStatus === 'active'
               ? `Activate "${enterprise.name}"? This will restore access for all users.`
               : pendingStatus === 'suspended'
-              ? `Suspend "${enterprise.name}"? Users will lose access immediately.`
-              : `Deactivate "${enterprise.name}"? This will restrict access for all users.`
+                ? `Suspend "${enterprise.name}"? Users will lose access immediately.`
+                : `Deactivate "${enterprise.name}"? This will restrict access for all users.`
           }
           confirmText={
             pendingStatus === 'active' ? 'Activate' :
-            pendingStatus === 'suspended' ? 'Suspend' :
-            'Deactivate'
+              pendingStatus === 'suspended' ? 'Suspend' :
+                'Deactivate'
           }
           variant={pendingStatus === 'active' ? 'info' : 'danger'}
           isLoading={isChangingStatus}

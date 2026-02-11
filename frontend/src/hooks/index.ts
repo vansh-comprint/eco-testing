@@ -10,6 +10,22 @@ export { useAuth } from './useAuth';
 // API Error Handling
 export { useApiError } from './useApiError';
 
+// Users
+export {
+  useUsers,
+  useAllUsers,
+  useInfiniteUsers,
+  useUser,
+  useCurrentUser,
+  usePlatformAdmins,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+  useResetUserPassword,
+  useUpdateCurrentUser,
+  userKeys,
+} from './useUsers';
+
 // Assets
 export {
   useAssets,

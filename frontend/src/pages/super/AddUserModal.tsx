@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCreateUser } from '@/hooks';
 import { text } from '@/lib/design-tokens';
 
 interface AddUserModalProps {
@@ -36,9 +34,8 @@ const addUserSchema = z.object({
 type AddUserForm = z.infer<typeof addUserSchema>;
 
 export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
-  const queryClient = useQueryClient();
+  const createUserMutation = useCreateUser();
 
   const {
     register,
@@ -53,20 +50,14 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   });
 
   const onSubmit = async (data: AddUserForm) => {
-    setIsSubmitting(true);
     try {
-      // Call the backend API to create user
-      const result = await usersApi.create({
+      await createUserMutation.mutateAsync({
         name: data.name,
         email: data.email,
         phone: data.phone || undefined,
         role: data.role,
         password: data.password,
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to create user');
-      }
 
       addToast({
         type: 'success',
@@ -75,9 +66,6 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         duration: 5000,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
-      queryClient.invalidateQueries({ queryKey: ['it-admins'] });
       reset();
       onClose();
       onSuccess?.();
@@ -90,17 +78,17 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         message: error instanceof Error ? error.message : 'Failed to create user. Please try again.',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createUserMutation.isPending) {
       reset();
       onClose();
     }
   };
+
+  const isSubmitting = createUserMutation.isPending;
 
   const roles = [
     { value: 'super_admin', label: 'Super Admin' },

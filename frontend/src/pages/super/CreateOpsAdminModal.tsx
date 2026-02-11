@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCreateUser } from '@/hooks';
 
 // Validation schema
 const createOpsAdminSchema = z.object({
@@ -24,9 +22,8 @@ interface CreateOpsAdminModalProps {
 }
 
 export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdminModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
-  const queryClient = useQueryClient();
+  const createUserMutation = useCreateUser();
 
   const {
     register,
@@ -38,20 +35,14 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
   });
 
   const onSubmit = async (data: CreateOpsAdminForm) => {
-    setIsSubmitting(true);
     try {
-      // Create user via REST API
-      const result = await usersApi.create({
+      await createUserMutation.mutateAsync({
         email: data.email,
         name: data.name,
         phone: data.phone,
         password: data.password,
         role: 'ops_admin',
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to create admin');
-      }
 
       addToast({
         type: 'success',
@@ -60,7 +51,6 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
         duration: 5000,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
       reset();
       onClose();
       onSuccess?.();
@@ -73,17 +63,17 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
         message: error instanceof Error ? error.message : 'Unknown error occurred',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createUserMutation.isPending) {
       reset();
       onClose();
     }
   };
+
+  const isSubmitting = createUserMutation.isPending;
 
   return (
     <Modal

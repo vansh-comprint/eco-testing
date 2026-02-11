@@ -15,6 +15,7 @@ import {
 } from '@/lib/api/applications';
 import { filesApi } from '@/lib/api/files';
 import { enterpriseKeys } from './useEnterprises';
+import { userKeys } from './useUsers';
 
 // Query keys for cache management
 export const applicationKeys = {
@@ -191,7 +192,7 @@ export function useApproveEnterpriseApplication() {
       queryClient.invalidateQueries({ queryKey: applicationKeys.detail(variables.applicationId) });
       queryClient.invalidateQueries({ queryKey: applicationKeys.all });
       queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },

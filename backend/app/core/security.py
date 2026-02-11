@@ -5,178 +5,14 @@ from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 import bcrypt
 import hashlib
-import threading
+import logging
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import settings
 
-
-# =============================================================================
-# TOKEN BLACKLIST (In-memory for simplicity, use Redis in production)
-# =============================================================================
-
-class TokenBlacklist:
-    """
-    In-memory token blacklist for logout functionality.
-
-    In production, this should be replaced with Redis or database storage
-    for horizontal scaling and persistence.
-
-    Tokens are stored as hashes to minimize memory usage.
-    Automatic cleanup of expired tokens happens on each operation.
-    """
-
-    def __init__(self):
-        self._blacklist: Dict[str, datetime] = {}  # token_hash -> expiry
-        self._lock = threading.Lock()
-
-    def _hash_token(self, token: str) -> str:
-        """Hash token for storage to reduce memory footprint."""
-        return hashlib.sha256(token.encode()).hexdigest()[:32]
-
-    def _cleanup_expired(self) -> None:
-        """Remove expired tokens from blacklist."""
-        now = datetime.now(timezone.utc)
-        expired = [
-            h for h, exp in self._blacklist.items()
-            if (exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp) < now
-        ]
-        for h in expired:
-            del self._blacklist[h]
-
-    def add(self, token: str, expires_at: Optional[datetime] = None) -> None:
-        """Add a token to the blacklist."""
-        with self._lock:
-            self._cleanup_expired()
-            token_hash = self._hash_token(token)
-            # Default expiry: 24 hours (covers max token lifetime)
-            if expires_at is None:
-                expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-            self._blacklist[token_hash] = expires_at
-
-    def add_hash(self, token_hash: str, expires_at: Optional[datetime] = None) -> None:
-        """Add an already-hashed token to the blacklist (used by SessionLimiter)."""
-        with self._lock:
-            self._cleanup_expired()
-            if expires_at is None:
-                expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-            self._blacklist[token_hash] = expires_at
-
-    def is_blacklisted(self, token: str) -> bool:
-        """Check if a token is blacklisted."""
-        with self._lock:
-            self._cleanup_expired()
-            token_hash = self._hash_token(token)
-            return token_hash in self._blacklist
-
-    def clear(self) -> None:
-        """Clear all blacklisted tokens (for testing)."""
-        with self._lock:
-            self._blacklist.clear()
-
-
-# Global token blacklist instance
-token_blacklist = TokenBlacklist()
-
-
-# =============================================================================
-# SESSION LIMITER (Concurrent session control)
-# =============================================================================
-
-class SessionLimiter:
-    """
-    In-memory session tracking for concurrent session limits.
-
-    Tracks active refresh tokens per user and enforces maximum concurrent sessions.
-    When limit is exceeded, oldest sessions are invalidated.
-
-    In production, this should be replaced with Redis for horizontal scaling.
-    """
-
-    MAX_SESSIONS_PER_USER = 5
-
-    def __init__(self):
-        # user_id -> list of (token_hash, created_at)
-        self._sessions: Dict[str, list] = {}
-        self._lock = threading.Lock()
-
-    def _hash_token(self, token: str) -> str:
-        """Hash token for storage."""
-        return hashlib.sha256(token.encode()).hexdigest()[:32]
-
-    def add_session(self, user_id: str, refresh_token: str) -> list:
-        """
-        Add a new session for a user.
-
-        Returns list of tokens that were invalidated due to limit.
-        """
-        with self._lock:
-            token_hash = self._hash_token(refresh_token)
-            now = datetime.now(timezone.utc)
-
-            if user_id not in self._sessions:
-                self._sessions[user_id] = []
-
-            sessions = self._sessions[user_id]
-            sessions.append((token_hash, now))
-
-            # If over limit, invalidate oldest sessions
-            invalidated_tokens = []
-            while len(sessions) > self.MAX_SESSIONS_PER_USER:
-                oldest = sessions.pop(0)
-                invalidated_tokens.append(oldest[0])
-                # Add to token blacklist (already hashed, use add_hash)
-                token_blacklist.add_hash(oldest[0])
-
-            return invalidated_tokens
-
-    def remove_session(self, user_id: str, refresh_token: str) -> bool:
-        """Remove a specific session (on logout)."""
-        with self._lock:
-            token_hash = self._hash_token(refresh_token)
-
-            if user_id not in self._sessions:
-                return False
-
-            sessions = self._sessions[user_id]
-            for i, (th, _) in enumerate(sessions):
-                if th == token_hash:
-                    sessions.pop(i)
-                    return True
-            return False
-
-    def get_session_count(self, user_id: str) -> int:
-        """Get number of active sessions for a user."""
-        with self._lock:
-            if user_id not in self._sessions:
-                return 0
-            return len(self._sessions[user_id])
-
-    def clear_all_sessions(self, user_id: str) -> int:
-        """
-        Clear all sessions for a user (e.g., on password change).
-
-        Returns number of sessions cleared.
-        """
-        with self._lock:
-            if user_id not in self._sessions:
-                return 0
-            count = len(self._sessions[user_id])
-            # Blacklist all tokens (already hashed, use add_hash)
-            for token_hash, _ in self._sessions[user_id]:
-                token_blacklist.add_hash(token_hash)
-            del self._sessions[user_id]
-            return count
-
-    def clear(self) -> None:
-        """Clear all session data (for testing)."""
-        with self._lock:
-            self._sessions.clear()
-
-
-# Global session limiter instance
-session_limiter = SessionLimiter()
+logger = logging.getLogger(__name__)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -223,7 +59,9 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.jwt_access_token_expire_minutes
+        )
 
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
@@ -248,56 +86,21 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
     return encoded_jwt
 
 
-def decode_token(token: str, check_blacklist: bool = False) -> Optional[Dict[str, Any]]:
+def decode_token(token: str) -> Optional[Dict[str, Any]]:
     """
     Decode and verify a JWT token.
 
-    Blacklist checking is now done at the async service/middleware layer via
-    async_is_blacklisted() for cross-worker safety. The in-memory check is
-    kept as an optional fast path but defaults to False.
-
     Args:
         token: JWT token string
-        check_blacklist: Whether to check in-memory blacklist (default False)
 
     Returns:
         Optional[Dict]: Decoded token payload or None if invalid
     """
     try:
-        # Optional in-memory fast path (same-worker only)
-        if check_blacklist and token_blacklist.is_blacklisted(token):
-            return None
-
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         return payload
     except JWTError:
         return None
-
-
-def blacklist_token(token: str) -> None:
-    """
-    Add a token to the blacklist.
-
-    Args:
-        token: JWT token to blacklist
-    """
-    try:
-        # Extract expiry from token to set blacklist TTL
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-            options={"verify_exp": False}  # Allow expired tokens to be blacklisted
-        )
-        exp = payload.get("exp")
-        if exp:
-            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-        else:
-            expires_at = None
-        token_blacklist.add(token, expires_at)
-    except JWTError:
-        # Even if decode fails, add to blacklist with default expiry
-        token_blacklist.add(token)
 
 
 def generate_otp() -> str:
@@ -313,16 +116,21 @@ def generate_otp() -> str:
 
 
 # =============================================================================
-# ASYNC (DB-BACKED) TOKEN BLACKLIST — cross-worker safe
+# TOKEN WHITELIST (Redis-based session storage)
 # =============================================================================
+
 
 def _hash_token(token: str) -> str:
     """Hash a token string to a 32-char hex prefix for storage."""
     return hashlib.sha256(token.encode()).hexdigest()[:32]
 
 
-def _token_expiry(token: str) -> datetime:
-    """Extract expiry from a JWT, falling back to 24h from now."""
+def _token_expiry_seconds(token: str) -> int:
+    """
+    Extract TTL in seconds from a JWT token.
+
+    Returns seconds until expiry, or default TTL if extraction fails.
+    """
     try:
         payload = jwt.decode(
             token,
@@ -332,50 +140,129 @@ def _token_expiry(token: str) -> datetime:
         )
         exp = payload.get("exp")
         if exp:
-            return datetime.fromtimestamp(exp, tz=timezone.utc)
+            expiry_time = datetime.fromtimestamp(exp, tz=timezone.utc)
+            now = datetime.now(timezone.utc)
+            ttl_seconds = int((expiry_time - now).total_seconds())
+            return max(ttl_seconds, 0)  # Don't return negative TTL
     except JWTError:
         pass
-    return datetime.now(timezone.utc) + timedelta(days=1)
+
+    # Default: 8 hours for access tokens, 7 days for refresh tokens
+    return 8 * 3600
 
 
-async def async_blacklist_token(token: str, db: AsyncSession) -> None:
+async def store_token_in_redis(
+    redis: Optional[Redis], token: str, user_id: str, token_type: str = "access"
+) -> bool:
     """
-    Blacklist a token in both DB (source of truth) and in-memory cache.
+    Store a token in Redis whitelist.
 
-    Safe for multi-worker deployments.
+    Args:
+        redis: Redis client (None if Redis is disabled)
+        token: JWT token string
+        user_id: User ID associated with the token
+        token_type: "access" or "refresh"
+
+    Returns:
+        True if stored successfully, False if Redis is disabled or failed
     """
-    from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+    if not redis or not settings.use_redis_sessions:
+        logger.debug(f"[Whitelist] Redis disabled, skipping token storage ({token_type})")
+        return False
 
-    token_hash = _hash_token(token)
-    expires_at = _token_expiry(token)
+    try:
+        token_hash = _hash_token(token)
+        ttl_seconds = _token_expiry_seconds(token)
 
-    repo = TokenBlacklistRepository(db)
-    await repo.add(token_hash, expires_at)
+        # Store token with TTL (auto-expires)
+        await redis.setex(f"token:{token_type}:{token_hash}", ttl_seconds, user_id)
 
-    # Also cache locally for same-worker fast path
-    token_blacklist.add(token, expires_at)
-
-
-async def async_is_blacklisted(token: str, db: AsyncSession) -> bool:
-    """
-    Check if a token is blacklisted. Checks in-memory cache first, then DB.
-
-    Safe for multi-worker deployments.
-    """
-    # Fast path: in-memory cache (covers tokens blacklisted by this worker)
-    if token_blacklist.is_blacklisted(token):
+        logger.debug(
+            f"[Whitelist] Stored {token_type} token for user {user_id} " f"(TTL: {ttl_seconds}s)"
+        )
         return True
 
-    # Slow path: DB check (covers tokens blacklisted by other workers)
-    from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+    except RedisError as e:
+        logger.error(f"[Whitelist] Failed to store token in Redis: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"[Whitelist] Unexpected error storing token: {e}")
+        return False
 
-    token_hash = _hash_token(token)
-    repo = TokenBlacklistRepository(db)
-    is_blocked = await repo.is_blacklisted(token_hash)
 
-    # Backfill local cache if found in DB
-    if is_blocked:
-        expires_at = _token_expiry(token)
-        token_blacklist.add(token, expires_at)
+async def remove_token_from_redis(
+    redis: Optional[Redis], token: str, token_type: str = "access"
+) -> bool:
+    """
+    Remove a token from Redis whitelist (logout/revocation).
 
-    return is_blocked
+    Args:
+        redis: Redis client (None if Redis is disabled)
+        token: JWT token string
+        token_type: "access" or "refresh"
+
+    Returns:
+        True if removed successfully, False if Redis is disabled or failed
+    """
+    if not redis or not settings.use_redis_sessions:
+        logger.debug(f"[Whitelist] Redis disabled, skipping token removal ({token_type})")
+        return False
+
+    try:
+        token_hash = _hash_token(token)
+
+        # Delete token from Redis
+        deleted = await redis.delete(f"token:{token_type}:{token_hash}")
+
+        if deleted:
+            logger.debug(f"[Whitelist] Removed {token_type} token from Redis")
+        else:
+            logger.debug(f"[Whitelist] Token not found in Redis ({token_type})")
+
+        return bool(deleted)
+
+    except RedisError as e:
+        logger.error(f"[Whitelist] Failed to remove token from Redis: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"[Whitelist] Unexpected error removing token: {e}")
+        return False
+
+
+async def is_token_in_whitelist(
+    redis: Optional[Redis], token: str, token_type: str = "access"
+) -> Optional[str]:
+    """
+    Check if a token exists in Redis whitelist.
+
+    Args:
+        redis: Redis client (None if Redis is disabled)
+        token: JWT token string
+        token_type: "access" or "refresh"
+
+    Returns:
+        User ID if token is whitelisted, None if not found or Redis is disabled
+    """
+    if not redis or not settings.use_redis_sessions:
+        # Redis disabled - return None (caller should fall back to stateless JWT validation)
+        return None
+
+    try:
+        token_hash = _hash_token(token)
+
+        # Check if token exists in Redis
+        user_id = await redis.get(f"token:{token_type}:{token_hash}")
+
+        if user_id:
+            logger.debug(f"[Whitelist] Token found in Redis for user {user_id}")
+        else:
+            logger.debug(f"[Whitelist] Token not found in Redis ({token_type})")
+
+        return user_id
+
+    except RedisError as e:
+        logger.error(f"[Whitelist] Failed to check token in Redis: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"[Whitelist] Unexpected error checking token: {e}")
+        return None

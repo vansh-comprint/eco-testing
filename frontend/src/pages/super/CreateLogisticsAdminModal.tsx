@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Truck } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCreateUser } from '@/hooks';
 
 // Validation schema
 const createLogisticsAdminSchema = z.object({
@@ -25,9 +23,8 @@ interface CreateLogisticsAdminModalProps {
 }
 
 export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: CreateLogisticsAdminModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
-  const queryClient = useQueryClient();
+  const createUserMutation = useCreateUser();
 
   const {
     register,
@@ -39,12 +36,10 @@ export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: Create
   });
 
   const onSubmit = async (data: CreateLogisticsAdminForm) => {
-    setIsSubmitting(true);
     try {
       console.log('🚚 Creating Logistics Admin');
 
-      // Create user via API with logistics_admin role
-      await usersApi.create({
+      await createUserMutation.mutateAsync({
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -61,9 +56,6 @@ export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: Create
         duration: 5000,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
-      // Reset form and close modal
       reset();
       onClose();
       onSuccess?.();
@@ -76,17 +68,17 @@ export function CreateLogisticsAdminModal({ isOpen, onClose, onSuccess }: Create
         message: error instanceof Error ? error.message : 'Failed to create user. Please try again.',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createUserMutation.isPending) {
       reset();
       onClose();
     }
   };
+
+  const isSubmitting = createUserMutation.isPending;
 
   return (
     <Modal

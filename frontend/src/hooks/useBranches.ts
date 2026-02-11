@@ -19,6 +19,7 @@ import {
 } from '@/lib/api/users';
 import { assetKeys } from './useAssets';
 import { batchKeys } from './useBatches';
+import { userKeys } from './useUsers';
 
 // Query keys for cache management
 export const branchKeys = {
@@ -405,7 +406,7 @@ export function useCreateITAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 }
@@ -425,7 +426,7 @@ export function useUpdateITAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 }
@@ -470,7 +471,7 @@ export function useBulkCreateITAdmins() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 }
@@ -490,7 +491,7 @@ export function useUpdateITAdminStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
   });
 }

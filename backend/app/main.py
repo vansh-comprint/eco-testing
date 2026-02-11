@@ -42,25 +42,16 @@ async def lifespan(app: FastAPI):
     # Initialize database (optional - Alembic handles migrations)
     # await init_db()
 
-    # Cleanup expired token blacklist entries on startup
-    try:
-        from app.core.database import AsyncSessionLocal
-        from app.repositories.token_blacklist_repository import TokenBlacklistRepository
+    # Initialize Redis connection (if enabled)
+    from app.core.redis_client import init_redis, close_redis
 
-        async with AsyncSessionLocal() as session:
-            repo = TokenBlacklistRepository(session)
-            count = await repo.cleanup_expired()
-            await session.commit()
-            if count > 0:
-                logger.info(f"Cleaned up {count} expired token blacklist entries")
-    except Exception as e:
-        # Non-fatal: table might not exist yet if migration hasn't run
-        logger.warning(f"Token blacklist cleanup skipped: {e}")
+    await init_redis()
 
     yield
 
     # Shutdown
     logger.info("Shutting down EcoTribe API...")
+    await close_redis()
     await close_db()
 
 
@@ -148,9 +139,13 @@ app.middleware("http")(error_handler_middleware)
 _cors_origins = settings.cors_origins_list
 if settings.debug:
     _dev_origins = [
-        "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
         "http://localhost:5173",
-        "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:5173",
     ]
     _cors_origins = list(set(_cors_origins + _dev_origins))
 if settings.cors_allow_credentials:
@@ -205,6 +200,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def generic_exception_handler(request: Request, exc: Exception):
     """Handle all other exceptions with standardized format"""
     import traceback
+
     print(f"[UNHANDLED] {request.method} {request.url.path}: {exc}", flush=True)
     traceback.print_exc()
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)

@@ -155,9 +155,10 @@ class UserRepository:
         total = total_result.scalar() or 0
 
         # Apply pagination and ordering, eager load relationships
+        # Use created_at DESC as primary sort, id DESC as tiebreaker for stable ordering
         query = (
             query.options(selectinload(User.enterprise), selectinload(User.branch))
-            .order_by(User.created_at.desc())
+            .order_by(User.created_at.desc(), User.id.desc())
             .offset(skip)
             .limit(limit)
         )

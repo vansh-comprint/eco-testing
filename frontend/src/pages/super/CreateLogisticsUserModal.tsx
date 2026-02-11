@@ -4,8 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCreateUser, useLogisticsAdmins } from '@/hooks';
 
 // Validation schema
 const createLogisticsUserSchema = z.object({
@@ -26,10 +25,12 @@ interface CreateLogisticsUserModalProps {
 }
 
 export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logisticsAdminId }: CreateLogisticsUserModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [logisticsAdmins, setLogisticsAdmins] = useState<Array<{ id: string; name: string }>>([]);
   const { addToast } = useToast();
-  const queryClient = useQueryClient();
+  const createUserMutation = useCreateUser();
+
+  // Fetch logistics admins using the hook
+  const { data: logisticsAdminsData } = useLogisticsAdmins();
+  const logisticsAdmins = logisticsAdminsData || [];
 
   const {
     register,
@@ -44,34 +45,21 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
     },
   });
 
-  // Fetch logistics admins when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      usersApi.list({ role: 'logistics_admin', limit: 100 }).then((response: any) => {
-        const admins = response.data || [];
-        setLogisticsAdmins(admins);
-        // If no admin pre-selected and we have admins, select first one
-        if (!logisticsAdminId && admins.length > 0) {
-          setValue('logistics_admin_id', admins[0].id);
-        }
-      }).catch(console.error);
-    }
-  }, [isOpen, logisticsAdminId, setValue]);
-
-  // Update form when logisticsAdminId prop changes
+  // Update form when logisticsAdminId prop changes or when admins load
   useEffect(() => {
     if (logisticsAdminId) {
       setValue('logistics_admin_id', logisticsAdminId);
+    } else if (!logisticsAdminId && logisticsAdmins.length > 0) {
+      // If no admin pre-selected and we have admins, select first one
+      setValue('logistics_admin_id', logisticsAdmins[0].id);
     }
-  }, [logisticsAdminId, setValue]);
+  }, [logisticsAdminId, logisticsAdmins, setValue]);
 
   const onSubmit = async (data: CreateLogisticsUserForm) => {
-    setIsSubmitting(true);
     try {
       console.log('👤 Creating Logistics User');
 
-      // Create user via API with logistics_user role and parent_user_id
-      await usersApi.create({
+      await createUserMutation.mutateAsync({
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -89,9 +77,6 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
         duration: 5000,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
-      // Reset form and close modal
       reset();
       onClose();
       onSuccess?.();
@@ -104,17 +89,17 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
         message: error instanceof Error ? error.message : 'Failed to create user. Please try again.',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createUserMutation.isPending) {
       reset();
       onClose();
     }
   };
+
+  const isSubmitting = createUserMutation.isPending;
 
   return (
     <Modal

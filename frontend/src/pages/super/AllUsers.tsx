@@ -4,9 +4,7 @@ import { motion } from 'framer-motion';
 import { Users, Search, Download, Edit2, ArrowLeft, Mail, Phone, UserPlus } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { EditUserModal, AddUserModal } from '@/pages/super';
-import { usersApi } from '@/lib/api/users';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useDashboardStats } from '@/hooks';
+import { useInfiniteUsers, useDashboardStats } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface User {
@@ -24,7 +22,6 @@ interface User {
 
 export function AllUsers() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
@@ -33,22 +30,9 @@ export function AllUsers() {
   const { stats: dashStats } = useDashboardStats();
 
   // Infinite scroll query for users
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
-    queryKey: ['users', 'infinite', roleFilter],
-    queryFn: async ({ pageParam = 0 }) => {
-      const params: any = { skip: pageParam, limit: 5 };
-      if (roleFilter !== 'all') params.role = roleFilter;
-      return usersApi.list(params);
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const totalFetched = allPages.reduce((sum, p) => sum + (p.data?.length || 0), 0);
-      const total = lastPage.pagination?.total ?? 0;
-      if (totalFetched < total) return totalFetched;
-      return undefined;
-    },
-    staleTime: 30000,
-  });
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteUsers(
+    roleFilter !== 'all' ? { role: roleFilter } : {}
+  );
 
   const total = data?.pages[0]?.pagination?.total ?? 0;
 
@@ -113,7 +97,7 @@ export function AllUsers() {
   };
 
   const handleModalSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['users'] });
+    // No need to manually invalidate - mutation hooks handle this
   };
 
   return (

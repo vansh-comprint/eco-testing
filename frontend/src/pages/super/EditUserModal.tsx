@@ -4,8 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Key, Save } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, Badge, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
-import { useQueryClient } from '@tanstack/react-query';
+import { useUpdateUser, useResetUserPassword } from '@/hooks';
 import { text } from '@/lib/design-tokens';
 
 interface UserData {
@@ -66,8 +65,10 @@ const ALL_ROLES: RoleOption[] = [
 export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, hideRole }: EditUserModalProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'password'>('details');
   const { addToast } = useToast();
-  const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Use mutation hooks
+  const updateUserMutation = useUpdateUser();
+  const resetPasswordMutation = useResetUserPassword();
 
   // User Details Form
   const {
@@ -97,25 +98,18 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
   });
 
   const onSubmitDetails = async (data: UserDetailsForm) => {
-    setIsSubmitting(true);
     try {
       console.log('📝 Updating user details:', user.id);
 
-      // Update user via API
-      const result = await usersApi.update(user.id, {
-        name: data.name,
-        phone: data.phone || undefined,
-        role: data.role,
-        status: data.status,
+      await updateUserMutation.mutateAsync({
+        userId: user.id,
+        data: {
+          name: data.name,
+          phone: data.phone || undefined,
+          role: data.role,
+          status: data.status,
+        },
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to update user');
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['it-admins'] });
-      queryClient.invalidateQueries({ queryKey: ['logistics'] });
 
       addToast({
         type: 'success',
@@ -136,22 +130,17 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
         message: error instanceof Error ? error.message : 'Failed to update user. Please try again.',
         duration: 6000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const onSubmitPassword = async (data: PasswordResetForm) => {
-    setIsSubmitting(true);
     try {
-      // Use REST API to reset password
-      const result = await usersApi.resetPassword(user.id, {
-        new_password: data.newPassword,
+      await resetPasswordMutation.mutateAsync({
+        userId: user.id,
+        data: {
+          new_password: data.newPassword,
+        },
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to reset password');
-      }
 
       console.log('✅ Password reset successfully');
 
@@ -174,12 +163,11 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
         message: error instanceof Error ? error.message : 'Failed to update password',
         duration: 10000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
+    const isSubmitting = updateUserMutation.isPending || resetPasswordMutation.isPending;
     if (!isSubmitting) {
       resetDetails();
       resetPassword();
@@ -187,6 +175,8 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
       onClose();
     }
   };
+
+  const isSubmitting = updateUserMutation.isPending || resetPasswordMutation.isPending;
 
   const roles = allowedRoles || ALL_ROLES;
 
@@ -207,22 +197,20 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
       <div className="flex gap-2 border-b border-slate-200 dark:border-zinc-700 mb-6">
         <button
           onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
-            activeTab === 'details'
-              ? 'border-b-2 border-lime-500 text-lime-600 dark:text-lime-400'
-              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
-          }`}
+          className={`px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'details'
+            ? 'border-b-2 border-lime-500 text-lime-600 dark:text-lime-400'
+            : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+            }`}
         >
           <User className="w-4 h-4 inline mr-2" />
           User Details
         </button>
         <button
           onClick={() => setActiveTab('password')}
-          className={`px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
-            activeTab === 'password'
-              ? 'border-b-2 border-amber-500 text-amber-600 dark:text-amber-400'
-              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
-          }`}
+          className={`px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'password'
+            ? 'border-b-2 border-amber-500 text-amber-600 dark:text-amber-400'
+            : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+            }`}
         >
           <Key className="w-4 h-4 inline mr-2" />
           Reset Password

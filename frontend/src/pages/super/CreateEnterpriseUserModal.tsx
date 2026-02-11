@@ -4,11 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { usersApi } from '@/lib/api/users';
+import { useCreateUser } from '@/hooks';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { branchesApi } from '@/lib/api/branches';
 import { useQueryClient } from '@tanstack/react-query';
 import { text } from '@/lib/design-tokens';
+import { userKeys } from '@/hooks/useUsers';
 
 interface Enterprise {
   id: string;
@@ -69,11 +70,11 @@ export function CreateEnterpriseUserModal({
   enterpriseName,
   defaultRole = 'it_admin'
 }: CreateEnterpriseUserModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const { addToast } = useToast();
   const queryClient = useQueryClient();
+  const createUserMutation = useCreateUser();
 
   const {
     register,
@@ -143,15 +144,14 @@ export function CreateEnterpriseUserModal({
   }, [isOpen, enterpriseId, defaultRole, setValue]);
 
   const onSubmit = async (data: CreateEnterpriseUserForm) => {
-    setIsSubmitting(true);
     try {
       const roleLabel = data.role === 'it_admin' ? 'IT Admin' : data.role === 'org_admin' ? 'Org Admin' : 'Employee';
 
       // Role is already 'employee' for the backend
       const backendRole = data.role;
 
-      // Create user via REST API
-      const result = await usersApi.create({
+      // Create user via mutation hook
+      await createUserMutation.mutateAsync({
         enterprise_id: data.enterpriseId,
         email: data.email,
         name: data.name,
@@ -160,10 +160,6 @@ export function CreateEnterpriseUserModal({
         role: backendRole,
         branch_id: data.role === 'it_admin' ? data.branchId : undefined,
       });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to create user');
-      }
 
       const enterprise = enterprises.find(e => e.id === data.enterpriseId);
       const displayEnterpriseName = enterprise?.name || enterpriseName || 'Unknown';
@@ -177,7 +173,6 @@ export function CreateEnterpriseUserModal({
         duration: 5000,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['it-admins'] });
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['subUsers'] });
@@ -202,18 +197,18 @@ export function CreateEnterpriseUserModal({
           duration: 6000,
         });
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createUserMutation.isPending) {
       reset();
       setBranches([]);
       onClose();
     }
   };
+
+  const isSubmitting = createUserMutation.isPending;
 
   return (
     <Modal
@@ -353,8 +348,8 @@ export function CreateEnterpriseUserModal({
               {selectedRole === 'it_admin'
                 ? 'IT Admins can manage assets, batches, and employees for their enterprise.'
                 : selectedRole === 'org_admin'
-                ? 'Org Admins can approve pickups, manage branches, and view financial reports for their enterprise.'
-                : 'Employees can submit device information and track their asset submissions. They will use OTP-based login.'}
+                  ? 'Org Admins can approve pickups, manage branches, and view financial reports for their enterprise.'
+                  : 'Employees can submit device information and track their asset submissions. They will use OTP-based login.'}
             </p>
           </div>
         </div>

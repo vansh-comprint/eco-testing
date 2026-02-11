@@ -6,9 +6,8 @@ import { Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 import { CreateOpsAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
-import { usersApi } from '@/lib/api/users';
-import { useDashboardStats } from '@/hooks';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDashboardStats, usePlatformAdmins } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import type { UserResponse } from '@/lib/api/auth';
 
@@ -24,18 +23,7 @@ export function SuperAdminDashboard() {
   const queryClient = useQueryClient();
 
   // Admin users list for the table via React Query
-  const { data: admins = [], isLoading: loading } = useQuery({
-    queryKey: ['users', 'platform-admins'],
-    queryFn: async () => {
-      const usersResult = await usersApi.list({ limit: 100 });
-      if (usersResult.success && usersResult.data) {
-        const adminRoles = ['super_admin', 'ops_admin', 'logistics_admin'];
-        return usersResult.data.filter(u => adminRoles.includes(u.role));
-      }
-      return [] as UserResponse[];
-    },
-    staleTime: 30000,
-  });
+  const { data: admins = [], isLoading: loading } = usePlatformAdmins();
 
   const systemServices = [
     { service: 'Database', status: 'operational', uptime: '100%' },
@@ -159,46 +147,46 @@ export function SuperAdminDashboard() {
           </div>
           {/* Column Headers */}
           <div className="overflow-x-auto">
-          <div className="min-w-[500px]">
-          <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-4 py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Name</span>
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Email</span>
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right`}>Role</span>
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right w-16`}>Status</span>
-          </div>
-          <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {admins.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className={`font-mono text-sm ${text.muted}`}>No admin users yet</p>
+            <div className="min-w-[500px]">
+              <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-4 py-3 border-b border-slate-200/60 dark:border-zinc-800/60">
+                <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Name</span>
+                <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>Email</span>
+                <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right`}>Role</span>
+                <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right w-16`}>Status</span>
               </div>
-            ) : (
-              admins.slice((adminPage - 1) * ADMIN_PAGE_SIZE, adminPage * ADMIN_PAGE_SIZE).map((admin, index) => (
-                <div
-                  key={admin.id}
-                  className={`grid grid-cols-[1fr_1fr_auto_auto] gap-4 items-center px-4 py-3 ${hoverStyles.row}`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 flex-shrink-0 border border-lime-500/30 dark:border-lime-400/20 bg-lime-50/80 dark:bg-lime-500/10 flex items-center justify-center font-brand font-bold text-xs text-lime-700 dark:text-lime-400">
-                      {admin.name?.split(' ').map((n: string) => n[0]).join('') || admin.email[0].toUpperCase()}
-                    </div>
-                    <p className={`font-display font-bold text-sm uppercase truncate ${text.primary}`}>{admin.name || 'Admin User'}</p>
+              <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
+                {admins.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className={`font-mono text-sm ${text.muted}`}>No admin users yet</p>
                   </div>
-                  <p className={`font-mono text-xs truncate ${text.muted}`}>{admin.email}</p>
-                  <Badge variant={admin.role === 'super_admin' ? 'info' : 'default'} size="sm">
-                    {admin.role.replace('_', ' ')}
-                  </Badge>
-                  <span className={`font-mono text-xs ${text.muted} text-right w-16`}>
-                    {admin.status === 'active' ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">Active</span>
-                    ) : (
-                      <span className="text-slate-400 dark:text-zinc-500">{admin.status || 'Active'}</span>
-                    )}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-          </div>{/* min-w */}
+                ) : (
+                  admins.slice((adminPage - 1) * ADMIN_PAGE_SIZE, adminPage * ADMIN_PAGE_SIZE).map((admin, index) => (
+                    <div
+                      key={admin.id}
+                      className={`grid grid-cols-[1fr_1fr_auto_auto] gap-4 items-center px-4 py-3 ${hoverStyles.row}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 flex-shrink-0 border border-lime-500/30 dark:border-lime-400/20 bg-lime-50/80 dark:bg-lime-500/10 flex items-center justify-center font-brand font-bold text-xs text-lime-700 dark:text-lime-400">
+                          {admin.name?.split(' ').map((n: string) => n[0]).join('') || admin.email[0].toUpperCase()}
+                        </div>
+                        <p className={`font-display font-bold text-sm uppercase truncate ${text.primary}`}>{admin.name || 'Admin User'}</p>
+                      </div>
+                      <p className={`font-mono text-xs truncate ${text.muted}`}>{admin.email}</p>
+                      <Badge variant={admin.role === 'super_admin' ? 'info' : 'default'} size="sm">
+                        {admin.role.replace('_', ' ')}
+                      </Badge>
+                      <span className={`font-mono text-xs ${text.muted} text-right w-16`}>
+                        {admin.status === 'active' ? (
+                          <span className="text-emerald-600 dark:text-emerald-400">Active</span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-zinc-500">{admin.status || 'Active'}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>{/* min-w */}
           </div>{/* overflow-x-auto */}
           {/* Pagination */}
           {admins.length > ADMIN_PAGE_SIZE && (
@@ -238,10 +226,9 @@ export function SuperAdminDashboard() {
             {systemServices.map((service, index) => (
               <div key={index} className={`flex items-center justify-between py-3 px-2 ${hoverStyles.row}`}>
                 <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 ${
-                    service.status === 'operational' ? 'bg-emerald-500' :
+                  <span className={`w-2 h-2 ${service.status === 'operational' ? 'bg-emerald-500' :
                     service.status === 'degraded' ? 'bg-amber-500' : 'bg-red-500'
-                  }`} />
+                    }`} />
                   <span className={`font-display font-bold text-sm uppercase ${text.primary}`}>{service.service}</span>
                 </div>
                 <span className={`font-mono text-xs ${text.muted}`}>{service.uptime}</span>
@@ -296,12 +283,12 @@ export function SuperAdminDashboard() {
       <CreateOpsAdminModal
         isOpen={isOpsAdminModalOpen}
         onClose={() => setIsOpsAdminModalOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
       />
       <CreateLogisticsAdminModal
         isOpen={isLogisticsAdminModalOpen}
         onClose={() => setIsLogisticsAdminModalOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
       />
     </div>
   );

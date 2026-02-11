@@ -4,9 +4,7 @@ import { motion } from 'framer-motion';
 import { BarChart3, ArrowLeft, Download, TrendingUp, TrendingDown, Building2, Users, Laptop, IndianRupee } from 'lucide-react';
 import { Button, Card, Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
-import { useEnterprises, useAllAssets } from '@/hooks';
-import { usersApi } from '@/lib/api/users';
-import { useQuery } from '@tanstack/react-query';
+import { useEnterprises, useAllAssets, useAllUsers } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 export function Analytics() {
@@ -14,14 +12,7 @@ export function Analytics() {
   // Use React Query hooks for reliable data fetching
   const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
   const { data: assets = [], isLoading: assetsLoading } = useAllAssets();
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ['users', 'all'],
-    queryFn: async () => {
-      const response = await usersApi.list({ limit: 100 });
-      return response.data || [];
-    },
-    staleTime: 30000,
-  });
+  const { data: users = [], isLoading: usersLoading } = useAllUsers({ limit: 100 });
 
   const isLoading = enterprisesLoading || assetsLoading || usersLoading;
 

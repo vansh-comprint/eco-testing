@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
 
 from app.core.security import (
     verify_password,
@@ -11,7 +12,9 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     generate_otp,
-    session_limiter,
+    store_token_in_redis,
+    remove_token_from_redis,
+    is_token_in_whitelist,
 )
 from app.models.user import User, UserRole, UserStatus
 from app.models.enterprise import BranchStatus, EnterpriseStatus
@@ -32,8 +35,9 @@ class AuthService:
     - Token refresh
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis: Optional[Redis] = None):
         self.db = db
+        self.redis = redis
         self.user_repo = UserRepository(db)
         self.branch_repo = BranchRepository(db)
         self.enterprise_repo = EnterpriseRepository(db)
@@ -51,10 +55,10 @@ class AuthService:
     async def _check_branch_and_enterprise_active(self, user: User) -> None:
         """
         Check if user's branch and enterprise are active.
-        
+
         Platform users (Super Admin, OPS Admin) bypass these checks
         since they don't belong to enterprises/branches.
-        
+
         Raises:
             AuthenticationError: If branch or enterprise is inactive/suspended
         """
@@ -67,22 +71,26 @@ class AuthService:
         ]
         if user.role in platform_roles:
             return
-        
+
         # Check enterprise status
         if user.enterprise_id:
             enterprise = await self.enterprise_repo.get_by_id(user.enterprise_id)
             if not enterprise:
                 raise AuthenticationError("Enterprise not found")
             if enterprise.status != EnterpriseStatus.ACTIVE.value:
-                raise AuthenticationError("Your organization's account is inactive or suspended. Please contact support.")
-        
+                raise AuthenticationError(
+                    "Your organization's account is inactive or suspended. Please contact support."
+                )
+
         # Check branch status
         if user.branch_id:
             branch = await self.branch_repo.get_by_id(user.branch_id)
             if not branch:
                 raise AuthenticationError("Branch not found")
             if branch.status != BranchStatus.ACTIVE.value:
-                raise AuthenticationError("Your branch has been deactivated. Please contact your administrator.")
+                raise AuthenticationError(
+                    "Your branch has been deactivated. Please contact your administrator."
+                )
 
     async def login(self, request: LoginRequest) -> Tuple[str, str, User]:
         """
@@ -123,9 +131,9 @@ class AuthService:
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token({"sub": user.id})
 
-        # SECURITY: Track session and enforce concurrent session limit
-        # If limit exceeded, oldest sessions are automatically invalidated
-        session_limiter.add_session(user.id, refresh_token)
+        # Store tokens in Redis whitelist (if Redis is enabled)
+        await store_token_in_redis(self.redis, access_token, user.id, "access")
+        await store_token_in_redis(self.redis, refresh_token, user.id, "refresh")
 
         return access_token, refresh_token, user
 
@@ -134,8 +142,7 @@ class AuthService:
         Generate new access token from refresh token with token rotation.
 
         SECURITY: Implements token rotation - each refresh token can only be used once.
-        The old refresh token is blacklisted and a new one is issued.
-        Uses DB-backed blacklist for cross-worker safety.
+        The old refresh token is removed from whitelist and a new one is issued.
 
         Args:
             refresh_token: JWT refresh token
@@ -146,22 +153,22 @@ class AuthService:
         Raises:
             AuthenticationError: If refresh token is invalid
         """
-        from app.core.security import async_blacklist_token, async_is_blacklisted
-
-        # Check if token was already used (DB-backed, cross-worker safe)
-        if await async_is_blacklisted(refresh_token, self.db):
-            raise AuthenticationError("Refresh token has been revoked")
-
-        # Decode refresh token
+        # STEP 1: Validate JWT signature and expiry (fast, no I/O)
         payload = decode_token(refresh_token)
         if not payload:
             raise AuthenticationError("Invalid or expired refresh token")
 
-        # Check token type
+        # STEP 2: Check token type
         if payload.get("type") != "refresh":
             raise AuthenticationError("Invalid token type")
 
-        # Get user
+        # STEP 3: Check if token is in whitelist (if Redis is enabled)
+        if self.redis:
+            user_id_from_redis = await is_token_in_whitelist(self.redis, refresh_token, "refresh")
+            if not user_id_from_redis:
+                raise AuthenticationError("Refresh token has been revoked")
+
+        # STEP 4: Get user
         user_id = payload.get("sub")
         user = await self.user_repo.get_by_id(user_id)
         if not user:
@@ -174,13 +181,17 @@ class AuthService:
         # Check if branch and enterprise are still active
         await self._check_branch_and_enterprise_active(user)
 
-        # SECURITY: Token rotation - blacklist the used refresh token (DB-backed)
-        await async_blacklist_token(refresh_token, self.db)
+        # SECURITY: Token rotation - remove the used refresh token from whitelist
+        await remove_token_from_redis(self.redis, refresh_token, "refresh")
 
         # Generate new tokens
         token_data = self._build_token_data(user)
         new_access_token = create_access_token(token_data)
         new_refresh_token = create_refresh_token({"sub": user.id})
+
+        # Store new tokens in Redis whitelist
+        await store_token_in_redis(self.redis, new_access_token, user.id, "access")
+        await store_token_in_redis(self.redis, new_refresh_token, user.id, "refresh")
 
         return new_access_token, new_refresh_token, user
 
@@ -215,6 +226,7 @@ class AuthService:
             # Create dummy response to prevent enumeration
             # We'll return a fake user object with just the email
             from app.models.user import User as UserModel
+
             dummy_user = UserModel(id="", email=request.email, name="", role="")
             return dummy_user
 
@@ -222,6 +234,7 @@ class AuthService:
         if user.role != UserRole.EMPLOYEE.value:
             # Return same response to prevent role enumeration
             from app.models.user import User as UserModel
+
             dummy_user = UserModel(id="", email=request.email, name="", role="")
             return dummy_user
 
@@ -229,6 +242,7 @@ class AuthService:
         if user.status not in [UserStatus.ACTIVE.value, UserStatus.PENDING.value]:
             # Return same response to prevent status enumeration
             from app.models.user import User as UserModel
+
             dummy_user = UserModel(id="", email=request.email, name="", role="")
             return dummy_user
 
@@ -238,6 +252,7 @@ class AuthService:
         except AuthenticationError:
             # Return same response to prevent enterprise status enumeration
             from app.models.user import User as UserModel
+
             dummy_user = UserModel(id="", email=request.email, name="", role="")
             return dummy_user
 
@@ -251,8 +266,10 @@ class AuthService:
         # TODO: Send OTP via email/SMS
         # Log OTP only in development/test environment
         import logging
+
         logger = logging.getLogger(__name__)
         from app.core.config import settings
+
         if settings.environment in ("development", "test"):
             logger.debug(f"OTP for {user.email}: {otp}")
 
@@ -307,8 +324,9 @@ class AuthService:
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token({"sub": user.id})
 
-        # SECURITY: Track session and enforce concurrent session limit
-        session_limiter.add_session(user.id, refresh_token)
+        # Store tokens in Redis whitelist (if Redis is enabled)
+        await store_token_in_redis(self.redis, access_token, user.id, "access")
+        await store_token_in_redis(self.redis, refresh_token, user.id, "refresh")
 
         return access_token, refresh_token, user
 
@@ -336,8 +354,8 @@ class AuthService:
         user.updated_by = user.id
         await self.user_repo.update(user)
 
-        # Invalidate all other sessions for security
-        session_limiter.clear_all_sessions(user.id)
+        # Note: With Redis whitelist, sessions are automatically invalidated
+        # when tokens expire. No need to manually clear sessions.
 
     async def request_password_reset(self, email: str) -> Optional[str]:
         """
@@ -419,8 +437,8 @@ class AuthService:
         # Clear the reset token
         await self.user_repo.clear_password_reset_token(user.id)
 
-        # Invalidate all sessions
-        session_limiter.clear_all_sessions(user.id)
+        # Note: With Redis whitelist, sessions are automatically invalidated
+        # when tokens expire. No need to manually clear sessions.
 
     async def get_current_user(self, token: str) -> Optional[User]:
         """

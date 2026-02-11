@@ -3,9 +3,11 @@
 from fastapi import APIRouter, Depends, status, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from redis.asyncio import Redis
 
 from app.core.database import get_db
-from app.core.security import async_blacklist_token
+from app.core.redis_client import get_redis
+from app.core.security import store_token_in_redis, remove_token_from_redis
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
@@ -37,6 +39,7 @@ async def login(
     request: LoginRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
     _: None = Depends(rate_limit_login),
 ):
     """
@@ -49,7 +52,7 @@ async def login(
     **Roles:** All roles (Super Admin, OPS Admin, Org Admin, IT Admin,
     Employee, Logistics Admin, Logistics User)
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     access_token, refresh_token, user = await auth_service.login(request)
 
     response_data = {
@@ -64,7 +67,11 @@ async def login(
 
 
 @router.post("/refresh", response_model=dict, status_code=status.HTTP_200_OK)
-async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_token(
+    request: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
+):
     """
     Refresh access token using refresh token.
 
@@ -73,7 +80,7 @@ async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends
 
     **Roles:** All authenticated users
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     access_token, new_refresh_token, user = await auth_service.refresh_access_token(
         request.refresh_token
     )
@@ -97,6 +104,7 @@ async def request_employee_otp(
     request: EmployeeOTPRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
     _: None = Depends(rate_limit_otp_send),
 ):
     """
@@ -107,7 +115,7 @@ async def request_employee_otp(
 
     **Roles:** Employees only
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     user = await auth_service.send_employee_otp(request)
 
     return success_response(
@@ -120,6 +128,7 @@ async def verify_employee_otp(
     request: EmployeeOTPVerifyRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
     _: None = Depends(rate_limit_otp),
 ):
     """
@@ -130,7 +139,7 @@ async def verify_employee_otp(
 
     **Roles:** Employees only
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     access_token, refresh_token, user = await auth_service.verify_employee_otp(request)
 
     response_data = {
@@ -180,6 +189,7 @@ async def change_password(
     request: ChangePasswordRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
 ):
     """
     Change password for the currently authenticated user (self-service).
@@ -189,7 +199,7 @@ async def change_password(
 
     **Roles:** All authenticated users
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     await auth_service.change_password(
         user=current_user,
         current_password=request.current_password,
@@ -210,6 +220,7 @@ async def forgot_password(
     request: ForgotPasswordRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
     _: None = Depends(rate_limit_forgot_password),
 ):
     """
@@ -223,7 +234,7 @@ async def forgot_password(
 
     **Roles:** Public (no authentication required)
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     await auth_service.request_password_reset(request.email)
 
     return success_response(
@@ -236,6 +247,7 @@ async def forgot_password(
 async def reset_password_with_token(
     request: ResetPasswordWithTokenRequest,
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
 ):
     """
     Reset password using a token received via email.
@@ -244,7 +256,7 @@ async def reset_password_with_token(
 
     **Roles:** Public (no authentication required)
     """
-    auth_service = AuthService(db)
+    auth_service = AuthService(db, redis)
     await auth_service.reset_password_with_token(
         token=request.token,
         new_password=request.new_password,
@@ -265,23 +277,24 @@ async def logout(
     authorization: Optional[str] = Header(None),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis: Optional[Redis] = Depends(get_redis),
 ):
     """
     Logout user and invalidate tokens.
 
-    Adds the current access token to a blacklist, preventing its reuse.
+    Removes tokens from Redis whitelist, preventing their reuse.
     Optionally accepts refresh_token in request body to invalidate it too.
 
     **Roles:** All authenticated users
     """
-    # Blacklist the access token from header (DB-backed, cross-worker safe)
+    # Remove the access token from whitelist
     if authorization and authorization.startswith("Bearer "):
         access_token = authorization[7:]
-        await async_blacklist_token(access_token, db)
+        await remove_token_from_redis(redis, access_token, "access")
 
-    # Blacklist refresh token if provided
+    # Remove refresh token if provided
     if request and request.refresh_token:
-        await async_blacklist_token(request.refresh_token, db)
+        await remove_token_from_redis(redis, request.refresh_token, "refresh")
 
     return success_response(
         data=None,
