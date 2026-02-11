@@ -63,6 +63,53 @@ class BranchService:
 
         return response
 
+    async def _enrich_branches_batch(self, branches: List[Branch]) -> List[BranchResponse]:
+        """
+        Efficiently enrich multiple branches with counts in batch.
+        Avoids N+1 queries by fetching all counts in 2 queries instead of 2*N queries.
+        """
+        if not branches:
+            return []
+
+        branch_ids = [b.id for b in branches]
+
+        # Batch query for asset counts
+        asset_counts_query = (
+            select(Asset.branch_id, func.count(Asset.id).label("count"))
+            .where(Asset.branch_id.in_(branch_ids))
+            .group_by(Asset.branch_id)
+        )
+        asset_result = await self.db.execute(asset_counts_query)
+        asset_counts = {row.branch_id: row.count for row in asset_result}
+
+        # Batch query for user counts
+        user_counts_query = (
+            select(User.branch_id, func.count(User.id).label("count"))
+            .where(User.branch_id.in_(branch_ids))
+            .group_by(User.branch_id)
+        )
+        user_result = await self.db.execute(user_counts_query)
+        user_counts = {row.branch_id: row.count for row in user_result}
+
+        # Build responses
+        responses = []
+        for branch in branches:
+            response = BranchResponse.model_validate(branch)
+
+            # Populate IT Admin info if assigned (should be eager loaded)
+            if branch.it_admin_id:
+                admin = getattr(branch, "it_admin", None)
+                if admin:
+                    response.it_admin = ITAdminInfo.model_validate(admin)
+
+            # Use pre-fetched counts
+            response.asset_count = asset_counts.get(branch.id, 0)
+            response.user_count = user_counts.get(branch.id, 0)
+
+            responses.append(response)
+
+        return responses
+
     async def get_branch(self, branch_id: str) -> BranchResponse:
         """Get branch by ID with eager-loaded IT admin."""
         result = await self.db.execute(
@@ -91,7 +138,8 @@ class BranchService:
             status=status,
             search=search,
         )
-        enriched = [await self._enrich_branch_response(b) for b in branches]
+        # Use batch enrichment to avoid N+1 queries
+        enriched = await self._enrich_branches_batch(branches)
         return enriched, total
 
     async def create_branch(self, branch_data: BranchCreate, created_by: str) -> BranchResponse:
@@ -283,7 +331,8 @@ class BranchService:
         if created_branches:
             await self.db.commit()
 
-        enriched = [await self._enrich_branch_response(b) for b in created_branches]
+        # Use batch enrichment to avoid N+1 queries
+        enriched = await self._enrich_branches_batch(created_branches)
         return enriched, errors
 
     async def get_branches_summary(self, enterprise_id: str) -> List[Dict[str, Any]]:

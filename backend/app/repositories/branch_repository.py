@@ -3,6 +3,7 @@
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.enterprise import Branch, BranchStatus
 
@@ -18,9 +19,7 @@ class BranchRepository:
         result = await self.db.execute(select(Branch).where(Branch.id == branch_id))
         return result.scalar_one_or_none()
 
-    async def get_by_code(
-        self, enterprise_id: str, branch_code: str
-    ) -> Optional[Branch]:
+    async def get_by_code(self, enterprise_id: str, branch_code: str) -> Optional[Branch]:
         """Get branch by code within an enterprise"""
         result = await self.db.execute(
             select(Branch).where(
@@ -69,8 +68,13 @@ class BranchRepository:
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 
-        # Apply pagination and ordering
-        query = query.order_by(Branch.branch_name).offset(skip).limit(limit)
+        # Apply pagination and ordering with eager loading
+        query = (
+            query.options(selectinload(Branch.it_admin))
+            .order_by(Branch.branch_name)
+            .offset(skip)
+            .limit(limit)
+        )
 
         result = await self.db.execute(query)
         branches = list(result.scalars().all())
@@ -105,4 +109,3 @@ class BranchRepository:
             select(func.count(Branch.id)).where(Branch.enterprise_id == enterprise_id)
         )
         return result.scalar() or 0
-

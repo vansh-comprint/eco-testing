@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/components/auth';
 import { DashboardLayout, OpsLayout } from '@/layouts';
 import { AuthProviderApi } from '@/contexts/AuthContextApi';
 import { useSidebarBadges, getBadgeForPath } from '@/hooks';
+import { Permission } from '@/permissions';
 
 // Create a client for React Query - database-first architecture
 // Global MutationCache: after ANY successful mutation, refresh sidebar badges
@@ -44,109 +45,125 @@ import { LogisticsAdminDashboard, LogisticsAssignmentQueue, LogisticsUserManagem
 import { LogisticsAssignments } from '@/pages/logistics-user';
 
 // Nav Items for each portal
+// IT Admin Portal - Branch-level asset & batch management
 const itAdminNavItems = [
   { label: 'Dashboard', path: '/admin', icon: <DashboardIcon /> },
-  { label: 'Branches', path: '/admin/branches', icon: <EnterpriseIcon /> },
-  { label: 'Batches', path: '/admin/batches', icon: <BatchIcon /> },
-  { label: 'Assets', path: '/admin/assets', icon: <AssetIcon /> },
-  { label: 'My Evaluations', path: '/admin/my-evaluations', icon: <EvaluationIcon /> },
-  { label: 'Pickups', path: '/admin/pickups', icon: <TruckIcon /> },
-  { label: 'Employees', path: '/admin/employees', icon: <UsersIcon /> },
-  { label: 'Settings', path: '/admin/settings', icon: <SettingsIcon /> },
+  { label: 'Branches', path: '/admin/branches', icon: <EnterpriseIcon />, permission: Permission.BRANCH_READ },
+  { label: 'Batches', path: '/admin/batches', icon: <BatchIcon />, permission: Permission.BATCH_READ },
+  { label: 'Assets', path: '/admin/assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
+  { label: 'My Evaluations', path: '/admin/my-evaluations', icon: <EvaluationIcon />, permission: Permission.SUBMISSION_VIEW },
+  { label: 'Pickups', path: '/admin/pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
+  { label: 'Employees', path: '/admin/employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+  { label: 'Settings', path: '/admin/settings', icon: <SettingsIcon />, permission: Permission.MANAGE_ENTERPRISE_SETTINGS },
 ];
 
+// Employee Portal - Device self-evaluation
 const subUserNavItems = [
-  { label: 'My Submissions', path: '/check-in/submissions', icon: <DashboardIcon /> },
-  { label: 'Submit Device', path: '/check-in/submit', icon: <SubmitIcon /> },
+  { label: 'My Submissions', path: '/check-in/submissions', icon: <DashboardIcon />, permission: Permission.SUBMISSION_VIEW },
+  { label: 'Submit Device', path: '/check-in/submit', icon: <SubmitIcon />, permission: Permission.SUBMIT_DEVICE_EVALUATION },
   { label: 'Help', path: '/check-in/help', icon: <HelpIcon /> },
 ];
 
+// OPS Admin Review Portal - Review/QC with DashboardLayout
 const reviewNavItems = [
   { label: 'Dashboard', path: '/review', icon: <DashboardIcon /> },
-  { label: 'Review Queue', path: '/review/queue', icon: <ReviewIcon /> },
-  { label: 'QC Queue', path: '/review/qc', icon: <QCIcon /> },
-  { label: 'Disputes', path: '/review/disputes', icon: <DisputeIcon /> },
-  { label: 'History', path: '/review/history', icon: <HistoryIcon /> },
+  { label: 'Review Queue', path: '/review/queue', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
+  { label: 'QC Queue', path: '/review/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
+  { label: 'Disputes', path: '/review/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
+  { label: 'History', path: '/review/history', icon: <HistoryIcon />, anyPermission: [Permission.REMOTE_REVIEW, Permission.FACILITY_QC] },
 ];
 
 // OPS Admin - Admin Section (always visible, not enterprise-filtered)
 const opsAdminNavItems = [
   { label: 'Dashboard', path: '/ops', icon: <DashboardIcon /> },
-  { label: 'Applications', path: '/ops/applications', icon: <DocumentIcon /> },
-  { label: 'Enterprises', path: '/ops/enterprises', icon: <EnterpriseIcon /> },
-  { label: 'Logistics', path: '/ops/logistics', icon: <TruckIcon /> },
+  { label: 'Applications', path: '/ops/applications', icon: <DocumentIcon />, permission: Permission.MANAGE_ENTERPRISE_APPLICATIONS },
+  { label: 'Enterprises', path: '/ops/enterprises', icon: <EnterpriseIcon />, permission: Permission.VIEW_ALL_ENTERPRISES },
+  { label: 'Logistics', path: '/ops/logistics', icon: <TruckIcon />, permission: Permission.LOGISTICS_MANAGE },
   { label: 'Settings', path: '/ops/settings', icon: <SettingsIcon /> },
 ];
 
 // OPS Admin - Enterprise Section (filtered when enterprise is selected)
 const opsEnterpriseNavItems = [
-  { label: 'Branches', path: '/ops/branches', icon: <EnterpriseIcon /> },
-  { label: 'Assets', path: '/ops/assets', icon: <AssetIcon /> },
-  { label: 'QC Queue', path: '/ops/qc', icon: <QCIcon /> },
-  { label: 'Reviews', path: '/ops/reviews', icon: <ReviewIcon /> },
-  { label: 'Pickups', path: '/ops/pickups', icon: <TruckIcon /> },
-  { label: 'Payouts', path: '/ops/payouts', icon: <PayoutIcon /> },
-  { label: 'Disputes', path: '/ops/disputes', icon: <DisputeIcon /> },
+  { label: 'Branches', path: '/ops/branches', icon: <EnterpriseIcon />, permission: Permission.BRANCH_READ },
+  { label: 'Assets', path: '/ops/assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
+  { label: 'QC Queue', path: '/ops/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
+  { label: 'Reviews', path: '/ops/reviews', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
+  { label: 'Pickups', path: '/ops/pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
+  { label: 'Payouts', path: '/ops/payouts', icon: <PayoutIcon />, permission: Permission.PAYOUT_VIEW },
+  { label: 'Disputes', path: '/ops/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
 ];
 
 // Org Admin nav items - grouped enterprise-level views
 const orgAdminNavItems = [
   { label: 'Dashboard', path: '/org-admin', icon: <DashboardIcon /> },
-  { label: 'Organization', path: '/org-admin/branches', icon: <EnterpriseIcon />, children: [
-    { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon /> },
-    { label: 'IT Admins', path: '/org-admin/it-admins', icon: <UsersIcon /> },
-    { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon /> },
-    { label: 'Settings', path: '/org-admin/settings', icon: <SettingsIcon /> },
-  ]},
-  { label: 'Assets & Batches', path: '/org-admin/enterprise-assets', icon: <AssetIcon />, children: [
-    { label: 'Assets', path: '/org-admin/enterprise-assets', icon: <AssetIcon /> },
-    { label: 'Batches', path: '/org-admin/enterprise-batches', icon: <BatchIcon /> },
-    { label: 'Pickup Approvals', path: '/org-admin/approvals', icon: <BatchIcon /> },
-  ]},
-  { label: 'Logistics', path: '/org-admin/enterprise-pickups', icon: <TruckIcon />, children: [
-    { label: 'Pickups', path: '/org-admin/enterprise-pickups', icon: <TruckIcon /> },
-    { label: 'Disputes', path: '/org-admin/enterprise-disputes', icon: <DisputeIcon /> },
-  ]},
-  { label: 'Finance', path: '/org-admin/wallet', icon: <PayoutIcon />, children: [
-    { label: 'Wallet', path: '/org-admin/wallet', icon: <PayoutIcon /> },
-    { label: 'Reports', path: '/org-admin/reports', icon: <ReportIcon /> },
-    { label: 'EPR Certificates', path: '/org-admin/epr', icon: <DocumentIcon /> },
-  ]},
+  {
+    label: 'Organization', path: '/org-admin/branches', icon: <EnterpriseIcon />, children: [
+      { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon />, permission: Permission.MANAGE_BRANCHES },
+      { label: 'IT Admins', path: '/org-admin/it-admins', icon: <UsersIcon />, permission: Permission.MANAGE_IT_ADMINS },
+      { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+      { label: 'Settings', path: '/org-admin/settings', icon: <SettingsIcon />, permission: Permission.ENTERPRISE_UPDATE },
+    ]
+  },
+  {
+    label: 'Assets & Batches', path: '/org-admin/enterprise-assets', icon: <AssetIcon />, children: [
+      { label: 'Assets', path: '/org-admin/enterprise-assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
+      { label: 'Batches', path: '/org-admin/enterprise-batches', icon: <BatchIcon />, permission: Permission.BATCH_READ },
+      { label: 'Pickup Approvals', path: '/org-admin/approvals', icon: <BatchIcon />, permission: Permission.APPROVE_PICKUPS },
+    ]
+  },
+  {
+    label: 'Logistics', path: '/org-admin/enterprise-pickups', icon: <TruckIcon />, children: [
+      { label: 'Pickups', path: '/org-admin/enterprise-pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
+      { label: 'Disputes', path: '/org-admin/enterprise-disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
+    ]
+  },
+  {
+    label: 'Finance', path: '/org-admin/wallet', icon: <PayoutIcon />, children: [
+      { label: 'Wallet', path: '/org-admin/wallet', icon: <PayoutIcon />, permission: Permission.VIEW_WALLET },
+      { label: 'Reports', path: '/org-admin/reports', icon: <ReportIcon />, permission: Permission.VIEW_FINANCIAL_REPORTS },
+      { label: 'EPR Certificates', path: '/org-admin/epr', icon: <DocumentIcon />, permission: Permission.VIEW_EPR_CERTIFICATES },
+    ]
+  },
 ];
 
 // Branch Operations toggle - IT Admin capabilities scoped to selected branch
 const orgAdminITViewNavItems = [
-  { label: 'Assets', path: '/org-admin/assets', icon: <AssetIcon /> },
-  { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon /> },
-  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon /> },
-  { label: 'Pickups', path: '/org-admin/pickups', icon: <TruckIcon /> },
-  { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon /> },
-  { label: 'Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon /> },
+  { label: 'Assets', path: '/org-admin/assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
+  { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon />, permission: Permission.BATCH_READ },
+  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+  { label: 'Pickups', path: '/org-admin/pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
+  { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
+  { label: 'Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon />, permission: Permission.SUBMISSION_VIEW },
 ];
 
+// Super Admin Portal - Platform oversight, pricing
 const superAdminNavItems = [
   { label: 'Dashboard', path: '/super', icon: <DashboardIcon /> },
-  { label: 'Applications', path: '/super/applications', icon: <DocumentIcon /> },
-  { label: 'Enterprises', path: '/super/enterprises', icon: <EnterpriseIcon /> },
-  { label: 'Users', path: '/super/users', icon: <UsersIcon />, children: [
-    { label: 'All Users', path: '/super/users', icon: <UsersIcon /> },
-    { label: 'Admins', path: '/super/admins', icon: <UsersIcon /> },
-    { label: 'Logistics', path: '/super/logistics', icon: <TruckIcon /> },
-  ]},
-  { label: 'Pickups', path: '/super/pickups', icon: <PackageIcon /> },
-  { label: 'Pricing', path: '/super/pricing', icon: <PricingIcon /> },
-  { label: 'Analytics', path: '/super/analytics', icon: <AnalyticsIcon /> },
+  { label: 'Applications', path: '/super/applications', icon: <DocumentIcon />, permission: Permission.MANAGE_ENTERPRISE_APPLICATIONS },
+  { label: 'Enterprises', path: '/super/enterprises', icon: <EnterpriseIcon />, permission: Permission.VIEW_ALL_ENTERPRISES },
+  {
+    label: 'Users', path: '/super/users', icon: <UsersIcon />, children: [
+      { label: 'All Users', path: '/super/users', icon: <UsersIcon />, permission: Permission.USER_READ },
+      { label: 'Admins', path: '/super/admins', icon: <UsersIcon />, permission: Permission.USER_READ },
+      { label: 'Logistics', path: '/super/logistics', icon: <TruckIcon />, permission: Permission.LOGISTICS_MANAGE },
+    ]
+  },
+  { label: 'Pickups', path: '/super/pickups', icon: <PackageIcon />, permission: Permission.PICKUP_VIEW },
+  { label: 'Pricing', path: '/super/pricing', icon: <PricingIcon />, permission: Permission.PRICING_MANAGE },
+  { label: 'Analytics', path: '/super/analytics', icon: <AnalyticsIcon />, permission: Permission.ANALYTICS_READ },
   { label: 'Settings', path: '/super/settings', icon: <SettingsIcon /> },
 ];
 
+// Logistics Admin Portal - Partner company management
 const logisticsAdminNavItems = [
   { label: 'Dashboard', path: '/logistics-admin', icon: <DashboardIcon /> },
-  { label: 'Assignments', path: '/logistics-admin/assignments', icon: <TruckIcon /> },
-  { label: 'Users', path: '/logistics-admin/users', icon: <UsersIcon /> },
+  { label: 'Assignments', path: '/logistics-admin/assignments', icon: <TruckIcon />, permission: Permission.ASSIGN_PICKUPS },
+  { label: 'Users', path: '/logistics-admin/users', icon: <UsersIcon />, permission: Permission.MANAGE_LOGISTICS_USERS },
 ];
 
+// Logistics User Portal - Field pickups, on-site QC
 const logisticsUserNavItems = [
-  { label: 'My Pickups', path: '/logistics', icon: <TruckIcon /> },
+  { label: 'My Pickups', path: '/logistics', icon: <TruckIcon />, permission: Permission.VIEW_ASSIGNED_PICKUPS },
 ];
 
 function App() {
@@ -202,230 +219,230 @@ function AppRoutes() {
 
   return (
     <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<EnterpriseRegister />} />
-          <Route path="/signup/pending-approval" element={<PendingApproval />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/cookies" element={<CookiePolicy />} />
+      {/* Public Routes */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<EnterpriseRegister />} />
+      <Route path="/signup/pending-approval" element={<PendingApproval />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/cookies" element={<CookiePolicy />} />
 
-          {/* IT Admin Routes */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['it_admin']}>
-                <DashboardLayout role="it_admin" title="IT Admin Portal" navItems={badgedItAdmin} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<ITAdminDashboard />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="branches/:branchId" element={<BranchDetail />} />
-            <Route path="branches/upload" element={<BulkBranchUpload />} />
-            <Route path="batches" element={<BatchList />} />
-            <Route path="batches/new" element={<BatchCreate />} />
-            <Route path="batches/:batchId" element={<BatchDetail />} />
-            <Route path="assets" element={<AssetList />} />
-            <Route path="assets/new" element={<AddAsset />} />
-            <Route path="assets/add" element={<AddAsset />} /> {/* Alias for /new */}
-            <Route path="assets/upload" element={<UploadAssets />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-            <Route path="my-evaluations" element={<MyEvaluations />} />
-            <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
-            <Route path="submissions/:assetId" element={<SubmissionDetail />} />
-            <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
-            <Route path="employees" element={<EmployeeList />} />
-            <Route path="employees/:subUserId" element={<EmployeeDetail />} />
-            <Route path="employees/invite" element={<EmployeeInvite />} />
-            <Route path="employees/upload" element={<BulkUserUpload />} />
-            <Route path="pickups" element={<PickupRequests />} />
-            <Route path="pickups/initiate" element={<InitiatePickup />} />
-            <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
-            <Route path="disputes" element={<DisputeList />} />
-            <Route path="disputes/:disputeId" element={<DisputeDetail />} />
-            <Route path="payouts" element={<PayoutView />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
+      {/* IT Admin Routes */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['it_admin']}>
+            <DashboardLayout role="it_admin" title="IT Admin Portal" navItems={badgedItAdmin} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ITAdminDashboard />} />
+        <Route path="branches" element={<BranchManagement />} />
+        <Route path="branches/:branchId" element={<BranchDetail />} />
+        <Route path="branches/upload" element={<BulkBranchUpload />} />
+        <Route path="batches" element={<BatchList />} />
+        <Route path="batches/new" element={<BatchCreate />} />
+        <Route path="batches/:batchId" element={<BatchDetail />} />
+        <Route path="assets" element={<AssetList />} />
+        <Route path="assets/new" element={<AddAsset />} />
+        <Route path="assets/add" element={<AddAsset />} /> {/* Alias for /new */}
+        <Route path="assets/upload" element={<UploadAssets />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+        <Route path="my-evaluations" element={<MyEvaluations />} />
+        <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
+        <Route path="submissions/:assetId" element={<SubmissionDetail />} />
+        <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
+        <Route path="employees" element={<EmployeeList />} />
+        <Route path="employees/:subUserId" element={<EmployeeDetail />} />
+        <Route path="employees/invite" element={<EmployeeInvite />} />
+        <Route path="employees/upload" element={<BulkUserUpload />} />
+        <Route path="pickups" element={<PickupRequests />} />
+        <Route path="pickups/initiate" element={<InitiatePickup />} />
+        <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
+        <Route path="disputes" element={<DisputeList />} />
+        <Route path="disputes/:disputeId" element={<DisputeDetail />} />
+        <Route path="payouts" element={<PayoutView />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
 
-          {/* Employee Routes */}
-          <Route
-            path="/check-in"
-            element={
-              <ProtectedRoute allowedRoles={['employee']}>
-                <DashboardLayout role="employee" title="Device Check-In" navItems={subUserNavItems} /> {/* employees don't need badges */}
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<SubUserDashboard />} />
-            <Route path="submissions" element={<SubUserDashboard />} />
-            <Route path="submit" element={<SubUserDashboard />} />
-            <Route path="submit/:assetId" element={<DeviceSubmit />} />
-            <Route path="success" element={<SubmissionSuccess />} />
-            <Route path="help" element={<PlaceholderPage title="Help" />} />
-          </Route>
+      {/* Employee Routes */}
+      <Route
+        path="/check-in"
+        element={
+          <ProtectedRoute allowedRoles={['employee']}>
+            <DashboardLayout role="employee" title="Device Check-In" navItems={subUserNavItems} /> {/* employees don't need badges */}
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<SubUserDashboard />} />
+        <Route path="submissions" element={<SubUserDashboard />} />
+        <Route path="submit" element={<SubUserDashboard />} />
+        <Route path="submit/:assetId" element={<DeviceSubmit />} />
+        <Route path="success" element={<SubmissionSuccess />} />
+        <Route path="help" element={<PlaceholderPage title="Help" />} />
+      </Route>
 
-          {/* Review & QC Routes (formerly Technician) */}
-          <Route
-            path="/review"
-            element={
-              <ProtectedRoute allowedRoles={['ops_admin']}>
-                <DashboardLayout role="ops_admin" title="Review & QC" navItems={badgedReview} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<ReviewDashboard />} />
-            <Route path="queue" element={<ReviewQueue />} />
-            <Route path="queue/:assetId" element={<RemoteReview />} />
-            <Route path="qc" element={<QCQueue />} />
-            <Route path="qc/:assetId" element={<FacilityQC />} />
-            <Route path="disputes" element={<PlaceholderPage title="Disputes" />} />
-            <Route path="history" element={<PlaceholderPage title="History" />} />
-          </Route>
+      {/* Review & QC Routes (formerly Technician) */}
+      <Route
+        path="/review"
+        element={
+          <ProtectedRoute allowedRoles={['ops_admin']}>
+            <DashboardLayout role="ops_admin" title="Review & QC" navItems={badgedReview} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ReviewDashboard />} />
+        <Route path="queue" element={<ReviewQueue />} />
+        <Route path="queue/:assetId" element={<RemoteReview />} />
+        <Route path="qc" element={<QCQueue />} />
+        <Route path="qc/:assetId" element={<FacilityQC />} />
+        <Route path="disputes" element={<PlaceholderPage title="Disputes" />} />
+        <Route path="history" element={<PlaceholderPage title="History" />} />
+      </Route>
 
-          {/* OPS Admin Routes - V3: Uses OpsLayout with enterprise selector */}
-          <Route
-            path="/ops"
-            element={
-              <ProtectedRoute allowedRoles={['ops_admin']}>
-                <OpsLayout title="Operations Portal" adminNavItems={badgedOpsAdmin} enterpriseNavItems={badgedOpsEnterprise} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<MainAdminDashboard />} />
-            <Route path="applications" element={<EnterpriseApplications />} />
-            <Route path="reviews" element={<RemoteReviewQueue />} />
-            <Route path="pickups" element={<PickupQueue />} />
-            <Route path="submissions/:assetId" element={<SubmissionDetail />} />
-            <Route path="enterprises" element={<EnterpriseList />} />
-            <Route path="enterprises/create" element={<CreateEnterprise />} />
-            <Route path="enterprises/:id" element={<EnterpriseDetail />} />
-            <Route path="branches" element={<OpsBranches />} />
-            <Route path="assets" element={<OpsAssets />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-            <Route path="payouts" element={<PayoutProcessing />} />
-            <Route path="disputes" element={<OpsDisputes />} />
-            <Route path="logistics" element={<LogisticsManagement />} />
-            <Route path="qc" element={<QCQueue />} />
-            <Route path="qc/:assetId" element={<FacilityQC />} />
-            <Route path="settings" element={<OpsSettings />} />
-          </Route>
+      {/* OPS Admin Routes - V3: Uses OpsLayout with enterprise selector */}
+      <Route
+        path="/ops"
+        element={
+          <ProtectedRoute allowedRoles={['ops_admin']}>
+            <OpsLayout title="Operations Portal" adminNavItems={badgedOpsAdmin} enterpriseNavItems={badgedOpsEnterprise} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<MainAdminDashboard />} />
+        <Route path="applications" element={<EnterpriseApplications />} />
+        <Route path="reviews" element={<RemoteReviewQueue />} />
+        <Route path="pickups" element={<PickupQueue />} />
+        <Route path="submissions/:assetId" element={<SubmissionDetail />} />
+        <Route path="enterprises" element={<EnterpriseList />} />
+        <Route path="enterprises/create" element={<CreateEnterprise />} />
+        <Route path="enterprises/:id" element={<EnterpriseDetail />} />
+        <Route path="branches" element={<OpsBranches />} />
+        <Route path="assets" element={<OpsAssets />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+        <Route path="payouts" element={<PayoutProcessing />} />
+        <Route path="disputes" element={<OpsDisputes />} />
+        <Route path="logistics" element={<LogisticsManagement />} />
+        <Route path="qc" element={<QCQueue />} />
+        <Route path="qc/:assetId" element={<FacilityQC />} />
+        <Route path="settings" element={<OpsSettings />} />
+      </Route>
 
-          {/* Org Admin Routes */}
-          <Route
-            path="/org-admin"
-            element={
-              <ProtectedRoute allowedRoles={['org_admin']}>
-                <DashboardLayout role="org_admin" title="Organization Admin" navItems={badgedOrgAdmin} itViewNavItems={badgedOrgAdminIT} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<OrgAdminDashboard />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="branches/:branchId" element={<BranchDetail />} />
-            <Route path="branches/upload" element={<BulkBranchUpload />} />
-            <Route path="it-admins" element={<ITAdminManagement />} />
-            <Route path="it-admins/invite" element={<ITAdminInvite />} />
-            <Route path="it-admins/upload" element={<BulkITAdminUpload />} />
-            <Route path="approvals" element={<PickupApprovals />} />
-            <Route path="wallet" element={<CreditsWallet />} />
-            <Route path="reports" element={<FinancialReports />} />
-            <Route path="epr" element={<EPRCertificates />} />
-            <Route path="settings" element={<OrgAdminSettings />} />
-            {/* Enterprise-level overview pages */}
-            <Route path="enterprise-assets" element={<EnterpriseAssets />} />
-            <Route path="enterprise-batches" element={<EnterpriseBatches />} />
-            <Route path="enterprise-employees" element={<EnterpriseEmployees />} />
-            <Route path="enterprise-pickups" element={<EnterprisePickups />} />
-            <Route path="enterprise-disputes" element={<EnterpriseDisputes />} />
-            {/* Branch Operations routes (IT Admin CRUD via toggle) */}
-            <Route path="assets" element={<AssetList />} />
-            <Route path="assets/new" element={<AddAsset />} />
-            <Route path="assets/add" element={<AddAsset />} />
-            <Route path="assets/upload" element={<UploadAssets />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-            <Route path="batches" element={<BatchList />} />
-            <Route path="batches/new" element={<BatchCreate />} />
-            <Route path="batches/:batchId" element={<BatchDetail />} />
-            <Route path="my-evaluations" element={<MyEvaluations />} />
-            <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
-            <Route path="submissions/:assetId" element={<SubmissionDetail />} />
-            <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
-            <Route path="employees" element={<EmployeeList />} />
-            <Route path="employees/:subUserId" element={<EmployeeDetail />} />
-            <Route path="employees/invite" element={<EmployeeInvite />} />
-            <Route path="employees/upload" element={<BulkUserUpload />} />
-            <Route path="pickups" element={<PickupRequests />} />
-            <Route path="pickups/initiate" element={<InitiatePickup />} />
-            <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
-            <Route path="disputes" element={<DisputeList />} />
-            <Route path="disputes/:disputeId" element={<DisputeDetail />} />
-            <Route path="payouts" element={<PayoutView />} />
-          </Route>
+      {/* Org Admin Routes */}
+      <Route
+        path="/org-admin"
+        element={
+          <ProtectedRoute allowedRoles={['org_admin']}>
+            <DashboardLayout role="org_admin" title="Organization Admin" navItems={badgedOrgAdmin} itViewNavItems={badgedOrgAdminIT} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<OrgAdminDashboard />} />
+        <Route path="branches" element={<BranchManagement />} />
+        <Route path="branches/:branchId" element={<BranchDetail />} />
+        <Route path="branches/upload" element={<BulkBranchUpload />} />
+        <Route path="it-admins" element={<ITAdminManagement />} />
+        <Route path="it-admins/invite" element={<ITAdminInvite />} />
+        <Route path="it-admins/upload" element={<BulkITAdminUpload />} />
+        <Route path="approvals" element={<PickupApprovals />} />
+        <Route path="wallet" element={<CreditsWallet />} />
+        <Route path="reports" element={<FinancialReports />} />
+        <Route path="epr" element={<EPRCertificates />} />
+        <Route path="settings" element={<OrgAdminSettings />} />
+        {/* Enterprise-level overview pages */}
+        <Route path="enterprise-assets" element={<EnterpriseAssets />} />
+        <Route path="enterprise-batches" element={<EnterpriseBatches />} />
+        <Route path="enterprise-employees" element={<EnterpriseEmployees />} />
+        <Route path="enterprise-pickups" element={<EnterprisePickups />} />
+        <Route path="enterprise-disputes" element={<EnterpriseDisputes />} />
+        {/* Branch Operations routes (IT Admin CRUD via toggle) */}
+        <Route path="assets" element={<AssetList />} />
+        <Route path="assets/new" element={<AddAsset />} />
+        <Route path="assets/add" element={<AddAsset />} />
+        <Route path="assets/upload" element={<UploadAssets />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+        <Route path="batches" element={<BatchList />} />
+        <Route path="batches/new" element={<BatchCreate />} />
+        <Route path="batches/:batchId" element={<BatchDetail />} />
+        <Route path="my-evaluations" element={<MyEvaluations />} />
+        <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
+        <Route path="submissions/:assetId" element={<SubmissionDetail />} />
+        <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
+        <Route path="employees" element={<EmployeeList />} />
+        <Route path="employees/:subUserId" element={<EmployeeDetail />} />
+        <Route path="employees/invite" element={<EmployeeInvite />} />
+        <Route path="employees/upload" element={<BulkUserUpload />} />
+        <Route path="pickups" element={<PickupRequests />} />
+        <Route path="pickups/initiate" element={<InitiatePickup />} />
+        <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
+        <Route path="disputes" element={<DisputeList />} />
+        <Route path="disputes/:disputeId" element={<DisputeDetail />} />
+        <Route path="payouts" element={<PayoutView />} />
+      </Route>
 
-          {/* Logistics Admin Routes */}
-          <Route
-            path="/logistics-admin"
-            element={
-              <ProtectedRoute allowedRoles={['logistics_admin', 'ops_admin']}>
-                <DashboardLayout role="logistics_admin" title="Logistics Admin" navItems={badgedLogisticsAdmin} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<LogisticsAdminDashboard />} />
-            <Route path="assignments" element={<LogisticsAssignmentQueue />} />
-            <Route path="users" element={<LogisticsUserManagement />} />
-            <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-          </Route>
+      {/* Logistics Admin Routes */}
+      <Route
+        path="/logistics-admin"
+        element={
+          <ProtectedRoute allowedRoles={['logistics_admin', 'ops_admin']}>
+            <DashboardLayout role="logistics_admin" title="Logistics Admin" navItems={badgedLogisticsAdmin} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<LogisticsAdminDashboard />} />
+        <Route path="assignments" element={<LogisticsAssignmentQueue />} />
+        <Route path="users" element={<LogisticsUserManagement />} />
+        <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+      </Route>
 
-          {/* Logistics User Routes */}
-          <Route
-            path="/logistics"
-            element={
-              <ProtectedRoute allowedRoles={['logistics_user']}>
-                <DashboardLayout role="logistics_user" title="Logistics User" navItems={badgedLogisticsUser} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<LogisticsAssignments />} />
-            <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-          </Route>
+      {/* Logistics User Routes */}
+      <Route
+        path="/logistics"
+        element={
+          <ProtectedRoute allowedRoles={['logistics_user']}>
+            <DashboardLayout role="logistics_user" title="Logistics User" navItems={badgedLogisticsUser} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<LogisticsAssignments />} />
+        <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+      </Route>
 
-          {/* Super Admin Routes */}
-          <Route
-            path="/super"
-            element={
-              <ProtectedRoute allowedRoles={['super_admin']}>
-                <DashboardLayout role="super_admin" title="Super Admin" navItems={badgedSuperAdmin} />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<SuperAdminDashboard />} />
-            <Route path="applications" element={<EnterpriseApplications />} />
-            <Route path="enterprises" element={<EnterpriseList />} />
-            <Route path="enterprises/create" element={<CreateEnterprise />} />
-            <Route path="enterprises/:id" element={<EnterpriseDetail />} />
-            <Route path="assets" element={<AllAssets />} />
-            <Route path="assets/:assetId" element={<AssetDetail />} />
-            <Route path="users" element={<AllUsers />} />
-            <Route path="admins" element={<Admins />} />
-            <Route path="logistics" element={<LogisticsManagement />} />
-            <Route path="pickups" element={<PickupQueue />} />
-            <Route path="pricing" element={<Pricing />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<SuperSettings />} />
-            <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
-            <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
-            <Route path="disputes" element={<PlaceholderPage title="Platform Disputes" />} />
-            <Route path="payouts" element={<PlaceholderPage title="Platform Payouts" />} />
-            <Route path="reviews" element={<PlaceholderPage title="Platform Reviews" />} />
-          </Route>
+      {/* Super Admin Routes */}
+      <Route
+        path="/super"
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <DashboardLayout role="super_admin" title="Super Admin" navItems={badgedSuperAdmin} />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<SuperAdminDashboard />} />
+        <Route path="applications" element={<EnterpriseApplications />} />
+        <Route path="enterprises" element={<EnterpriseList />} />
+        <Route path="enterprises/create" element={<CreateEnterprise />} />
+        <Route path="enterprises/:id" element={<EnterpriseDetail />} />
+        <Route path="assets" element={<AllAssets />} />
+        <Route path="assets/:assetId" element={<AssetDetail />} />
+        <Route path="users" element={<AllUsers />} />
+        <Route path="admins" element={<Admins />} />
+        <Route path="logistics" element={<LogisticsManagement />} />
+        <Route path="pickups" element={<PickupQueue />} />
+        <Route path="pricing" element={<Pricing />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="settings" element={<SuperSettings />} />
+        <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
+        <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
+        <Route path="disputes" element={<PlaceholderPage title="Platform Disputes" />} />
+        <Route path="payouts" element={<PlaceholderPage title="Platform Payouts" />} />
+        <Route path="reviews" element={<PlaceholderPage title="Platform Reviews" />} />
+      </Route>
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch-all redirect */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
