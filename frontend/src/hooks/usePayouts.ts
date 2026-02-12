@@ -90,6 +90,7 @@ export function useCreatePayout() {
   return useMutation({
     mutationFn: async (payout: CreatePayoutInput) => {
       const response = await payoutsApi.create({
+        enterprise_id: payout.enterprise_id,
         batch_id: payout.batch_id,
         amount: payout.amount,
         method: 'bank_transfer',
@@ -125,12 +126,15 @@ export function useUpdatePayoutStatus() {
   return useMutation({
     mutationFn: async ({ payoutId, status, transactionId }: UpdatePayoutStatusInput) => {
       if (status === 'completed' || status === 'processed') {
-        const response = await payoutsApi.process(payoutId, transactionId || '');
+        const response = await payoutsApi.process(payoutId, 'complete', { transaction_reference: transactionId || undefined });
         if (!response.success) throw new Error(response.error?.message || 'Failed to update payout');
         return response.data;
       }
-      // For other status changes, there's no dedicated endpoint yet
-      // TODO: Add a generic status update endpoint if needed
+      if (status === 'failed') {
+        const response = await payoutsApi.process(payoutId, 'fail', { failure_reason: 'Marked as failed' });
+        if (!response.success) throw new Error(response.error?.message || 'Failed to update payout');
+        return response.data;
+      }
       throw new Error(`Status update to '${status}' not yet supported via REST API`);
     },
     onSuccess: (_, variables) => {
@@ -157,7 +161,7 @@ export function useCompletePayout() {
       processedBy: string;
       transactionId: string;
     }) => {
-      const response = await payoutsApi.process(payoutId, transactionId);
+      const response = await payoutsApi.process(payoutId, 'complete', { transaction_reference: transactionId });
       if (!response.success) throw new Error(response.error?.message || 'Failed to complete payout');
       return response.data;
     },

@@ -146,11 +146,11 @@ export function usePendingSelfEvaluations(userId: string) {
  * Infinite scroll hook - loads assets 5 at a time via REST API
  * Server-side filtering via params (status, search, branch_id, etc.)
  */
-export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'> = {}) {
+export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'> = {}, pageSize = 5) {
   return useInfiniteQuery({
-    queryKey: assetKeys.infinite(params as Record<string, unknown>),
+    queryKey: assetKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await assetsApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      const res = await assetsApi.list({ ...params, skip: pageParam as number, limit: pageSize });
       return res;
     },
     initialPageParam: 0,

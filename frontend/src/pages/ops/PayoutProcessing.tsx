@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   IndianRupee,
@@ -13,7 +13,7 @@ import {
   X,
   Printer
 } from 'lucide-react';
-import { useAllAssets, useAllBatches, useCreatePayout } from '@/hooks';
+import { useInfiniteAssets, useAllBatches, useCreatePayout } from '@/hooks';
 import { assetKeys } from '@/hooks/useAssets';
 import { payoutKeys } from '@/hooks/usePayouts';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
@@ -26,7 +26,6 @@ type PayoutFilter = 'all' | 'pending' | 'processing' | 'completed';
 
 export function PayoutProcessing() {
   const queryClient = useQueryClient();
-  const { data: assets = [] } = useAllAssets();
   const { data: batches = [] } = useAllBatches();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
   const createPayoutMutation = useCreatePayout();
@@ -37,15 +36,24 @@ export function PayoutProcessing() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
-  const [certificateEnterprise, setCertificateEnterprise] = useState<{ id: string; name: string; assets: typeof assets } | null>(null);
 
-  // Get assets ready for payout (respects global enterprise filter)
-  const payoutAssets = assets.filter(a =>
-    (isAllEnterprises || a.enterprise_id === selectedEnterpriseId) &&
-    (a.status === 'final_accepted' ||
-    a.status === 'payout_pending' ||
-    a.status === 'completed')
-  );
+  // Server-side filtered queries — no more 100-asset limit
+  const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId) ? selectedEnterpriseId : undefined;
+  const { data: finalAcceptedData } = useInfiniteAssets({ status: 'final_accepted', enterprise_id: enterpriseFilter }, 100);
+  const { data: payoutPendingData } = useInfiniteAssets({ status: 'payout_pending', enterprise_id: enterpriseFilter }, 100);
+  const { data: completedData } = useInfiniteAssets({ status: 'completed', enterprise_id: enterpriseFilter }, 100);
+
+  // Combine all payout-relevant assets
+  const assets = useMemo(() => {
+    const finalAccepted = finalAcceptedData?.pages.flatMap(p => p.data || []) ?? [];
+    const payoutPending = payoutPendingData?.pages.flatMap(p => p.data || []) ?? [];
+    const completed = completedData?.pages.flatMap(p => p.data || []) ?? [];
+    return [...finalAccepted, ...payoutPending, ...completed];
+  }, [finalAcceptedData, payoutPendingData, completedData]);
+
+  const payoutAssets = assets;
+
+  const [certificateEnterprise, setCertificateEnterprise] = useState<{ id: string; name: string; assets: typeof assets } | null>(null);
 
   // Apply filters
   const filteredAssets = payoutAssets

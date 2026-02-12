@@ -67,6 +67,7 @@ export interface PayoutListParams {
 }
 
 export interface PayoutCreateRequest {
+  enterprise_id?: string;
   batch_id?: string;
   amount: number;
   method: string;
@@ -97,10 +98,10 @@ export const payoutsApi = {
       body: JSON.stringify(data),
     }),
 
-  process: (id: string, transactionReference: string) =>
+  process: (id: string, action: 'complete' | 'fail', opts?: { transaction_reference?: string; failure_reason?: string }) =>
     fetchWithAuth<PayoutResponse>(`/payouts/${id}/process`, {
       method: 'POST',
-      body: JSON.stringify({ transaction_reference: transactionReference }),
+      body: JSON.stringify({ action, ...opts }),
     }),
 };
 
