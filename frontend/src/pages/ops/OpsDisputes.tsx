@@ -6,6 +6,7 @@ import {
   MessageSquare,
   CheckCircle,
   XCircle,
+  X,
   Clock,
   Laptop,
   ArrowRight,
@@ -254,7 +255,7 @@ export function OpsDisputes() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.05 * Math.min(idx, 10) }}
-                    onClick={() => setSelectedDispute(dispute.id)}
+                    onClick={() => setSelectedDispute(prev => prev === dispute.id ? null : dispute.id)}
                     className={`border cursor-pointer transition-all ${
                       isSelected
                         ? 'border-ecotribe-primary bg-ecotribe-primary/5'
@@ -338,10 +339,22 @@ export function OpsDisputes() {
         >
           {selectedDisputeData ? (
             <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-              <div className="p-5 border-b border-slate-200 dark:border-white/10">
+              <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
                 <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Dispute Details
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDispute(null);
+                    setResolution(null);
+                    setResolverNotes('');
+                  }}
+                  className="p-1.5 border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
+                  title="Close details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               <div className="p-5 space-y-6">

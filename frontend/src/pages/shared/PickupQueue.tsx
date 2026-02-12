@@ -338,7 +338,7 @@ export function PickupQueue() {
                 >
                   <Card
                     onClick={() => {
-                      setSelectedRequest(request.id);
+                      setSelectedRequest(prev => prev === request.id ? null : request.id);
                       setShowReassignMode(false);
                       setSelectedLogisticsAdmin('');
                     }}
@@ -427,10 +427,22 @@ export function PickupQueue() {
         >
           {selectedRequestData ? (
             <Card>
-              <div className="p-5 border-b border-slate-200 dark:border-white/10">
+              <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
                 <h3 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
                   Pickup Details
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRequest(null);
+                    setShowReassignMode(false);
+                    setSelectedLogisticsAdmin('');
+                  }}
+                  className="p-1.5 border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
+                  title="Close details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               <div className="p-5 space-y-6">

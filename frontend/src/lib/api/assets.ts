@@ -77,7 +77,7 @@ export interface AssetUpdateRequest {
   assigned_to_user_id?: string;
   condition_grade?: string;
   estimated_value?: number;
-  final_value?: number;
+  final_price?: number;
   base_price?: number;
 }
 

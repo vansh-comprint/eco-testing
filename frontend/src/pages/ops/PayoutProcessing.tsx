@@ -142,13 +142,23 @@ export function PayoutProcessing() {
         return acc;
       }, {} as Record<string, typeof assets>);
 
-      // Create payout records per enterprise via payouts API
+      // Process per enterprise: transition assets FIRST, then create payout (credits wallet)
       for (const [enterpriseId, enterpriseAssets] of Object.entries(selectedByEnterprise)) {
         const totalAmount = enterpriseAssets.reduce(
           (sum, a) => sum + calculatePayout(a).finalAmount, 0
         );
 
-        // Create a payout record through the proper payouts API
+        // Step 1: Transition all assets to payout_pending (safe — no money moves yet)
+        for (const asset of enterpriseAssets) {
+          if (asset.status === 'final_accepted') {
+            const res = await assetsApi.update(asset.id, { status: 'payout_pending' });
+            if (!res.success) {
+              console.error(`Failed to move asset ${asset.id} to payout_pending:`, res.error);
+            }
+          }
+        }
+
+        // Step 2: Create payout record (this credits the enterprise wallet instantly)
         await createPayoutMutation.mutateAsync({
           enterprise_id: enterpriseId,
           asset_ids: enterpriseAssets.map(a => a.id),
@@ -160,19 +170,17 @@ export function PayoutProcessing() {
           })),
         });
 
-        // Update each asset status to completed with final value
-        await Promise.all(
-          enterpriseAssets.map(async (asset) => {
-            const payoutInfo = calculatePayout(asset);
-            const response = await assetsApi.update(asset.id, {
-              status: 'completed',
-              final_value: payoutInfo.finalAmount,
-            });
-            if (!response.success) {
-              console.error(`Failed to update asset ${asset.id}:`, response.error);
-            }
-          })
-        );
+        // Step 3: Transition all assets to completed with final price
+        for (const asset of enterpriseAssets) {
+          const payoutInfo = calculatePayout(asset);
+          const res = await assetsApi.update(asset.id, {
+            status: 'completed',
+            final_price: payoutInfo.finalAmount,
+          });
+          if (!res.success) {
+            console.error(`Failed to complete asset ${asset.id}:`, res.error);
+          }
+        }
       }
 
       // Refetch assets and payouts to update the UI

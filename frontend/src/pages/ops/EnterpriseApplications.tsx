@@ -316,7 +316,7 @@ export function EnterpriseApplications() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.05 * Math.min(idx, 10) }}
-                  onClick={() => setSelectedApp(app.id)}
+                  onClick={() => setSelectedApp(prev => prev === app.id ? null : app.id)}
                   className={`border cursor-pointer transition-all ${
                     isSelected
                       ? 'border-ecotribe-primary bg-ecotribe-primary/5'
