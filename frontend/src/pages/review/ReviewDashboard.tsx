@@ -1,18 +1,34 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, ClipboardCheck, AlertTriangle, Clock, CheckCircle, ArrowRight, Laptop, TrendingUp } from 'lucide-react';
-import { useAuth, useAllAssets } from '@/hooks';
+import { useAuth, useInfiniteAssets } from '@/hooks';
 
 export function ReviewDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: assets = [] } = useAllAssets();
 
-  // Get assets pending remote review
-  const pendingRemoteReview = assets.filter(a => a.status === 'submitted');
+  // Server-side filtered queries for accurate counts
+  const { data: remoteReviewData } = useInfiniteAssets({ status: 'submitted' });
+  const { data: inTransitData } = useInfiniteAssets({ status: 'in_transit' });
+  const { data: facilityQCData } = useInfiniteAssets({ status: 'facility_qc' });
 
-  // Get assets pending facility QC
-  const pendingFacilityQC = assets.filter(a => a.status === 'in_transit' || a.status === 'facility_qc');
+  // Flatten for preview display (first page is enough for top 3)
+  const pendingRemoteReview = useMemo(
+    () => remoteReviewData?.pages.flatMap(p => p.data || []) ?? [],
+    [remoteReviewData]
+  );
+  const pendingFacilityQC = useMemo(() => {
+    const inTransit = inTransitData?.pages.flatMap(p => p.data || []) ?? [];
+    const atFacility = facilityQCData?.pages.flatMap(p => p.data || []) ?? [];
+    return [...inTransit, ...atFacility];
+  }, [inTransitData, facilityQCData]);
+
+  // Accurate counts from server pagination
+  const remoteReviewCount = remoteReviewData?.pages[0]?.pagination?.total ?? pendingRemoteReview.length;
+  const facilityQCCount =
+    (inTransitData?.pages[0]?.pagination?.total ?? 0) +
+    (facilityQCData?.pages[0]?.pagination?.total ?? 0);
 
   // Get pending disputes
   // TODO: Add disputes hook when available
@@ -125,7 +141,7 @@ export function ReviewDashboard() {
               </div>
             </div>
             <span className="px-3 py-1.5 border border-blue-400/30 bg-blue-400/10 font-mono font-bold text-xs text-blue-400">
-              {pendingRemoteReview.length}
+              {remoteReviewCount}
             </span>
           </div>
 
@@ -158,13 +174,13 @@ export function ReviewDashboard() {
             </div>
           )}
 
-          {pendingRemoteReview.length > 3 && (
+          {remoteReviewCount > 3 && (
             <div className="p-4 border-t border-slate-200 dark:border-white/10">
               <button
                 onClick={() => navigate('/review/queue')}
                 className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
               >
-                View All ({pendingRemoteReview.length})
+                View All ({remoteReviewCount})
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -191,7 +207,7 @@ export function ReviewDashboard() {
               </div>
             </div>
             <span className="px-3 py-1.5 border border-emerald-400/30 bg-emerald-400/10 font-mono font-bold text-xs text-emerald-400">
-              {pendingFacilityQC.length}
+              {facilityQCCount}
             </span>
           </div>
 
@@ -224,13 +240,13 @@ export function ReviewDashboard() {
             </div>
           )}
 
-          {pendingFacilityQC.length > 3 && (
+          {facilityQCCount > 3 && (
             <div className="p-4 border-t border-slate-200 dark:border-white/10">
               <button
                 onClick={() => navigate('/review/qc')}
                 className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
               >
-                View All ({pendingFacilityQC.length})
+                View All ({facilityQCCount})
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -277,7 +293,7 @@ export function ReviewDashboard() {
                 <button
                   onClick={() => {
                     // TODO: Dispute resolution page coming soon
-                    alert(`Dispute Resolution\n\nType: ${dispute.type}\n\nNotes: ${dispute.itAdminNotes}`);
+                    console.log('Dispute resolution:', dispute.id);
                   }}
                   className="interactive px-4 py-2 border border-amber-400/30 bg-amber-400/10 text-amber-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400/20 transition-all"
                   title="Resolve dispute (coming soon)"

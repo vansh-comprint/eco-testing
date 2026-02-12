@@ -10,6 +10,7 @@ import {
   Search,
   CheckCircle,
   XCircle,
+  X,
   Clock,
   Eye,
   Send,
@@ -440,11 +441,27 @@ export function EnterpriseApplications() {
                 <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
                   Application Details
                 </h3>
-                {selectedApplication.application_ref && (
-                  <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 font-mono text-[10px] text-slate-500 dark:text-white/50" title="Application tracking reference">
-                    #{selectedApplication.application_ref}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {selectedApplication.application_ref && (
+                    <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 font-mono text-[10px] text-slate-500 dark:text-white/50" title="Application tracking reference">
+                      #{selectedApplication.application_ref}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedApp(null);
+                      setDecision(null);
+                      setRejectionReason('');
+                      setInfoRequestMessage('');
+                      setReviewNotes('');
+                    }}
+                    className="p-1.5 border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
+                    title="Close details"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto">

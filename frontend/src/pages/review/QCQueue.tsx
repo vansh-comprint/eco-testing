@@ -1,28 +1,57 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Laptop, Clock, Search, Package, CheckCircle } from 'lucide-react';
-import { useState } from 'react';
-import { useAllAssets, useUpdateAsset } from '@/hooks';
-import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
+import { useState, useMemo } from 'react';
+import { useInfiniteAssets, useUpdateAsset } from '@/hooks';
+import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
+import { useToast } from '@/components/ui';
 
 export function QCQueue() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: assets = [] } = useAllAssets();
   const updateAssetMutation = useUpdateAsset();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const { addToast } = useToast();
 
-  // Try to get OpsEnterprise context (only available in OPS layout)
-  let selectedEnterpriseId: string | null = null;
-  let isAllEnterprises = true;
-  try {
-    const opsContext = useOpsEnterprise();
-    selectedEnterpriseId = opsContext.selectedEnterpriseId;
-    isAllEnterprises = opsContext.isAllEnterprises;
-  } catch {
-    // Not in OPS context (e.g., /review route), show all assets
-  }
+  // Safe enterprise context (returns null outside OPS layout)
+  const opsContext = useOptionalOpsEnterprise();
+  const selectedEnterpriseId = opsContext?.selectedEnterpriseId ?? null;
+  const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
+  const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId) ? selectedEnterpriseId : undefined;
+
+  // Server-side filtered queries — no more 100-asset limit
+  const {
+    data: inTransitData,
+    hasNextPage: hasMoreInTransit,
+    fetchNextPage: fetchMoreInTransit,
+    isFetchingNextPage: fetchingMoreInTransit,
+  } = useInfiniteAssets({ status: 'in_transit', enterprise_id: enterpriseFilter });
+
+  const {
+    data: facilityQCData,
+    hasNextPage: hasMoreFacilityQC,
+    fetchNextPage: fetchMoreFacilityQC,
+    isFetchingNextPage: fetchingMoreFacilityQC,
+  } = useInfiniteAssets({ status: 'facility_qc', enterprise_id: enterpriseFilter });
+
+  // Flatten paginated results
+  const inTransitAssets = useMemo(
+    () => inTransitData?.pages.flatMap(p => p.data || []) ?? [],
+    [inTransitData]
+  );
+  const facilityQCAssets = useMemo(
+    () => facilityQCData?.pages.flatMap(p => p.data || []) ?? [],
+    [facilityQCData]
+  );
+  const pendingAssets = useMemo(
+    () => [...inTransitAssets, ...facilityQCAssets],
+    [inTransitAssets, facilityQCAssets]
+  );
+
+  // Total counts from server pagination (accurate even if not all pages loaded)
+  const inTransitTotal = inTransitData?.pages[0]?.pagination?.total ?? inTransitAssets.length;
+  const facilityQCTotal = facilityQCData?.pages[0]?.pagination?.total ?? facilityQCAssets.length;
 
   // Mark asset as arrived at facility (in_transit → facility_qc)
   const markAsArrived = async (assetId: string) => {
@@ -31,23 +60,12 @@ export function QCQueue() {
         assetId,
         updates: { status: 'facility_qc' },
       });
+      addToast({ type: 'success', title: 'Asset Arrived', message: 'Asset marked as arrived at facility' });
     } catch (error) {
       console.error('Failed to mark asset as arrived:', error);
-      alert('Failed to update asset status. Please try again.');
+      addToast({ type: 'error', title: 'Update Failed', message: 'Failed to update asset status. Please try again.' });
     }
   };
-
-  // Get assets pending facility QC (in_transit or facility_qc status)
-  // Filter by enterprise if one is selected in OPS context
-  const pendingAssets = assets.filter(a => {
-    const statusMatch = a.status === 'in_transit' || a.status === 'facility_qc';
-    if (!statusMatch) return false;
-    // If in OPS context with enterprise selected, filter by enterprise
-    if (!isAllEnterprises && selectedEnterpriseId) {
-      return a.enterprise_id === selectedEnterpriseId;
-    }
-    return true;
-  });
 
   // Filter and sort
   const filteredAssets = pendingAssets
@@ -61,6 +79,14 @@ export function QCQueue() {
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
+
+  // Load more when both have more pages
+  const hasMore = hasMoreInTransit || hasMoreFacilityQC;
+  const isFetchingMore = fetchingMoreInTransit || fetchingMoreFacilityQC;
+  const loadMore = () => {
+    if (hasMoreInTransit) fetchMoreInTransit();
+    if (hasMoreFacilityQC) fetchMoreFacilityQC();
+  };
 
   return (
     <div className="space-y-6">
@@ -153,9 +179,9 @@ export function QCQueue() {
                         <Clock className="w-3 h-3" />
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
-                      {asset.enterprises?.name && (
+                      {asset.enterprise_name && (
                         <span className="font-mono text-xs text-zinc-600 truncate">
-                          {asset.enterprises.name}
+                          {asset.enterprise_name}
                         </span>
                       )}
                     </div>
@@ -198,6 +224,19 @@ export function QCQueue() {
               </motion.div>
             ))}
           </div>
+
+          {/* Load more button */}
+          {hasMore && (
+            <div className="p-4 border-t border-slate-200 dark:border-white/10 text-center">
+              <button
+                onClick={loadMore}
+                disabled={isFetchingMore}
+                className="interactive px-6 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all disabled:opacity-50"
+              >
+                {isFetchingMore ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </motion.div>
       ) : (
         <motion.div
@@ -230,13 +269,13 @@ export function QCQueue() {
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
           <p className="font-brand font-bold text-3xl text-amber-400">
-            {pendingAssets.filter(a => a.status === 'in_transit').length}
+            {inTransitTotal}
           </p>
         </div>
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
           <p className="font-brand font-bold text-3xl text-emerald-400">
-            {pendingAssets.filter(a => a.status === 'facility_qc').length}
+            {facilityQCTotal}
           </p>
         </div>
       </motion.div>

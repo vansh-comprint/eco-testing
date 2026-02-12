@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, AlertTriangle, Laptop, Image as ImageIcon, User, Package
 } from 'lucide-react';
 import { useAuth, useLogisticsUserPickups, useUpdatePickupStatus, useCompletePickup } from '@/hooks';
+import { useToast } from '@/components/ui';
 
 type Condition = 'good' | 'worse' | 'failed';
 type StatusFilter = 'active' | 'all';
@@ -24,6 +25,7 @@ export function LogisticsAssignments() {
   const { data: pickupRequests = [] } = useLogisticsUserPickups(user?.id || '');
   const updateStatusMutation = useUpdatePickupStatus();
   const completePickupMutation = useCompletePickup();
+  const { addToast } = useToast();
   const isLoading = updateStatusMutation.isPending || completePickupMutation.isPending;
 
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function LogisticsAssignments() {
       setActiveRequestId(id);
     } catch (error) {
       console.error('Failed to start pickup:', error);
-      alert(error instanceof Error ? error.message : 'Failed to start pickup. Please try again.');
+      addToast({ type: 'error', title: 'Start Failed', message: error instanceof Error ? error.message : 'Failed to start pickup. Please try again.' });
     }
   };
 
@@ -90,7 +92,7 @@ export function LogisticsAssignments() {
   const markAssetPicked = async (assetId: string) => {
     const qc = getAssetQC(assetId);
     if (!qc.serialMatch || !qc.powersOn || !qc.pickupPhoto) {
-      alert('Please verify serial number, power-on status, and take a pickup photo before marking as picked.');
+      addToast({ type: 'warning', title: 'Incomplete', message: 'Please verify serial number, power-on status, and take a pickup photo before marking as picked.' });
       return;
     }
     updateAssetQC(assetId, { verified: true, condition: 'good' });
@@ -193,7 +195,7 @@ export function LogisticsAssignments() {
       setActiveRequestId(null);
     } catch (error) {
       console.error('Failed to complete pickup:', error);
-      alert(error instanceof Error ? error.message : 'Failed to complete pickup. Please try again.');
+      addToast({ type: 'error', title: 'Completion Failed', message: error instanceof Error ? error.message : 'Failed to complete pickup. Please try again.' });
     }
   };
 
@@ -300,7 +302,7 @@ export function LogisticsAssignments() {
               </p>
             </div>
 
-            {['scheduled', 'assigned'].includes(activeRequest.status) && (
+            {['scheduled', 'assigned_to_logistics_user'].includes(activeRequest.status) && (
               <button
                 onClick={() => startPickup(activeRequest.id)}
                 disabled={isLoading}
@@ -721,7 +723,7 @@ const SignatureCanvas = React.forwardRef<HTMLCanvasElement>((props, ref) => {
     const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
 
     ctx.lineTo(x, y);
-    ctx.strokeStyle = '#000';
+    ctx.strokeStyle = document.documentElement.classList.contains('dark') ? '#fff' : '#000';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.stroke();

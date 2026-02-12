@@ -14,9 +14,10 @@ import {
   Camera
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth, useAllAssets } from '@/hooks';
+import { useAuth, useAsset } from '@/hooks';
 import { assetKeys } from '@/hooks/useAssets';
 import { reviewsApi } from '@/lib/api/reviews';
+import { useToast } from '@/components/ui';
 import { facilityQCTemplate, type FacilityQCChecklist, type FacilityQCDecision } from '@/types/review';
 import type { AssetGrade } from '@/types/asset';
 
@@ -32,8 +33,9 @@ export function FacilityQC() {
   const { assetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: assets = [] } = useAllAssets();
+  const { data: asset, isLoading: assetLoading } = useAsset(assetId || '');
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const createFacilityQCMutation = useMutation({
     mutationFn: (data: { asset_id: string; decision: string; grade?: string; notes?: string; functional_tests?: Record<string, unknown> }) =>
@@ -46,13 +48,22 @@ export function FacilityQC() {
 
   const isLoading = createFacilityQCMutation.isPending;
 
-  const asset = assets.find(a => a.id === assetId);
-
   const [checklist, setChecklist] = useState<FacilityQCChecklist>(facilityQCTemplate);
   const [expandedSections, setExpandedSections] = useState<string[]>(['verifyPhotos']);
   const [grade, setGrade] = useState<AssetGrade | null>(null);
   const [decision, setDecision] = useState<FacilityQCDecision | null>(null);
   const [notes, setNotes] = useState('');
+
+  if (assetLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Clock className="w-12 h-12 text-zinc-400 mx-auto mb-4 animate-spin" />
+          <p className="font-display text-zinc-500">Loading asset...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!asset) {
     return (
@@ -132,7 +143,7 @@ export function FacilityQC() {
 
     // Require all checklist items to be checked
     if (!isChecklistComplete()) {
-      alert('Please complete all checklist items before submitting.');
+      addToast({ type: 'warning', title: 'Incomplete', message: 'Please complete all checklist items before submitting.' });
       return;
     }
 
@@ -151,7 +162,7 @@ export function FacilityQC() {
       navigate(-1); // Go back to QC queue (works for both /review/qc and /ops/qc)
     } catch (error) {
       console.error('Failed to submit facility QC:', error);
-      alert('Failed to submit QC. Please try again.');
+      addToast({ type: 'error', title: 'QC Failed', message: 'Failed to submit QC. Please try again.' });
     }
   };
 
