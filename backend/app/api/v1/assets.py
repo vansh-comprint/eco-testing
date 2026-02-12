@@ -21,6 +21,11 @@ router = APIRouter()
 
 def _check_asset_access(asset_data, current_user: User):
     """Verify user has access to this asset's enterprise/branch (prevents cross-tenant IDOR)."""
+    # Employees can always access assets assigned to them
+    assigned_to = getattr(asset_data, 'assigned_to_user_id', None)
+    if assigned_to and assigned_to == current_user.id:
+        return
+
     enterprise_id = getattr(asset_data, 'enterprise_id', None)
     branch_id = getattr(asset_data, 'branch_id', None)
     if enterprise_id and not can_access_enterprise(current_user, enterprise_id):
