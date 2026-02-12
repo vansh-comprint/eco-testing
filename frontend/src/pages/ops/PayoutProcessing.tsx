@@ -11,7 +11,11 @@ import {
   Send,
   FileText,
   X,
-  Printer
+  Printer,
+  Wallet,
+  Landmark,
+  Smartphone,
+  Lock
 } from 'lucide-react';
 import { useInfiniteAssets, useAllBatches, useCreatePayout } from '@/hooks';
 import { assetKeys } from '@/hooks/useAssets';
@@ -175,6 +179,12 @@ export function PayoutProcessing() {
       await queryClient.refetchQueries({ queryKey: assetKeys.all });
       await queryClient.refetchQueries({ queryKey: payoutKeys.all });
 
+      addToast({
+        type: 'success',
+        title: 'Payouts Processed',
+        message: `₹${totalSelectedValue.toLocaleString()} credited to enterprise wallet(s) successfully.`,
+        duration: 5000,
+      });
       setSelectedAssets([]);
       setShowConfirmModal(false);
     } catch (error) {
@@ -182,7 +192,7 @@ export function PayoutProcessing() {
       addToast({
         type: 'error',
         title: 'Payout Processing Failed',
-        message: 'Failed to process payouts. Please try again.',
+        message: error instanceof Error ? error.message : 'Failed to process payouts. Please try again.',
         duration: 6000,
       });
     } finally {
@@ -357,6 +367,73 @@ export function PayoutProcessing() {
               {filter}
             </button>
           ))}
+        </div>
+      </motion.div>
+
+      {/* Payment Method Selection */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
+      >
+        <h3 className="font-mono font-bold text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest mb-4">Payment Method</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Wallet - Active */}
+          <div className="border-2 border-ecotribe-primary bg-ecotribe-primary/10 p-4 relative">
+            <div className="absolute top-2 right-2">
+              <span className="px-2 py-0.5 bg-ecotribe-primary text-black font-mono font-bold text-[10px] uppercase tracking-widest">Default</span>
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-ecotribe-primary" />
+              </div>
+              <div>
+                <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">Wallet Credit</p>
+                <p className="font-mono text-xs text-slate-500 dark:text-white/50">Instant credit to enterprise wallet</p>
+              </div>
+            </div>
+            <p className="font-mono text-xs text-ecotribe-primary mt-2">Credits appear instantly in enterprise wallet</p>
+          </div>
+
+          {/* Bank Transfer - Coming Soon */}
+          <div className="border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.01] p-4 opacity-60 relative cursor-not-allowed">
+            <div className="absolute top-2 right-2">
+              <span className="px-2 py-0.5 border border-slate-300 dark:border-white/20 text-slate-400 dark:text-white/40 font-mono font-bold text-[10px] uppercase tracking-widest flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                Coming Soon
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <Landmark className="w-5 h-5 text-slate-400 dark:text-white/30" />
+              </div>
+              <div>
+                <p className="font-display font-bold text-sm text-slate-400 dark:text-white/30 uppercase">Bank Transfer</p>
+                <p className="font-mono text-xs text-slate-400 dark:text-white/20">Direct bank transfer (NEFT/RTGS)</p>
+              </div>
+            </div>
+            <p className="font-mono text-xs text-slate-400 dark:text-white/20 mt-2">Requires bank account & IFSC code</p>
+          </div>
+
+          {/* UPI - Coming Soon */}
+          <div className="border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-white/[0.01] p-4 opacity-60 relative cursor-not-allowed">
+            <div className="absolute top-2 right-2">
+              <span className="px-2 py-0.5 border border-slate-300 dark:border-white/20 text-slate-400 dark:text-white/40 font-mono font-bold text-[10px] uppercase tracking-widest flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                Coming Soon
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <Smartphone className="w-5 h-5 text-slate-400 dark:text-white/30" />
+              </div>
+              <div>
+                <p className="font-display font-bold text-sm text-slate-400 dark:text-white/30 uppercase">UPI</p>
+                <p className="font-mono text-xs text-slate-400 dark:text-white/20">Instant UPI payment</p>
+              </div>
+            </div>
+            <p className="font-mono text-xs text-slate-400 dark:text-white/20 mt-2">Requires UPI ID (e.g. name@upi)</p>
+          </div>
         </div>
       </motion.div>
 
@@ -569,7 +646,7 @@ export function PayoutProcessing() {
         isLoading={isProcessing}
         variant="danger"
         title="Process Payouts?"
-        description={`You are about to process payouts for ${selectedAssets.length} asset${selectedAssets.length !== 1 ? 's' : ''} totaling ₹${totalSelectedValue.toLocaleString()}. This will initiate bank transfers that cannot be reversed.`}
+        description={`You are about to process payouts for ${selectedAssets.length} asset${selectedAssets.length !== 1 ? 's' : ''} totaling ₹${totalSelectedValue.toLocaleString()}. Credits will be added instantly to the enterprise wallet.`}
         confirmText="Process Payouts"
         details={
           <div className="text-left space-y-1">
@@ -578,6 +655,9 @@ export function PayoutProcessing() {
             </p>
             <p className="font-mono text-xs text-slate-500 dark:text-white/60">
               <span className="text-slate-400 dark:text-white/40">Total Value:</span> ₹{totalSelectedValue.toLocaleString()}
+            </p>
+            <p className="font-mono text-xs text-slate-500 dark:text-white/60">
+              <span className="text-slate-400 dark:text-white/40">Method:</span> Wallet Credit (Instant)
             </p>
           </div>
         }

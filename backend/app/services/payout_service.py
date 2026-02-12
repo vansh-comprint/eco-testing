@@ -208,21 +208,49 @@ class PayoutService:
             validate_text_length(data.notes, 1000, "notes")
             notes = strip_dangerous_content(data.notes)
 
-        payout = Payout(
-            id=f"payout-{uuid.uuid4()}",
-            enterprise_id=enterprise_id,
-            batch_id=data.batch_id,
-            amount=data.amount,
-            method=data.method,
-            status=PayoutStatus.PENDING.value,
-            bank_account_number=bank_account_number,
-            bank_ifsc_code=bank_ifsc_code,
-            upi_id=upi_id,
-            notes=notes,
-        )
+        payout_id = f"payout-{uuid.uuid4()}"
+        now = datetime.now(timezone.utc)
 
-        await self.repo.create(payout)
-        await self.session.flush()
+        # For wallet payouts: create payout as completed and credit the enterprise wallet
+        if data.method == "wallet":
+            payout = Payout(
+                id=payout_id,
+                enterprise_id=enterprise_id,
+                batch_id=data.batch_id,
+                amount=data.amount,
+                method="wallet",
+                status=PayoutStatus.COMPLETED.value,
+                completed_at=now,
+                transaction_reference=f"WALLET-{payout_id[:12]}",
+                notes=notes,
+            )
+            await self.repo.create(payout)
+            await self.session.flush()
+
+            # Credit the enterprise wallet
+            wallet_credit = WalletCredit(
+                amount=data.amount,
+                description=f"Payout credit for {data.batch_id or 'assets'}",
+                reference_id=payout_id,
+            )
+            await self.wallet_service.credit(enterprise_id, wallet_credit, user)
+            await self.session.flush()
+        else:
+            payout = Payout(
+                id=payout_id,
+                enterprise_id=enterprise_id,
+                batch_id=data.batch_id,
+                amount=data.amount,
+                method=data.method,
+                status=PayoutStatus.PENDING.value,
+                bank_account_number=bank_account_number,
+                bank_ifsc_code=bank_ifsc_code,
+                upi_id=upi_id,
+                notes=notes,
+            )
+            await self.repo.create(payout)
+            await self.session.flush()
+
         return payout
 
     async def get_payout(self, payout_id: str) -> Optional[Payout]:

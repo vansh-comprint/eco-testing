@@ -9,9 +9,12 @@ import {
   Building,
   CreditCard,
   Info,
-  Loader2
+  Loader2,
+  Wallet
 } from 'lucide-react';
 import { useAuth, usePayouts } from '@/hooks';
+import { walletApi } from '@/lib/api/payouts';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
 type PayoutStatus = 'pending' | 'processing' | 'processed' | 'completed' | 'failed';
@@ -30,9 +33,12 @@ interface Payout {
   asset_ids: string[];
   amount: number;
   status: PayoutStatus;
+  method?: string;
   transaction_id?: string;
+  transaction_reference?: string;
   processed_by?: string;
   processed_at?: string;
+  completed_at?: string;
   created_at: string;
   reference_id?: string;
   items?: Array<{ asset_id: string; amount: number; description?: string }>;
@@ -48,6 +54,17 @@ export function PayoutView() {
   // V3.2: Fetch real payout data from database
   const enterpriseId = enterprise?.id || '';
   const { data: payouts = [], isLoading } = usePayouts(enterpriseId);
+
+  // Fetch wallet balance
+  const { data: walletData } = useQuery({
+    queryKey: ['wallet', enterpriseId],
+    queryFn: async () => {
+      const response = await walletApi.get(enterpriseId);
+      if (!response.success || !response.data) return null;
+      return response.data;
+    },
+    enabled: !!enterpriseId,
+  });
 
   const filteredPayouts = statusFilter
     ? payouts.filter((p: any) => p.status === statusFilter)
@@ -133,28 +150,31 @@ export function PayoutView() {
         </div>
       </motion.div>
 
-      {/* Bank Account Info */}
+      {/* Wallet Balance */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
+        className="border border-ecotribe-primary/30 bg-ecotribe-primary/5 p-5"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 border border-slate-200 dark:border-white/10 flex items-center justify-center">
-              <Building className="w-6 h-6 text-zinc-600" />
+            <div className="w-12 h-12 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-ecotribe-primary" />
             </div>
             <div>
-              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Payout Account</p>
-              <p className="font-mono text-xs text-zinc-600">
-                {enterprise?.name || 'TechCorp Pvt Ltd'} • HDFC Bank ****6789
+              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Enterprise Wallet</p>
+              <p className="font-mono text-xs text-zinc-600 dark:text-white/50">
+                {enterprise?.name || 'Enterprise'} • Wallet Balance
               </p>
             </div>
           </div>
-          <button className="interactive px-4 py-2 text-zinc-500 hover:text-ecotribe-primary font-mono font-bold text-xs uppercase tracking-widest transition-colors">
-            Update
-          </button>
+          <div className="text-right">
+            <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+              ₹{walletData ? Number(walletData.balance).toLocaleString() : '0'}
+            </p>
+            <p className="font-mono text-xs text-zinc-500 dark:text-white/40 uppercase">Available</p>
+          </div>
         </div>
       </motion.div>
 
@@ -226,8 +246,13 @@ export function PayoutView() {
                       <div className="flex items-center gap-4 font-mono text-xs text-zinc-600">
                         <span>{assetCount} asset{assetCount !== 1 ? 's' : ''}</span>
                         <span>•</span>
-                        {payout.status === 'completed' && payout.processed_at ? (
-                          <span>Processed {format(new Date(payout.processed_at), 'MMM d, yyyy')}</span>
+                        <span className="flex items-center gap-1">
+                          {payout.method === 'wallet' ? <Wallet className="w-3 h-3" /> : <Building className="w-3 h-3" />}
+                          {payout.method === 'wallet' ? 'Wallet Credit' : payout.method || 'Wallet'}
+                        </span>
+                        <span>•</span>
+                        {payout.status === 'completed' && (payout.completed_at || payout.processed_at) ? (
+                          <span>Completed {format(new Date(payout.completed_at || payout.processed_at!), 'MMM d, yyyy')}</span>
                         ) : (
                           <span>Created {format(new Date(payout.created_at), 'MMM d, yyyy')}</span>
                         )}
@@ -284,10 +309,10 @@ export function PayoutView() {
             <Info className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-1">Payment Schedule</p>
+            <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-1">Wallet Credits</p>
             <p className="font-mono text-xs text-zinc-500">
-              Payouts are processed every Friday for all completed batches.
-              Bank transfers typically take 2-3 business days to reflect.
+              Payout credits are added instantly to your enterprise wallet when assets are processed.
+              You can view your full wallet balance and transaction history in the Credits Wallet section.
             </p>
           </div>
         </div>

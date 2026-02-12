@@ -93,7 +93,7 @@ export function useCreatePayout() {
         enterprise_id: payout.enterprise_id,
         batch_id: payout.batch_id,
         amount: payout.amount,
-        method: 'bank_transfer',
+        method: 'wallet',
         notes: payout.reference_id ? `Ref: ${payout.reference_id}` : undefined,
       });
 
