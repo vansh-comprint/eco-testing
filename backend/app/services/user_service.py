@@ -274,6 +274,12 @@ class UserService:
         # Update only provided fields
         update_data = user_data.model_dump(exclude_unset=True)
 
+        # Validate email uniqueness if email is being changed
+        if "email" in update_data and update_data["email"] != user.email:
+            existing = await self.repository.get_by_email(update_data["email"])
+            if existing:
+                raise ConflictError(f"User with email {update_data['email']} already exists")
+
         # Handle enum conversions
         if "role" in update_data and update_data["role"]:
             update_data["role"] = update_data["role"].value
@@ -387,8 +393,6 @@ class UserService:
             new_password: New password (min 8 characters)
             actor: User object of the actor (for IDOR validation)
         """
-        from app.core.security import session_limiter
-
         user = await self.repository.get_by_id(user_id)
         if not user:
             raise NotFoundError("User", user_id)
@@ -411,11 +415,46 @@ class UserService:
         user.password_hash = password_hash
         user.updated_by = actor.id if actor else user_id
 
-        # Invalidate all existing sessions for security
-        session_limiter.clear_all_sessions(user_id)
-
         user = await self.repository.update(user)
         return UserResponse.model_validate(user)
+
+    async def toggle_logistics_company_status(
+        self, admin_user_id: str, activate: bool, actor: User
+    ) -> dict:
+        """Toggle logistics admin + all their field users active/inactive."""
+        admin_user = await self.repository.get_by_id(admin_user_id)
+        if not admin_user:
+            raise NotFoundError("User", admin_user_id)
+        if admin_user.role != UserRole.LOGISTICS_ADMIN.value:
+            raise ValidationError("User is not a logistics admin")
+
+        new_status = UserStatus.ACTIVE.value if activate else UserStatus.INACTIVE.value
+
+        # Update admin
+        admin_user.status = new_status
+        admin_user.updated_by = actor.id
+        await self.repository.update(admin_user)
+
+        # Update all child logistics users
+        from sqlalchemy import update as sql_update
+        from app.models.user import User as UserModel
+        stmt = (
+            sql_update(UserModel)
+            .where(UserModel.parent_user_id == admin_user_id)
+            .where(UserModel.role == UserRole.LOGISTICS_USER.value)
+            .values(status=new_status, updated_by=actor.id)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+
+        # Refresh to avoid greenlet_spawn after commit
+        await self.db.refresh(admin_user)
+
+        return {
+            "admin_id": admin_user_id,
+            "new_status": new_status,
+            "field_users_updated": result.rowcount,
+        }
 
     async def get_it_admins_with_branches(self, enterprise_id: str) -> List[Dict[str, Any]]:
         """

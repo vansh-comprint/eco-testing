@@ -105,6 +105,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
         userId: user.id,
         data: {
           name: data.name,
+          email: data.email,
           phone: data.phone || undefined,
           role: data.role,
           status: data.status,

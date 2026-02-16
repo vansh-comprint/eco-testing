@@ -35,6 +35,7 @@ export interface UserCreateRequest {
 
 export interface UserUpdateRequest {
   name?: string;
+  email?: string;
   phone?: string;
   role?: string;
   status?: string;
@@ -135,5 +136,12 @@ export const usersApi = {
     fetchWithAuth<UserResponse>(`/users/${userId}/reset-password`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  /** Toggle logistics company status (admin + all field users) */
+  toggleCompanyStatus: (userId: string, activate: boolean) =>
+    fetchWithAuth<any>(`/users/${userId}/toggle-company-status`, {
+      method: 'POST',
+      body: JSON.stringify({ activate }),
     }),
 };

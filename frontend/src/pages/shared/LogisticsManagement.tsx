@@ -6,13 +6,14 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Search, ChevronDown, ChevronRight, Mail, Phone, Edit2, UserPlus } from 'lucide-react';
-import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
+import { Truck, Search, ChevronDown, ChevronRight, Mail, Phone, Edit2, UserPlus, Power } from 'lucide-react';
+import { Input, Button, Card, Badge, PageHeader, Modal, ModalFooter, useToast } from '@/components/ui';
 import { CreateLogisticsAdminModal, CreateLogisticsUserModal, EditUserModal } from '@/pages/super';
 import { logisticsApi } from '@/lib/api/logistics';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToggleCompanyStatus } from '@/hooks';
 
 interface LogisticsAdmin {
   id: string;
@@ -102,6 +103,10 @@ export function LogisticsManagement() {
   const [selectedLogisticsAdminId, setSelectedLogisticsAdminId] = useState<string | undefined>(undefined);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<LogisticsAdmin | LogisticsUser | null>(null);
+  const [companyToggleTarget, setCompanyToggleTarget] = useState<{ admin: LogisticsAdmin; userCount: number } | null>(null);
+
+  const { addToast } = useToast();
+  const toggleCompanyMutation = useToggleCompanyStatus();
 
   const toggleExpand = (adminId: string) => {
     setExpandedAdmins(prev => {
@@ -267,6 +272,21 @@ export function LogisticsManagement() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setCompanyToggleTarget({ admin: item.admin, userCount: item.users.length });
+                        }}
+                        className={`p-2 transition-colors ${
+                          item.admin.status === 'active'
+                            ? 'hover:bg-red-500/10 text-emerald-500 hover:text-red-500'
+                            : 'hover:bg-emerald-500/10 text-red-500 hover:text-emerald-500'
+                        }`}
+                        title={item.admin.status === 'active' ? 'Deactivate Company' : 'Activate Company'}
+                      >
+                        <Power className={iconSize.sm} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedUser(item.admin);
                           setIsEditUserModalOpen(true);
                         }}
@@ -404,6 +424,65 @@ export function LogisticsManagement() {
           user={selectedUser}
           hideRole
         />
+      )}
+
+      {/* Company Toggle Confirmation Dialog */}
+      {companyToggleTarget && (
+        <Modal
+          isOpen={!!companyToggleTarget}
+          onClose={() => setCompanyToggleTarget(null)}
+          title={companyToggleTarget.admin.status === 'active' ? 'Deactivate Company' : 'Activate Company'}
+          description={
+            companyToggleTarget.admin.status === 'active'
+              ? `This will deactivate ${companyToggleTarget.admin.name} and all ${companyToggleTarget.userCount} field user(s). They will not be able to log in.`
+              : `This will reactivate ${companyToggleTarget.admin.name} and all their field users.`
+          }
+          size="sm"
+        >
+          <ModalFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setCompanyToggleTarget(null)}
+              disabled={toggleCompanyMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={companyToggleTarget.admin.status === 'active' ? 'danger' : 'primary'}
+              disabled={toggleCompanyMutation.isPending}
+              onClick={async () => {
+                const activate = companyToggleTarget.admin.status !== 'active';
+                try {
+                  await toggleCompanyMutation.mutateAsync({
+                    userId: companyToggleTarget.admin.id,
+                    activate,
+                  });
+                  addToast({
+                    type: 'success',
+                    title: activate ? 'Company Activated' : 'Company Deactivated',
+                    message: `${companyToggleTarget.admin.name} and all field users have been ${activate ? 'activated' : 'deactivated'}`,
+                    duration: 5000,
+                  });
+                  setCompanyToggleTarget(null);
+                } catch (error) {
+                  addToast({
+                    type: 'error',
+                    title: 'Action Failed',
+                    message: error instanceof Error ? error.message : 'Failed to update company status',
+                    duration: 6000,
+                  });
+                }
+              }}
+              leftIcon={<Power className="w-4 h-4" />}
+            >
+              {toggleCompanyMutation.isPending
+                ? 'Processing...'
+                : companyToggleTarget.admin.status === 'active'
+                  ? 'Deactivate'
+                  : 'Activate'}
+            </Button>
+          </ModalFooter>
+        </Modal>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 """User management endpoints for unified user model"""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Body, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -327,4 +327,20 @@ async def create_users_bulk(
         data=response_data,
         message=f"{len(users)} users created successfully"
         + (f", {len(errors)} errors" if errors else ""),
+    )
+
+
+@router.post("/{user_id}/toggle-company-status")
+async def toggle_company_status(
+    user_id: str,
+    activate: bool = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USER_UPDATE)),
+):
+    """Toggle a logistics company (admin + all field users) active/inactive."""
+    service = UserService(db)
+    result = await service.toggle_logistics_company_status(user_id, activate, current_user)
+    return success_response(
+        data=result,
+        message=f"Company {'activated' if activate else 'deactivated'} successfully",
     )

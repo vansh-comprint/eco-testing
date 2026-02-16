@@ -209,6 +209,21 @@ export function useResetUserPassword() {
 }
 
 /**
+ * Toggle logistics company status (admin + all field users)
+ */
+export function useToggleCompanyStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, activate }: { userId: string; activate: boolean }) =>
+      usersApi.toggleCompanyStatus(userId, activate),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['logistics-management'] });
+    },
+  });
+}
+
+/**
  * Update current user profile
  */
 export function useUpdateCurrentUser() {

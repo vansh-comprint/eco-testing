@@ -22,6 +22,7 @@ export {
   useUpdateUser,
   useDeleteUser,
   useResetUserPassword,
+  useToggleCompanyStatus,
   useUpdateCurrentUser,
   userKeys,
 } from './useUsers';
