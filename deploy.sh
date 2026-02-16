@@ -109,7 +109,7 @@ echo "========================================="
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 echo "  Frontend:  http://${SERVER_IP}:1228"
 echo "  Backend:   http://${SERVER_IP}:2228"
-echo "  API Docs:  http://${SERVER_IP}:2228/docs (disabled in production)"
+echo "  API Docs:  http://${SERVER_IP}:2228/docs"
 echo "  Health:    http://${SERVER_IP}:2228/health"
 echo ""
 echo "  Logs:"
