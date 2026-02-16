@@ -1,6 +1,6 @@
 """API endpoints for Submissions"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -38,15 +38,24 @@ def _to_response(submission) -> dict:
 
 @router.get("")
 async def list_submissions(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    enterprise_id: str = Query(None),
-    branch_id: str = Query(None),
-    user_id: str = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    enterprise_id: str = Query(None, description="Filter by enterprise ID"),
+    branch_id: str = Query(None, description="Filter by branch ID"),
+    user_id: str = Query(None, description="Filter by submitting user ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_VIEW)),
 ):
-    """List submissions with role-based filtering"""
+    """
+    List submissions with role-based scoping.
+
+    Employee self-evaluation submissions for device trade-in. Each submission
+    contains device confirmation, photos, functional checks, cosmetic checklist,
+    accessories, and employee declaration. Auto-scoped by role: employees see
+    only their own; IT Admins see their branch; Org Admins see their enterprise.
+
+    **Required permission:** SUBMISSION_VIEW
+    """
     service = SubmissionService(db)
     skip = (page - 1) * page_size
 
@@ -74,12 +83,20 @@ async def list_submissions(
 
 @router.get("/pending-review")
 async def list_pending_review(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_VIEW)),
 ):
-    """List submissions pending remote review"""
+    """
+    List submissions pending remote review.
+
+    Returns submissions that have been completed by employees but not yet
+    reviewed by an OPS Admin. Used by reviewers to pick up work items
+    from the review queue.
+
+    **Required permission:** SUBMISSION_VIEW
+    """
     service = SubmissionService(db)
     skip = (page - 1) * page_size
 
@@ -102,13 +119,21 @@ async def list_pending_review(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("")
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_submission(
     data: SubmissionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_CREATE)),
 ):
-    """Create a new submission"""
+    """
+    Create a new device self-evaluation submission.
+
+    Employees submit their device's condition including photos, functional checks,
+    cosmetic checklist, and accessories. This transitions the asset status to
+    'submitted' and queues it for remote review.
+
+    **Required permission:** SUBMISSION_CREATE
+    """
     service = SubmissionService(db)
 
     try:
@@ -129,7 +154,15 @@ async def get_submission_by_asset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_VIEW)),
 ):
-    """Get a submission by asset ID"""
+    """
+    Get a submission by asset ID.
+
+    Looks up the self-evaluation submission linked to a specific asset.
+    Useful for reviewers who need to see the employee's assessment before
+    performing their own review.
+
+    **Required permission:** SUBMISSION_VIEW
+    """
     service = SubmissionService(db)
 
     submission = await service.get_by_asset(asset_id)
@@ -145,7 +178,14 @@ async def get_submission(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_VIEW)),
 ):
-    """Get a submission by ID"""
+    """
+    Get a submission by ID.
+
+    Returns the full submission details including device confirmation, photos,
+    functional checks, cosmetic checklist, accessories, location, and declaration.
+
+    **Required permission:** SUBMISSION_VIEW
+    """
     service = SubmissionService(db)
 
     submission = await service.get_submission(submission_id)
@@ -162,7 +202,14 @@ async def update_submission(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.SUBMISSION_UPDATE)),
 ):
-    """Update a submission"""
+    """
+    Update a submission.
+
+    Allows modifying submission details before review. Only the submitting employee
+    or admins can update. Cannot be modified after review has started.
+
+    **Required permission:** SUBMISSION_UPDATE
+    """
     service = SubmissionService(db)
 
     try:

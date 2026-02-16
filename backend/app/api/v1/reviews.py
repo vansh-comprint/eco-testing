@@ -1,6 +1,6 @@
 """API endpoints for Reviews (RemoteReview, FacilityQC, OnSiteQC)"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -48,13 +48,20 @@ def _remote_review_to_dict(review) -> dict:
 
 @router.get("/remote")
 async def list_remote_reviews(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    decision: str = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    decision: str = Query(None, description="Filter by decision: conditionally_accepted, remote_rejected"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """List remote reviews"""
+    """
+    List remote reviews with role-based scoping.
+
+    OPS Admins see all reviews. IT Admins see reviews for their branch assets.
+    Supports filtering by review decision and pagination.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = RemoteReviewService(db)
     skip = (page - 1) * page_size
 
@@ -78,13 +85,21 @@ async def list_remote_reviews(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/remote")
+@router.post("/remote", status_code=status.HTTP_201_CREATED)
 async def create_remote_review(
     data: RemoteReviewCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_CREATE)),
 ):
-    """Create a remote review"""
+    """
+    Create a remote review for a submitted asset.
+
+    Evaluates the employee's self-assessment submission remotely. The reviewer assigns
+    a decision (conditionally_accepted or remote_rejected), grade, and estimated value.
+    This triggers the corresponding asset status transition.
+
+    **Required permission:** REVIEW_CREATE
+    """
     service = RemoteReviewService(db)
 
     try:
@@ -106,7 +121,14 @@ async def get_remote_review(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """Get a remote review by ID"""
+    """
+    Get a remote review by ID.
+
+    Returns the full review details including decision, grade, estimated value,
+    checklist results, and reviewer notes.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = RemoteReviewService(db)
 
     review = await service.get_review(review_id)
@@ -123,7 +145,14 @@ async def update_remote_review(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_UPDATE)),
 ):
-    """Update a remote review"""
+    """
+    Update a remote review.
+
+    Allows modifying review details such as decision, grade, estimated value, or notes.
+    Only the reviewing user or admins can update a review.
+
+    **Required permission:** REVIEW_UPDATE
+    """
     service = RemoteReviewService(db)
 
     try:
@@ -165,13 +194,21 @@ def _facility_qc_to_dict(qc) -> dict:
 
 @router.get("/facility")
 async def list_facility_qc(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    decision: str = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    decision: str = Query(None, description="Filter by QC decision: final_accepted, final_rejected"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """List facility QC records"""
+    """
+    List facility QC records with role-based scoping.
+
+    Facility QC is the in-person quality check performed after pickup at the
+    processing facility. Includes functional tests, cosmetic assessment, and
+    hardware verification results.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = FacilityQCService(db)
     skip = (page - 1) * page_size
 
@@ -195,13 +232,21 @@ async def list_facility_qc(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/facility")
+@router.post("/facility", status_code=status.HTTP_201_CREATED)
 async def create_facility_qc(
     data: FacilityQCCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_CREATE)),
 ):
-    """Create a facility QC record"""
+    """
+    Create a facility QC record for a picked-up asset.
+
+    Records the results of in-person quality checks including functional tests,
+    cosmetic assessment, hardware tests, and final valuation. Sets the asset's
+    final decision (final_accepted or final_rejected).
+
+    **Required permission:** REVIEW_CREATE
+    """
     service = FacilityQCService(db)
 
     try:
@@ -220,7 +265,14 @@ async def get_facility_qc(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """Get a facility QC record by ID"""
+    """
+    Get a facility QC record by ID.
+
+    Returns the full QC details including functional tests, cosmetic assessment,
+    hardware tests, photos, final value, and reviewer notes.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = FacilityQCService(db)
 
     qc = await service.get_qc(qc_id)
@@ -258,13 +310,20 @@ def _onsite_qc_to_dict(qc) -> dict:
 
 @router.get("/onsite")
 async def list_onsite_qc(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    status: str = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    status: str = Query(None, description="Filter by QC status: pending, completed, failed"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """List on-site QC records"""
+    """
+    List on-site QC records with role-based scoping.
+
+    On-site QC is performed by logistics field users during device pickup.
+    Checks physical condition, power-on, screen, keyboard, and ports.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = OnSiteQCService(db)
     skip = (page - 1) * page_size
 
@@ -288,13 +347,21 @@ async def list_onsite_qc(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/onsite")
+@router.post("/onsite", status_code=status.HTTP_201_CREATED)
 async def create_onsite_qc(
     data: OnSiteQCCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),  # Logistics users can create
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
 ):
-    """Create an on-site QC record"""
+    """
+    Create an on-site QC record during device pickup.
+
+    Performed by logistics field users at the pickup location. Records physical
+    condition checks (screen, keyboard, ports), power-on test, and photos.
+    Linked to the pickup request for the asset.
+
+    **Required permission:** PICKUP_UPDATE (logistics users)
+    """
     service = OnSiteQCService(db)
 
     try:
@@ -313,7 +380,14 @@ async def get_onsite_qc(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.REVIEW_VIEW)),
 ):
-    """Get an on-site QC record by ID"""
+    """
+    Get an on-site QC record by ID.
+
+    Returns the full on-site QC details including physical condition checks,
+    power-on test, photo URLs, and performer notes.
+
+    **Required permission:** REVIEW_VIEW
+    """
     service = OnSiteQCService(db)
 
     qc = await service.get_qc(qc_id)

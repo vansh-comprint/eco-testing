@@ -1,6 +1,6 @@
 """API endpoints for Payouts and Wallets"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -76,13 +76,21 @@ def _transaction_to_dict(txn) -> dict:
 
 @router.get("")
 async def list_payouts(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    status: str = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    status: str = Query(None, description="Filter by payout status: pending, initiated, completed, failed"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PAYOUT_VIEW)),
 ):
-    """List payouts with role-based filtering"""
+    """
+    List payouts with role-based scoping.
+
+    Super/OPS Admins see all payouts. Org Admins see payouts for their enterprise.
+    Each payout is linked to a batch and enterprise, with payment method details
+    (bank transfer or UPI) and processing status.
+
+    **Required permission:** PAYOUT_VIEW
+    """
     service = PayoutService(db)
     skip = (page - 1) * page_size
 
@@ -106,13 +114,20 @@ async def list_payouts(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("")
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_payout(
     data: PayoutCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PAYOUT_CREATE)),
 ):
-    """Create a payout request"""
+    """
+    Create a payout request for an approved batch.
+
+    Initiates a payout to the enterprise for a completed asset batch.
+    Requires the enterprise's bank account or UPI details.
+
+    **Required permission:** PAYOUT_CREATE
+    """
     service = PayoutService(db)
 
     try:
@@ -130,7 +145,14 @@ async def get_payout(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PAYOUT_VIEW)),
 ):
-    """Get a payout by ID"""
+    """
+    Get a payout by ID.
+
+    Returns full payout details including amount, payment method, processing status,
+    transaction reference, and timestamps.
+
+    **Required permission:** PAYOUT_VIEW
+    """
     service = PayoutService(db)
 
     payout = await service.get_payout(payout_id)
@@ -150,8 +172,10 @@ async def process_payout(
     """
     Process a payout (mark as completed or failed).
 
-    - Use action='complete' with transaction_reference to complete the payout
-    - Use action='fail' with failure_reason to mark as failed
+    - Use `action='complete'` with `transaction_reference` to complete the payout
+    - Use `action='fail'` with `failure_reason` to mark as failed
+
+    **Required permission:** PAYOUT_PROCESS
     """
     service = PayoutService(db)
 
@@ -186,9 +210,12 @@ async def get_wallet(
     """
     Get wallet for an enterprise.
 
-    Multi-tenant protection: Users can only access wallets within their scope.
+    Returns the enterprise's wallet balance, credit limit, and currency.
+    Creates a new wallet if one doesn't exist yet.
+    Multi-tenant protection: users can only access wallets within their scope.
+
+    **Required permission:** PAYOUT_VIEW
     """
-    # Multi-tenant access control
     validate_wallet_access(current_user, enterprise_id)
 
     service = WalletService(db)
@@ -212,12 +239,13 @@ async def credit_wallet(
     """
     Credit amount to enterprise wallet.
 
-    Multi-tenant protection and amount validation applied.
-    """
-    # Multi-tenant access control
-    validate_wallet_access(current_user, enterprise_id)
+    Adds funds to the enterprise wallet. Returns updated wallet balance
+    and the credit transaction record. Multi-tenant protection and amount
+    validation applied.
 
-    # Validate amount
+    **Required permission:** PAYOUT_PROCESS
+    """
+    validate_wallet_access(current_user, enterprise_id)
     validate_amount(data.amount, "credit amount")
 
     service = WalletService(db)
@@ -249,12 +277,13 @@ async def debit_wallet(
     """
     Debit amount from enterprise wallet.
 
+    Deducts funds from the enterprise wallet. Returns updated wallet balance
+    and the debit transaction record. Fails if insufficient balance.
     Multi-tenant protection and amount validation applied.
-    """
-    # Multi-tenant access control
-    validate_wallet_access(current_user, enterprise_id)
 
-    # Validate amount
+    **Required permission:** PAYOUT_PROCESS
+    """
+    validate_wallet_access(current_user, enterprise_id)
     validate_amount(data.amount, "debit amount")
 
     service = WalletService(db)
@@ -279,17 +308,19 @@ async def debit_wallet(
 @router.get("/wallet/{enterprise_id}/transactions")
 async def list_wallet_transactions(
     enterprise_id: str,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PAYOUT_VIEW)),
 ):
     """
     List transactions for an enterprise wallet.
 
-    Multi-tenant protection: Users can only access their own enterprise's transactions.
+    Returns paginated credit and debit transactions with balance snapshots.
+    Multi-tenant protection: users can only access their own enterprise's transactions.
+
+    **Required permission:** PAYOUT_VIEW
     """
-    # Multi-tenant access control
     validate_wallet_access(current_user, enterprise_id)
 
     service = WalletService(db)

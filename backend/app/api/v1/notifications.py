@@ -1,6 +1,6 @@
 """API endpoints for Notifications"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -31,13 +31,19 @@ def _to_dict(notification) -> dict:
 
 @router.get("")
 async def list_notifications(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    is_read: bool = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    is_read: bool = Query(None, description="Filter by read status: true for read, false for unread, omit for all"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List notifications for current user"""
+    """
+    List notifications for the current user.
+
+    Returns paginated notifications with an additional `unread_count` field.
+    Supports filtering by read/unread status. Notifications are ordered by
+    creation date (newest first).
+    """
     service = NotificationService(db)
     skip = (page - 1) * page_size
 
@@ -50,7 +56,6 @@ async def list_notifications(
         )
         await db.commit()
 
-        # Use success_response with extra fields for unread_count
         from app.utils.response import PaginationMeta
 
         pagination = PaginationMeta(
@@ -71,13 +76,20 @@ async def list_notifications(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("")
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_notification(
     data: NotificationCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.NOTIFICATION_CREATE)),
 ):
-    """Create a notification (admin only)"""
+    """
+    Create a notification for a specific user (admin only).
+
+    Sends a notification with a title, message, optional action URL, and extra data.
+    The target user will see this in their notification feed.
+
+    **Required permission:** NOTIFICATION_CREATE
+    """
     service = NotificationService(db)
 
     try:
@@ -89,13 +101,20 @@ async def create_notification(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/bulk")
+@router.post("/bulk", status_code=status.HTTP_201_CREATED)
 async def create_bulk_notifications(
     data: NotificationBulkCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.NOTIFICATION_CREATE)),
 ):
-    """Create notifications for multiple users (admin only)"""
+    """
+    Create notifications for multiple users at once (admin only).
+
+    Sends the same notification to a list of user IDs. Returns the count
+    of notifications created.
+
+    **Required permission:** NOTIFICATION_CREATE
+    """
     service = NotificationService(db)
 
     try:
@@ -116,7 +135,12 @@ async def mark_as_read(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Mark a notification as read"""
+    """
+    Mark a notification as read.
+
+    Sets the notification's `is_read` to true and records `read_at` timestamp.
+    Users can only mark their own notifications as read.
+    """
     service = NotificationService(db)
 
     try:
@@ -135,7 +159,12 @@ async def mark_all_as_read(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Mark all notifications as read for current user"""
+    """
+    Mark all notifications as read for the current user.
+
+    Bulk-marks all unread notifications as read. Returns the count of
+    notifications updated.
+    """
     service = NotificationService(db)
 
     try:
@@ -149,13 +178,17 @@ async def mark_all_as_read(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{notification_id}")
+@router.delete("/{notification_id}", status_code=status.HTTP_200_OK)
 async def delete_notification(
     notification_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a notification"""
+    """
+    Delete a notification.
+
+    Permanently removes a notification. Users can only delete their own notifications.
+    """
     service = NotificationService(db)
 
     try:
