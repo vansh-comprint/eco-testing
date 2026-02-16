@@ -92,8 +92,8 @@ Authorization: Bearer <your_token>
 - **Logistics Admin**: Partner company management
 - **Logistics User**: Field operations, pickups, on-site QC
     """,
-    docs_url="/docs" if settings.debug else None,
-    redoc_url="/redoc" if settings.debug else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
     openapi_tags=[
         {"name": "Authentication", "description": "Login, registration, and token management"},
         {"name": "Users", "description": "User management (admins, IT admins, employees)"},
