@@ -53,15 +53,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Only add for HTML responses, not for API responses
         content_type = response.headers.get("content-type", "")
         if "text/html" in content_type:
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: https:; "
-                "font-src 'self' data:; "
-                "connect-src 'self' https:; "
-                "frame-ancestors 'none';"
-            )
+            path = str(request.url.path)
+            # Swagger UI and ReDoc need CDN assets
+            if path in ("/docs", "/redoc"):
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+                    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    "img-src 'self' data: https:; "
+                    "font-src 'self' data: https://cdn.jsdelivr.net; "
+                    "connect-src 'self' https:; "
+                    "frame-ancestors 'none';"
+                )
+            else:
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data: https:; "
+                    "font-src 'self' data:; "
+                    "connect-src 'self' https:; "
+                    "frame-ancestors 'none';"
+                )
 
         # Strict-Transport-Security: Force HTTPS
         # Only add in production (not localhost)
