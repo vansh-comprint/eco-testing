@@ -146,3 +146,62 @@ async def get_it_admin_branch_ids(db, user_id: str) -> List[str]:
     )
     return [row[0] for row in result.all()]
 
+
+async def get_it_admin_scoped_filters(db, current_user: User) -> Dict[str, Any]:
+    """
+    Get filter parameters for IT Admin with multi-branch support.
+
+    Queries Branch.it_admin_id to find ALL branches managed by this IT Admin,
+    instead of relying on the single User.branch_id field.
+
+    Returns:
+        Dict with enterprise_id and branch_ids (list) for IN-clause filtering
+    """
+    filters: Dict[str, Any] = {}
+
+    if current_user.enterprise_id:
+        filters["enterprise_id"] = current_user.enterprise_id
+
+    # Get ALL branches this IT Admin manages via Branch.it_admin_id
+    managed_branch_ids = await get_it_admin_branch_ids(db, current_user.id)
+
+    # Also include user's own branch_id as fallback (in case not linked via it_admin_id)
+    if current_user.branch_id and current_user.branch_id not in managed_branch_ids:
+        managed_branch_ids.append(current_user.branch_id)
+
+    if managed_branch_ids:
+        filters["branch_ids"] = managed_branch_ids
+
+    return filters
+
+
+async def can_access_branch_scoped(db, user: User, branch_id: str) -> bool:
+    """
+    Check if user can access a specific branch, considering multi-branch IT Admin.
+
+    Unlike can_access_branch() which only checks User.branch_id,
+    this queries Branch.it_admin_id for IT Admins.
+    """
+    if is_platform_admin(user):
+        return True
+
+    # Org Admin can access all branches in their enterprise
+    if user.role == UserRole.ORG_ADMIN.value:
+        from sqlalchemy import select
+        from app.models.enterprise import Branch
+        result = await db.execute(
+            select(Branch.enterprise_id).where(Branch.id == branch_id)
+        )
+        branch_enterprise_id = result.scalar_one_or_none()
+        return str(branch_enterprise_id) == str(user.enterprise_id) if branch_enterprise_id else False
+
+    # IT Admin: check all managed branches
+    if user.role == UserRole.IT_ADMIN.value:
+        managed_ids = await get_it_admin_branch_ids(db, user.id)
+        if user.branch_id and user.branch_id not in managed_ids:
+            managed_ids.append(user.branch_id)
+        return str(branch_id) in [str(bid) for bid in managed_ids]
+
+    # Employee and others: check direct branch_id match
+    return str(user.branch_id) == str(branch_id) if user.branch_id else False
+

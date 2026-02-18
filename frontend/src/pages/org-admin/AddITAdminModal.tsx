@@ -5,17 +5,14 @@ import { z } from 'zod';
 import { UserPlus, Plus, ChevronDown, ChevronUp, Loader2, Check } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useAuth, useCreateITAdmin, useBranches, useCreateBranch } from '@/hooks';
+import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
 
 // Validation schema — phone is optional, branch is optional
 const addITAdminSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').or(z.literal('')).optional(),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Must contain at least one number'),
+  password: passwordSchema,
   branch_id: z.string().optional(),
 });
 
@@ -176,6 +173,7 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
           <Input
             label="Full Name"
             {...register('name')}
+            onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, ''); }}
             error={errors.name?.message}
             placeholder="John Doe"
             required
@@ -194,14 +192,16 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
             type="password"
             {...register('password')}
             error={errors.password?.message}
-            placeholder="Min. 8 characters"
+            placeholder={PASSWORD_HINT}
             required
           />
           <Input
             label="Phone Number"
             {...register('phone')}
+            onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
+            inputMode="numeric"
             error={errors.phone?.message}
-            placeholder="+91-9876543210"
+            placeholder="9876543210"
           />
 
           {/* Branch selector — optional */}

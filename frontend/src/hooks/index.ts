@@ -6,6 +6,8 @@
 
 // Auth (wraps authStore - kept for session management)
 export { useAuth } from './useAuth';
+export { useDebounce } from './useDebounce';
+export { usePortalBasePath } from './usePortalBasePath';
 
 // API Error Handling
 export { useApiError } from './useApiError';
@@ -58,6 +60,7 @@ export {
   useBatchesByBranch,
   useBatchesByITAdmin,
   usePickupApprovalQueue,
+  usePendingApprovalBatches,
   useCreateBatch,
   useUpdateBatch,
   useDeleteBatch,

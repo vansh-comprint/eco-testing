@@ -2,8 +2,15 @@
 
 import logging
 from typing import Optional
-from redis.asyncio import Redis, ConnectionPool
-from redis.exceptions import RedisError
+try:
+    from redis.asyncio import Redis, ConnectionPool
+    from redis.exceptions import RedisError
+    HAS_REDIS = True
+except ImportError:
+    Redis = None
+    ConnectionPool = None
+    RedisError = Exception
+    HAS_REDIS = False
 
 from app.core.config import settings
 
@@ -22,6 +29,10 @@ async def init_redis() -> Optional[Redis]:
     Returns None if Redis is disabled.
     """
     global _redis_client, _connection_pool
+
+    if not HAS_REDIS:
+        logger.info("[Redis] redis package not installed, running in stateless mode")
+        return None
 
     if not settings.use_redis_sessions:
         logger.info("[Redis] Session storage disabled (USE_REDIS_SESSIONS=false)")

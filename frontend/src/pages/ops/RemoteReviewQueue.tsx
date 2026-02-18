@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Laptop,
@@ -18,6 +18,8 @@ import { formatDistanceToNow } from 'date-fns';
 
 export function RemoteReviewQueue() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/super') ? '/super' : '/ops';
   // V3: Use React Query hooks for database data
   const { data: assets = [] } = useAllAssets();
   const { data: subUsers = [] } = useAllSubUsers();
@@ -162,7 +164,7 @@ export function RemoteReviewQueue() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * index }}
-              onClick={() => navigate(`/ops/submissions/${item.id}`)}
+              onClick={() => navigate(`${basePath}/submissions/${item.id}`)}
               className="interactive bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-4 sm:p-5 hover:border-ecotribe-primary dark:hover:border-ecotribe-primary transition-all cursor-pointer group active:scale-[0.99]"
             >
               <div className="flex items-start sm:items-center gap-3 sm:gap-4">

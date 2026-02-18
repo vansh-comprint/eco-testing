@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useCreateUser } from '@/hooks';
+import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { branchesApi } from '@/lib/api/branches';
 import { useQueryClient } from '@tanstack/react-query';
@@ -25,21 +26,22 @@ interface Branch {
 
 // Validation schema — password required only for it_admin/org_admin, branch required for it_admin
 const createEnterpriseUserSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().min(2, 'Name must be at least 2 characters').regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
+  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits').optional().or(z.literal('')),
   password: z.string().optional(),
   enterpriseId: z.string().min(1, 'Enterprise is required'),
   role: z.enum(['it_admin', 'org_admin', 'employee']),
   branchId: z.string().optional(),
 }).superRefine((data, ctx) => {
-  // Password required for it_admin and org_admin
-  if (data.role !== 'employee' && (!data.password || data.password.length < 8)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Password must be at least 8 characters',
-      path: ['password'],
-    });
+  // Password required for it_admin and org_admin — validate with shared rules
+  if (data.role !== 'employee') {
+    const result = passwordSchema.safeParse(data.password);
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        ctx.addIssue({ ...issue, path: ['password'] });
+      });
+    }
   }
   // Branch required for it_admin
   if (data.role === 'it_admin' && !data.branchId) {
@@ -309,6 +311,9 @@ export function CreateEnterpriseUserModal({
             placeholder="John Doe"
             required
             autoFocus
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, '');
+            }}
           />
 
           <Input
@@ -327,7 +332,7 @@ export function CreateEnterpriseUserModal({
               type="password"
               {...register('password')}
               error={errors.password?.message}
-              placeholder="Min. 8 characters"
+              placeholder={PASSWORD_HINT}
               required
             />
           )}
@@ -336,7 +341,11 @@ export function CreateEnterpriseUserModal({
             label="Phone Number"
             {...register('phone')}
             error={errors.phone?.message}
-            placeholder="+91-9876543210"
+            placeholder="9876543210"
+            inputMode="numeric"
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+            }}
           />
 
           <div className="pt-2 p-4 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded">

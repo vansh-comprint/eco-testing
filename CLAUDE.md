@@ -182,40 +182,86 @@ Key tables: `users`, `sub_users`, `enterprises`, `branches`, `assets`, `batches`
 
 ## Agent System
 
-This project uses the **conductor agent orchestration system** with Opus 4.6 Agent Teams.
+This project uses **Opus 4.6 Agent Teams** orchestrated by the **conductor** agent.
 
-### To use: Just invoke the conductor for any non-trivial task.
-### Memory location: `.claude/memory/`
-### Agent definitions: `.claude/agents/`
-### Verification hooks: `.claude/hooks/`
+### How to Use
 
-The conductor will automatically:
-- Resume work-in-progress from memory
-- Spawn Agent Teams for complex tasks (parallel, peer-to-peer messaging)
-- Use `TeamCreate` + `SendMessage` + shared `TaskList` for coordination
-- Manage project memory and agent learning via the librarian
+**For multi-file tasks, UI overhauls, features, refactors, or any complex work:**
+```bash
+claude --agent conductor
+```
+The conductor has ONLY `Read, Glob, Grep` tools — it physically CANNOT write code.
+It MUST delegate all implementation to Agent Teams teammates.
+
+**For small, single-file fixes:**
+Work directly in a normal Claude session. No agent overhead needed.
+
+### When to Use the Conductor (vs working solo)
+
+| Use Conductor | Work Solo |
+|---------------|-----------|
+| Multi-file changes (3+ files) | Single-file fix |
+| UI/UX overhauls | Fix a typo |
+| New features | Add a log line |
+| Refactors | Quick bug fix in one function |
+| Security-critical changes | Reading/understanding code |
+| Cross-layer changes (backend + frontend) | Config changes |
+
+### Agent Definitions: `.claude/agents/`
+### Agent Memory (auto-injected): `.claude/agent-memory/<name>/MEMORY.md`
+### Shared Project Memory: `.claude/memory/`
+### Verification Hooks: `.claude/hooks/`
+
+### How it Works
+
+1. Conductor creates a team (`TeamCreate`)
+2. Creates task list with dependencies (`TaskCreate` + `addBlockedBy`)
+3. Spawns teammates — each is a full Claude session with peer-to-peer messaging
+4. Teammates communicate directly via `SendMessage` (not through conductor)
+5. Conductor monitors, approves plans, handles blockers, reviews results
+6. Librarian consolidates learnings into project memory
 
 ### Available Agents (14 project-level)
+
+**Core Team (spawned as Agent Teams teammates):**
+| Agent | Role | Model | Memory |
+|-------|------|-------|--------|
+| analyst | Codebase reconnaissance, read-only | sonnet | project |
+| builder | Frontend/general implementation | sonnet | project |
+| backend-engineer | FastAPI/Python specialist | sonnet | project |
+| breaker | Destruction testing (/tmp scripts only) | sonnet | project |
+| sentinel | Mechanical verification (tests/lint/types) | haiku | project |
+| librarian | Memory management & meta-learning | haiku | project |
+| advocate | Flash tribunal: case FOR | sonnet | — |
+| adversary | Flash tribunal: case AGAINST | sonnet | — |
+
+**Sub-delegated (spawned by builder/backend-engineer, not conductor):**
 | Agent | Role | Model |
 |-------|------|-------|
-| analyst | Reconnaissance & memory validation | sonnet |
-| builder | General implementation | sonnet |
-| backend-engineer | FastAPI/Python specialist | sonnet |
-| breaker | Destruction testing | sonnet |
-| sentinel | Mechanical verification (tests/lint/types) | haiku |
-| librarian | Memory management & meta-learning | haiku |
-| surgeon | Precision multi-file edits (delegated by builder) | sonnet |
-| advocate | Flash tribunal: case FOR | sonnet |
-| adversary | Flash tribunal: case AGAINST | sonnet |
+| surgeon | Precision multi-file edits | sonnet |
 | architecture-validator | Layer separation checks | sonnet |
 | database-architect | Schema & migration design | sonnet |
 | code-reviewer | Quality & pattern review | sonnet |
 | security-auditor | OWASP & auth scanning | sonnet |
 | test-generator | pytest-asyncio test generation | sonnet |
 
-### Memory files (NOT committed to git):
+### Team Sizing
+
+| Tier | Scope | Agents |
+|------|-------|--------|
+| LEAN | 1-8 files, localized | analyst + builder/backend-engineer + sentinel (3) |
+| FULL | 8+ files, cross-cutting | + breaker + librarian (5) |
+| TRIBUNAL | Critical/irreversible | Full + advocate + adversary (7) |
+
+### Memory System (NOT committed to git)
+
+**Per-agent memory** (auto-injected, first 200 lines):
+- `.claude/agent-memory/<name>/MEMORY.md` — persistent per-agent knowledge
+
+**Shared project memory** (librarian-managed):
 - `.claude/memory/architecture.md` — living codebase map
-- `.claude/memory/decisions.md` — decision log with tribunal records
 - `.claude/memory/failures.md` — failure registry and patterns
+
+**Conductor-managed:**
+- `.claude/memory/decisions.md` — decision log with tribunal records
 - `.claude/memory/wip.md` — work-in-progress state
-- `.claude/memory/agent-logs/` — individual agent observations

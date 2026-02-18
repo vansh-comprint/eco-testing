@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Filter, Plus, AlertCircle, AlertTriangle } from 'lucide-react';
+import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Plus, AlertCircle, AlertTriangle, Package } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
 import { useToast } from '@/components/ui';
@@ -38,6 +38,18 @@ export function LogisticsAssignmentQueue() {
     return logisticsUsers.filter(u => u.parent_user_id === currentLogisticsAdminId && u.status === 'active');
   }, [logisticsUsers, currentLogisticsAdminId]);
 
+  // Stats (computed from all pickups, not filtered)
+  const stats = useMemo(() => {
+    const needsAssignment = pickupRequests.filter(r =>
+      !r.logistics_user_id &&
+      ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user'].includes(r.status)
+    ).length;
+    const scheduled = pickupRequests.filter(r => r.status === 'scheduled').length;
+    const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
+    const completed = pickupRequests.filter(r => r.status === 'completed').length;
+    return { needsAssignment, scheduled, inProgress, completed };
+  }, [pickupRequests]);
+
   const queue = useMemo(() => {
     return pickupRequests
       .filter(r => {
@@ -60,9 +72,6 @@ export function LogisticsAssignmentQueue() {
       })
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [pickupRequests, search, statusFilter, enterprises]);
-
-  // Count of pickups awaiting field user assignment (no logistics_user_id yet)
-  const pendingUserAssignment = queue.filter(r => !r.logistics_user_id).length;
 
   const openAssignModal = (pickup: PickupResponse) => {
     setSelectedPickup(pickup);
@@ -138,150 +147,234 @@ export function LogisticsAssignmentQueue() {
     );
   }, [myLogisticsUsers, userSearch]);
 
+  const getStatusColor = (status: string) => {
+    const map: Record<string, string> = {
+      pending: 'border-amber-400/30 bg-amber-400/10 text-amber-400',
+      assigned_to_logistics_admin: 'border-amber-400/30 bg-amber-400/10 text-amber-400',
+      assigned_to_logistics_user: 'border-blue-400/30 bg-blue-400/10 text-blue-400',
+      scheduled: 'border-purple-400/30 bg-purple-400/10 text-purple-400',
+      in_progress: 'border-amber-400/30 bg-amber-400/10 text-amber-400',
+      completed: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400',
+      failed: 'border-orange-400/30 bg-orange-400/10 text-orange-400',
+      cancelled: 'border-red-400/30 bg-red-400/10 text-red-400',
+    };
+    return map[status] || 'border-slate-400/30 bg-slate-400/10 text-slate-400';
+  };
+
+  const getStatusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      pending: 'Pending',
+      assigned_to_logistics_admin: 'Awaiting Driver',
+      assigned_to_logistics_user: 'Assigned to Driver',
+      scheduled: 'Scheduled',
+      in_progress: 'In Progress',
+      completed: 'Completed',
+      failed: 'Failed',
+      cancelled: 'Cancelled',
+    };
+    return map[status] || status;
+  };
+
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 dark:border-white/10 pb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
-              Assignment Queue
-            </span>
-            <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
-              My Pickups
-            </h1>
-            {pendingUserAssignment > 0 && (
-              <p className="font-mono text-xs text-amber-400 mt-2">
-                {pendingUserAssignment} pickup(s) need field user assignment
-              </p>
-            )}
-          </motion.div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500 dark:text-white/50 flex-shrink-0" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="flex-1 sm:flex-none px-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:border-ecotribe-primary/50"
-            >
-              <option value="active">Active Only</option>
-              <option value="all">All (with History)</option>
-            </select>
-          </div>
-          <div className="relative flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search location or enterprise..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono"
-            />
-          </div>
-        </div>
+      {/* Header */}
+      <div className="border-b border-slate-200 dark:border-white/10 pb-6">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
+            Assignment Queue
+          </span>
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
+            My Pickups
+          </h1>
+          <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
+            {pickupRequests.length} total pickups assigned to you
+          </p>
+        </motion.div>
       </div>
 
+      {/* Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 md:grid-cols-4 border-l border-t border-slate-200 dark:border-white/10"
+      >
+        {[
+          { label: 'Needs Assignment', value: stats.needsAssignment, icon: <AlertTriangle className="w-4 h-4" />, highlight: stats.needsAssignment > 0 },
+          { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4" /> },
+          { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4" /> },
+          { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4" /> },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">{stat.label}</h4>
+              <span className={stat.highlight ? 'text-amber-500' : 'text-slate-500 dark:text-white/60'}>{stat.icon}</span>
+            </div>
+            <div className={`font-brand font-bold text-3xl ${stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
+              {stat.value}
+            </div>
+          </div>
+        ))}
+      </motion.div>
 
-      <div className="space-y-3">
-        {queue.length === 0 && (
-          <div className="p-6 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-center">
-            <Truck className="w-10 h-10 text-slate-500 dark:text-white/50 mx-auto mb-3" />
-            <p className="font-mono text-sm text-slate-500 dark:text-white/50">
-              No pickups assigned to you yet.
+      {/* Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="flex flex-col sm:flex-row gap-3"
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search location or enterprise..."
+            className="w-full pl-11 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-sm text-slate-900 dark:text-white font-mono placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+          />
+        </div>
+        <div className="flex gap-2">
+          {([
+            { key: 'active' as const, label: 'Active' },
+            { key: 'all' as const, label: 'All' },
+          ]).map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setStatusFilter(filter.key)}
+              className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
+                statusFilter === filter.key
+                  ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Pickup List */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+      >
+        {queue.length === 0 ? (
+          <div className="py-16 text-center">
+            <Truck className="w-12 h-12 text-slate-500 dark:text-white/50 mx-auto mb-4" />
+            <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">
+              No pickups assigned to you yet
             </p>
-            <p className="font-mono text-xs text-slate-400 dark:text-white/30 mt-1">
+            <p className="font-mono text-xs text-slate-400 dark:text-white/30">
               Pickups will appear here once the operations team assigns them to you.
             </p>
           </div>
-        )}
-        {queue.map((r, idx) => {
-          const ent = enterprises.find(e => e.id === r.enterprise_id);
-          const location = r.pickup_locations;
-          const needsUserAssignment = !r.logistics_user_id;
-          return (
-            <motion.div
-              key={r.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * idx }}
-              className={`interactive border p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
-                needsUserAssignment
-                  ? 'border-amber-400/30 bg-amber-400/5'
-                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 border flex items-center justify-center ${
-                  needsUserAssignment
-                    ? 'border-amber-400/30 bg-amber-400/10'
-                    : 'border-slate-200 dark:border-white/10 bg-ecotribe-primary/10'
-                }`}>
-                  <Truck className={`w-6 h-6 ${needsUserAssignment ? 'text-amber-400' : 'text-ecotribe-primary'}`} />
-                </div>
-                <div>
-                  <p className="font-display font-bold text-sm text-slate-900 dark:text-white">
-                    {location?.name || 'Pickup'} · {r.asset_ids?.length || 0} assets
-                  </p>
-                  <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                    {ent?.name || 'Enterprise'} · {r.preferred_time_slot} · {r.preferred_date ? new Date(r.preferred_date).toDateString() : 'TBD'}
-                  </p>
-                  {needsUserAssignment && (
-                    <p className="font-mono text-xs text-amber-400 mt-1">
-                      Needs field user assignment
-                    </p>
-                  )}
-                  {r.status === 'in_progress' && (
-                    <p className={`font-mono text-xs mt-1 flex items-center gap-1 ${
-                      r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000
-                        ? 'text-amber-500'
-                        : 'text-lime-500'
-                    }`}>
-                      {r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000 && (
-                        <AlertTriangle className="w-3 h-3" />
+        ) : (
+          <div className="divide-y divide-slate-200 dark:divide-white/5">
+            {queue.map((r, idx) => {
+              const ent = enterprises.find(e => e.id === r.enterprise_id);
+              const location = r.pickup_locations;
+              const needsUserAssignment = !r.logistics_user_id;
+              return (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.03 * Math.min(idx, 10) }}
+                  className={`p-5 transition-colors ${
+                    needsUserAssignment
+                      ? 'bg-amber-400/[0.03]'
+                      : 'hover:bg-white/60 dark:hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
+                        needsUserAssignment
+                          ? 'border-amber-400/30 bg-amber-400/10'
+                          : 'border-slate-200 dark:border-white/10 bg-ecotribe-primary/10'
+                      }`}>
+                        <Truck className={`w-6 h-6 ${needsUserAssignment ? 'text-amber-400' : 'text-ecotribe-primary'}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
+                            {location?.name || 'Pickup'}
+                          </p>
+                          <span className="font-mono text-xs text-slate-500 dark:text-white/50">
+                            {r.asset_ids?.length || 0} assets
+                          </span>
+                        </div>
+                        <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-0.5">
+                          {ent?.name || 'Enterprise'} · {r.preferred_time_slot} · {r.preferred_date ? new Date(r.preferred_date).toDateString() : 'TBD'}
+                        </p>
+                        {needsUserAssignment && (
+                          <p className="font-mono text-xs text-amber-400 mt-1">
+                            Needs field user assignment
+                          </p>
+                        )}
+                        {r.status === 'in_progress' && (
+                          <p className={`font-mono text-xs mt-1 flex items-center gap-1 ${
+                            r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000
+                              ? 'text-amber-500'
+                              : 'text-lime-500'
+                          }`}>
+                            {r.started_at && (Date.now() - new Date(r.started_at).getTime()) > 4 * 60 * 60 * 1000 && (
+                              <AlertTriangle className="w-3 h-3" />
+                            )}
+                            {r.started_at
+                              ? `Started ${formatDistanceToNow(new Date(r.started_at), { addSuffix: true })}`
+                              : 'In progress — start time unknown'
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50 font-mono flex-shrink-0">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {r.scheduled_date ? new Date(r.scheduled_date).toDateString() : 'Not scheduled'}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {location?.city || 'City'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border ${getStatusColor(r.status)}`}>
+                        {getStatusLabel(r.status)}
+                      </span>
+                      {needsUserAssignment ? (
+                        <button
+                          disabled={isLoading}
+                          onClick={() => openAssignModal(r)}
+                          className="px-4 py-2 bg-amber-400 text-black font-mono text-xs font-bold uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors"
+                        >
+                          Assign User
+                        </button>
+                      ) : (
+                        <button
+                          disabled={isLoading}
+                          onClick={() => openAssignModal(r)}
+                          className="px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs font-bold uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors"
+                        >
+                          Reassign
+                        </button>
                       )}
-                      {r.started_at
-                        ? `Started ${formatDistanceToNow(new Date(r.started_at), { addSuffix: true })}`
-                        : 'In progress — start time unknown'
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 font-mono">
-                  <Calendar className="w-4 h-4" />
-                  {r.scheduled_date ? new Date(r.scheduled_date).toDateString() : 'Not scheduled'}
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 font-mono">
-                  <MapPin className="w-4 h-4" />
-                  {location?.city || 'City'}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <StatusPill status={r.status} />
-                {needsUserAssignment ? (
-                  <button
-                    disabled={isLoading}
-                    onClick={() => openAssignModal(r)}
-                    className="flex-1 md:flex-none px-4 py-3 md:py-2 bg-amber-400 text-black font-mono text-xs font-bold uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors text-center"
-                  >
-                    Assign User
-                  </button>
-                ) : (
-                  <button
-                    disabled={isLoading}
-                    onClick={() => openAssignModal(r)}
-                    className="flex-1 md:flex-none px-4 py-3 md:py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs font-bold uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors text-center"
-                  >
-                    Reassign
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
 
       {/* Assignment Modal */}
       <AnimatePresence>
@@ -529,24 +622,5 @@ export function LogisticsAssignmentQueue() {
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: 'Pending', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
-    assigned_to_logistics_admin: { label: 'Awaiting Driver', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
-    assigned_to_logistics_user: { label: 'Assigned to Driver', cls: 'border-blue-400/40 bg-blue-400/10 text-blue-400' },
-    scheduled: { label: 'Scheduled', cls: 'border-purple-400/40 bg-purple-400/10 text-purple-400' },
-    in_progress: { label: 'In Progress', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-400' },
-    completed: { label: 'Completed', cls: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400' },
-    failed: { label: 'Failed', cls: 'border-orange-400/40 bg-orange-400/10 text-orange-400' },
-    cancelled: { label: 'Cancelled', cls: 'border-red-400/40 bg-red-400/10 text-red-400' },
-  };
-  const cfg = map[status] || { label: status, cls: 'border-slate-400/40 bg-slate-400/10 text-slate-400' };
-  return (
-    <span className={`px-3 py-1 text-xs font-mono font-bold uppercase tracking-widest border ${cfg.cls}`}>
-      {cfg.label}
-    </span>
   );
 }

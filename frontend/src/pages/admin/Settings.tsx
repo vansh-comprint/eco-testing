@@ -357,7 +357,7 @@ export function Settings() {
                     <input
                       type="text"
                       value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -376,8 +376,9 @@ export function Settings() {
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Phone Number</label>
                     <input
                       type="tel"
+                      inputMode="numeric"
                       value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setProfileForm({ ...profileForm, phone: v }); }}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -891,7 +892,7 @@ export function Settings() {
                     type="text"
                     placeholder="Site coordinator name"
                     value={locationForm.contact_person || ''}
-                    onChange={(e) => setLocationForm({ ...locationForm, contact_person: e.target.value })}
+                    onChange={(e) => setLocationForm({ ...locationForm, contact_person: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>
@@ -901,9 +902,10 @@ export function Settings() {
                   </label>
                   <input
                     type="tel"
-                    placeholder="+91 98765 43210"
+                    inputMode="numeric"
+                    placeholder="9876543210"
                     value={locationForm.contact_phone || ''}
-                    onChange={(e) => setLocationForm({ ...locationForm, contact_phone: e.target.value })}
+                    onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setLocationForm({ ...locationForm, contact_phone: v }); }}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>

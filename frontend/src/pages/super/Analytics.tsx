@@ -24,6 +24,7 @@ export function Analytics() {
       totalAssets: assets.length,
       totalRevenue,
       activeEnterprises: enterprises.filter((e) => e.status === 'active').length,
+      inactiveEnterprises: enterprises.filter((e) => e.status === 'inactive').length,
       pendingApprovals: enterprises.filter((e) => e.status === 'pending_verification').length,
       monthlyGrowth: {
         enterprises: 0,
@@ -91,7 +92,9 @@ export function Analytics() {
             <Button
               variant="primary"
               leftIcon={<Download className={iconSize.sm} />}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 // Export analytics data as JSON
                 const exportData = {
                   generated_at: new Date().toISOString(),
@@ -102,10 +105,13 @@ export function Analytics() {
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `ecotribe-analytics-${new Date().toISOString().split('T')[0]}.json`;
+                a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }, 100);
               }}
             >
               Export Report
@@ -218,6 +224,23 @@ export function Analytics() {
                     <p className={`font-mono text-xs ${text.muted}`}>
                       ({analyticsData.totalEnterprises > 0
                         ? Math.round((analyticsData.pendingApprovals / analyticsData.totalEnterprises) * 100)
+                        : 0}%)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-red-500"></div>
+                    <p className={`font-display text-sm font-bold uppercase ${text.primary}`}>Inactive</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className={`font-brand text-xl font-bold ${text.primary}`}>
+                      {analyticsData.inactiveEnterprises}
+                    </p>
+                    <p className={`font-mono text-xs ${text.muted}`}>
+                      ({analyticsData.totalEnterprises > 0
+                        ? Math.round((analyticsData.inactiveEnterprises / analyticsData.totalEnterprises) * 100)
                         : 0}%)
                     </p>
                   </div>

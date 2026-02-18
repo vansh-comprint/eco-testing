@@ -284,6 +284,19 @@ export function CreateEnterprise() {
     setUploadErrors(prev => ({ ...prev, [field]: '' }));
   };
 
+  const onInvalid = (fieldErrors: Record<string, any>) => {
+    const messages = Object.entries(fieldErrors)
+      .map(([, err]) => err?.message)
+      .filter(Boolean);
+    addToast({
+      type: 'error',
+      title: 'Missing Required Fields',
+      message: messages.length <= 3
+        ? messages.join(', ')
+        : `${messages.slice(0, 3).join(', ')} and ${messages.length - 3} more`,
+    });
+  };
+
   const onSubmit = async (data: CreateEnterpriseForm) => {
     setIsSubmitting(true);
     try {
@@ -335,7 +348,7 @@ export function CreateEnterprise() {
           name: data.orgAdminName,
           phone: data.orgAdminPhone || '',
           role: 'org_admin',
-          password: 'password123', // Default password - user should change
+          password: 'Welcome@123', // Default password - user should change
         });
 
         if (!orgAdminResult.success) {
@@ -392,7 +405,7 @@ export function CreateEnterprise() {
       />
 
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit as any)}>
+      <form onSubmit={handleSubmit(onSubmit as any, onInvalid)}>
         <div className="space-y-6">
           {/* Enterprise Details */}
           <motion.div
@@ -427,12 +440,18 @@ export function CreateEnterprise() {
                     {...register('gstNumber')}
                     error={errors.gstNumber?.message}
                     placeholder="29AABCT1234H1ZM"
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                      e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    }}
                   />
                   <Input
                     label="PAN Number"
                     {...register('panNumber')}
                     error={errors.panNumber?.message}
                     placeholder="AABCT1234H"
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                      e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    }}
                   />
                 </div>
 
@@ -494,6 +513,9 @@ export function CreateEnterprise() {
                       required
                       {...register('city')}
                       error={errors.city?.message}
+                      onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s]/g, '');
+                      }}
                     />
                     <div className="space-y-1.5">
                       <label className={`font-mono text-[10px] uppercase tracking-widest ${text.muted}`}>
@@ -518,6 +540,11 @@ export function CreateEnterprise() {
                       {...register('pinCode')}
                       error={errors.pinCode?.message}
                       placeholder="560100"
+                      inputMode="numeric"
+                      maxLength={6}
+                      onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 6);
+                      }}
                     />
                   </div>
                   <Input
@@ -538,6 +565,7 @@ export function CreateEnterprise() {
                       required
                       {...register('contactPerson')}
                       error={errors.contactPerson?.message}
+                      onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, ''); }}
                     />
                     <Input
                       label="Contact Email"
@@ -551,7 +579,9 @@ export function CreateEnterprise() {
                       required
                       {...register('contactPhone')}
                       error={errors.contactPhone?.message}
-                      placeholder="+919876543210"
+                      placeholder="9876543210"
+                      inputMode="numeric"
+                      onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
                     />
                   </div>
                 </div>
@@ -627,6 +657,7 @@ export function CreateEnterprise() {
                     label="Org Admin Name"
                     {...register('orgAdminName')}
                     error={errors.orgAdminName?.message}
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, ''); }}
                   />
                   <Input
                     label="Org Admin Email"
@@ -638,7 +669,9 @@ export function CreateEnterprise() {
                     label="Org Admin Phone"
                     {...register('orgAdminPhone')}
                     error={errors.orgAdminPhone?.message}
-                    placeholder="+91-9876543211"
+                    placeholder="9876543210"
+                    inputMode="numeric"
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
                   />
                 </div>
                 <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">

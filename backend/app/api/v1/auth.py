@@ -3,7 +3,10 @@
 from fastapi import APIRouter, Depends, status, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from redis.asyncio import Redis
+try:
+    from redis.asyncio import Redis
+except ImportError:
+    Redis = None
 
 from app.core.database import get_db
 from app.core.redis_client import get_redis

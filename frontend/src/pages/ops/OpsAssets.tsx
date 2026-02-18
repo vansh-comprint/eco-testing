@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Laptop,
@@ -23,8 +23,10 @@ const STATUS_FILTERS = [
 
 export function OpsAssets() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
+  const basePath = location.pathname.startsWith('/super') ? '/super' : '/ops';
 
   const initialStatus = searchParams.get('status') || 'all';
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,6 +147,32 @@ export function OpsAssets() {
         </motion.div>
       </div>
 
+      {/* Summary Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-2 gap-4"
+      >
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Laptop className="w-4 h-4 text-ecotribe-primary" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Assets</span>
+          </div>
+          <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+            {totalCount}
+          </p>
+        </div>
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Laptop className="w-4 h-4 text-ecotribe-primary" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
+          </div>
+          <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+            ₹{(allAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
+          </p>
+        </div>
+      </motion.div>
+
       {/* Filters Row */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -207,7 +235,7 @@ export function OpsAssets() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.02 * Math.min(idx, 10) }}
-                onClick={() => navigate(`/ops/assets/${asset.id}`)}
+                onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
                 className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4 cursor-pointer active:scale-[0.98] transition-all"
               >
                 <div className="flex items-start gap-3 mb-3">
@@ -338,7 +366,7 @@ export function OpsAssets() {
                       </td>
                       <td className="p-4 text-right">
                         <button
-                          onClick={() => navigate(`/ops/assets/${asset.id}`)}
+                          onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
                           className="interactive px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white transition-all inline-flex items-center gap-1"
                         >
                           <Eye className="w-3 h-3" />
@@ -378,32 +406,6 @@ export function OpsAssets() {
         fetchNextPage={fetchNextPage}
       />
 
-      {/* Summary Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 gap-4"
-      >
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Laptop className="w-4 h-4 text-ecotribe-primary" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Assets</span>
-          </div>
-          <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            {totalCount}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Laptop className="w-4 h-4 text-ecotribe-primary" />
-            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
-          </div>
-          <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            ₹{(allAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
-          </p>
-        </div>
-      </motion.div>
     </div>
   );
 }

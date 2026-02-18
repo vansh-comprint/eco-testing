@@ -18,6 +18,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useAuth, useBranches, useCreateITAdmin, useApiError } from '@/hooks';
+import { validatePassword, generatePassword } from '@/lib/validation';
 
 interface InviteFormData {
   name: string;
@@ -34,16 +35,6 @@ const initialFormData: InviteFormData = {
   password: '',
   branch_id: '',
 };
-
-// Generate a random password
-function generatePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}
 
 export function ITAdminInvite() {
   const navigate = useNavigate();
@@ -79,8 +70,9 @@ export function ITAdminInvite() {
         isValid = false;
       }
 
-      if (!invite.password || invite.password.length < 8) {
-        fieldErrors.password = 'Password must be at least 8 characters';
+      const pwError = validatePassword(invite.password);
+      if (pwError) {
+        fieldErrors.password = pwError;
         isValid = false;
       }
 
@@ -355,7 +347,7 @@ export function ITAdminInvite() {
                   type="text"
                   placeholder="e.g., Rajesh Kumar"
                   value={invite.name}
-                  onChange={(e) => handleChange(index, 'name', e.target.value)}
+                  onChange={(e) => handleChange(index, 'name', e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''))}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                 />
                 {errors[index]?.name && (
@@ -386,9 +378,10 @@ export function ITAdminInvite() {
                   </label>
                   <input
                     type="tel"
-                    placeholder="+91 98765 43210"
+                    placeholder="9876543210"
                     value={invite.phone}
-                    onChange={(e) => handleChange(index, 'phone', e.target.value)}
+                    onChange={(e) => handleChange(index, 'phone', e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))}
+                    inputMode="numeric"
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>

@@ -15,21 +15,28 @@ import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 
 export const dashboardStatsKeys = {
   all: ['dashboard-stats'] as const,
-  scoped: (branchId: string | null) => [...dashboardStatsKeys.all, branchId] as const,
+  scoped: (branchId: string | null, enterpriseId?: string | null) =>
+    [...dashboardStatsKeys.all, branchId, enterpriseId ?? null] as const,
 };
 
-export function useDashboardStats(): { stats: DashboardStats; isLoading: boolean } {
+export function useDashboardStats(opts?: {
+  enterpriseId?: string | null;
+}): { stats: DashboardStats; isLoading: boolean } {
   const { isAuthenticated, user } = useAuth();
   const itBranchCtx = useContext(ITAdminBranchContext);
 
   // Only pass branch_id for IT Admin when a specific branch is selected
   const branchId = user?.role === 'it_admin' ? itBranchCtx?.selectedBranchId ?? null : null;
+  const enterpriseId = opts?.enterpriseId ?? null;
 
   const { data, isLoading } = useQuery({
-    queryKey: dashboardStatsKeys.scoped(branchId),
+    queryKey: dashboardStatsKeys.scoped(branchId, enterpriseId),
     queryFn: async () => {
+      const params: { branch_id?: string; enterprise_id?: string } = {};
+      if (branchId) params.branch_id = branchId;
+      if (enterpriseId) params.enterprise_id = enterpriseId;
       const res = await dashboardApi.getStats(
-        branchId ? { branch_id: branchId } : undefined
+        Object.keys(params).length > 0 ? params : undefined
       );
       return (res.data ?? {}) as DashboardStats;
     },

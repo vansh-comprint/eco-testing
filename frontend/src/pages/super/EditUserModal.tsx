@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { User, Key, Save } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, Badge, useToast } from '@/components/ui';
 import { useUpdateUser, useResetUserPassword } from '@/hooks';
+import { passwordSchema } from '@/lib/validation';
 import { text } from '@/lib/design-tokens';
 
 interface UserData {
@@ -34,15 +35,18 @@ interface EditUserModalProps {
 
 // Validation schemas
 const userDetailsSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters, spaces, hyphens, or apostrophes'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
+  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optional + prefix)').optional().or(z.literal('')),
   role: z.string(),
   status: z.string(),
 });
 
 const passwordResetSchema = z.object({
-  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  newPassword: passwordSchema,
   confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
@@ -235,6 +239,10 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
               error={detailsErrors.name?.message}
               placeholder="John Doe"
               required
+              onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                const input = e.currentTarget;
+                input.value = input.value.replace(/[^a-zA-Z\s'.\-]/g, '');
+              }}
             />
 
             <Input
@@ -250,7 +258,12 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
               label="Phone Number"
               {...registerDetails('phone')}
               error={detailsErrors.phone?.message}
-              placeholder="+91-9876543210"
+              placeholder="9876543210"
+              inputMode="numeric"
+              onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                const input = e.currentTarget;
+                input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+              }}
             />
 
             {!hideRole && (
@@ -328,7 +341,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
               type="password"
               {...registerPassword('newPassword')}
               error={passwordErrors.newPassword?.message}
-              placeholder="Min. 8 characters"
+              placeholder="Letters, numbers & special chars"
               required
             />
 
@@ -343,12 +356,13 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
 
             <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">
               <p className="font-mono text-xs text-emerald-800 dark:text-emerald-200 font-bold mb-1">
-                Direct Password Update:
+                Password Requirements:
               </p>
               <ul className="font-mono text-xs text-emerald-700 dark:text-emerald-300 space-y-1 list-disc list-inside">
-                <li>Password will be updated immediately</li>
-                <li>User can log in with new password right away</li>
-                <li>Share the new password securely with the user</li>
+                <li>Minimum 8 characters</li>
+                <li>At least one letter (a-z, A-Z)</li>
+                <li>At least one number (0-9)</li>
+                <li>At least one special character (!@#$...)</li>
               </ul>
             </div>
           </div>

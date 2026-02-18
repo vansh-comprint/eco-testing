@@ -6,7 +6,6 @@ description: >
   Not a contrarian — finds genuine risks the conductor may have missed.
 tools: Read, Grep, Glob
 model: sonnet
-run_in_background: true
 color: magenta
 ---
 

@@ -138,9 +138,10 @@ export function parseApiError(response: {
     return null;
   }
 
-  const code = response.error?.code
+  const rawCode = response.error?.code
     ? parseInt(response.error.code, 10)
     : 400;
+  const code = isNaN(rawCode) ? 0 : rawCode;
 
   const message = response.error?.message || response.message || 'An error occurred';
   const details = response.error?.details;

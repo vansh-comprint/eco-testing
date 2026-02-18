@@ -118,6 +118,8 @@ export interface DashboardStats {
   pending_qc?: number;
   pending_payout?: number;
   in_progress?: number;
+  asset_conditionally_accepted?: number;
+  asset_ready_for_pickup?: number;
 }
 
 // ============================================================================
@@ -129,8 +131,11 @@ export const dashboardApi = {
     const query = params?.branch_id ? `?branch_id=${params.branch_id}` : '';
     return fetchWithAuth<BadgeCounts>(`/dashboard/badges${query}`);
   },
-  getStats: (params?: { branch_id?: string | null }) => {
-    const query = params?.branch_id ? `?branch_id=${params.branch_id}` : '';
+  getStats: (params?: { branch_id?: string | null; enterprise_id?: string | null }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.branch_id) searchParams.set('branch_id', params.branch_id);
+    if (params?.enterprise_id) searchParams.set('enterprise_id', params.enterprise_id);
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
     return fetchWithAuth<DashboardStats>(`/dashboard/stats${query}`);
   },
 };

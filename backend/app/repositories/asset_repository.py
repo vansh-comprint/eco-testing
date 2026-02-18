@@ -37,6 +37,7 @@ class AssetRepository:
         limit: int = 100,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         batch_id: Optional[str] = None,
         status: Optional[AssetStatus] = None,
         assigned_to_user_id: Optional[str] = None,
@@ -51,7 +52,11 @@ class AssetRepository:
             query = query.where(Asset.enterprise_id == enterprise_id)
             count_query = count_query.where(Asset.enterprise_id == enterprise_id)
 
-        if branch_id:
+        # branch_ids (plural) takes precedence — multi-branch IT Admin scoping
+        if branch_ids:
+            query = query.where(Asset.branch_id.in_(branch_ids))
+            count_query = count_query.where(Asset.branch_id.in_(branch_ids))
+        elif branch_id:
             query = query.where(Asset.branch_id == branch_id)
             count_query = count_query.where(Asset.branch_id == branch_id)
 

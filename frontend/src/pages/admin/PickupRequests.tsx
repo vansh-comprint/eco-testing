@@ -11,12 +11,11 @@ import {
   User,
   Package,
   AlertTriangle,
-  Filter,
   ChevronRight,
   Loader2
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useAuth, useInfinitePickups } from '@/hooks';
 // PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
@@ -36,17 +35,17 @@ const STATUS_OPTIONS = [
 ];
 
 const getStatusConfig = (status: string) => {
-  const configs: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: React.ReactNode }> = {
-    pending: { label: 'Pending', variant: 'warning', icon: <Clock className="w-3 h-3" /> },
-    assigned_to_logistics_admin: { label: 'Assigned to Admin', variant: 'info', icon: <User className="w-3 h-3" /> },
-    assigned_to_logistics_user: { label: 'Assigned to Driver', variant: 'info', icon: <User className="w-3 h-3" /> },
-    scheduled: { label: 'Scheduled', variant: 'info', icon: <Calendar className="w-3 h-3" /> },
-    in_progress: { label: 'In Progress', variant: 'warning', icon: <Truck className="w-3 h-3" /> },
-    completed: { label: 'Completed', variant: 'success', icon: <CheckCircle className="w-3 h-3" /> },
-    failed: { label: 'Failed', variant: 'error', icon: <XCircle className="w-3 h-3" /> },
-    cancelled: { label: 'Cancelled', variant: 'error', icon: <XCircle className="w-3 h-3" /> },
+  const configs: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+    pending: { label: 'Pending', color: 'border-amber-400/30 bg-amber-400/10 text-amber-500', icon: <Clock className="w-3 h-3" /> },
+    assigned_to_logistics_admin: { label: 'Assigned to Admin', color: 'border-blue-400/30 bg-blue-400/10 text-blue-500', icon: <User className="w-3 h-3" /> },
+    assigned_to_logistics_user: { label: 'Assigned to Driver', color: 'border-indigo-400/30 bg-indigo-400/10 text-indigo-500', icon: <User className="w-3 h-3" /> },
+    scheduled: { label: 'Scheduled', color: 'border-cyan-400/30 bg-cyan-400/10 text-cyan-500', icon: <Calendar className="w-3 h-3" /> },
+    in_progress: { label: 'In Progress', color: 'border-purple-400/30 bg-purple-400/10 text-purple-500', icon: <Truck className="w-3 h-3" /> },
+    completed: { label: 'Completed', color: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-500', icon: <CheckCircle className="w-3 h-3" /> },
+    failed: { label: 'Failed', color: 'border-red-400/30 bg-red-400/10 text-red-500', icon: <XCircle className="w-3 h-3" /> },
+    cancelled: { label: 'Cancelled', color: 'border-slate-400/30 bg-slate-400/10 text-slate-500', icon: <XCircle className="w-3 h-3" /> },
   };
-  return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', variant: 'default' as const, icon: <Clock className="w-3 h-3" /> };
+  return configs[status] || { label: status?.replace(/_/g, ' ') || 'Unknown', color: 'border-slate-400/30 bg-slate-400/10 text-slate-500', icon: <Clock className="w-3 h-3" /> };
 };
 
 export function PickupRequests() {
@@ -166,35 +165,28 @@ export function PickupRequests() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10"
       >
-        <StatBox
-          label="Requested"
-          value={stats.requested}
-          icon={<Clock className="w-4 h-4" />}
-          highlight={stats.requested > 0}
-        />
-        <StatBox
-          label="Scheduled"
-          value={stats.scheduled}
-          icon={<Calendar className="w-4 h-4" />}
-        />
-        <StatBox
-          label="In Progress"
-          value={stats.inProgress}
-          icon={<Truck className="w-4 h-4" />}
-        />
-        <StatBox
-          label="Completed"
-          value={stats.completed}
-          icon={<CheckCircle className="w-4 h-4" />}
-        />
-        <StatBox
-          label="Exceptions"
-          value={stats.exceptions}
-          icon={<AlertTriangle className="w-4 h-4" />}
-          error={stats.exceptions > 0}
-        />
+        {[
+          { label: 'Requested', value: stats.requested, icon: <Clock className="w-4 h-4" />, highlight: stats.requested > 0 },
+          { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4" /> },
+          { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4" /> },
+          { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4" /> },
+          { label: 'Exceptions', value: stats.exceptions, icon: <AlertTriangle className="w-4 h-4" />, error: stats.exceptions > 0 },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">{stat.label}</h4>
+              <span className={stat.highlight ? 'text-amber-500' : stat.error ? 'text-red-400' : 'text-slate-500 dark:text-white/60'}>{stat.icon}</span>
+            </div>
+            <div className={`font-brand font-bold text-3xl ${stat.highlight ? 'text-amber-500' : stat.error ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
+              {stat.value}
+            </div>
+          </div>
+        ))}
       </motion.div>
 
       {/* Search & Filters */}
@@ -214,20 +206,17 @@ export function PickupRequests() {
             className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
           />
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-500 dark:text-white/50 flex-shrink-0" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </motion.div>
 
       {/* Requests List */}
@@ -235,7 +224,7 @@ export function PickupRequests() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer"
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
       >
         {filteredRequests.length > 0 ? (
           <div className="divide-y divide-slate-200 dark:divide-white/5">
@@ -270,14 +259,14 @@ export function PickupRequests() {
                                 {request.branches.branch_code}
                               </span>
                             )}
-                            <Badge variant={statusConfig.variant} size="sm">
-                              <span className="flex items-center gap-1">
-                                {statusConfig.icon}
-                                {statusConfig.label}
-                              </span>
-                            </Badge>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${statusConfig.color}`}>
+                              {statusConfig.icon}
+                              {statusConfig.label}
+                            </span>
                             {request.priority === 'urgent' && (
-                              <Badge variant="error" size="sm">Urgent</Badge>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 border border-red-400/30 bg-red-400/10 text-red-500 font-mono font-bold text-[10px] uppercase tracking-widest">
+                                Urgent
+                              </span>
                             )}
                           </div>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50">
@@ -357,30 +346,6 @@ export function PickupRequests() {
           <strong>Pickup Flow:</strong> Requested &rarr; Assigned (Logistics Admin assigns agent) &rarr; Scheduled (Date confirmed) &rarr; In Progress (Agent at location) &rarr; Completed
         </p>
       </div>
-    </div>
-  );
-}
-
-function StatBox({
-  label,
-  value,
-  icon,
-  highlight,
-  error,
-}: {
-  label: string;
-  value: number;
-  icon?: React.ReactNode;
-  highlight?: boolean;
-  error?: boolean;
-}) {
-  return (
-    <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/85 dark:bg-black/30 shadow-[0_1px_0_rgba(15,23,42,0.04)] hover:border-ecotribe-primary/30 hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition-colors">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">{label}</h4>
-        {icon && <span className={`${highlight ? 'text-amber-500' : error ? 'text-red-400' : 'text-slate-500 dark:text-white/60'}`}>{icon}</span>}
-      </div>
-      <div className={`font-brand font-bold text-3xl ${highlight ? 'text-amber-500' : ''} ${error ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>{value}</div>
     </div>
   );
 }

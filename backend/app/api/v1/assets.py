@@ -57,24 +57,63 @@ async def list_assets(
 
     **Permissions:** ASSET_READ
     """
-    # Get scoped filters based on current user's role
-    scoped_filters = get_scoped_filters(current_user)
-
-    # Only platform admins can explicitly filter by enterprise/branch
-    if is_platform_admin(current_user):
-        if enterprise_id:
-            scoped_filters["enterprise_id"] = enterprise_id
-        if branch_id:
-            scoped_filters["branch_id"] = branch_id
+    from app.models.user import UserRole
+    from app.utils.scoping import get_it_admin_scoped_filters
 
     service = AssetService(db)
+    branch_ids = None
+    effective_enterprise_id = None
+    effective_branch_id = None
+    assigned_to_user_id = None
+
+    if current_user.role == UserRole.IT_ADMIN.value:
+        # IT Admin: multi-branch scoping via Branch.it_admin_id
+        scoped = await get_it_admin_scoped_filters(db, current_user)
+        effective_enterprise_id = scoped.get("enterprise_id")
+        managed_branch_ids = scoped.get("branch_ids", [])
+
+        if branch_id:
+            # Specific branch requested — validate it's within their scope
+            if managed_branch_ids and str(branch_id) in [str(b) for b in managed_branch_ids]:
+                effective_branch_id = branch_id
+            else:
+                raise AuthorizationError("You do not have access to this branch")
+        else:
+            # No specific branch — show all managed branches
+            branch_ids = managed_branch_ids if managed_branch_ids else None
+
+    elif current_user.role == UserRole.ORG_ADMIN.value:
+        # Org Admin: enterprise-scoped, can filter by any branch in their enterprise
+        effective_enterprise_id = current_user.enterprise_id
+        if branch_id:
+            effective_branch_id = branch_id
+
+    elif current_user.role == UserRole.EMPLOYEE.value:
+        # Employee: only assets assigned to them
+        effective_enterprise_id = current_user.enterprise_id
+        assigned_to_user_id = current_user.id
+
+    elif is_platform_admin(current_user):
+        # Platform admins: can filter by anything
+        effective_enterprise_id = enterprise_id
+        effective_branch_id = branch_id
+
+    else:
+        # Fallback for other roles (logistics etc.)
+        scoped_filters = get_scoped_filters(current_user)
+        effective_enterprise_id = scoped_filters.get("enterprise_id")
+        effective_branch_id = scoped_filters.get("branch_id")
+
     assets, total = await service.list_assets(
         skip=skip,
         limit=limit,
         batch_id=batch_id,
         status=status,
         search=search,
-        **scoped_filters,
+        enterprise_id=effective_enterprise_id,
+        branch_id=effective_branch_id,
+        branch_ids=branch_ids,
+        assigned_to_user_id=assigned_to_user_id,
     )
 
     return paginated_response(

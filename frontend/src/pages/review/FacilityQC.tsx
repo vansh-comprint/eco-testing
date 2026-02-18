@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -32,6 +32,8 @@ const GRADES: { value: AssetGrade; label: string; color: string }[] = [
 export function FacilityQC() {
   const { assetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const qcQueuePath = location.pathname.startsWith('/super') ? '/super/qc' : location.pathname.startsWith('/ops') ? '/ops/qc' : '/review/qc';
   const { user } = useAuth();
   const { data: asset, isLoading: assetLoading } = useAsset(assetId || '');
   const queryClient = useQueryClient();
@@ -73,7 +75,7 @@ export function FacilityQC() {
           <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase mb-2">Asset Not Found</h2>
           <p className="font-display text-zinc-500 mb-6">The asset you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/review/qc')}
+            onClick={() => navigate(qcQueuePath)}
             className="interactive px-6 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
           >
             Back to Queue
@@ -510,7 +512,7 @@ export function FacilityQC() {
 
               {/* Back Button */}
               <button
-                onClick={() => navigate('/review/qc')}
+                onClick={() => navigate(qcQueuePath)}
                 className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
               >
                 Back to Queue

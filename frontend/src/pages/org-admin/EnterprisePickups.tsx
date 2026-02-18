@@ -19,14 +19,11 @@ import {
   Calendar,
   User,
   Download,
-  Filter,
   AlertTriangle,
   Package,
 } from 'lucide-react';
 import { useAuth, useInfinitePickups, useBranches } from '@/hooks';
-import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import type { StatAccent } from '@/components/ui';
-import { iconSize } from '@/lib/design-tokens';
+import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import Papa from 'papaparse';
 
 type StatusFilter = 'all' | 'pending' | 'assigned' | 'scheduled' | 'in_progress' | 'completed' | 'failed';
@@ -127,12 +124,12 @@ export function EnterprisePickups() {
   };
 
   const statItems = [
-    { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter('pending') },
-    { label: 'Assigned', value: stats.assigned, icon: <User className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('assigned') },
-    { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className={`${iconSize.lg} text-cyan-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('scheduled') },
-    { label: 'In Progress', value: stats.inProgress, icon: <Truck className={`${iconSize.lg} text-purple-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('in_progress') },
-    { label: 'Completed', value: stats.completed, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter('completed') },
-    { label: 'Exceptions', value: stats.failed, icon: <AlertTriangle className={`${iconSize.lg} text-red-500`} />, accent: (stats.failed > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter('failed') },
+    { label: 'Pending', value: stats.pending, icon: <Clock className="w-4 h-4 text-amber-500" />, highlight: stats.pending > 0, filterKey: 'pending' as StatusFilter },
+    { label: 'Assigned', value: stats.assigned, icon: <User className="w-4 h-4 text-blue-500" />, filterKey: 'assigned' as StatusFilter },
+    { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4 text-cyan-500" />, filterKey: 'scheduled' as StatusFilter },
+    { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4 text-purple-500" />, filterKey: 'in_progress' as StatusFilter },
+    { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4 text-emerald-500" />, filterKey: 'completed' as StatusFilter },
+    { label: 'Exceptions', value: stats.failed, icon: <AlertTriangle className="w-4 h-4 text-red-500" />, error: stats.failed > 0, filterKey: 'failed' as StatusFilter },
   ];
 
   if (isLoading) {
@@ -148,24 +145,61 @@ export function EnterprisePickups() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        label="Enterprise Overview"
-        title="All Pickups"
-        subtitle={`${pickups.length} pickup requests across ${branches.length} branches`}
-        actions={
-          <button
-            onClick={handleExport}
-            className="px-4 py-2.5 bg-white/70 dark:bg-zinc-800/70 backdrop-blur-sm border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono font-bold text-xs uppercase tracking-widest hover:border-blue-500/40 transition-all flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-        }
-      />
+      {/* Header */}
+      <div className="border-b border-slate-200 dark:border-white/10 pb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">Enterprise Overview</span>
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
+            All Pickups
+          </h1>
+          <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
+            {pickups.length} pickup requests across {branches.length} branches
+          </p>
+        </motion.div>
+
+        <motion.button
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={handleExport}
+          className="px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-zinc-100 font-mono font-bold text-xs uppercase tracking-widest hover:border-ecotribe-primary/40 transition-all flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </motion.button>
+      </div>
 
       {/* Stats */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <DashboardStatGrid items={statItems} columns={6} />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10"
+      >
+        {statItems.map((stat) => (
+          <button
+            key={stat.label}
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === stat.filterKey ? 'all' : stat.filterKey)}
+            className={`p-5 border-r border-b border-slate-200 dark:border-white/10 text-left transition-colors ${
+              statusFilter === stat.filterKey
+                ? 'bg-ecotribe-primary/5 border-b-ecotribe-primary/40'
+                : 'bg-white/80 dark:bg-black/20 hover:bg-slate-50 dark:hover:bg-white/[0.03]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">{stat.label}</h4>
+              {stat.icon}
+            </div>
+            <div className={`font-brand font-bold text-3xl ${
+              stat.highlight ? 'text-amber-500' : stat.error ? 'text-red-500' : 'text-slate-900 dark:text-white'
+            }`}>
+              {stat.value}
+            </div>
+          </button>
+        ))}
       </motion.div>
 
       {/* Filters */}
@@ -214,92 +248,94 @@ export function EnterprisePickups() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="space-y-3"
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
       >
         {filteredPickups.length > 0 ? (
-          filteredPickups.map((pickup, idx) => {
-            const statusInfo = getStatusInfo(pickup.status);
-            const assetCount = pickup.asset_count || pickup.assets?.length || 0;
+          <div className="divide-y divide-slate-200 dark:divide-white/5">
+            {filteredPickups.map((pickup, idx) => {
+              const statusInfo = getStatusInfo(pickup.status);
+              const assetCount = pickup.asset_count || pickup.assets?.length || 0;
 
-            return (
-              <motion.div
-                key={pickup.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.03 * Math.min(idx, 10) }}
-                onClick={() => navigate(`/org-admin/pickups/${pickup.id}`)}
-                className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 hover:border-lime-500/25 dark:hover:border-lime-400/20 hover:shadow-md hover:shadow-lime-500/5 hover:-translate-y-0.5 cursor-pointer transition-all duration-200"
-              >
-                <div className="p-5 flex items-start gap-4">
-                  <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
-                    pickup.status === 'completed' ? 'border-emerald-400/30 bg-emerald-400/10' :
-                    pickup.status === 'in_progress' ? 'border-purple-400/30 bg-purple-400/10' :
-                    pickup.status === 'pending' ? 'border-amber-400/30 bg-amber-400/10' :
-                    ['failed', 'cancelled'].includes(pickup.status) ? 'border-red-400/30 bg-red-400/10' :
-                    'border-blue-400/30 bg-blue-400/10'
-                  }`}>
-                    <Truck className={`w-6 h-6 ${
-                      pickup.status === 'completed' ? 'text-emerald-500' :
-                      pickup.status === 'in_progress' ? 'text-purple-500' :
-                      pickup.status === 'pending' ? 'text-amber-500' :
-                      ['failed', 'cancelled'].includes(pickup.status) ? 'text-red-500' :
-                      'text-blue-500'
-                    }`} />
-                  </div>
+              return (
+                <motion.div
+                  key={pickup.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.03 * Math.min(idx, 10) }}
+                  onClick={() => navigate(`/org-admin/pickups/${pickup.id}`)}
+                  className="p-5 hover:bg-white/60 dark:hover:bg-white/[0.04] cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
+                      pickup.status === 'completed' ? 'border-emerald-400/30 bg-emerald-400/10' :
+                      pickup.status === 'in_progress' ? 'border-purple-400/30 bg-purple-400/10' :
+                      pickup.status === 'pending' ? 'border-amber-400/30 bg-amber-400/10' :
+                      ['failed', 'cancelled'].includes(pickup.status) ? 'border-red-400/30 bg-red-400/10' :
+                      'border-blue-400/30 bg-blue-400/10'
+                    }`}>
+                      <Truck className={`w-6 h-6 ${
+                        pickup.status === 'completed' ? 'text-emerald-500' :
+                        pickup.status === 'in_progress' ? 'text-purple-500' :
+                        pickup.status === 'pending' ? 'text-amber-500' :
+                        ['failed', 'cancelled'].includes(pickup.status) ? 'text-red-500' :
+                        'text-blue-500'
+                      }`} />
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-mono text-xs text-ecotribe-primary font-bold">
-                          {pickup.id?.slice(0, 8).toUpperCase()}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
-                            {branchMap.get(pickup.branch_id || '') || '—'}
-                          </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-mono text-xs text-ecotribe-primary font-bold">
+                            {pickup.id?.slice(0, 8).toUpperCase()}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
+                              {branchMap.get(pickup.branch_id || '') || '—'}
+                            </span>
+                          </div>
                         </div>
+                        <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${statusInfo.color}`}>
+                          {statusInfo.icon}
+                          {statusInfo.label}
+                        </span>
                       </div>
-                      <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${statusInfo.color}`}>
-                        {statusInfo.icon}
-                        {statusInfo.label}
-                      </span>
+
+                      <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5">
+                        <span className="flex items-center gap-1.5">
+                          <Package className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">{assetCount} assets</span>
+                        </span>
+                        {pickup.preferred_date && (
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">
+                              {new Date(pickup.preferred_date).toLocaleDateString()}
+                            </span>
+                          </span>
+                        )}
+                        {pickup.pickup_location && (
+                          <span className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="font-mono text-xs text-slate-500 dark:text-zinc-500 truncate max-w-[200px]">
+                              {typeof pickup.pickup_location === 'string' ? pickup.pickup_location : pickup.pickup_location?.name || ''}
+                            </span>
+                          </span>
+                        )}
+                        <span className="font-mono text-xs text-slate-400 dark:text-zinc-600">
+                          Created {new Date(pickup.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5">
-                      <span className="flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">{assetCount} assets</span>
-                      </span>
-                      {pickup.preferred_date && (
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">
-                            {new Date(pickup.preferred_date).toLocaleDateString()}
-                          </span>
-                        </span>
-                      )}
-                      {pickup.pickup_location && (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-500 truncate max-w-[200px]">
-                            {typeof pickup.pickup_location === 'string' ? pickup.pickup_location : pickup.pickup_location?.name || ''}
-                          </span>
-                        </span>
-                      )}
-                      <span className="font-mono text-xs text-slate-400 dark:text-zinc-600">
-                        Created {new Date(pickup.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
+                    <Eye className="w-5 h-5 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0 mt-1" />
                   </div>
-
-                  <Eye className="w-5 h-5 text-slate-300 dark:text-zinc-600 flex-shrink-0 mt-1" />
-                </div>
-              </motion.div>
-            );
-          })
+                </motion.div>
+              );
+            })}
+          </div>
         ) : (
-          <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 py-16 text-center">
+          <div className="py-16 text-center">
             <Truck className="w-12 h-12 text-slate-300 dark:text-zinc-700 mx-auto mb-4" />
             <p className="font-display font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wide mb-1">No pickups found</p>
             <p className="font-mono text-xs text-slate-400 dark:text-zinc-600">

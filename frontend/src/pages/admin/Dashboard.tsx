@@ -37,18 +37,25 @@ export function ITAdminDashboard() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
-  // V3.2: Fetch assets/batches - Only enable the appropriate query based on role
-  const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
-  const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
-  const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
-  const { data: subUsers = [], isLoading: subUsersLoading } = useSubUsers(enterpriseId);
-  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
-  const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
-
+  // Branch context must be resolved before data-fetching hooks that depend on it
   const itBranchCtx = useContext(ITAdminBranchContext);
   const orgBranchCtx = useOrgBranchSafe();
   const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
+
+  // V3.2: Fetch assets/batches - Only enable the appropriate query based on role
+  const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
+  const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(
+    isOrgAdmin ? '' : userId,
+    itBranchCtx?.selectedBranchId
+  );
+  const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(
+    isOrgAdmin ? '' : userId,
+    itBranchCtx?.selectedBranchId
+  );
+  const { data: subUsers = [], isLoading: subUsersLoading } = useSubUsers(enterpriseId);
+  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
 
   // Efficient aggregated stats from backend COUNT/SUM queries
   const { stats, isLoading: statsLoading } = useDashboardStats();
@@ -86,21 +93,6 @@ export function ITAdminDashboard() {
   const enterpriseBatches = batches;
 
   // Rates come from backend stats
-
-  // Calculate action items
-  const stalledAssets = enterpriseAssets.filter(a => {
-    if (!['pending_assignment', 'assigned'].includes(a.status)) return false;
-    const daysSinceCreated = a.created_at ?
-      (Date.now() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24) : 0;
-    return daysSinceCreated > 7;
-  });
-
-  const rejectedAssets = enterpriseAssets.filter(a =>
-    ['remote_rejected', 'final_rejected'].includes(a.status)
-  );
-
-  // V3: Batches awaiting Org Admin approval
-  const pendingApprovalBatches = enterpriseBatches.filter(b => b.status === 'pending_approval');
 
   // Helper to find sub-user by ID
   const getSubUserById = (id: string) => scopedSubUsers.find(su => su.id === id);
@@ -195,7 +187,9 @@ export function ITAdminDashboard() {
     created: <Plus className={`${iconSize.md} text-slate-500 dark:text-zinc-400`} />,
   };
 
-  const stalledCount = stats.stalled_assets ?? stalledAssets.length;
+  const stalledCount = stats.stalled_assets ?? 0;
+  const rejectedCount = stats.asset_rejected ?? 0;
+  const pendingApprovalCount = stats.batch_pending_approval ?? 0;
 
   // Prepare stat items for the grid
   const statItems: StatBoxItem[] = [
@@ -338,41 +332,41 @@ export function ITAdminDashboard() {
               </h2>
             </div>
             <span className="font-mono font-bold text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-3 py-1 tracking-widest border border-amber-500/25">
-              {stalledAssets.length + rejectedAssets.length + pendingApprovalBatches.length} ITEMS
+              {stalledCount + rejectedCount + pendingApprovalCount} ITEMS
             </span>
           </div>
           <div className="p-5 space-y-3">
-            {stalledAssets.length > 0 && (
+            {stalledCount > 0 && (
               <ActionItem
                 icon={<Clock className={iconSize.md} />}
                 iconColor="text-amber-500"
-                title={`${stalledAssets.length} assets pending assignment for 7+ days`}
+                title={`${stalledCount} assets pending assignment for 7+ days`}
                 description="Assign employees to begin the check-in process"
                 action="Assign Now"
                 onClick={() => navigate(`${basePath}/assets?status=pending_assignment`)}
               />
             )}
-            {rejectedAssets.length > 0 && (
+            {rejectedCount > 0 && (
               <ActionItem
                 icon={<XCircle className={iconSize.md} />}
                 iconColor="text-red-500"
-                title={`${rejectedAssets.length} assets rejected`}
+                title={`${rejectedCount} assets rejected`}
                 description="Review rejections and submit disputes if needed"
                 action="Review"
                 onClick={() => navigate(`${basePath}/assets?status=rejected`)}
               />
             )}
-            {pendingApprovalBatches.length > 0 && (
+            {pendingApprovalCount > 0 && (
               <ActionItem
                 icon={<Package className={iconSize.md} />}
                 iconColor="text-purple-500"
-                title={`${pendingApprovalBatches.length} batch awaiting Org Admin approval`}
+                title={`${pendingApprovalCount} batch awaiting Org Admin approval`}
                 description="Batch requires Org Admin sign-off before pickup scheduling"
                 action="View Status"
                 onClick={() => navigate(`${basePath}/batches`)}
               />
             )}
-            {stalledAssets.length === 0 && rejectedAssets.length === 0 && pendingApprovalBatches.length === 0 && (
+            {stalledCount === 0 && rejectedCount === 0 && pendingApprovalCount === 0 && (
               <div className="py-8 text-center">
                 <CheckCircle className={`${iconSize['2xl']} mx-auto mb-3 text-emerald-500/50`} />
                 <p className={`font-display font-bold uppercase tracking-wide ${text.muted}`}>All caught up</p>

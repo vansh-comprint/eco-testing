@@ -108,6 +108,7 @@ class BatchService:
         limit: int = 100,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         status: Optional[BatchStatus] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
@@ -118,6 +119,7 @@ class BatchService:
             limit=limit,
             enterprise_id=enterprise_id,
             branch_id=branch_id,
+            branch_ids=branch_ids,
             status=status,
             created_by=created_by,
             search=search,
@@ -135,12 +137,14 @@ class BatchService:
     async def list_pending_approval(
         self,
         enterprise_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[BatchResponse], int]:
         """List batches pending Org Admin approval"""
         batches, total = await self.repository.get_pending_approval(
             enterprise_id=enterprise_id,
+            branch_id=branch_id,
             skip=skip,
             limit=limit,
         )

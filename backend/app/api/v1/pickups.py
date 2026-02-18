@@ -252,7 +252,6 @@ async def list_pickups(
             skip=skip,
             limit=page_size,
         )
-        await db.commit()
 
         return paginated_response(
             data=await _enrich_pickups(pickups, db),
@@ -282,7 +281,6 @@ async def list_pending_assignment(
             skip=skip,
             limit=page_size,
         )
-        await db.commit()
 
         return paginated_response(
             data=await _enrich_pickups(pickups, db),
@@ -312,7 +310,6 @@ async def list_my_assignments(
             skip=skip,
             limit=page_size,
         )
-        await db.commit()
 
         return paginated_response(
             data=await _enrich_pickups(pickups, db),
@@ -390,7 +387,6 @@ async def list_pickup_locations(
             user=current_user,
             include_inactive=include_inactive,
         )
-        await db.commit()
 
         return success_response(
             data={

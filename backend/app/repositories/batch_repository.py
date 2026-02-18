@@ -24,6 +24,7 @@ class BatchRepository:
         limit: int = 100,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         status: Optional[BatchStatus] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
@@ -37,7 +38,11 @@ class BatchRepository:
             query = query.where(Batch.enterprise_id == enterprise_id)
             count_query = count_query.where(Batch.enterprise_id == enterprise_id)
 
-        if branch_id:
+        # branch_ids (plural) takes precedence — multi-branch IT Admin scoping
+        if branch_ids:
+            query = query.where(Batch.branch_id.in_(branch_ids))
+            count_query = count_query.where(Batch.branch_id.in_(branch_ids))
+        elif branch_id:
             query = query.where(Batch.branch_id == branch_id)
             count_query = count_query.where(Batch.branch_id == branch_id)
 
@@ -72,6 +77,7 @@ class BatchRepository:
     async def get_pending_approval(
         self,
         enterprise_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[Batch], int]:
@@ -84,6 +90,10 @@ class BatchRepository:
         if enterprise_id:
             query = query.where(Batch.enterprise_id == enterprise_id)
             count_query = count_query.where(Batch.enterprise_id == enterprise_id)
+
+        if branch_id:
+            query = query.where(Batch.branch_id == branch_id)
+            count_query = count_query.where(Batch.branch_id == branch_id)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0

@@ -9,7 +9,6 @@ description: >
 tools: Read, Bash, Glob, Grep
 model: sonnet
 memory: project
-run_in_background: true
 color: red
 ---
 

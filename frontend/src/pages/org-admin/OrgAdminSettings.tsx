@@ -187,7 +187,7 @@ export function OrgAdminSettings() {
                     <input
                       type="text"
                       value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -207,7 +207,8 @@ export function OrgAdminSettings() {
                     <input
                       type="tel"
                       value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                      inputMode="numeric"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -322,7 +323,8 @@ export function OrgAdminSettings() {
                     <input
                       type="tel"
                       value={enterpriseForm.contactPhone}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactPhone: e.target.value })}
+                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactPhone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                      inputMode="numeric"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>

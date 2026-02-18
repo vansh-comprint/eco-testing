@@ -81,22 +81,22 @@ export function SubUserDashboard() {
         </motion.div>
 
         {/* Quick Stats with left-border accent */}
-        {myAssets.length > 0 && (
+        {((stats.my_assets ?? 0) > 0 || myAssets.length > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="flex gap-3 mt-6"
           >
-            {(stats.pending ?? pendingAssets.length) > 0 && (
+            {(stats.pending ?? 0) > 0 && (
               <div className="flex-1 bg-amber-50 dark:bg-amber-500/10 border border-amber-500/30 dark:border-amber-400/20 border-l-4 border-l-amber-500 p-4 shadow-sm shadow-amber-500/5">
-                <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">{stats.pending ?? pendingAssets.length}</p>
+                <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">{stats.pending ?? 0}</p>
                 <p className="font-mono text-xs text-amber-700 dark:text-amber-300/80 uppercase tracking-wider">Pending</p>
               </div>
             )}
-            {(stats.submitted ?? submittedAssets.length) > 0 && (
+            {(stats.submitted ?? 0) > 0 && (
               <div className="flex-1 bg-blue-50 dark:bg-blue-500/10 border border-blue-500/30 dark:border-blue-400/20 border-l-4 border-l-blue-500 p-4 shadow-sm shadow-blue-500/5">
-                <p className="font-brand font-bold text-2xl text-blue-600 dark:text-blue-400">{stats.submitted ?? submittedAssets.length}</p>
+                <p className="font-brand font-bold text-2xl text-blue-600 dark:text-blue-400">{stats.submitted ?? 0}</p>
                 <p className="font-mono text-xs text-blue-700 dark:text-blue-300/80 uppercase tracking-wider">In Progress</p>
               </div>
             )}

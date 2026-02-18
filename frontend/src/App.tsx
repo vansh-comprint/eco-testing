@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query';
 import { ToastProvider, ErrorBoundary } from '@/components/ui';
 import { ProtectedRoute } from '@/components/auth';
@@ -39,7 +39,7 @@ import { MainAdminDashboard, OpsAssets, PayoutProcessing, OpsDisputes, RemoteRev
 import { EnterpriseList, EnterpriseDetail, LogisticsManagement, PickupQueue } from '@/pages/shared';
 // V3: Org Admin pages
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite, EnterpriseAssets, EnterpriseBatches, EnterpriseEmployees, EnterprisePickups, EnterpriseDisputes, OrgAdminSettings } from '@/pages/org-admin';
-import { SuperAdminDashboard, CreateEnterprise, AllAssets, AllUsers, Admins, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
+import { SuperAdminDashboard, CreateEnterprise, AllUsers, Admins, Pricing, Analytics, Settings as SuperSettings } from '@/pages/super';
 import { PrivacyPolicy, TermsOfService, CookiePolicy } from '@/pages/legal/LegalPage';
 import { LogisticsAdminDashboard, LogisticsAssignmentQueue, LogisticsUserManagement } from '@/pages/logistics-admin';
 import { LogisticsAssignments } from '@/pages/logistics-user';
@@ -154,6 +154,16 @@ const superAdminNavItems = [
   { label: 'Settings', path: '/super/settings', icon: <SettingsIcon /> },
 ];
 
+// Super Admin OPS Operations toggle - enterprise-scoped OPS capabilities
+const superOpsViewNavItems = [
+  { label: 'Branches', path: '/super/branches', icon: <EnterpriseIcon />, permission: Permission.BRANCH_READ },
+  { label: 'Assets', path: '/super/enterprise-assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
+  { label: 'QC Queue', path: '/super/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
+  { label: 'Reviews', path: '/super/reviews', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
+  { label: 'Payouts', path: '/super/payouts', icon: <PayoutIcon />, permission: Permission.PAYOUT_VIEW },
+  { label: 'Disputes', path: '/super/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
+];
+
 // Logistics Admin Portal - Partner company management
 const logisticsAdminNavItems = [
   { label: 'Dashboard', path: '/logistics-admin', icon: <DashboardIcon /> },
@@ -166,6 +176,18 @@ const logisticsUserNavItems = [
   { label: 'My Pickups', path: '/logistics', icon: <TruckIcon />, permission: Permission.VIEW_ASSIGNED_PICKUPS },
 ];
 
+// Wrapper components for bulk upload routes under OPS/Super Admin
+// These extract :id from URL params and pass as enterpriseId prop
+function BulkITAdminUploadWrapper() {
+  const { id } = useParams<{ id: string }>();
+  return <BulkITAdminUpload enterpriseId={id} />;
+}
+
+function BulkUserUploadWrapper() {
+  const { id } = useParams<{ id: string }>();
+  return <BulkUserUpload enterpriseId={id} />;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -173,6 +195,7 @@ function App() {
         <AuthProviderApi>
           <ToastProvider>
             <BrowserRouter>
+              <ScrollToTop />
               <AppRoutes />
             </BrowserRouter>
           </ToastProvider>
@@ -203,6 +226,12 @@ function withBadges(items: NavItem[], badges: ReturnType<typeof useSidebarBadges
   });
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
 function AppRoutes() {
   const badges = useSidebarBadges();
 
@@ -214,6 +243,7 @@ function AppRoutes() {
   const badgedOrgAdmin = useMemo(() => withBadges(orgAdminNavItems, badges), [badges]);
   const badgedOrgAdminIT = useMemo(() => withBadges(orgAdminITViewNavItems, badges), [badges]);
   const badgedSuperAdmin = useMemo(() => withBadges(superAdminNavItems, badges), [badges]);
+  const badgedSuperOps = useMemo(() => withBadges(superOpsViewNavItems, badges), [badges]);
   const badgedLogisticsAdmin = useMemo(() => withBadges(logisticsAdminNavItems, badges), [badges]);
   const badgedLogisticsUser = useMemo(() => withBadges(logisticsUserNavItems, badges), [badges]);
 
@@ -319,6 +349,8 @@ function AppRoutes() {
         <Route path="enterprises" element={<EnterpriseList />} />
         <Route path="enterprises/create" element={<CreateEnterprise />} />
         <Route path="enterprises/:id" element={<EnterpriseDetail />} />
+        <Route path="enterprises/:id/bulk-it-admins" element={<BulkITAdminUploadWrapper />} />
+        <Route path="enterprises/:id/bulk-employees" element={<BulkUserUploadWrapper />} />
         <Route path="branches" element={<OpsBranches />} />
         <Route path="assets" element={<OpsAssets />} />
         <Route path="assets/:assetId" element={<AssetDetail />} />
@@ -417,7 +449,7 @@ function AppRoutes() {
         path="/super"
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
-            <DashboardLayout role="super_admin" title="Super Admin" navItems={badgedSuperAdmin} />
+            <DashboardLayout role="super_admin" title="Super Admin" navItems={badgedSuperAdmin} opsViewNavItems={badgedSuperOps} />
           </ProtectedRoute>
         }
       >
@@ -426,7 +458,8 @@ function AppRoutes() {
         <Route path="enterprises" element={<EnterpriseList />} />
         <Route path="enterprises/create" element={<CreateEnterprise />} />
         <Route path="enterprises/:id" element={<EnterpriseDetail />} />
-        <Route path="assets" element={<AllAssets />} />
+        <Route path="enterprises/:id/bulk-it-admins" element={<BulkITAdminUploadWrapper />} />
+        <Route path="enterprises/:id/bulk-employees" element={<BulkUserUploadWrapper />} />
         <Route path="assets/:assetId" element={<AssetDetail />} />
         <Route path="users" element={<AllUsers />} />
         <Route path="admins" element={<Admins />} />
@@ -437,9 +470,15 @@ function AppRoutes() {
         <Route path="settings" element={<SuperSettings />} />
         <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
         <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
-        <Route path="disputes" element={<PlaceholderPage title="Platform Disputes" />} />
-        <Route path="payouts" element={<PlaceholderPage title="Platform Payouts" />} />
-        <Route path="reviews" element={<PlaceholderPage title="Platform Reviews" />} />
+        {/* OPS Operations routes (real components via toggle) */}
+        <Route path="branches" element={<OpsBranches />} />
+        <Route path="enterprise-assets" element={<OpsAssets />} />
+        <Route path="reviews" element={<RemoteReviewQueue />} />
+        <Route path="payouts" element={<PayoutProcessing />} />
+        <Route path="disputes" element={<OpsDisputes />} />
+        <Route path="qc" element={<QCQueue />} />
+        <Route path="qc/:assetId" element={<FacilityQC />} />
+        <Route path="submissions/:assetId" element={<SubmissionDetail />} />
       </Route>
 
       {/* Catch-all redirect */}

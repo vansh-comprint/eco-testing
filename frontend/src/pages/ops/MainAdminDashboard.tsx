@@ -15,7 +15,7 @@ import {
   X,
   ClipboardCheck
 } from 'lucide-react';
-import { useAuth, useAllAssets, useEnterprises, useAllBatches, useAllDisputes, useDashboardStats } from '@/hooks';
+import { useAuth, useAllAssets, useEnterprises, useAllBatches, useDashboardStats } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
@@ -27,36 +27,16 @@ export function MainAdminDashboard() {
   const { data: assets = [] } = useAllAssets();
   const { data: enterprises = [] } = useEnterprises();
   const { data: batches = [] } = useAllBatches();
-  const { data: disputes = [] } = useAllDisputes();
   const { selectedEnterprise, selectedEnterpriseId, setSelectedEnterpriseId, isAllEnterprises } = useOpsEnterprise();
-  const { stats } = useDashboardStats();
+  // Pass enterprise_id so stats are server-computed for the selected enterprise
+  const { stats } = useDashboardStats({
+    enterpriseId: isAllEnterprises ? null : selectedEnterpriseId,
+  });
 
-  // Filter data based on selected enterprise
-  const filteredAssets = isAllEnterprises
-    ? assets
-    : assets.filter(a => a.enterprise_id === selectedEnterpriseId);
-
+  // Filter data only for list displays (enterprise table, recent activity, batch list)
   const filteredBatches = isAllEnterprises
     ? batches
     : batches.filter(b => b.enterprise_id === selectedEnterpriseId);
-
-  const filteredEnterprises = isAllEnterprises
-    ? enterprises
-    : enterprises.filter(e => e.id === selectedEnterpriseId);
-
-  // Calculate stats based on filtered data
-  const totalEnterprises = filteredEnterprises.length;
-  const activeEnterprises = filteredEnterprises.filter(e => e.status === 'active').length;
-  const totalAssets = filteredAssets.length;
-  const pendingReview = filteredAssets.filter(a => a.status === 'submitted' || a.status === 'remote_review').length;
-  const pendingQC = filteredAssets.filter(a => a.status === 'in_transit' || a.status === 'facility_qc').length;
-  const pendingPayout = filteredAssets.filter(a => a.status === 'payout_pending').length;
-  const pendingDisputes = disputes.filter((d: any) => d.status === 'open' || d.status === 'pending').length;
-
-  // Calculate total payout value
-  const totalPayoutValue = filteredAssets
-    .filter(a => a.status === 'completed')
-    .reduce((sum, a) => sum + (Number(a.final_price) || 0), 0);
 
   // Handle clicking on enterprise row
   const handleEnterpriseClick = (enterpriseId: string) => {
@@ -107,7 +87,7 @@ export function MainAdminDashboard() {
     : [
         {
           label: 'Total Assets',
-          value: totalAssets,
+          value: stats.asset_total ?? 0,
           subLabel: 'For this enterprise',
           icon: <Laptop className={`${iconSize.lg} text-emerald-500`} />,
           accent: 'success' as StatAccent,
@@ -115,7 +95,7 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Pending Evaluation',
-          value: pendingReview,
+          value: stats.pending_review ?? 0,
           subLabel: 'Awaiting review',
           icon: <Clock className={`${iconSize.lg} text-amber-500`} />,
           accent: 'warning' as StatAccent,
@@ -123,7 +103,7 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Ready for Pickup',
-          value: filteredAssets.filter(a => a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup').length,
+          value: (stats.asset_conditionally_accepted ?? 0) + (stats.asset_ready_for_pickup ?? 0),
           subLabel: 'Scheduled',
           icon: <Package className={`${iconSize.lg} text-blue-500`} />,
           accent: 'info' as StatAccent,
@@ -131,13 +111,18 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Credits Earned',
-          value: `₹${(totalPayoutValue / 1000).toFixed(0)}K`,
+          value: `₹${((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K`,
           subLabel: 'Total value',
           icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
           onClick: () => navigate('/ops/payouts'),
         },
       ];
+
+  // Filter assets for list displays (enterprise table, recent activity)
+  const filteredAssets = isAllEnterprises
+    ? assets
+    : assets.filter(a => a.enterprise_id === selectedEnterpriseId);
 
   // Get recent assets for activity feed (only for specific enterprise view)
   const recentAssets = [...filteredAssets]
@@ -216,7 +201,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-amber-500 transition-colors ${text.primary}`}>
-                      {isAllEnterprises ? (stats.pending_review ?? 0) : pendingReview} Assets Pending Review
+                      {stats.pending_review ?? 0} Assets Pending Review
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Across all enterprises</p>
                   </div>
@@ -248,7 +233,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-emerald-500 transition-colors ${text.primary}`}>
-                      {isAllEnterprises ? (stats.pending_payout ?? 0) : pendingPayout} Payouts Pending
+                      {stats.pending_payout ?? 0} Payouts Pending
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Ready for processing</p>
                   </div>
@@ -509,7 +494,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-amber-500 transition-colors ${text.primary}`}>
-                      {pendingReview} Evaluations Pending
+                      {stats.pending_review ?? 0} Evaluations Pending
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Awaiting remote review</p>
                   </div>
@@ -525,7 +510,7 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-blue-500 transition-colors ${text.primary}`}>
-                      {filteredAssets.filter(a => a.status === 'conditionally_accepted').length} Ready for Pickup
+                      {stats.asset_conditionally_accepted ?? 0} Ready for Pickup
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Schedule coordination</p>
                   </div>
@@ -541,14 +526,14 @@ export function MainAdminDashboard() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className={`font-display font-bold group-hover:text-emerald-500 transition-colors ${text.primary}`}>
-                      {pendingPayout} Payouts Pending
+                      {stats.pending_payout ?? 0} Payouts Pending
                     </p>
                     <p className={`font-mono text-xs ${text.muted}`}>Ready for processing</p>
                   </div>
                   <ArrowRight className={`${iconSize.lg} ${text.muted} group-hover:text-emerald-500 transition-colors`} />
                 </button>
 
-                {pendingDisputes > 0 && (
+                {(stats.pending_disputes ?? 0) > 0 && (
                   <button
                     onClick={() => navigate('/ops/disputes')}
                     className={`w-full p-4 flex items-center gap-4 ${hoverStyles.row} group`}
@@ -558,7 +543,7 @@ export function MainAdminDashboard() {
                     </div>
                     <div className="flex-1 text-left">
                       <p className={`font-display font-bold group-hover:text-red-500 transition-colors ${text.primary}`}>
-                        {pendingDisputes} Disputes Pending
+                        {stats.pending_disputes ?? 0} Disputes Pending
                       </p>
                       <p className={`font-mono text-xs ${text.muted}`}>Requires resolution</p>
                     </div>
@@ -635,7 +620,7 @@ export function MainAdminDashboard() {
                 <span className={`font-mono text-xs uppercase ${text.muted}`}>Accepted</span>
               </div>
               <p className="font-brand font-bold text-2xl text-emerald-600 dark:text-emerald-400">
-                {filteredAssets.filter(a => a.status === 'final_accepted' || a.status === 'completed').length}
+                {stats.asset_accepted ?? 0}
               </p>
             </motion.div>
 
@@ -650,7 +635,7 @@ export function MainAdminDashboard() {
                 <span className={`font-mono text-xs uppercase ${text.muted}`}>Rejected</span>
               </div>
               <p className="font-brand font-bold text-2xl text-red-600 dark:text-red-400">
-                {filteredAssets.filter(a => a.status === 'remote_rejected' || a.status === 'final_rejected').length}
+                {stats.asset_rejected ?? 0}
               </p>
             </motion.div>
 
@@ -665,7 +650,7 @@ export function MainAdminDashboard() {
                 <span className={`font-mono text-xs uppercase ${text.muted}`}>In Progress</span>
               </div>
               <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">
-                {filteredAssets.filter(a => !['completed', 'final_accepted', 'final_rejected', 'remote_rejected'].includes(a.status)).length}
+                {stats.in_progress ?? 0}
               </p>
             </motion.div>
 
@@ -680,7 +665,7 @@ export function MainAdminDashboard() {
                 <span className="font-mono text-xs uppercase text-lime-600 dark:text-lime-400">Total Value</span>
               </div>
               <p className="font-brand font-bold text-2xl text-lime-700 dark:text-lime-400">
-                ₹{(totalPayoutValue / 1000).toFixed(0)}K
+                ₹{((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K
               </p>
             </motion.div>
           </div>

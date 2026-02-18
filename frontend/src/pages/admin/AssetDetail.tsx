@@ -63,6 +63,7 @@ export function AssetDetail() {
   const userId = user?.id || '';
 
   // Determine context
+  const isSuperAdmin = user?.role === 'super_admin' || location.pathname.startsWith('/super');
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
 
@@ -104,7 +105,8 @@ export function AssetDetail() {
 
   // Determine navigation based on user role and current path
   const isLogisticsAdmin = user?.role === 'logistics_admin';
-  const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  const basePath = isSuperAdmin ? '/super' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
+  const assetsListPath = isSuperAdmin ? '/super/enterprise-assets' : `${basePath}/assets`;
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showBatchSelectModal, setShowBatchSelectModal] = useState(false);
@@ -295,7 +297,7 @@ export function AssetDetail() {
         <p className="font-display font-bold text-zinc-500 uppercase tracking-wide mb-1">Asset not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The asset you're looking for doesn't exist</p>
         <button
-          onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(`${basePath}/assets`)}
+          onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(assetsListPath)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -547,7 +549,7 @@ export function AssetDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(`${basePath}/assets`)}
+            onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(assetsListPath)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1388,7 +1390,7 @@ export function AssetDetail() {
                     <input
                       type="text"
                       value={newUserForm.name}
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => setNewUserForm(prev => ({ ...prev, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') }))}
                       placeholder="Employee name"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
                     />
@@ -1411,9 +1413,10 @@ export function AssetDetail() {
                     </label>
                     <input
                       type="tel"
+                      inputMode="numeric"
                       value={newUserForm.phone}
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="+91 98765 43210"
+                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setNewUserForm(prev => ({ ...prev, phone: v })); }}
+                      placeholder="9876543210"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
                     />
                   </div>

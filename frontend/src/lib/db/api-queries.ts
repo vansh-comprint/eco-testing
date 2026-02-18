@@ -47,7 +47,7 @@ export async function fetchEnterpriseApplicationById(id: string) {
 // ============================================
 
 export async function fetchAllUsers() {
-  const response = await usersApi.list({ limit: 1000 });
+  const response = await usersApi.list({ limit: 100 });
   return response.data || [];
 }
 
@@ -57,7 +57,7 @@ export async function fetchUserById(userId: string) {
 }
 
 export async function fetchUsersByEnterprise(enterpriseId: string) {
-  const response = await usersApi.list({ enterprise_id: enterpriseId, limit: 1000 });
+  const response = await usersApi.list({ enterprise_id: enterpriseId, limit: 100 });
   return response.data || [];
 }
 
@@ -94,10 +94,12 @@ export async function fetchAssetsByBatch(batchId: string) {
  * Fetch assets by IT Admin (returns assets from branches they manage)
  * Uses the assets API with no enterprise filter - backend handles scoping
  */
-export async function fetchAssetsByITAdmin(itAdminId: string) {
-  // The backend /assets endpoint already supports filtering by the current user's scope
-  // For IT admins, it returns only assets in their assigned branches
-  const response = await assetsApi.list({ limit: 100 });
+export async function fetchAssetsByITAdmin(itAdminId: string, branchId?: string) {
+  // Backend now properly scopes via Branch.it_admin_id for multi-branch IT Admins
+  // Pass branch_id for server-side filtering when a specific branch is selected
+  const params: { limit: number; branch_id?: string } = { limit: 100 };
+  if (branchId) params.branch_id = branchId;
+  const response = await assetsApi.list(params);
   return response.data || [];
 }
 
@@ -210,12 +212,12 @@ export async function bulkCreateAssets(assets: Array<Record<string, unknown>>) {
 // ============================================
 
 export async function fetchAllBatches() {
-  const response = await batchesApi.list({ limit: 1000 });
+  const response = await batchesApi.list({ limit: 100 });
   return response.data || [];
 }
 
 export async function fetchBatches(enterpriseId: string) {
-  const response = await batchesApi.list({ enterprise_id: enterpriseId, limit: 1000 });
+  const response = await batchesApi.list({ enterprise_id: enterpriseId, limit: 100 });
   return response.data || [];
 }
 
@@ -248,12 +250,12 @@ export async function fetchBranchById(branchId: string) {
 // ============================================
 
 export async function fetchAllPickupRequests() {
-  const response = await pickupsApi.list({ limit: 1000 });
+  const response = await pickupsApi.list({ limit: 100 });
   return response.data || [];
 }
 
 export async function fetchPickupRequests(enterpriseId: string) {
-  const response = await pickupsApi.list({ enterprise_id: enterpriseId, limit: 1000 });
+  const response = await pickupsApi.list({ enterprise_id: enterpriseId, limit: 100 });
   return response.data || [];
 }
 

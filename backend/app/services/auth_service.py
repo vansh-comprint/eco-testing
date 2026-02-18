@@ -3,7 +3,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from redis.asyncio import Redis
+try:
+    from redis.asyncio import Redis
+except ImportError:
+    Redis = None
 
 from app.core.security import (
     verify_password,

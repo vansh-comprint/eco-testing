@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Truck,
   Search,
@@ -25,8 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useEnterprises } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
-import { ConfirmationModal, Card, PageHeader, useToast } from '@/components/ui';
-import { text, iconSize } from '@/lib/design-tokens';
+import { ConfirmationModal, useToast } from '@/components/ui';
 import { useUserRole } from '@/stores/authStoreApi';
 
 type QueueFilter = 'all' | 'pending' | 'assigned' | 'completed';
@@ -35,7 +34,6 @@ export function PickupQueue() {
   const { user } = useAuth();
   const userRole = useUserRole();
   const isSuperAdmin = userRole === 'super_admin';
-  const headerLabel = isSuperAdmin ? 'Super Admin' : 'Pickup Management';
 
   const { data: pickupRequests = [], isLoading } = useAllPickupRequests();
   const { data: logisticsAdmins = [], isLoading: isLoadingLogistics } = useLogisticsAdmins();
@@ -55,6 +53,9 @@ export function PickupQueue() {
   const [statusFilter, setStatusFilter] = useState<QueueFilter>(isSuperAdmin ? 'all' : 'pending');
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [selectedLogisticsAdmin, setSelectedLogisticsAdmin] = useState<string>('');
+
+  // Assignment modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Add new logistics admin state
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -113,7 +114,25 @@ export function PickupQueue() {
   const getLogisticsAdminName = (adminId?: string) => {
     if (!adminId) return 'Unassigned';
     const admin = logisticsAdmins.find(a => a.id === adminId);
-    return admin ? `${admin.name} (${admin.company_name})` : 'Unknown';
+    return admin ? (admin.company_name ? `${admin.name} (${admin.company_name})` : admin.name) : 'Unknown';
+  };
+
+  const openAssignModal = (requestId: string) => {
+    const request = pickupRequests.find(r => r.id === requestId);
+    if (!request) return;
+    setSelectedRequest(requestId);
+    setSelectedLogisticsAdmin('');
+    setShowReassignMode(!!request.logistics_admin_id);
+    setShowAddAdmin(false);
+    setShowAssignModal(true);
+  };
+
+  const closeAssignModal = () => {
+    setShowAssignModal(false);
+    setSelectedRequest(null);
+    setSelectedLogisticsAdmin('');
+    setShowReassignMode(false);
+    setShowAddAdmin(false);
   };
 
   const handleAssign = async () => {
@@ -125,10 +144,8 @@ export function PickupQueue() {
         logisticsAdminId: selectedLogisticsAdmin,
       });
 
-      setSelectedRequest(null);
-      setSelectedLogisticsAdmin('');
+      closeAssignModal();
       setShowConfirmModal(false);
-      setShowReassignMode(false);
     } catch (error) {
       console.error('Assignment failed:', error);
       addToast({ type: 'error', title: 'Assignment Failed', message: error instanceof Error ? error.message : 'Failed to assign pickup', duration: 5000 });
@@ -210,622 +227,545 @@ export function PickupQueue() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <PageHeader
-        label={headerLabel}
-        title={isSuperAdmin ? 'All Pickups' : 'Pickup Queue'}
-        subtitle={subtitle}
-      />
+      <div className="border-b border-slate-200 dark:border-white/10 pb-6">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
+            {isSuperAdmin ? 'Super Admin' : 'Pickup Management'}
+          </span>
+          <h1 className="font-brand font-bold text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
+            {isSuperAdmin ? 'All Pickups' : 'Pickup Queue'}
+          </h1>
+          <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
+            {subtitle}
+          </p>
+        </motion.div>
+      </div>
 
       {/* Stats */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`grid grid-cols-2 ${isSuperAdmin ? 'sm:grid-cols-3 lg:grid-cols-5' : 'md:grid-cols-4'} gap-3 md:gap-4`}
+        transition={{ delay: 0.1 }}
+        className={`grid grid-cols-2 ${isSuperAdmin ? 'sm:grid-cols-3 lg:grid-cols-5' : 'md:grid-cols-4'} border-l border-t border-slate-200 dark:border-white/10`}
       >
-        {/* Active stat - Super Admin only */}
         {isSuperAdmin && (
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Truck className={`w-4 h-4 ${text.muted}`} />
-              <span className={`font-mono text-xs uppercase ${text.muted}`}>Active</span>
+          <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">Active</h4>
+              <Truck className="w-4 h-4 text-slate-500 dark:text-white/60" />
             </div>
-            <p className={`font-brand font-bold text-3xl ${text.primary}`}>
-              {totalActive}
-            </p>
-          </Card>
+            <div className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{totalActive}</div>
+          </div>
         )}
-
-        <Card className={`p-5 ${isSuperAdmin ? 'border-amber-400/20' : ''}`}>
-          <div className="flex items-center gap-2 mb-2">
+        <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">Pending</h4>
             <Clock className="w-4 h-4 text-amber-400" />
-            <span className={`font-mono text-xs uppercase ${text.muted}`}>Pending</span>
           </div>
-          <p className="font-brand font-bold text-3xl text-amber-400">
-            {pendingCount}
-          </p>
-        </Card>
-
-        <Card className={`p-5 ${isSuperAdmin ? 'border-blue-400/20' : ''}`}>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="font-brand font-bold text-3xl text-amber-400">{pendingCount}</div>
+        </div>
+        <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">Assigned</h4>
             <Truck className="w-4 h-4 text-blue-400" />
-            <span className={`font-mono text-xs uppercase ${text.muted}`}>Assigned</span>
           </div>
-          <p className="font-brand font-bold text-3xl text-blue-400">
-            {assignedCount}
-          </p>
-        </Card>
-
-        <Card className={`p-5 ${isSuperAdmin ? 'border-emerald-400/20' : ''}`}>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="font-brand font-bold text-3xl text-blue-400">{assignedCount}</div>
+        </div>
+        <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">Completed</h4>
             <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span className={`font-mono text-xs uppercase ${text.muted}`}>Completed</span>
           </div>
-          <p className="font-brand font-bold text-3xl text-emerald-400">
-            {completedCount}
-          </p>
-        </Card>
-
-        <Card className={`p-5 ${isSuperAdmin ? 'border-slate-400/20' : ''}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <User className={`w-4 h-4 ${text.muted}`} />
-            <span className={`font-mono text-xs uppercase ${text.muted}`}>Partners</span>
+          <div className="font-brand font-bold text-3xl text-emerald-400">{completedCount}</div>
+        </div>
+        <div className="p-5 border-r border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-mono font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-white/60">Partners</h4>
+            <User className="w-4 h-4 text-slate-500 dark:text-white/60" />
           </div>
-          <p className={`font-brand font-bold text-3xl ${text.muted}`}>
-            {activeLogisticsAdmins.length}
-          </p>
-        </Card>
+          <div className="font-brand font-bold text-3xl text-slate-500 dark:text-white/60">{activeLogisticsAdmins.length}</div>
+        </div>
       </motion.div>
 
       {/* Filters */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="flex flex-col md:flex-row gap-3"
       >
-        <Card className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 dark:text-white/50" />
-              <input
-                type="text"
-                placeholder="Search by location, enterprise, or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
-              />
-            </div>
-            <div className="flex gap-2">
-              {([
-                { key: 'all', label: 'All' },
-                { key: 'pending', label: 'Pending' },
-                { key: 'assigned', label: 'Assigned' },
-                { key: 'completed', label: 'Completed' }
-              ] as const).map((filter) => (
-                <button
-                  key={filter.key}
-                  onClick={() => setStatusFilter(filter.key)}
-                  className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
-                    statusFilter === filter.key
-                      ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
-                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Card>
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 dark:text-white/50" />
+          <input
+            type="text"
+            placeholder="Search by location, enterprise, or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+          />
+        </div>
+        <div className="flex gap-2">
+          {([
+            { key: 'all', label: 'All' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'assigned', label: 'Assigned' },
+            { key: 'completed', label: 'Completed' }
+          ] as const).map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setStatusFilter(filter.key)}
+              className={`interactive px-4 py-3 border font-mono font-bold text-xs uppercase tracking-widest transition-all ${
+                statusFilter === filter.key
+                  ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-white/50 hover:border-slate-300 dark:hover:border-white/20'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pickup Requests List */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="space-y-4"
-        >
-          {filteredRequests.length > 0 ? (
-            filteredRequests.map((request, idx) => {
-              const isSelected = selectedRequest === request.id;
+      {/* Pickup Requests List */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+      >
+        {filteredRequests.length > 0 ? (
+          <div className="divide-y divide-slate-200 dark:divide-white/5">
+            {filteredRequests.map((request, idx) => (
+              <motion.div
+                key={request.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 * Math.min(idx, 10) }}
+                className="p-5 hover:bg-white/60 dark:hover:bg-white/[0.04] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Icon */}
+                  <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
+                    request.status === 'pending'
+                      ? 'border-amber-400/30 bg-amber-400/10'
+                      : 'border-blue-400/30 bg-blue-400/10'
+                  }`}>
+                    <Truck className={`w-6 h-6 ${
+                      request.status === 'pending'
+                        ? 'text-amber-400'
+                        : 'text-blue-400'
+                    }`} />
+                  </div>
 
-              return (
-                <motion.div
-                  key={request.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                >
-                  <Card
-                    onClick={() => {
-                      setSelectedRequest(prev => prev === request.id ? null : request.id);
-                      setShowReassignMode(false);
-                      setSelectedLogisticsAdmin('');
-                    }}
-                    className={`cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-ecotribe-primary bg-ecotribe-primary/5'
-                        : 'hover:border-slate-200 dark:hover:border-white/20'
-                    }`}
-                  >
-                    <div className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 border flex items-center justify-center flex-shrink-0 ${
-                          request.status === 'pending'
-                            ? 'border-amber-400/30 bg-amber-400/10'
-                            : 'border-blue-400/30 bg-blue-400/10'
-                        }`}>
-                          <Truck className={`w-6 h-6 ${
-                            request.status === 'pending'
-                              ? 'text-amber-400'
-                              : 'text-blue-400'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className={`font-display font-bold uppercase ${text.primary}`}>
-                                {request.pickup_locations?.name || 'Unknown Location'}
-                              </p>
-                              <p className={`font-mono text-xs ${text.muted}`}>
-                                {getEnterpriseName(request.enterprise_id)}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(request.status)}`}>
-                                {request.status.replaceAll('_', ' ')}
-                              </span>
-                              <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${getPriorityColor(request.priority)}`}>
-                                {request.priority}
-                              </span>
-                            </div>
-                          </div>
-                          <div className={`flex items-center gap-4 mt-3 text-xs font-mono ${text.muted}`}>
-                            <span className="flex items-center gap-1">
-                              <Package className="w-3 h-3" />
-                              {request.asset_ids?.length || 0} assets
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(request.preferred_date || request.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {request.logistics_admin_id && (
-                            <div className="mt-2 flex items-center gap-1 text-xs font-mono text-blue-400">
-                              <User className="w-3 h-3" />
-                              {getLogisticsAdminName(request.logistics_admin_id)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
+                      {request.pickup_locations?.name || 'Unknown Location'}
+                    </p>
+                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-0.5">
+                      {getEnterpriseName(request.enterprise_id)}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-4 mt-2 text-xs font-mono text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-1">
+                        <Package className="w-3 h-3" />
+                        {request.asset_ids?.length || 0} assets
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(request.preferred_date || request.created_at).toLocaleDateString()}
+                      </span>
+                      {request.logistics_admin_id && (
+                        <span className="flex items-center gap-1 text-blue-400">
+                          <User className="w-3 h-3" />
+                          {getLogisticsAdminName(request.logistics_admin_id)}
+                        </span>
+                      )}
                     </div>
-                  </Card>
-                </motion.div>
-              );
-            })
-          ) : (
-            <Card className="py-16 text-center">
-              <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
-                <Truck className={`w-8 h-8 ${text.muted}`} />
-              </div>
-              <h3 className={`font-brand font-bold text-lg uppercase mb-2 ${text.muted}`}>
-                No Pickup Requests
-              </h3>
-              <p className={`font-display text-sm ${text.muted}`}>
-                {searchQuery ? 'Try adjusting your search.' : 'No pending pickup requests at this time.'}
-              </p>
-            </Card>
-          )}
-        </motion.div>
+                  </div>
 
-        {/* Assignment Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="lg:sticky lg:top-4 h-fit"
-        >
-          {selectedRequestData ? (
-            <Card>
-              <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-                <h3 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
-                  Pickup Details
-                </h3>
+                  {/* Badges + Action — all in one row */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${getStatusColor(request.status)}`}>
+                      {request.status.replaceAll('_', ' ')}
+                    </span>
+                    <span className={`px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${getPriorityColor(request.priority)}`}>
+                      {request.priority}
+                    </span>
+                    {(() => {
+                      const isTerminal = ['completed', 'failed', 'cancelled'].includes(request.status);
+                      return request.logistics_admin_id ? (
+                        <button
+                          type="button"
+                          onClick={() => !isTerminal && openAssignModal(request.id)}
+                          disabled={isTerminal}
+                          className={`px-4 py-2 border font-mono text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ml-2 transition-colors ${
+                            isTerminal
+                              ? 'border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/20 cursor-not-allowed'
+                              : 'interactive border-amber-400/50 text-amber-400 hover:bg-amber-400/10'
+                          }`}
+                        >
+                          <RefreshCcw className="w-3.5 h-3.5" />
+                          Reassign
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => !isTerminal && openAssignModal(request.id)}
+                          disabled={isTerminal}
+                          className={`px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ml-2 transition-all ${
+                            isTerminal
+                              ? 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-white/20 cursor-not-allowed'
+                              : 'interactive bg-ecotribe-primary text-black hover:bg-white'
+                          }`}
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Assign
+                        </button>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-16 text-center">
+            <Truck className="w-12 h-12 text-slate-500 dark:text-white/50 mx-auto mb-4" />
+            <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">
+              No Pickup Requests
+            </p>
+            <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+              {searchQuery ? 'Try adjusting your search.' : 'No pending pickup requests at this time.'}
+            </p>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Assignment Modal */}
+      <AnimatePresence>
+        {showAssignModal && selectedRequestData && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-2xl bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20 max-h-[90vh] overflow-y-auto"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center">
+                    {showReassignMode ? (
+                      <RefreshCcw className="w-5 h-5 text-ecotribe-primary" />
+                    ) : (
+                      <Send className="w-5 h-5 text-ecotribe-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">
+                      {showReassignMode ? 'Reassign Pickup' : 'Assign to Partner'}
+                    </h3>
+                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
+                      {selectedRequestData.pickup_locations?.name || 'Pickup'} · {selectedRequestData.asset_ids?.length || 0} assets
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedRequest(null);
-                    setShowReassignMode(false);
-                    setSelectedLogisticsAdmin('');
-                  }}
-                  className="p-1.5 border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/30 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                  title="Close details"
+                  onClick={closeAssignModal}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
                 </button>
               </div>
 
-              <div className="p-5 space-y-6">
-                {/* Location Info */}
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* Pickup Details */}
                 <div className="flex items-center gap-4 p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                   <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
-                    <MapPin className={`w-7 h-7 ${text.muted}`} />
+                    <MapPin className="w-7 h-7 text-slate-500 dark:text-white/50" />
                   </div>
                   <div>
-                    <p className={`font-display font-bold uppercase ${text.primary}`}>
+                    <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
                       {selectedRequestData.pickup_locations?.name}
                     </p>
-                    <p className={`font-mono text-xs ${text.muted}`}>
+                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                       {selectedRequestData.pickup_locations?.address}
                     </p>
                   </div>
                 </div>
 
-                {/* Enterprise */}
-                <div className="flex items-center gap-4">
-                  <Building2 className={`w-4 h-4 ${text.muted}`} />
-                  <span className={`font-display ${text.primary}`}>
-                    {getEnterpriseName(selectedRequestData.enterprise_id)}
-                  </span>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-slate-500 dark:text-white/50" />
+                    <span className="font-display text-slate-900 dark:text-white">
+                      {getEnterpriseName(selectedRequestData.enterprise_id)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Package className="w-4 h-4 text-slate-500 dark:text-white/50" />
+                    <span className="font-display text-slate-900 dark:text-white">
+                      {selectedRequestData.asset_ids?.length || 0} assets
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-slate-500 dark:text-white/50" />
+                    <span className="font-display text-slate-900 dark:text-white">
+                      {new Date(selectedRequestData.preferred_date || selectedRequestData.created_at).toLocaleDateString()} ({selectedRequestData.preferred_time_slot})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 border font-mono font-bold text-[10px] uppercase ${getPriorityColor(selectedRequestData.priority)}`}>
+                      {selectedRequestData.priority}
+                    </span>
+                    <span className={`px-2 py-0.5 border font-mono font-bold text-[10px] uppercase ${getStatusColor(selectedRequestData.status)}`}>
+                      {selectedRequestData.status.replaceAll('_', ' ')}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Asset Count */}
-                <div className="flex items-center gap-4">
-                  <Package className={`w-4 h-4 ${text.muted}`} />
-                  <span className={`font-display ${text.primary}`}>
-                    {selectedRequestData.asset_ids?.length || 0} assets to pickup
-                  </span>
-                </div>
-
-                {/* Preferred Date */}
-                <div className="flex items-center gap-4">
-                  <Calendar className={`w-4 h-4 ${text.muted}`} />
-                  <span className={`font-display ${text.primary}`}>
-                    Preferred: {new Date(selectedRequestData.preferred_date || selectedRequestData.created_at).toLocaleDateString()} ({selectedRequestData.preferred_time_slot})
-                  </span>
-                </div>
-
-                {/* Priority & Status */}
-                <div className="flex items-center gap-4">
-                  <span className={`px-2 py-1 border font-mono font-bold text-xs uppercase ${getPriorityColor(selectedRequestData.priority)}`}>
-                    {selectedRequestData.priority} priority
-                  </span>
-                  <span className={`px-2 py-1 border font-mono font-bold text-xs uppercase ${getStatusColor(selectedRequestData.status)}`}>
-                    {selectedRequestData.status.replaceAll('_', ' ')}
-                  </span>
-                </div>
-
-                {/* Special Instructions */}
                 {selectedRequestData.special_instructions && (
                   <div>
-                    <p className={`font-mono font-bold text-xs uppercase tracking-widest mb-2 ${text.muted}`}>
+                    <p className="font-mono font-bold text-xs uppercase tracking-widest mb-2 text-slate-500 dark:text-white/50">
                       Special Instructions
                     </p>
                     <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-                      <p className={`font-display ${text.primary}`}>{selectedRequestData.special_instructions}</p>
+                      <p className="font-display text-slate-900 dark:text-white">{selectedRequestData.special_instructions}</p>
                     </div>
                   </div>
                 )}
 
-                {selectedRequestData.logistics_admin_id && !showReassignMode ? (
-                  /* Already Assigned - with Reassign Option */
-                  <div className="p-4 border border-blue-400/30 bg-blue-400/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-blue-400" />
-                        <span className="font-mono font-bold text-sm text-blue-400 uppercase">
-                          Assigned
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setShowReassignMode(true)}
-                        className="interactive flex items-center gap-1.5 px-3 py-1.5 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/10 transition-colors"
-                      >
-                        <RefreshCcw className="w-3 h-3" />
-                        Reassign
-                      </button>
+                {/* Current Assignment Info (reassign mode) */}
+                {showReassignMode && selectedRequestData.logistics_admin_id && (
+                  <div className="p-4 border border-amber-400/30 bg-amber-400/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <RefreshCcw className="w-4 h-4 text-amber-400" />
+                      <span className="font-mono font-bold text-xs text-amber-400 uppercase">
+                        Currently Assigned
+                      </span>
                     </div>
                     <p className="font-display text-slate-700 dark:text-zinc-300">
                       {getLogisticsAdminName(selectedRequestData.logistics_admin_id)}
                     </p>
-                    <p className={`font-mono text-xs mt-2 ${text.muted}`}>
-                      Waiting for logistics admin to assign field user
-                    </p>
                   </div>
-                ) : (selectedRequestData.logistics_admin_id && showReassignMode) ? (
-                  /* Reassign Mode - Show Partner Selection */
-                  <div className="space-y-4">
-                    <div className="p-4 border border-amber-400/30 bg-amber-400/10">
+                )}
+
+                {/* Partner Selection */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-mono font-bold text-xs uppercase tracking-widest text-slate-500 dark:text-white/50">
+                      {showReassignMode ? 'Select New Partner' : 'Assign to Logistics Partner'}
+                    </p>
+                    {!showAddAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddAdmin(true)}
+                        className="interactive flex items-center gap-1 px-2 py-1 border border-ecotribe-primary/50 text-ecotribe-primary font-mono text-xs uppercase hover:bg-ecotribe-primary/10 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add New
+                      </button>
+                    )}
+                  </div>
+
+                  {showAddAdmin ? (
+                    /* Add New Logistics Admin Form */
+                    <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <RefreshCcw className="w-5 h-5 text-amber-400" />
-                          <span className="font-mono font-bold text-sm text-amber-400 uppercase">
-                            Reassign Partner
-                          </span>
-                        </div>
+                        <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
+                          Add Logistics Partner
+                        </p>
                         <button
-                          onClick={() => {
-                            setShowReassignMode(false);
-                            setSelectedLogisticsAdmin('');
-                          }}
+                          type="button"
+                          onClick={() => setShowAddAdmin(false)}
                           className="text-slate-400 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="font-mono text-xs text-amber-400/70 mt-2">
-                        Current: {getLogisticsAdminName(selectedRequestData.logistics_admin_id)}
-                      </p>
-                    </div>
 
-                    <div>
-                      <p className={`font-mono font-bold text-xs uppercase tracking-widest mb-3 ${text.muted}`}>
-                        Select New Partner
-                      </p>
-                      <div className="space-y-2">
-                        {activeLogisticsAdmins
-                          .filter(admin => admin.id !== selectedRequestData.logistics_admin_id)
-                          .map((admin) => (
-                            <button
-                              key={admin.id}
-                              onClick={() => setSelectedLogisticsAdmin(admin.id)}
-                              className={`w-full interactive p-4 border text-left transition-all ${
-                                selectedLogisticsAdmin === admin.id
-                                  ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 border flex items-center justify-center ${
-                                  selectedLogisticsAdmin === admin.id
-                                    ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                    : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
-                                }`}>
-                                  <User className={`w-5 h-5 ${
-                                    selectedLogisticsAdmin === admin.id
-                                      ? 'text-ecotribe-primary'
-                                      : text.muted
-                                  }`} />
-                                </div>
-                                <div>
-                                  <p className={`font-display font-bold uppercase ${
-                                    selectedLogisticsAdmin === admin.id
-                                      ? 'text-ecotribe-primary'
-                                      : text.primary
-                                  }`}>
-                                    {admin.name}
-                                  </p>
-                                  <p className={`font-mono text-xs ${text.muted}`}>
-                                    {admin.company_name}
-                                  </p>
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        {activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id).length === 0 && (
-                          <div className="p-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-center">
-                            <p className={`font-mono text-xs ${text.muted}`}>
-                              No other partners available
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmModal(true)}
-                      disabled={!selectedLogisticsAdmin || assignMutation.isPending}
-                      className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                        selectedLogisticsAdmin
-                          ? 'bg-amber-500 text-white hover:bg-amber-400'
-                          : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
-                      }`}
-                    >
-                      {assignMutation.isPending ? (
-                        <Clock className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <RefreshCcw className="w-4 h-4" />
-                          Reassign to Partner
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  /* Assignment Form */
-                  <>
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <p className={`font-mono font-bold text-xs uppercase tracking-widest ${text.muted}`}>
-                          Assign to Logistics Partner
-                        </p>
-                        {!showAddAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setShowAddAdmin(true)}
-                            className="interactive flex items-center gap-1 px-2 py-1 border border-ecotribe-primary/50 text-ecotribe-primary font-mono text-xs uppercase hover:bg-ecotribe-primary/10 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add New
-                          </button>
-                        )}
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Contact Name *"
+                            value={newAdminName}
+                            onChange={(e) => setNewAdminName(e.target.value)}
+                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                              e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, '');
+                            }}
+                            className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Company Name *"
+                            value={newAdminCompany}
+                            onChange={(e) => setNewAdminCompany(e.target.value)}
+                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                              e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9\s&.\-]/g, '');
+                            }}
+                            className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input
+                            type="email"
+                            placeholder="Email *"
+                            value={newAdminEmail}
+                            onChange={(e) => setNewAdminEmail(e.target.value)}
+                            className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          />
+                          <input
+                            type="password"
+                            placeholder="Password * (min 8 chars)"
+                            value={newAdminPassword}
+                            onChange={(e) => setNewAdminPassword(e.target.value)}
+                            className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                          />
+                        </div>
+                        <input
+                          type="tel"
+                          placeholder="9876543210"
+                          inputMode="numeric"
+                          value={newAdminPhone}
+                          onChange={(e) => setNewAdminPhone(e.target.value)}
+                          onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                            e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+                          }}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
+                        />
                       </div>
 
-                      {showAddAdmin ? (
-                        /* Add New Logistics Admin Form */
-                        <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
-                              Add Logistics Partner
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => setShowAddAdmin(false)}
-                              className="text-slate-400 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <input
-                                type="text"
-                                placeholder="Contact Name *"
-                                value={newAdminName}
-                                onChange={(e) => setNewAdminName(e.target.value)}
-                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Company Name *"
-                                value={newAdminCompany}
-                                onChange={(e) => setNewAdminCompany(e.target.value)}
-                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                              />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <input
-                                type="email"
-                                placeholder="Email *"
-                                value={newAdminEmail}
-                                onChange={(e) => setNewAdminEmail(e.target.value)}
-                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                              />
-                              <input
-                                type="password"
-                                placeholder="Password * (min 8 chars)"
-                                value={newAdminPassword}
-                                onChange={(e) => setNewAdminPassword(e.target.value)}
-                                className="px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                              />
-                            </div>
-                            <input
-                              type="tel"
-                              placeholder="Phone"
-                              value={newAdminPhone}
-                              onChange={(e) => setNewAdminPhone(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={handleCreateAdmin}
-                            disabled={!newAdminName || !newAdminCompany || !newAdminEmail || !newAdminPassword || newAdminPassword.length < 8 || isCreatingAdmin}
-                            className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                              newAdminName && newAdminCompany && newAdminEmail && newAdminPassword && newAdminPassword.length >= 8
-                                ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
-                                : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
-                            }`}
-                          >
-                            {isCreatingAdmin ? (
-                              <Clock className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Plus className="w-4 h-4" />
-                                Create Partner
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        /* Existing Logistics Admins List */
-                        <div className="space-y-2">
-                          {activeLogisticsAdmins.length > 0 ? (
-                            activeLogisticsAdmins.map((admin) => (
-                              <button
-                                key={admin.id}
-                                onClick={() => setSelectedLogisticsAdmin(admin.id)}
-                                className={`w-full interactive p-4 border text-left transition-all ${
-                                  selectedLogisticsAdmin === admin.id
-                                    ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                    : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 border flex items-center justify-center ${
-                                    selectedLogisticsAdmin === admin.id
-                                      ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                      : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
-                                  }`}>
-                                    <User className={`w-5 h-5 ${
-                                      selectedLogisticsAdmin === admin.id
-                                        ? 'text-ecotribe-primary'
-                                        : text.muted
-                                    }`} />
-                                  </div>
-                                  <div>
-                                    <p className={`font-display font-bold uppercase ${
-                                      selectedLogisticsAdmin === admin.id
-                                        ? 'text-ecotribe-primary'
-                                        : text.primary
-                                    }`}>
-                                      {admin.name}
-                                    </p>
-                                    <p className={`font-mono text-xs ${text.muted}`}>
-                                      {admin.company_name}
-                                    </p>
-                                  </div>
-                                </div>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="p-4 border border-amber-400/30 bg-amber-400/10 text-center">
-                              <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                              <p className="font-mono text-xs text-amber-400 mb-2">
-                                No logistics partners added yet
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => setShowAddAdmin(true)}
-                                className="interactive inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
-                              >
-                                <Plus className="w-3 h-3" />
-                                Add First Partner
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {!showAddAdmin && (
                       <button
                         type="button"
-                        onClick={() => setShowConfirmModal(true)}
-                        disabled={!selectedLogisticsAdmin || isLoading}
-                        className={`w-full interactive py-3 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                          selectedLogisticsAdmin
+                        onClick={handleCreateAdmin}
+                        disabled={!newAdminName || !newAdminCompany || !newAdminEmail || !newAdminPassword || newAdminPassword.length < 8 || isCreatingAdmin}
+                        className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                          newAdminName && newAdminCompany && newAdminEmail && newAdminPassword && newAdminPassword.length >= 8
                             ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
                             : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
                         }`}
                       >
-                        {isLoading ? (
+                        {isCreatingAdmin ? (
                           <Clock className="w-4 h-4 animate-spin" />
                         ) : (
                           <>
-                            <Send className="w-4 h-4" />
-                            Assign to Partner
+                            <Plus className="w-4 h-4" />
+                            Create Partner
                           </>
                         )}
                       </button>
-                    )}
-                  </>
-                )}
+                    </div>
+                  ) : (
+                    /* Existing Logistics Admins List */
+                    <div className="space-y-2">
+                      {(showReassignMode
+                        ? activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id)
+                        : activeLogisticsAdmins
+                      ).length > 0 ? (
+                        (showReassignMode
+                          ? activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id)
+                          : activeLogisticsAdmins
+                        ).map((admin) => (
+                          <button
+                            key={admin.id}
+                            onClick={() => setSelectedLogisticsAdmin(admin.id)}
+                            className={`w-full interactive p-4 border text-left transition-all ${
+                              selectedLogisticsAdmin === admin.id
+                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
+                                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 border flex items-center justify-center ${
+                                selectedLogisticsAdmin === admin.id
+                                  ? 'border-ecotribe-primary bg-ecotribe-primary/10'
+                                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
+                              }`}>
+                                <User className={`w-5 h-5 ${
+                                  selectedLogisticsAdmin === admin.id
+                                    ? 'text-ecotribe-primary'
+                                    : 'text-slate-500 dark:text-white/50'
+                                }`} />
+                              </div>
+                              <div>
+                                <p className={`font-display font-bold uppercase ${
+                                  selectedLogisticsAdmin === admin.id
+                                    ? 'text-ecotribe-primary'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}>
+                                  {admin.name}
+                                </p>
+                                {admin.company_name && (
+                                  <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+                                    {admin.company_name}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-4 border border-amber-400/30 bg-amber-400/10 text-center">
+                          <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+                          <p className="font-mono text-xs text-amber-400 mb-2">
+                            {showReassignMode ? 'No other partners available' : 'No logistics partners added yet'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddAdmin(true)}
+                            className="interactive inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Partner
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </Card>
-          ) : (
-            <Card className="py-16 text-center">
-              <Truck className={`w-10 h-10 mx-auto mb-4 ${text.muted}`} />
-              <p className={`font-display ${text.muted}`}>
-                Select a pickup request to view details and assign
-              </p>
-            </Card>
-          )}
-        </motion.div>
-      </div>
+
+              {/* Modal Footer */}
+              {!showAddAdmin && (
+                <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
+                  <button
+                    onClick={closeAssignModal}
+                    className="px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmModal(true)}
+                    disabled={!selectedLogisticsAdmin || assignMutation.isPending}
+                    className={`px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                      selectedLogisticsAdmin
+                        ? showReassignMode
+                          ? 'bg-amber-500 text-white hover:bg-amber-400'
+                          : 'bg-ecotribe-primary text-black hover:bg-white'
+                        : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-white/50 cursor-not-allowed'
+                    }`}
+                  >
+                    {assignMutation.isPending ? (
+                      <Clock className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        {showReassignMode ? <RefreshCcw className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                        {showReassignMode ? 'Reassign Partner' : 'Assign Partner'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -843,13 +783,13 @@ export function PickupQueue() {
         details={
           selectedRequestData && (
             <div className="text-left space-y-1">
-              <p className={`font-mono text-xs ${text.muted}`}>
+              <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                 <span className="text-slate-400 dark:text-white/40">Location:</span> {selectedRequestData.pickup_locations?.name}
               </p>
-              <p className={`font-mono text-xs ${text.muted}`}>
+              <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                 <span className="text-slate-400 dark:text-white/40">Assets:</span> {selectedRequestData.asset_ids?.length || 0}
               </p>
-              <p className={`font-mono text-xs ${text.muted}`}>
+              <p className="font-mono text-xs text-slate-500 dark:text-white/50">
                 <span className="text-slate-400 dark:text-white/40">Enterprise:</span> {getEnterpriseName(selectedRequestData.enterprise_id)}
               </p>
               {showReassignMode && (

@@ -1,19 +1,18 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, Plus, Mail, Phone, MapPin, Clock, Ban, ExternalLink, Search, Power, CheckCircle } from 'lucide-react';
-import { PageHeader, StatBox, Modal, Button, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Building2, Plus, Clock, Ban, ExternalLink, Search, CheckCircle, Eye } from 'lucide-react';
+import { PageHeader, StatBox, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
-import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats } from '@/hooks';
+import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats, dashboardStatsKeys } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Enterprise } from '@/types';
 
 export function Enterprises() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
-  const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ enterprise: Enterprise; newStatus: 'active' | 'inactive' } | null>(null);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
@@ -66,8 +65,7 @@ export function Enterprises() {
       });
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
-        setIsModalOpen(false);
-        setSelectedEnterprise(null);
+        queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
       }
     } catch (error) {
       console.error('Error changing enterprise status:', error);
@@ -75,11 +73,6 @@ export function Enterprises() {
       setIsChangingStatus(false);
       setStatusChangeTarget(null);
     }
-  };
-
-  const handleViewDetails = (enterprise: Enterprise) => {
-    setSelectedEnterprise(enterprise);
-    setIsModalOpen(true);
   };
 
   const filteredActive = useMemo(() => {
@@ -106,6 +99,12 @@ export function Enterprises() {
     );
   }, [inactiveEnterprises, searchQuery]);
 
+  const filteredEnterprises = activeTab === 'active' ? filteredActive : filteredInactive;
+
+  // Detect base path for navigation
+  const isOpsPath = location.pathname.startsWith('/ops');
+  const basePath = isOpsPath ? '/ops' : '/super';
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -113,7 +112,7 @@ export function Enterprises() {
         subtitle="Manage enterprise registrations and approvals"
         actions={
           <button
-            onClick={() => navigate('/super/enterprises/create')}
+            onClick={() => navigate(`${basePath}/enterprises/create`)}
             className="px-4 py-2 bg-ecotribe-primary text-black font-mono text-xs uppercase tracking-widest border border-ecotribe-primary/40 hover:bg-white transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Create Enterprise
@@ -127,7 +126,7 @@ export function Enterprises() {
         <p className="font-mono text-xs">
           To review new enterprise registration applications, go to{' '}
           <button
-            onClick={() => navigate('/super/applications')}
+            onClick={() => navigate(`${basePath}/applications`)}
             className="underline hover:text-blue-500 inline-flex items-center gap-1"
           >
             Applications <ExternalLink className="w-3 h-3" />
@@ -193,183 +192,149 @@ export function Enterprises() {
           <Spinner />
         </div>
       ) : (
-        <AnimatePresence mode="wait">
-          {activeTab === 'active' ? (
+        <>
+          <AnimatePresence mode="wait">
             <motion.div
-              key="active"
+              key={activeTab}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             >
-              {filteredActive.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm">
-                  {searchQuery ? 'No matching active enterprises' : 'No active enterprises'}
+              {filteredEnterprises.length === 0 ? (
+                <div className="text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm border border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/40">
+                  {searchQuery ? `No matching ${activeTab} enterprises` : `No ${activeTab} enterprises`}
                 </div>
               ) : (
-                filteredActive.map((enterprise) => (
-                  <EnterpriseCard
-                    key={enterprise.id}
-                    enterprise={enterprise}
-                    onView={handleViewDetails}
-                    onDeactivate={() => setStatusChangeTarget({ enterprise, newStatus: 'inactive' })}
-                  />
-                ))
+                <div className="border border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/40 divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                  {/* Table Header */}
+                  <div className="px-4 py-2.5 bg-black/[0.03] dark:bg-white/[0.03] grid grid-cols-12 gap-4">
+                    <div className="col-span-5 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
+                      Enterprise
+                    </div>
+                    <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 hidden md:block">
+                      Contact
+                    </div>
+                    <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 hidden lg:block">
+                      Industry
+                    </div>
+                    <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
+                      Status
+                    </div>
+                    <div className="col-span-1 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 text-right">
+                    </div>
+                  </div>
+                  {/* Rows */}
+                  {filteredEnterprises.map((enterprise) => (
+                    <div
+                      key={enterprise.id}
+                      onDoubleClick={() => navigate(`${basePath}/enterprises/${enterprise.id}`)}
+                      className="px-4 py-3 cursor-pointer transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] grid grid-cols-12 gap-4 items-center"
+                    >
+                      {/* Enterprise Name & Email */}
+                      <div className="col-span-5 flex items-center gap-3 min-w-0">
+                        <Building2 className={`w-4 h-4 flex-shrink-0 ${
+                          enterprise.status === 'active' ? 'text-ecotribe-primary' : 'text-red-500'
+                        }`} />
+                        <div className="min-w-0">
+                          <p className="font-display font-bold text-sm text-black dark:text-white truncate">
+                            {enterprise.name}
+                          </p>
+                          {enterprise.contactEmail && (
+                            <p className="font-mono text-[11px] text-black/50 dark:text-white/50 truncate md:hidden">
+                              {enterprise.contactEmail}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Contact - Hidden on mobile */}
+                      <div className="col-span-2 min-w-0 hidden md:block">
+                        {enterprise.contactEmail && (
+                          <p className="font-mono text-[11px] text-black/50 dark:text-white/50 truncate">
+                            {enterprise.contactEmail}
+                          </p>
+                        )}
+                        {enterprise.contactPhone && (
+                          <p className="font-mono text-[10px] text-black/40 dark:text-white/40 truncate">
+                            {enterprise.contactPhone}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Industry - Hidden on md and below */}
+                      <div className="col-span-2 hidden lg:block">
+                        {(enterprise as any).industry && (
+                          <span className="inline-block px-2 py-0.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 font-mono text-[10px] text-black/60 dark:text-white/60 uppercase">
+                            {(enterprise as any).industry}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="col-span-2">
+                        <span className={`inline-block px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-widest border ${
+                          enterprise.status === 'active'
+                            ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
+                            : 'border-red-400/40 bg-red-400/10 text-red-400'
+                        }`}>
+                          {enterprise.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="col-span-1 flex items-center justify-end gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${basePath}/enterprises/${enterprise.id}`);
+                          }}
+                          className="p-1.5 border border-ecotribe-primary/40 bg-ecotribe-primary/10 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {enterprise.status === 'active' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStatusChangeTarget({ enterprise, newStatus: 'inactive' });
+                            }}
+                            className="p-1.5 border border-red-500/40 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20 transition-colors"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStatusChangeTarget({ enterprise, newStatus: 'active' });
+                            }}
+                            className="p-1.5 border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </motion.div>
-          ) : (
-            <motion.div
-              key="inactive"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            >
-              {filteredInactive.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm">
-                  {searchQuery ? 'No matching inactive enterprises' : 'No inactive enterprises'}
-                </div>
-              ) : (
-                filteredInactive.map((enterprise) => (
-                  <InactiveEnterpriseCard
-                    key={enterprise.id}
-                    enterprise={enterprise}
-                    onView={handleViewDetails}
-                    onActivate={() => setStatusChangeTarget({ enterprise, newStatus: 'active' })}
-                  />
-                ))
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
+          </AnimatePresence>
 
-      {/* Infinite Scroll Trigger + Info */}
-      <InfiniteScrollTrigger
-        hasNextPage={hasNextPage ?? false}
-        isFetchingNextPage={isFetchingNextPage}
-        fetchNextPage={fetchNextPage}
-      />
-      <InfiniteScrollInfo
-        loadedCount={allEnterprises.length}
-        totalCount={total}
-      />
-
-      {/* Details Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedEnterprise(null);
-        }}
-        title="Enterprise Details"
-      >
-        {selectedEnterprise && (
-          <div className="space-y-6">
-            {/* Status Badge + Toggle */}
-            <div className="flex items-center justify-between">
-              <span className={`px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border ${
-                selectedEnterprise.status === 'active'
-                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
-                  : 'border-red-400/40 bg-red-400/10 text-red-400'
-              }`}>
-                {selectedEnterprise.status}
-              </span>
-              {selectedEnterprise.status === 'active' ? (
-                <button
-                  onClick={() => setStatusChangeTarget({ enterprise: selectedEnterprise, newStatus: 'inactive' })}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs uppercase tracking-widest hover:bg-red-500/20 transition-colors"
-                >
-                  <Ban className="w-3.5 h-3.5" /> Deactivate
-                </button>
-              ) : (
-                <button
-                  onClick={() => setStatusChangeTarget({ enterprise: selectedEnterprise, newStatus: 'active' })}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-colors"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" /> Activate
-                </button>
-              )}
-            </div>
-
-            {/* Enterprise Info */}
-            <div className="space-y-4">
-              <div>
-                <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 block mb-1">
-                  Enterprise Name
-                </label>
-                <p className="font-display font-bold text-lg text-black dark:text-white">
-                  {selectedEnterprise.name}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 block mb-1">
-                    Industry
-                  </label>
-                  <p className="font-mono text-sm text-black dark:text-white capitalize">
-                    {(selectedEnterprise as any).industry || '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 block mb-1">
-                    Company Size
-                  </label>
-                  <p className="font-mono text-sm text-black dark:text-white">
-                    {(selectedEnterprise as any).companySize || '-'}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 block mb-1">
-                  Contact Person
-                </label>
-                <p className="font-display text-sm text-black dark:text-white">
-                  {selectedEnterprise.contactPerson || '-'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-ecotribe-primary" />
-                  <p className="font-mono text-xs text-black dark:text-white">
-                    {selectedEnterprise.contactEmail || '-'}
-                  </p>
-                </div>
-                {selectedEnterprise.contactPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-ecotribe-primary" />
-                    <p className="font-mono text-xs text-black dark:text-white">
-                      {selectedEnterprise.contactPhone}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {selectedEnterprise.address && (
-                <div>
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-black/50 dark:text-white/50 block mb-1">
-                    Address
-                  </label>
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-ecotribe-primary flex-shrink-0 mt-0.5" />
-                    <p className="font-mono text-xs text-black dark:text-white">
-                      {selectedEnterprise.address.line1}
-                      {selectedEnterprise.address.line2 && `, ${selectedEnterprise.address.line2}`}
-                      <br />
-                      {selectedEnterprise.address.city}, {selectedEnterprise.address.state} {selectedEnterprise.address.pincode || (selectedEnterprise.address as any).pinCode}
-                      <br />
-                      {selectedEnterprise.address.country}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* Infinite Scroll Trigger + Info */}
+          <div className="space-y-3">
+            <InfiniteScrollInfo
+              loadedCount={allEnterprises.length}
+              totalCount={total}
+            />
+            <InfiniteScrollTrigger
+              hasNextPage={hasNextPage ?? false}
+              isFetchingNextPage={isFetchingNextPage}
+              fetchNextPage={fetchNextPage}
+            />
           </div>
-        )}
-      </Modal>
+        </>
+      )}
 
       {/* Status Change Confirmation */}
       <ConfirmationModal
@@ -390,108 +355,3 @@ export function Enterprises() {
   );
 }
 
-function EnterpriseCard({ enterprise, onView, onDeactivate }: { enterprise: Enterprise; onView: (e: Enterprise) => void; onDeactivate: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/40 p-4 space-y-3 hover:border-ecotribe-primary/40 transition-colors"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-ecotribe-primary" />
-          <h3 className="font-display font-bold text-sm text-black dark:text-white">
-            {enterprise.name}
-          </h3>
-        </div>
-        <span className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border border-emerald-400/40 bg-emerald-400/10 text-emerald-400">
-          Active
-        </span>
-      </div>
-
-      <div className="space-y-2 text-sm text-black/60 dark:text-white/60 font-mono text-xs">
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4" />
-          <span>{enterprise.contactEmail}</span>
-        </div>
-        {enterprise.contactPhone && (
-          <div className="flex items-center gap-2">
-            <Phone className="w-4 h-4" />
-            <span>{enterprise.contactPhone}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => onView(enterprise)}
-          className="flex-1 px-3 py-2 bg-white/40 dark:bg-black/40 border border-black/10 dark:border-white/10 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:border-ecotribe-primary transition-colors flex items-center justify-center gap-2"
-        >
-          <Eye className="w-4 h-4" /> View
-        </button>
-        <button
-          onClick={onDeactivate}
-          className="px-3 py-2 border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs uppercase tracking-widest hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-          title="Deactivate enterprise"
-        >
-          <Ban className="w-4 h-4" />
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-function InactiveEnterpriseCard({ enterprise, onView, onActivate }: { enterprise: Enterprise; onView: (e: Enterprise) => void; onActivate: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border border-red-500/30 bg-red-500/5 p-4 space-y-3 hover:border-red-500/50 transition-colors"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-red-500" />
-          <h3 className="font-display font-bold text-sm text-black dark:text-white">
-            {enterprise.name}
-          </h3>
-        </div>
-        <span className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border border-red-500/40 bg-red-500/10 text-red-500 capitalize">
-          {enterprise.status}
-        </span>
-      </div>
-
-      <div className="space-y-2 text-sm text-black/60 dark:text-white/60 font-mono text-xs">
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4" />
-          <span>{enterprise.contactEmail || '-'}</span>
-        </div>
-        {enterprise.contactPhone && (
-          <div className="flex items-center gap-2">
-            <Phone className="w-4 h-4" />
-            <span>{enterprise.contactPhone}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-          <Ban className="w-4 h-4" />
-          <span>Since {enterprise.updatedAt?.toLocaleDateString() || enterprise.createdAt.toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => onView(enterprise)}
-          className="flex-1 px-3 py-2 bg-red-500/20 border border-red-500/30 text-black dark:text-white font-mono text-xs uppercase tracking-widest hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
-        >
-          <Eye className="w-4 h-4" /> View
-        </button>
-        <button
-          onClick={onActivate}
-          className="px-3 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2"
-          title="Activate enterprise"
-        >
-          <CheckCircle className="w-4 h-4" />
-        </button>
-      </div>
-    </motion.div>
-  );
-}

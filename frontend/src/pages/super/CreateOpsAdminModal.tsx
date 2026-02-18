@@ -4,17 +4,14 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useCreateUser } from '@/hooks';
+import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
 
 // Validation schema
 const createOpsAdminSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().min(2, 'Name must be at least 2 characters').regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Must contain at least one number'),
+  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits'),
+  password: passwordSchema,
 });
 
 type CreateOpsAdminForm = z.infer<typeof createOpsAdminSchema>;
@@ -96,6 +93,9 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
             placeholder="John Doe"
             required
             autoFocus
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, '');
+            }}
           />
           <Input
             label="Email Address"
@@ -110,15 +110,19 @@ export function CreateOpsAdminModal({ isOpen, onClose, onSuccess }: CreateOpsAdm
             type="password"
             {...register('password')}
             error={errors.password?.message}
-            placeholder="Min. 8 characters"
+            placeholder={PASSWORD_HINT}
             required
           />
           <Input
             label="Phone Number"
             {...register('phone')}
             error={errors.phone?.message}
-            placeholder="+91-9876543210"
+            placeholder="9876543210"
             required
+            inputMode="numeric"
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+            }}
           />
 
           <div className="pt-2">

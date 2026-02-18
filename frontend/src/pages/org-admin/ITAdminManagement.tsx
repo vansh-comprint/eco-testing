@@ -558,7 +558,7 @@ function EditITAdminModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value })); setFormErrors(prev => ({ ...prev, name: '' })); }}
+              onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })); setFormErrors(prev => ({ ...prev, name: '' })); }}
               className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.name ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
             {formErrors.name && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.name}</p>}
@@ -580,8 +580,9 @@ function EditITAdminModal({
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+91 9876543210"
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') }))}
+              inputMode="numeric"
+              placeholder="9876543210"
               className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
             />
           </div>

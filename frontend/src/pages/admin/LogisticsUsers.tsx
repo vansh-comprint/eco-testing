@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, UserPlus, Phone, Mail, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuth, useLogisticsUsers, useCreateLogisticsUser, useUpdateLogisticsUserStatus } from '@/hooks';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, useToast } from '@/components/ui';
 
 export function ITAdminLogisticsUsers() {
   const navigate = useNavigate();
@@ -14,18 +14,28 @@ export function ITAdminLogisticsUsers() {
   const { data: logisticsUsers = [] } = useLogisticsUsers();
   const createUserMutation = useCreateLogisticsUser();
   const updateStatusMutation = useUpdateLogisticsUserStatus();
+  const { addToast } = useToast();
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
   const isAdding = createUserMutation.isPending;
 
   const addUser = async () => {
     if (!form.name || !form.email) return;
-    await createUserMutation.mutateAsync({
-      name: form.name,
-      phone: form.phone,
-      email: form.email,
-      logistics_admin_id: user?.id || '',
-    });
-    setForm({ name: '', phone: '', email: '' });
+    try {
+      await createUserMutation.mutateAsync({
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        logistics_admin_id: user?.id || '',
+      });
+      setForm({ name: '', phone: '', email: '' });
+      addToast({ type: 'success', title: 'User Created', message: `${form.name} has been added successfully` });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Create User',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    }
   };
 
   const toggleStatus = async (id: string, currentStatus: 'active' | 'inactive') => {
@@ -54,14 +64,17 @@ export function ITAdminLogisticsUsers() {
         <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase mb-4">Add New User</h3>
         <div className="flex flex-col md:flex-row gap-3">
           <input
+            type="text"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
             placeholder="Full Name *"
             className="flex-1 px-4 py-3 text-sm border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
           />
           <input
+            type="tel"
+            inputMode="numeric"
             value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setForm({ ...form, phone: v }); }}
             placeholder="Phone Number"
             className="flex-1 px-4 py-3 text-sm border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
           />

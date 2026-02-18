@@ -491,9 +491,10 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
                 required
                 value={formData.contact_phone || ''}
-                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setFormData({ ...formData, contact_phone: v }); }}
                 className="w-full px-3 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-ecotribe-primary focus:ring-1 focus:ring-ecotribe-primary"
               />
             </div>

@@ -5,6 +5,7 @@ import { Users, Search, Download, Edit2, ArrowLeft, Mail, Phone, UserPlus } from
 import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { EditUserModal, AddUserModal } from '@/pages/super';
 import { useInfiniteUsers, useDashboardStats } from '@/hooks';
+import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface User {
@@ -100,13 +101,71 @@ export function AllUsers() {
     // No need to manually invalidate - mutation hooks handle this
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch ALL users from the API (not just the infinite-scroll subset)
+      const params: Record<string, string | number> = { limit: 10000 };
+      if (roleFilter !== 'all') params.role = roleFilter;
+      const result = await usersApi.list(params as any);
+      const allUsers: User[] = (result.data || []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        phone: u.phone,
+        role: u.role,
+        status: u.status,
+        enterprise_name: u.enterprise_name,
+        created_at: u.created_at,
+      }));
+
+      // Apply client-side search filter if active
+      const exportUsers = searchTerm
+        ? allUsers.filter(u =>
+            u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.enterprise_name?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : allUsers;
+
+      if (exportUsers.length === 0) return;
+
+      const headers = ['Name', 'Email', 'Role', 'Enterprise', 'Phone', 'Status', 'Created At'];
+      const rows = exportUsers.map(u => [
+        u.name,
+        u.email,
+        formatRole(u.role),
+        u.enterprise_name || '',
+        u.phone || '',
+        u.status,
+        u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
+      ]);
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ecotribe-users-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
         label="Super Admin"
         title="All Users"
-        subtitle={`${filteredUsers.length} users across all roles`}
+        subtitle={`${stats.total} users across all roles`}
         actions={
           <div className="flex gap-3">
             <Button
@@ -118,9 +177,11 @@ export function AllUsers() {
             </Button>
             <Button
               variant="secondary"
+              onClick={handleExport}
+              disabled={filteredUsers.length === 0 || isExporting}
               leftIcon={<Download className={iconSize.sm} />}
             >
-              Export
+              {isExporting ? 'Exporting...' : 'Export'}
             </Button>
             <Button
               variant="primary"

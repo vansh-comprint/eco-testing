@@ -107,10 +107,10 @@ export function useAssetsByBatch(batchId: string) {
  * Fetch assets for IT Admin (across all their assigned branches)
  * V3.2: IT Admin can manage multiple branches
  */
-export function useAssetsByITAdmin(userId: string) {
+export function useAssetsByITAdmin(userId: string, branchId?: string | null) {
   return useQuery({
-    queryKey: assetKeys.byITAdmin(userId),
-    queryFn: () => fetchAssetsByITAdmin(userId),
+    queryKey: [...assetKeys.byITAdmin(userId), branchId ?? 'all'],
+    queryFn: () => fetchAssetsByITAdmin(userId, branchId || undefined),
     enabled: !!userId,
     staleTime: 30000,
   });

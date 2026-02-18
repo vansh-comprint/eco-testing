@@ -53,37 +53,50 @@ async def get_badge_counts(
     role = user.role
 
     if role == UserRole.IT_ADMIN.value:
-        # Use explicit branch_id filter if provided, else fall back to user's branch
-        effective_branch_id = branch_id or user.branch_id
+        # Multi-branch IT Admin scoping
+        from app.utils.scoping import get_it_admin_branch_ids
 
-        # Draft batches in branch ready for submission
-        q = select(func.count()).select_from(Batch).where(
-            and_(
-                Batch.status == BatchStatus.DRAFT.value,
-                Batch.branch_id == effective_branch_id,
+        if branch_id:
+            effective_branch_ids = [branch_id]
+        else:
+            effective_branch_ids = await get_it_admin_branch_ids(db, user.id)
+            if user.branch_id and user.branch_id not in effective_branch_ids:
+                effective_branch_ids.append(user.branch_id)
+
+        # Draft batches in managed branches ready for submission
+        if effective_branch_ids:
+            q = select(func.count()).select_from(Batch).where(
+                and_(
+                    Batch.status == BatchStatus.DRAFT.value,
+                    Batch.branch_id.in_(effective_branch_ids),
+                )
             )
-        ) if effective_branch_id else select(func.count()).select_from(Batch).where(
-            and_(
-                Batch.status == BatchStatus.DRAFT.value,
-                Batch.enterprise_id == user.enterprise_id,
+        else:
+            q = select(func.count()).select_from(Batch).where(
+                and_(
+                    Batch.status == BatchStatus.DRAFT.value,
+                    Batch.enterprise_id == user.enterprise_id,
+                )
             )
-        )
         batches = await _count(db, q)
         if batches:
             badges["batches"] = batches
 
-        # Assets pending assignment in branch
-        q = select(func.count()).select_from(Asset).where(
-            and_(
-                Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
-                Asset.branch_id == effective_branch_id,
+        # Assets pending assignment in managed branches
+        if effective_branch_ids:
+            q = select(func.count()).select_from(Asset).where(
+                and_(
+                    Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
+                    Asset.branch_id.in_(effective_branch_ids),
+                )
             )
-        ) if effective_branch_id else select(func.count()).select_from(Asset).where(
-            and_(
-                Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
-                Asset.enterprise_id == user.enterprise_id,
+        else:
+            q = select(func.count()).select_from(Asset).where(
+                and_(
+                    Asset.status == AssetStatus.PENDING_ASSIGNMENT.value,
+                    Asset.enterprise_id == user.enterprise_id,
+                )
             )
-        )
         assets = await _count(db, q)
         if assets:
             badges["assets"] = assets
@@ -251,12 +264,14 @@ _ASSET_REJECTED = [
 
 
 async def get_dashboard_stats(
-    user: User, db: AsyncSession, *, branch_id: Optional[str] = None
+    user: User, db: AsyncSession, *, branch_id: Optional[str] = None,
+    enterprise_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Return role-specific aggregated stats for dashboard stat cards.
 
     Uses efficient COUNT(*)/SUM() queries scoped by the user's role.
+    When enterprise_id is provided for OPS Admin, returns enterprise-scoped stats.
     """
     stats: Dict[str, Any] = {}
     role = user.role
@@ -392,12 +407,28 @@ async def get_dashboard_stats(
         )
 
     elif role == UserRole.IT_ADMIN.value:
-        effective_branch_id = branch_id or user.branch_id
         eid = user.enterprise_id
 
-        # Scope filter
-        scope = (Asset.branch_id == effective_branch_id) if effective_branch_id else (Asset.enterprise_id == eid)
-        batch_scope = (Batch.branch_id == effective_branch_id) if effective_branch_id else (Batch.enterprise_id == eid)
+        # Resolve multi-branch scope for IT Admin
+        from app.utils.scoping import get_it_admin_branch_ids
+
+        if branch_id:
+            # Specific branch selected in UI
+            effective_branch_ids = [branch_id]
+        else:
+            # Get all managed branches
+            effective_branch_ids = await get_it_admin_branch_ids(db, user.id)
+            if user.branch_id and user.branch_id not in effective_branch_ids:
+                effective_branch_ids.append(user.branch_id)
+
+        # Build scope filter using IN clause for multiple branches
+        if effective_branch_ids:
+            scope = Asset.branch_id.in_(effective_branch_ids)
+            batch_scope = Batch.branch_id.in_(effective_branch_ids)
+        else:
+            # Fallback to enterprise scope if no branches found
+            scope = Asset.enterprise_id == eid
+            batch_scope = Batch.enterprise_id == eid
 
         # Asset counts
         sc = await _status_counts(db, Asset, Asset.status, scope)
@@ -457,17 +488,22 @@ async def get_dashboard_stats(
         )
 
     elif role == UserRole.OPS_ADMIN.value:
-        # Enterprise counts
-        stats["enterprise_total"] = await _count(
-            db, select(func.count()).select_from(Enterprise),
-        )
-        stats["enterprise_active"] = await _count(
-            db,
-            select(func.count()).select_from(Enterprise).where(Enterprise.status == "active"),
-        )
+        # When enterprise_id is provided, scope all stats to that enterprise
+        eid = enterprise_id  # None means platform-wide
 
-        # Asset counts (platform-wide)
-        sc = await _status_counts(db, Asset, Asset.status)
+        if not eid:
+            # Platform-wide enterprise counts
+            stats["enterprise_total"] = await _count(
+                db, select(func.count()).select_from(Enterprise),
+            )
+            stats["enterprise_active"] = await _count(
+                db,
+                select(func.count()).select_from(Enterprise).where(Enterprise.status == "active"),
+            )
+
+        # Asset counts (platform-wide or enterprise-scoped)
+        asset_filters = [Asset.enterprise_id == eid] if eid else []
+        sc = await _status_counts(db, Asset, Asset.status, *asset_filters)
         stats["asset_total"] = sum(sc.values())
         stats["pending_review"] = sum(
             sc.get(s, 0) for s in [AssetStatus.SUBMITTED.value, AssetStatus.REMOTE_REVIEW.value]
@@ -482,18 +518,34 @@ async def get_dashboard_stats(
         )
         stats["asset_rejected"] = sum(sc.get(s, 0) for s in _ASSET_REJECTED)
         stats["in_progress"] = stats["asset_total"] - stats["asset_accepted"] - stats["asset_rejected"]
+        stats["asset_conditionally_accepted"] = sc.get(AssetStatus.CONDITIONALLY_ACCEPTED.value, 0)
+        stats["asset_ready_for_pickup"] = sc.get(AssetStatus.READY_FOR_PICKUP.value, 0)
 
-        # Financial
+        # Financial (platform-wide or enterprise-scoped)
+        fin_filter = and_(Asset.status == AssetStatus.COMPLETED.value, Asset.enterprise_id == eid) if eid else (Asset.status == AssetStatus.COMPLETED.value)
         stats["total_payout_value"] = await _sum(
             db,
-            select(func.sum(Asset.final_price)).where(Asset.status == AssetStatus.COMPLETED.value),
+            select(func.sum(Asset.final_price)).where(fin_filter),
         )
 
-        # Disputes
-        stats["pending_disputes"] = await _count(
-            db,
-            select(func.count()).select_from(Dispute).where(Dispute.status == DisputeStatus.OPEN.value),
-        )
+        # Disputes (platform-wide or enterprise-scoped)
+        if eid:
+            stats["pending_disputes"] = await _count(
+                db,
+                select(func.count()).select_from(Dispute).where(
+                    and_(
+                        Dispute.status == DisputeStatus.OPEN.value,
+                        Dispute.asset_id.in_(
+                            select(Asset.id).where(Asset.enterprise_id == eid)
+                        ),
+                    )
+                ),
+            )
+        else:
+            stats["pending_disputes"] = await _count(
+                db,
+                select(func.count()).select_from(Dispute).where(Dispute.status == DisputeStatus.OPEN.value),
+            )
 
     elif role == UserRole.SUPER_ADMIN.value:
         # -- Enterprise status breakdown via GROUP BY --

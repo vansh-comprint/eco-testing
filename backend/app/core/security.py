@@ -7,8 +7,12 @@ import bcrypt
 import hashlib
 import logging
 
-from redis.asyncio import Redis
-from redis.exceptions import RedisError
+try:
+    from redis.asyncio import Redis
+    from redis.exceptions import RedisError
+except ImportError:
+    Redis = None
+    RedisError = Exception
 
 from app.core.config import settings
 

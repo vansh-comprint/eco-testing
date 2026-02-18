@@ -103,7 +103,7 @@ const LeadCapture: React.FC = () => {
                       type="text"
                       required
                       value={formState.name}
-                      onChange={(e) => setFormState({ ...formState, name: e.target.value })}
+                      onChange={(e) => setFormState({ ...formState, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
                       className={inputClasses}
                       placeholder="John Doe"
                     />
@@ -139,9 +139,10 @@ const LeadCapture: React.FC = () => {
                       type="tel"
                       required
                       value={formState.phone}
-                      onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
+                      onChange={(e) => setFormState({ ...formState, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                      inputMode="numeric"
                       className={inputClasses}
-                      placeholder="+91 98765 43210"
+                      placeholder="9876543210"
                     />
                   </div>
                 </div>

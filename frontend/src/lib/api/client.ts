@@ -67,6 +67,37 @@ const forceLogout = () => {
   }
 };
 
+/**
+ * Extract human-readable error message from a backend error response.
+ *
+ * Priority:
+ * 1. 422 field-level errors in data.data.errors[].message  (our standardized format)
+ * 2. data.message  (generic message like "Validation error")
+ * 3. Pydantic detail array  (FastAPI native 422)
+ * 4. detail string / detail.message
+ * 5. Fallback
+ */
+function extractErrorMessage(data: any, status: number): string {
+  // 422: prefer field-level messages from our standardized error format
+  if (status === 422 && data.data?.errors && Array.isArray(data.data.errors)) {
+    const fieldMessages = data.data.errors
+      .map((e: any) => e.message || e.msg)
+      .filter(Boolean);
+    if (fieldMessages.length > 0) return fieldMessages.join('; ');
+  }
+
+  if (data.message) return data.message;
+
+  const detail = data.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d: any) => d.msg).filter(Boolean).join('; ') || 'Validation error';
+  }
+  if (detail?.message) return detail.message;
+
+  return 'An error occurred';
+}
+
 // API Error type
 export interface ApiError {
   message: string;
@@ -151,14 +182,10 @@ export async function fetchPublic<T>(
     const data = await response.json();
 
     if (!response.ok) {
-      const detail = data.detail;
-      const message = data.message
-        || (typeof detail === 'string' ? detail : detail?.message)
-        || 'An error occurred';
       return {
         success: false,
         error: {
-          message,
+          message: extractErrorMessage(data, response.status),
           code: response.status.toString(),
           details: data,
         },
@@ -225,14 +252,10 @@ export async function fetchWithAuth<T>(
         };
       }
 
-      const detail = data.detail;
-      const message = data.message
-        || (typeof detail === 'string' ? detail : detail?.message)
-        || 'An error occurred';
       return {
         success: false,
         error: {
-          message,
+          message: extractErrorMessage(data, response.status),
           code: response.status.toString(),
           details: data,
         },

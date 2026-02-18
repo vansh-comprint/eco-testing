@@ -1,10 +1,22 @@
 """User schemas for unified user model"""
 
+import re
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 
 from app.models.user import UserRole, UserStatus
+
+
+def _validate_password_complexity(password: str) -> str:
+    """Validate password has letters, numbers, and special characters"""
+    if not re.search(r'[a-zA-Z]', password):
+        raise ValueError('Password must contain at least one letter')
+    if not re.search(r'[0-9]', password):
+        raise ValueError('Password must contain at least one number')
+    if not re.search(r'[^a-zA-Z0-9]', password):
+        raise ValueError('Password must contain at least one special character')
+    return password
 
 
 class UserBase(BaseModel):
@@ -27,6 +39,7 @@ class UserCreate(UserBase):
     """
 
     role: UserRole
+    status: Optional[UserStatus] = Field(None, description="Initial status (defaults to active)")
     password: Optional[str] = Field(
         None, min_length=8, description="Password (required for non-employee roles)"
     )
@@ -52,9 +65,9 @@ class UserCreate(UserBase):
     @field_validator("password", mode="before")
     @classmethod
     def validate_password(cls, v, info):
-        """Validate password is provided for non-employee roles"""
-        # This validator runs before other validations
-        # Full validation happens in the service layer
+        """Validate password complexity for non-employee roles"""
+        if v is not None and isinstance(v, str) and len(v) >= 8:
+            _validate_password_complexity(v)
         return v
 
 
@@ -91,6 +104,12 @@ class PasswordReset(BaseModel):
     """Schema for admin-initiated password reset"""
 
     new_password: str = Field(..., min_length=8, description="New password (min 8 characters)")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v):
+        """Validate password complexity"""
+        return _validate_password_complexity(v)
 
 
 # ==================== User Update Schema ====================

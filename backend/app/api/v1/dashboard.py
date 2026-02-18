@@ -34,6 +34,7 @@ async def get_badges(
 @router.get("/stats", response_model=dict)
 async def get_stats(
     branch_id: Optional[str] = Query(None, description="Filter stats by branch (IT Admin)"),
+    enterprise_id: Optional[str] = Query(None, description="Filter stats by enterprise (OPS Admin)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -45,5 +46,7 @@ async def get_stats(
 
     **Authentication:** Required (any authenticated user)
     """
-    stats = await get_dashboard_stats(current_user, db, branch_id=branch_id)
+    stats = await get_dashboard_stats(
+        current_user, db, branch_id=branch_id, enterprise_id=enterprise_id
+    )
     return success_response(data=stats)

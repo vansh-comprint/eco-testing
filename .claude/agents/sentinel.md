@@ -8,7 +8,6 @@ description: >
 tools: Read, Bash, Grep, Glob
 model: haiku
 memory: project
-run_in_background: true
 color: green
 ---
 

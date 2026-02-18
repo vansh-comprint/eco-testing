@@ -12,6 +12,7 @@ import {
   type SubUserCreateRequest,
 } from '@/lib/api/sub-users';
 import { assetsApi } from '@/lib/api/assets';
+import { parseApiError } from '@/lib/api/error-handler';
 import { assetKeys } from './useAssets';
 
 // Query keys for cache management
@@ -132,7 +133,7 @@ export function useCreateSubUser() {
         employee_id: subUser.employee_id,
       };
       const response = await subUsersApi.create(apiData);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to create sub-user');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to create sub-user');
       return response.data;
     },
     onSuccess: (data) => {
@@ -158,7 +159,7 @@ export function useUpdateSubUser() {
         employee_id: updates.employee_id,
         branch_id: updates.branch_id,
       });
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update sub-user');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update sub-user');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -217,14 +218,16 @@ export function useBulkCreateSubUsers() {
       });
 
       if (!response.success || !response.data) {
-        throw new Error(response.error?.message || 'Failed to bulk create users');
+        throw parseApiError(response) || new Error('Failed to bulk create users');
       }
 
       const result = response.data;
 
       // Throw if all failed
       if (result.error_count > 0 && result.created_count === 0) {
-        const errorMsg = result.errors.map(e => `${e.email}: ${e.error}`).join(', ');
+        const errorMsg = result.errors
+          .map((e: any) => typeof e === 'string' ? e : `${e.email}: ${e.error}`)
+          .join('; ');
         throw new Error(`Failed to create users: ${errorMsg}`);
       }
 
@@ -254,7 +257,7 @@ export function useAssignAsset() {
         assigned_to_user_id: subUserId,
         status: 'assigned',
       });
-      if (!response.success) throw new Error(response.error?.message || 'Failed to assign asset');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to assign asset');
       return response.data;
     },
     onSuccess: (_, variables) => {

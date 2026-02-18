@@ -386,7 +386,7 @@ export function EmployeeDetail() {
                       <input
                         type="text"
                         value={editForm.name}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') }))}
                         className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border ${editErrors.name ? 'border-red-400' : 'border-slate-200 dark:border-white/10'} text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50`}
                         placeholder="Full name"
                       />
@@ -411,6 +411,7 @@ export function EmployeeDetail() {
                       </label>
                       <input
                         type="tel"
+                        inputMode="numeric"
                         value={editForm.phone}
                         onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                         className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border ${editErrors.phone ? 'border-red-400' : 'border-slate-200 dark:border-white/10'} text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50`}

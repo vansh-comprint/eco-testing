@@ -18,8 +18,25 @@ from app.schemas.batch import (
 from app.services.batch_service import BatchService
 from app.utils.response import success_response, paginated_response
 from app.utils.scoping import get_scoped_filters, auto_fill_context, is_platform_admin
+from app.utils.exceptions import AuthorizationError
 
 router = APIRouter()
+
+
+async def _check_batch_access(db, batch_data, current_user: User):
+    """Verify user has access to this batch's enterprise/branch (prevents cross-tenant IDOR)."""
+    from app.utils.scoping import can_access_enterprise, can_access_branch_scoped
+
+    if is_platform_admin(current_user):
+        return
+
+    enterprise_id = getattr(batch_data, 'enterprise_id', None)
+    branch_id = getattr(batch_data, 'branch_id', None)
+
+    if enterprise_id and not can_access_enterprise(current_user, str(enterprise_id)):
+        raise AuthorizationError("You do not have access to this batch")
+    if branch_id and not await can_access_branch_scoped(db, current_user, str(branch_id)):
+        raise AuthorizationError("You do not have access to this batch")
 
 
 @router.get("", response_model=dict)
@@ -28,7 +45,7 @@ async def list_batches(
     limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     status: Optional[BatchStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name or description"),
-    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
+    enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.BATCH_READ)),
     db: AsyncSession = Depends(get_db),
@@ -38,27 +55,54 @@ async def list_batches(
 
     Data is automatically scoped based on user's role:
     - Super Admin / OPS Admin: Can filter by enterprise_id/branch_id
-    - Org Admin: Batches in their enterprise
-    - IT Admin: Batches in their branch
+    - Org Admin: Batches in their enterprise, can filter by branch
+    - IT Admin: Batches in their managed branches (multi-branch)
 
     **Permissions:** BATCH_READ
     """
-    scoped_filters = get_scoped_filters(current_user)
-
-    # Only platform admins can explicitly filter by enterprise/branch
-    if is_platform_admin(current_user):
-        if enterprise_id:
-            scoped_filters["enterprise_id"] = enterprise_id
-        if branch_id:
-            scoped_filters["branch_id"] = branch_id
+    from app.models.user import UserRole
+    from app.utils.scoping import get_it_admin_scoped_filters
 
     service = BatchService(db)
+    branch_ids = None
+    effective_enterprise_id = None
+    effective_branch_id = None
+
+    if current_user.role == UserRole.IT_ADMIN.value:
+        scoped = await get_it_admin_scoped_filters(db, current_user)
+        effective_enterprise_id = scoped.get("enterprise_id")
+        managed_branch_ids = scoped.get("branch_ids", [])
+
+        if branch_id:
+            if managed_branch_ids and str(branch_id) in [str(b) for b in managed_branch_ids]:
+                effective_branch_id = branch_id
+            else:
+                raise AuthorizationError("You do not have access to this branch")
+        else:
+            branch_ids = managed_branch_ids if managed_branch_ids else None
+
+    elif current_user.role == UserRole.ORG_ADMIN.value:
+        effective_enterprise_id = current_user.enterprise_id
+        if branch_id:
+            effective_branch_id = branch_id
+
+    elif is_platform_admin(current_user):
+        effective_enterprise_id = enterprise_id
+        effective_branch_id = branch_id
+
+    else:
+        scoped_filters = get_scoped_filters(current_user)
+        effective_enterprise_id = scoped_filters.get("enterprise_id")
+        effective_branch_id = scoped_filters.get("branch_id")
+
     batches, total = await service.list_batches(
         skip=skip,
         limit=limit,
         status=status,
         search=search,
-        **scoped_filters,
+        enterprise_id=effective_enterprise_id,
+        branch_id=effective_branch_id,
+        branch_ids=branch_ids,
     )
 
     return paginated_response(
@@ -73,6 +117,7 @@ async def list_batches(
 async def list_pending_approval(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.BATCH_APPROVE)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -87,6 +132,7 @@ async def list_pending_approval(
     service = BatchService(db)
     batches, total = await service.list_pending_approval(
         enterprise_id=enterprise_id,
+        branch_id=branch_id,
         skip=skip,
         limit=limit,
     )
@@ -139,6 +185,7 @@ async def get_batch(
     """
     service = BatchService(db)
     batch = await service.get_batch(batch_id)
+    await _check_batch_access(db, batch, current_user)
     return success_response(data=batch.model_dump())
 
 
@@ -158,6 +205,9 @@ async def update_batch(
     **Permissions:** BATCH_UPDATE
     """
     service = BatchService(db)
+    # Verify access before update
+    existing = await service.get_batch(batch_id)
+    await _check_batch_access(db, existing, current_user)
     batch = await service.update_batch(
         batch_id, batch_data, current_user.id, actor=current_user
     )
@@ -179,6 +229,8 @@ async def submit_batch_for_approval(
     **Permissions:** BATCH_UPDATE
     """
     service = BatchService(db)
+    existing = await service.get_batch(batch_id)
+    await _check_batch_access(db, existing, current_user)
     batch = await service.submit_for_approval(batch_id, data, current_user.id)
     return success_response(data=batch.model_dump(), message="Batch submitted for approval")
 
@@ -198,6 +250,8 @@ async def process_batch_approval(
     **Permissions:** BATCH_APPROVE
     """
     service = BatchService(db)
+    existing = await service.get_batch(batch_id)
+    await _check_batch_access(db, existing, current_user)
     batch = await service.process_approval(batch_id, action_data, current_user.id)
     action_msg = "approved" if action_data.action == "approve" else "rejected"
     return success_response(data=batch.model_dump(), message=f"Batch {action_msg}")
@@ -217,6 +271,8 @@ async def delete_batch(
     **Permissions:** BATCH_DELETE
     """
     service = BatchService(db)
+    existing = await service.get_batch(batch_id)
+    await _check_batch_access(db, existing, current_user)
     await service.delete_batch(
         batch_id,
         delete_assets=delete_assets,

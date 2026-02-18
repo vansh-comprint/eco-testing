@@ -6,8 +6,10 @@ import { useThemeStore } from '@/stores';
 import { useAuth } from '@/hooks';
 import { ThemeToggleCompact, NotificationDropdown, NotificationDropdownMobile } from '@/components/ui';
 import { OrgBranchProvider, ITAdminBranchProvider } from '@/contexts';
+import { OpsEnterpriseProvider } from '@/contexts/OpsEnterpriseContext';
 import { BranchSelector } from '@/components/org-admin';
 import { ITAdminBranchSelector } from '@/components/admin/ITAdminBranchSelector';
+import { EnterpriseSelector } from '@/components/ops/EnterpriseSelector';
 import { usePermission, type PermissionValue } from '@/permissions';
 import type { UserRole } from '@/types';
 
@@ -23,18 +25,35 @@ export interface NavItem {
   children?: NavItem[];
 }
 
+const roleDashboardPath: Record<string, string> = {
+  super_admin: '/super',
+  main_admin: '/ops',
+  ops_admin: '/ops',
+  technician: '/ops',
+  org_admin: '/org-admin',
+  it_admin: '/admin',
+  sub_user: '/check-in',
+  employee: '/check-in',
+  logistics_admin: '/logistics-admin',
+  logistics_user: '/logistics',
+};
+
 interface DashboardLayoutProps {
   role: UserRole;
   title: string;
   navItems: NavItem[];
   itViewNavItems?: NavItem[]; // Optional IT Admin view items for Org Admin toggle
+  opsViewNavItems?: NavItem[]; // Optional OPS view items for Super Admin toggle
 }
 
-function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: DashboardLayoutProps) {
+function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNavItems }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [itAdminViewEnabled, setItAdminViewEnabled] = useState(() => {
     return sessionStorage.getItem('org_branch_ops_enabled') === 'true';
+  });
+  const [opsViewEnabled, setOpsViewEnabled] = useState(() => {
+    return sessionStorage.getItem('super_ops_view_enabled') === 'true';
   });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -61,11 +80,20 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
     () => (itViewNavItems ? filterNavItems(itViewNavItems) : undefined),
     [itViewNavItems, hasPermission, hasAnyPermission]
   );
+  const filteredOpsViewNavItems = useMemo(
+    () => (opsViewNavItems ? filterNavItems(opsViewNavItems) : undefined),
+    [opsViewNavItems, hasPermission, hasAnyPermission]
+  );
 
   // Persist Branch Ops toggle state
   useEffect(() => {
     sessionStorage.setItem('org_branch_ops_enabled', String(itAdminViewEnabled));
   }, [itAdminViewEnabled]);
+
+  // Persist OPS Operations toggle state
+  useEffect(() => {
+    sessionStorage.setItem('super_ops_view_enabled', String(opsViewEnabled));
+  }, [opsViewEnabled]);
   const location = useLocation();
 
   const toggleGroup = (label: string) => {
@@ -81,6 +109,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
   const { user, logout } = useAuth();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const homePath = roleDashboardPath[user?.role || ''] || '/';
 
   // V3: logout from useAuth already handles navigation
   const handleLogout = () => {
@@ -99,7 +128,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
 >
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-4 border-b border-black/10 dark:border-white/10">
-            <Link to="/" className="interactive flex flex-col items-start min-w-0">
+            <Link to={homePath} className="interactive flex flex-col items-start min-w-0">
               <AnimatePresence mode="wait">
                 {sidebarOpen ? (
                   <motion.div
@@ -356,6 +385,83 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                 </AnimatePresence>
               </>
             )}
+
+            {/* OPS Operations Toggle - Only for Super Admin */}
+            {role === 'super_admin' && filteredOpsViewNavItems && sidebarOpen && (
+              <>
+                <div className="my-3 border-t border-black/10 dark:border-white/10" />
+                <button
+                  onClick={() => setOpsViewEnabled(!opsViewEnabled)}
+                  className={`interactive w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-300 ${
+                    opsViewEnabled
+                      ? 'text-ecotribe-primary'
+                      : 'text-black/60 dark:text-zinc-500 hover:text-black dark:hover:text-white'
+                  }`}
+                >
+                  {opsViewEnabled ? (
+                    <ToggleRight className="w-5 h-5" />
+                  ) : (
+                    <ToggleLeft className="w-5 h-5" />
+                  )}
+                  <span className="font-mono font-bold text-xs uppercase tracking-widest">OPS Operations</span>
+                </button>
+
+                {/* Enterprise Selector - when OPS view is enabled */}
+                <AnimatePresence>
+                  {opsViewEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="mt-2 mb-2"
+                    >
+                      <p className="px-3 py-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/40 dark:text-zinc-600">
+                        Filter by Enterprise
+                      </p>
+                      <div className="mt-1">
+                        <EnterpriseSelector />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Nested OPS Nav Items */}
+                <AnimatePresence>
+                  {opsViewEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="ml-2 pl-2 border-l-2 border-ecotribe-primary/30 space-y-1"
+                    >
+                      {filteredOpsViewNavItems.map((item) => {
+                        const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            className={`interactive flex items-center gap-3 px-3 py-2 transition-all duration-300 group ${
+                              isActive
+                                ? 'bg-ecotribe-primary/20 text-ecotribe-primary'
+                                : 'text-black/50 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 flex items-center justify-center flex-shrink-0 ${
+                              isActive ? '' : 'opacity-60 group-hover:opacity-100'
+                            }`}>
+                              {item.icon}
+                            </span>
+                            <span className="font-brand font-bold text-xs uppercase tracking-wide truncate">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </nav>
 
           {/* User Menu */}
@@ -394,7 +500,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link to="/" className="interactive">
+          <Link to={homePath} className="interactive">
             <span className="font-brand font-black text-lg tracking-tight text-black dark:text-white">
               ECO<span className="text-ecotribe-primary">/</span><span className="text-ecotribe-primary">TRIBE</span>
             </span>
@@ -426,7 +532,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
               className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-r border-black/10 dark:border-white/10"
             >
               <div className="h-14 flex items-center justify-between px-4 border-b border-black/10 dark:border-white/10">
-                <Link to="/" className="interactive">
+                <Link to={homePath} className="interactive">
                   <span className="font-brand font-black text-xl tracking-tight text-black dark:text-white">
                     ECO<span className="text-ecotribe-primary">/</span><span className="text-ecotribe-primary">TRIBE</span>
                   </span>
@@ -579,6 +685,61 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems }: Dashboa
                 </div>
               )}
 
+              {/* Mobile OPS Operations Toggle - Only for Super Admin */}
+              {role === 'super_admin' && filteredOpsViewNavItems && (
+                <div className="px-3 pb-3">
+                  <div className="my-2 border-t border-black/10 dark:border-white/10" />
+                  <button
+                    onClick={() => setOpsViewEnabled(!opsViewEnabled)}
+                    className={`interactive w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-300 ${
+                      opsViewEnabled
+                        ? 'text-ecotribe-primary'
+                        : 'text-black/60 dark:text-zinc-500 hover:text-black dark:hover:text-white'
+                    }`}
+                  >
+                    {opsViewEnabled ? (
+                      <ToggleRight className="w-5 h-5" />
+                    ) : (
+                      <ToggleLeft className="w-5 h-5" />
+                    )}
+                    <span className="font-mono font-bold text-xs uppercase tracking-widest">OPS Operations</span>
+                  </button>
+
+                  {opsViewEnabled && (
+                    <>
+                      <div className="mt-2 mb-2">
+                        <p className="px-3 py-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/40 dark:text-zinc-600">
+                          Filter by Enterprise
+                        </p>
+                        <div className="mt-1">
+                          <EnterpriseSelector />
+                        </div>
+                      </div>
+                      <div className="ml-2 pl-2 border-l-2 border-ecotribe-primary/30 space-y-1">
+                        {filteredOpsViewNavItems.map((item) => {
+                          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                          return (
+                            <Link
+                              key={item.path}
+                              to={item.path}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`interactive flex items-center gap-3 px-3 py-2 transition-all duration-300 ${
+                                isActive
+                                  ? 'bg-ecotribe-primary/20 text-ecotribe-primary'
+                                  : 'text-black/50 dark:text-zinc-600 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                              }`}
+                            >
+                              <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">{item.icon}</span>
+                              <span className="font-brand font-bold text-xs uppercase tracking-wide truncate">{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Mobile User Info */}
               <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-black/95 backdrop-blur-xl">
                 <div className="flex items-center gap-3 mb-3">
@@ -652,6 +813,15 @@ export function DashboardLayout(props: DashboardLayoutProps) {
     );
   }
 
-  // Other roles don't need branch context
+  // Wrap Super Admin portal with OpsEnterpriseProvider for enterprise filtering
+  if (props.role === 'super_admin') {
+    return (
+      <OpsEnterpriseProvider>
+        <DashboardLayoutInner {...props} />
+      </OpsEnterpriseProvider>
+    );
+  }
+
+  // Other roles don't need extra context
   return <DashboardLayoutInner {...props} />;
 }

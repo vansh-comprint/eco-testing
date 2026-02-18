@@ -114,13 +114,16 @@ class UserService:
         if is_employee:
             # Employees get a default password for portal login
             password_hash = get_password_hash(user_data.password or "password123")
-            initial_status = UserStatus.ACTIVE.value
         else:
             # All other roles require password
             if not user_data.password:
                 raise ValidationError(f"Password is required for {user_data.role.value} role")
             password_hash = get_password_hash(user_data.password)
-            initial_status = UserStatus.ACTIVE.value
+
+        # Respect the requested status if provided, otherwise default to active
+        initial_status = (
+            user_data.status.value if user_data.status else UserStatus.ACTIVE.value
+        )
 
         # Check employee_id uniqueness for employees
         if is_employee and user_data.employee_id and user_data.enterprise_id:
@@ -313,7 +316,9 @@ class UserService:
                 if new_branch:
                     new_branch.it_admin_id = user.id
 
-            await self.db.commit()
+        # Explicit commit to ensure all changes are persisted
+        await self.db.commit()
+        await self.db.refresh(user)
 
         return UserResponse.model_validate(user)
 
@@ -416,6 +421,9 @@ class UserService:
         user.updated_by = actor.id if actor else user_id
 
         user = await self.repository.update(user)
+        # Explicit commit to ensure password change is persisted
+        await self.db.commit()
+        await self.db.refresh(user)
         return UserResponse.model_validate(user)
 
     async def toggle_logistics_company_status(

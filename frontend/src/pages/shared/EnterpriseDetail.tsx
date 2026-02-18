@@ -24,12 +24,10 @@ import {
   PowerOff,
   Ban,
 } from 'lucide-react';
-import { PageHeader, Card, Spinner, BulkImportModal, ConfirmationModal } from '@/components/ui';
-import type { BulkImportColumn, BulkImportResult } from '@/components/ui';
+import { PageHeader, Card, Spinner, ConfirmationModal } from '@/components/ui';
 import { CreateEnterpriseUserModal, EditUserModal } from '@/pages/super';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
-import { subUsersApi } from '@/lib/api/sub-users';
 import { branchesApi } from '@/lib/api/branches';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
@@ -177,7 +175,6 @@ export function EnterpriseDetail() {
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'it_admin' | 'org_admin' | 'employee'>('employee');
-  const [bulkImportType, setBulkImportType] = useState<'it_admin' | 'employee' | null>(null);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<EnterpriseUser | null>(null);
 
@@ -210,54 +207,6 @@ export function EnterpriseDetail() {
     setIsUserModalOpen(false);
     queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
     queryClient.invalidateQueries({ queryKey: userKeys.all });
-  };
-
-  const itAdminBulkColumns: BulkImportColumn[] = [
-    { key: 'name', label: 'Name', required: true },
-    { key: 'email', label: 'Email', required: true },
-    { key: 'phone', label: 'Phone', required: false },
-    { key: 'password', label: 'Password', required: true },
-  ];
-
-  const subUserBulkColumns: BulkImportColumn[] = [
-    { key: 'name', label: 'Name', required: true },
-    { key: 'email', label: 'Email', required: true },
-    { key: 'phone', label: 'Phone', required: false },
-    { key: 'department', label: 'Department', required: false },
-    { key: 'employee_id', label: 'Employee ID', required: false },
-  ];
-
-  const handleBulkImport = async (rows: Record<string, string>[]): Promise<BulkImportResult> => {
-    if (!id) throw new Error('No enterprise ID');
-
-    if (bulkImportType === 'it_admin') {
-      const response = await usersApi.bulkCreate({
-        users: rows.map(row => ({
-          name: row.name,
-          email: row.email,
-          phone: row.phone || undefined,
-          password: row.password || undefined,
-          role: 'it_admin',
-          enterprise_id: id,
-        })),
-      });
-      if (!response.success) throw new Error(response.error?.message || 'Bulk import failed');
-      return response.data as BulkImportResult;
-    } else {
-      const response = await subUsersApi.bulkCreate({
-        enterprise_id: id,
-        role: 'employee',
-        users: rows.map(row => ({
-          name: row.name,
-          email: row.email,
-          phone: row.phone || undefined,
-          department: row.department || undefined,
-          employee_id: row.employee_id || undefined,
-        })),
-      });
-      if (!response.success) throw new Error(response.error?.message || 'Bulk import failed');
-      return response.data as BulkImportResult;
-    }
   };
 
   // Super admin: save enterprise edits
@@ -778,7 +727,7 @@ export function EnterpriseDetail() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setBulkImportType('it_admin')}
+                  onClick={() => navigate(`${basePath}/enterprises/${id}/bulk-it-admins`)}
                   className="px-3 py-2 border border-blue-400/30 bg-blue-400/5 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-400/20 transition-all flex items-center gap-2"
                 >
                   <Upload className={iconSize.sm} />
@@ -882,7 +831,7 @@ export function EnterpriseDetail() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setBulkImportType('employee')}
+                  onClick={() => navigate(`${basePath}/enterprises/${id}/bulk-employees`)}
                   className="px-3 py-2 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
                 >
                   <Upload className={iconSize.sm} />
@@ -980,24 +929,6 @@ export function EnterpriseDetail() {
           defaultRole={selectedRole}
         />
       )}
-
-      {/* Bulk Import Modal */}
-      <BulkImportModal
-        isOpen={bulkImportType !== null}
-        onClose={() => setBulkImportType(null)}
-        title={bulkImportType === 'it_admin' ? 'Bulk Import IT Admins' : 'Bulk Import Employees'}
-        description={
-          bulkImportType === 'it_admin'
-            ? 'Upload a CSV file to create multiple IT Admin accounts at once.'
-            : 'Upload a CSV file to create multiple employee accounts at once.'
-        }
-        columns={bulkImportType === 'it_admin' ? itAdminBulkColumns : subUserBulkColumns}
-        onImport={handleBulkImport}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
-          queryClient.invalidateQueries({ queryKey: userKeys.all });
-        }}
-      />
 
       {/* Edit User Modal (with password reset) */}
       {editingUser && (

@@ -6,7 +6,6 @@ description: >
   Not a yes-man — builds the strongest genuine case for the plan.
 tools: Read, Grep, Glob
 model: sonnet
-run_in_background: true
 color: magenta
 ---
 

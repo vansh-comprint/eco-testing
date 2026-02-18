@@ -1,18 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2,
   Search,
   Plus,
-  ArrowRight,
-  Phone,
-  Mail,
-  MapPin,
+  Eye,
   CheckCircle,
-  Clock,
-  Power,
-  PowerOff,
+  Ban,
   Loader2,
 } from 'lucide-react';
 import { useInfiniteEnterprises } from '@/hooks';
@@ -122,7 +117,7 @@ export function EnterpriseList() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {['all', 'active', 'inactive', 'pending_verification'].map((status) => (
+          {['all', 'active', 'inactive'].map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -138,170 +133,155 @@ export function EnterpriseList() {
         </div>
       </motion.div>
 
-      {/* Summary Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-3 gap-4"
-      >
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Total Enterprises</p>
-          <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white">{totalCount}</p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Showing</p>
-          <p className="font-brand font-bold text-3xl text-blue-400">{enterprises.length}</p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase mb-2">Filter</p>
-          <p className="font-brand font-bold text-lg text-ecotribe-primary uppercase">
-            {statusFilter === 'all' ? 'All Statuses' : statusFilter.replace(/_/g, ' ')}
-          </p>
-        </div>
-      </motion.div>
-
       {/* Loading State */}
-      {isLoading && (
+      {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-ecotribe-primary mx-auto mb-4" />
             <p className="font-display font-bold uppercase tracking-wide text-slate-500 dark:text-white/50">Loading enterprises...</p>
           </div>
         </div>
-      )}
-
-      {/* Enterprise Grid */}
-      {!isLoading && enterprises.length > 0 ? (
+      ) : enterprises.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {enterprises.map((enterprise, idx) => (
-              <motion.div
-                key={enterprise.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * Math.min(idx, 10) }}
-                className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20 transition-all"
-              >
-                <div className="p-5 border-b border-slate-200 dark:border-white/10">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <Building2 className="w-7 h-7 text-slate-500 dark:text-white/50" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white uppercase truncate">
+          {/* List Table */}
+          <div className="border border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/40 divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+            {/* Table Header */}
+            <div className="px-4 py-2.5 bg-black/[0.03] dark:bg-white/[0.03] grid grid-cols-12 gap-4">
+              <div className="col-span-5 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
+                Enterprise
+              </div>
+              <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 hidden md:block">
+                Contact
+              </div>
+              <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 hidden lg:block">
+                GST Number
+              </div>
+              <div className="col-span-2 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40">
+                Status
+              </div>
+              <div className="col-span-1 font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/40 text-right">
+              </div>
+            </div>
+
+            {/* Rows */}
+            <AnimatePresence mode="popLayout">
+              {enterprises.map((enterprise) => {
+                const statusBadge =
+                  enterprise.status === 'active'
+                    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
+                    : 'border-red-400/40 bg-red-400/10 text-red-400';
+
+                const statusIcon =
+                  enterprise.status === 'active'
+                    ? <CheckCircle className="w-3 h-3 mr-1 inline" />
+                    : null;
+
+                return (
+                  <motion.div
+                    key={enterprise.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    layout
+                    className="px-4 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] grid grid-cols-12 gap-4 items-center"
+                  >
+                    {/* Enterprise Name */}
+                    <div className="col-span-5 flex items-center gap-3 min-w-0">
+                      <Building2 className={`w-4 h-4 flex-shrink-0 ${
+                        enterprise.status === 'active' ? 'text-ecotribe-primary' : 'text-slate-400 dark:text-white/30'
+                      }`} />
+                      <div className="min-w-0">
+                        <p className="font-display font-bold text-sm text-black dark:text-white truncate">
                           {enterprise.name}
-                        </h3>
-                        <span className={`flex-shrink-0 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${
-                          enterprise.status === 'active'
-                            ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
-                            : enterprise.status === 'pending_verification'
-                            ? 'border-amber-400/30 bg-amber-400/10 text-amber-400'
-                            : 'border-zinc-400/30 bg-zinc-400/10 text-slate-500 dark:text-white/50'
-                        }`}>
-                          {enterprise.status === 'active' && <CheckCircle className="w-3 h-3 inline mr-1" />}
-                          {enterprise.status === 'pending_verification' && <Clock className="w-3 h-3 inline mr-1" />}
-                          {enterprise.status.replace(/_/g, ' ')}
-                        </span>
+                        </p>
+                        {enterprise.contact_email && (
+                          <p className="font-mono text-[11px] text-black/50 dark:text-white/50 truncate md:hidden">
+                            {enterprise.contact_email}
+                          </p>
+                        )}
                       </div>
-                      {enterprise.gst_number && (
-                        <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">GST: {enterprise.gst_number}</p>
+                    </div>
+
+                    {/* Contact - Hidden on mobile */}
+                    <div className="col-span-2 min-w-0 hidden md:block">
+                      {enterprise.contact_person && (
+                        <p className="font-mono text-[11px] text-black/70 dark:text-white/70 truncate">
+                          {enterprise.contact_person}
+                        </p>
+                      )}
+                      {enterprise.contact_email && (
+                        <p className="font-mono text-[10px] text-black/40 dark:text-white/40 truncate">
+                          {enterprise.contact_email}
+                        </p>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                <div className="p-5 space-y-4">
-                  {/* Contact Info */}
-                  <div className="space-y-2">
-                    {enterprise.contact_person && (
-                      <p className="font-display text-sm text-slate-900 dark:text-white">{enterprise.contact_person}</p>
-                    )}
-                    {enterprise.contact_email && (
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
-                        <Mail className="w-4 h-4" />
-                        <span className="font-mono text-xs">{enterprise.contact_email}</span>
-                      </div>
-                    )}
-                    {enterprise.contact_phone && (
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
-                        <Phone className="w-4 h-4" />
-                        <span className="font-mono text-xs">{enterprise.contact_phone}</span>
-                      </div>
-                    )}
-                    {(enterprise.city || enterprise.address) && (
-                      <div className="flex items-center gap-2 text-slate-500 dark:text-white/50">
-                        <MapPin className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-mono text-xs truncate">
-                          {enterprise.city || (enterprise.address as any)?.city || 'Unknown location'}
-                          {((enterprise.address as any)?.state) ? `, ${(enterprise.address as any).state}` : ''}
+                    {/* GST - Hidden on md and below */}
+                    <div className="col-span-2 hidden lg:block">
+                      {enterprise.gst_number && (
+                        <span className="font-mono text-[11px] text-black/50 dark:text-white/50">
+                          {enterprise.gst_number}
                         </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                      )}
+                    </div>
 
-                <div className="p-4 border-t border-slate-200 dark:border-white/10 flex gap-2">
-                  <button
-                    onClick={() => navigate(`${basePath}/enterprises/${enterprise.id}`)}
-                    className="flex-1 interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center justify-center gap-2"
-                  >
-                    View Details
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  {isSuperAdmin && enterprise.status === 'active' && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'inactive' }); }}
-                      className="px-3 py-2.5 border border-red-400/30 bg-red-400/5 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-400/20 transition-all flex items-center gap-1.5"
-                      title="Deactivate"
-                    >
-                      <PowerOff className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {isSuperAdmin && enterprise.status === 'inactive' && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'active' }); }}
-                      className="px-3 py-2.5 border border-emerald-400/30 bg-emerald-400/5 text-emerald-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-emerald-400/20 transition-all flex items-center gap-1.5"
-                      title="Activate"
-                    >
-                      <Power className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                    {/* Status Badge */}
+                    <div className="col-span-2">
+                      <span className={`inline-block px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-widest border ${statusBadge}`}>
+                        {statusIcon}
+                        {enterprise.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="col-span-1 flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => navigate(`${basePath}/enterprises/${enterprise.id}`)}
+                        className="p-1.5 border border-ecotribe-primary/40 bg-ecotribe-primary/10 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      {isSuperAdmin && enterprise.status === 'active' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'inactive' }); }}
+                          className="p-1.5 border border-red-500/40 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20 transition-colors"
+                        >
+                          <Ban className="w-4 h-4" />
+                        </button>
+                      )}
+                      {isSuperAdmin && enterprise.status === 'inactive' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setStatusChangeTarget({ id: enterprise.id, name: enterprise.name, newStatus: 'active' }); }}
+                          className="p-1.5 border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
 
-          <InfiniteScrollTrigger
-            hasNextPage={!!hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            fetchNextPage={fetchNextPage}
-          />
-          <InfiniteScrollInfo
-            loadedCount={enterprises.length}
-            totalCount={totalCount}
-          />
+          {/* Infinite Scroll */}
+          <div className="space-y-3">
+            <InfiniteScrollInfo
+              loadedCount={enterprises.length}
+              totalCount={totalCount}
+            />
+            <InfiniteScrollTrigger
+              hasNextPage={!!hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              fetchNextPage={fetchNextPage}
+            />
+          </div>
         </>
-      ) : !isLoading ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
-        >
-          <div className="w-20 h-20 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
-            <Building2 className="w-10 h-10 text-slate-500 dark:text-white/50" />
-          </div>
-          <h3 className="font-brand font-bold text-xl text-slate-500 dark:text-white/50 uppercase tracking-tight mb-2">
-            {searchQuery ? 'No Matches Found' : 'No Enterprises'}
-          </h3>
-          <p className="font-display text-slate-500 dark:text-white/50 max-w-md mx-auto">
-            {searchQuery
-              ? 'Try adjusting your search terms.'
-              : 'Get started by adding your first enterprise.'}
-          </p>
-        </motion.div>
-      ) : null}
+      ) : (
+        <div className="text-center py-12 text-black/50 dark:text-white/50 font-mono text-sm border border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/40">
+          {searchQuery ? 'No matching enterprises found' : 'No enterprises yet'}
+        </div>
+      )}
 
       {/* Status Change Confirmation Modal (Super Admin only) */}
       {statusChangeTarget && (

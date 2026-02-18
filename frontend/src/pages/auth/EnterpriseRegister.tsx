@@ -36,6 +36,7 @@ import {
 import { useCreateEnterpriseApplication, useCheckGSTExists, useCheckEmailExists, useUploadDocument } from '@/hooks';
 import { API_BASE_URL } from '@/lib/api/client';
 import { text } from '@/lib/design-tokens';
+import { validatePassword, PASSWORD_HINT } from '@/lib/validation';
 
 // Required documents list
 const requiredDocuments = [
@@ -306,10 +307,9 @@ export function EnterpriseRegister() {
     if (step === 4) {
       if (!formData.password) {
         newErrors.password = 'Password is required';
-      } else if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-        newErrors.password = 'Password must include uppercase, lowercase, and number';
+      } else {
+        const pwError = validatePassword(formData.password);
+        if (pwError) newErrors.password = pwError;
       }
 
       if (!formData.confirmPassword) {
@@ -450,7 +450,7 @@ export function EnterpriseRegister() {
       });
     } catch (error) {
       console.error('Registration error:', error);
-      setErrors({ submit: 'Failed to submit application. Please try again.' });
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to submit application. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -695,7 +695,7 @@ export function EnterpriseRegister() {
                       <input
                         type="text"
                         value={formData.gstNumber}
-                        onChange={(e) => updateField('gstNumber', e.target.value.toUpperCase())}
+                        onChange={(e) => updateField('gstNumber', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
                         placeholder="22AAAAA0000A1Z5"
                         maxLength={15}
                         className={`w-full bg-white/40 dark:bg-black/40 border ${
@@ -715,7 +715,7 @@ export function EnterpriseRegister() {
                       <input
                         type="text"
                         value={formData.panNumber}
-                        onChange={(e) => updateField('panNumber', e.target.value.toUpperCase())}
+                        onChange={(e) => updateField('panNumber', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
                         placeholder="AAAPL1234C"
                         maxLength={10}
                         className={`w-full bg-white/40 dark:bg-black/40 border ${
@@ -804,7 +804,7 @@ export function EnterpriseRegister() {
                       <input
                         type="text"
                         value={formData.city}
-                        onChange={(e) => updateField('city', e.target.value)}
+                        onChange={(e) => updateField('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                         placeholder="City *"
                         className={`w-full bg-white/40 dark:bg-black/40 border ${
                           errors.city ? 'border-red-500' : 'border-black/10 dark:border-white/10'
@@ -829,9 +829,10 @@ export function EnterpriseRegister() {
                       <input
                         type="text"
                         value={formData.pinCode}
-                        onChange={(e) => updateField('pinCode', e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) => updateField('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="PIN Code *"
                         maxLength={6}
+                        inputMode="numeric"
                         className={`w-full bg-white/40 dark:bg-black/40 border ${
                           errors.pinCode ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                         } font-mono text-xs focus:outline-none focus:border-ecotribe-primary px-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30`}
@@ -871,7 +872,7 @@ export function EnterpriseRegister() {
                       type="text"
                       value={formData.orgAdminName}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                        const val = e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '');
                         updateField('orgAdminName', val);
                       }}
                       placeholder="Enter full name"
@@ -921,6 +922,7 @@ export function EnterpriseRegister() {
                           onChange={(e) => updateField('orgAdminPhone', e.target.value.replace(/\D/g, ''))}
                           placeholder="9876543210"
                           maxLength={10}
+                          inputMode="numeric"
                           className={`w-full bg-white/40 dark:bg-black/40 border ${
                             errors.orgAdminPhone ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                           } font-mono text-xs focus:outline-none focus:border-ecotribe-primary px-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30`}
@@ -1051,7 +1053,7 @@ export function EnterpriseRegister() {
                         type={showPassword ? 'text' : 'password'}
                         value={formData.password}
                         onChange={(e) => updateField('password', e.target.value)}
-                        placeholder="Min. 8 chars, uppercase, lowercase, number"
+                        placeholder={PASSWORD_HINT}
                         className={`w-full bg-white/40 dark:bg-black/40 border ${
                           errors.password ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                         } font-mono text-xs focus:outline-none focus:border-ecotribe-primary pl-12 pr-12 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30`}

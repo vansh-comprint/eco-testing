@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Input, Dropdown } from '@/components/ui';
 import { enterpriseApplicationsApi } from '@/lib/api/applications';
+import { validatePassword } from '@/lib/validation';
 
 type IndustryType = 'technology' | 'finance' | 'healthcare' | 'education' | 'manufacturing' | 'retail' | 'government' | string;
 
@@ -68,8 +69,9 @@ export function SignupPage() {
         newErrors.email = 'Invalid email format';
       }
       if (!formData.password) newErrors.password = 'Password is required';
-      else if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
+      else {
+        const pwError = validatePassword(formData.password);
+        if (pwError) newErrors.password = pwError;
       }
       if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = 'Passwords do not match';
@@ -276,7 +278,7 @@ export function SignupPage() {
                         label="Full Name"
                         placeholder="John Doe"
                         value={formData.name}
-                        onChange={(e) => updateField('name', e.target.value)}
+                        onChange={(e) => updateField('name', e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''))}
                         error={errors.name}
                       />
                       <Input
@@ -294,7 +296,7 @@ export function SignupPage() {
                         value={formData.password}
                         onChange={(e) => updateField('password', e.target.value)}
                         error={errors.password}
-                        hint="Minimum 8 characters"
+                        hint="Min. 8 chars, letter + number + special"
                       />
                       <Input
                         label="Confirm Password"
@@ -355,9 +357,10 @@ export function SignupPage() {
                   <Input
                     label="Phone Number"
                     type="tel"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="9876543210"
                     value={formData.phone}
-                    onChange={(e) => updateField('phone', e.target.value)}
+                    onChange={(e) => updateField('phone', e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))}
+                    inputMode="numeric"
                   />
                 </motion.div>
               )}

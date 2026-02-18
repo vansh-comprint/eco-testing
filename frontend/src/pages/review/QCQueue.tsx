@@ -108,6 +108,26 @@ export function QCQueue() {
         </motion.div>
       </div>
 
+      {/* Quick Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-2 gap-4"
+      >
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
+          <p className="font-brand font-bold text-3xl text-amber-400">
+            {inTransitTotal}
+          </p>
+        </div>
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+          <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
+          <p className="font-brand font-bold text-3xl text-emerald-400">
+            {facilityQCTotal}
+          </p>
+        </div>
+      </motion.div>
+
       {/* Filters */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -259,26 +279,6 @@ export function QCQueue() {
         </motion.div>
       )}
 
-      {/* Quick Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 gap-4"
-      >
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
-          <p className="font-brand font-bold text-3xl text-amber-400">
-            {inTransitTotal}
-          </p>
-        </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
-          <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
-          <p className="font-brand font-bold text-3xl text-emerald-400">
-            {facilityQCTotal}
-          </p>
-        </div>
-      </motion.div>
     </div>
   );
 }

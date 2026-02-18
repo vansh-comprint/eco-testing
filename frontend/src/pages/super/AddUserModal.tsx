@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
-import { useCreateUser } from '@/hooks';
+import { useCreateUser, useEnterprises, useAllUsers } from '@/hooks';
+import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
 import { text } from '@/lib/design-tokens';
 
 interface AddUserModalProps {
@@ -12,14 +14,28 @@ interface AddUserModalProps {
   onSuccess?: () => void;
 }
 
+// Roles that require an enterprise
+const ENTERPRISE_ROLES = ['it_admin', 'org_admin', 'employee'];
+// Roles that require a parent logistics admin
+const LOGISTICS_USER_ROLE = 'logistics_user';
+
 // Validation schema
 const addUserSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters, spaces, hyphens, or apostrophes'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
+  phone: z
+    .string()
+    .regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optional + prefix)')
+    .optional()
+    .or(z.literal('')),
   role: z.string().min(1, 'Role is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+  password: passwordSchema.optional(),
   status: z.string().default('active'),
+  enterprise_id: z.string().optional(),
+  parent_user_id: z.string().optional(),
 }).refine((data) => {
   // Password required for non-employee roles
   if (data.role !== 'employee' && !data.password) {
@@ -29,6 +45,24 @@ const addUserSchema = z.object({
 }, {
   message: 'Password is required for admin roles',
   path: ['password'],
+}).refine((data) => {
+  // Enterprise required for enterprise roles
+  if (ENTERPRISE_ROLES.includes(data.role) && !data.enterprise_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Enterprise is required for this role',
+  path: ['enterprise_id'],
+}).refine((data) => {
+  // Parent logistics admin required for logistics users
+  if (data.role === LOGISTICS_USER_ROLE && !data.parent_user_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Logistics Admin is required for Logistics User',
+  path: ['parent_user_id'],
 });
 
 type AddUserForm = z.infer<typeof addUserSchema>;
@@ -42,12 +76,36 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<AddUserForm>({
     resolver: zodResolver(addUserSchema) as any,
     defaultValues: {
       status: 'active',
     },
   });
+
+  // Watch the role field to show/hide conditional fields
+  const selectedRole = watch('role');
+
+  // Fetch enterprises for enterprise-role selection
+  const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
+
+  // Fetch logistics admins for logistics-user parent selection
+  const { data: logisticsAdmins = [], isLoading: logisticsAdminsLoading } = useAllUsers({
+    role: 'logistics_admin',
+    limit: 100,
+  });
+
+  // Clear conditional fields when role changes
+  useEffect(() => {
+    if (!ENTERPRISE_ROLES.includes(selectedRole || '')) {
+      setValue('enterprise_id', '');
+    }
+    if (selectedRole !== LOGISTICS_USER_ROLE) {
+      setValue('parent_user_id', '');
+    }
+  }, [selectedRole, setValue]);
 
   const onSubmit = async (data: AddUserForm) => {
     try {
@@ -57,6 +115,9 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         phone: data.phone || undefined,
         role: data.role,
         password: data.password,
+        status: data.status,
+        enterprise_id: ENTERPRISE_ROLES.includes(data.role) ? data.enterprise_id : undefined,
+        parent_user_id: data.role === LOGISTICS_USER_ROLE ? data.parent_user_id : undefined,
       });
 
       addToast({
@@ -70,7 +131,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       onClose();
       onSuccess?.();
     } catch (error) {
-      console.error('❌ Error creating user:', error);
+      console.error('Error creating user:', error);
 
       addToast({
         type: 'error',
@@ -91,10 +152,10 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const isSubmitting = createUserMutation.isPending;
 
   const roles = [
-    { value: 'super_admin', label: 'Super Admin' },
     { value: 'ops_admin', label: 'OPS Admin' },
-    { value: 'it_admin', label: 'IT Admin' },
     { value: 'org_admin', label: 'Org Admin' },
+    { value: 'it_admin', label: 'IT Admin' },
+    { value: 'employee', label: 'Employee' },
     { value: 'logistics_admin', label: 'Logistics Admin' },
     { value: 'logistics_user', label: 'Logistics User' },
   ];
@@ -102,8 +163,14 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const statuses = [
     { value: 'active', label: 'Active' },
     { value: 'inactive', label: 'Inactive' },
-    { value: 'pending', label: 'Pending' },
   ];
+
+  const needsEnterprise = ENTERPRISE_ROLES.includes(selectedRole || '');
+  const needsLogisticsAdmin = selectedRole === LOGISTICS_USER_ROLE;
+  const isEmployee = selectedRole === 'employee';
+
+  // Filter to only active enterprises
+  const activeEnterprises = enterprises.filter((e: any) => e.status === 'active' || e.is_active);
 
   return (
     <Modal
@@ -111,7 +178,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       onClose={handleClose}
       title="Add New User"
       description="Create a new user account"
-      size="md"
+      size="lg"
     >
       <form onSubmit={handleSubmit(onSubmit as any)}>
         <div className="space-y-4">
@@ -122,6 +189,11 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             placeholder="John Doe"
             required
             autoFocus
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              // Strip numeric characters in real-time
+              const input = e.currentTarget;
+              input.value = input.value.replace(/[0-9]/g, '');
+            }}
           />
 
           <Input
@@ -137,17 +209,25 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             label="Phone Number"
             {...register('phone')}
             error={errors.phone?.message}
-            placeholder="+91-9876543210"
+            placeholder="9876543210"
+            inputMode="numeric"
+            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+              // Allow only digits and leading +
+              const input = e.currentTarget;
+              input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+            }}
           />
 
-          <Input
-            label="Password"
-            type="password"
-            {...register('password')}
-            error={errors.password?.message}
-            placeholder="Min. 8 characters (required for admin roles)"
-            required
-          />
+          {!isEmployee && (
+            <Input
+              label="Password"
+              type="password"
+              {...register('password')}
+              error={errors.password?.message}
+              placeholder={PASSWORD_HINT}
+              required
+            />
+          )}
 
           <div>
             <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
@@ -168,6 +248,58 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
               <p className="mt-1 text-xs text-red-500">{errors.role.message}</p>
             )}
           </div>
+
+          {/* Enterprise selector - shown for IT Admin, Org Admin, Employee */}
+          {needsEnterprise && (
+            <div>
+              <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                Enterprise <span className="text-red-500">*</span>
+              </label>
+              <select
+                {...register('enterprise_id')}
+                className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+              >
+                <option value="">
+                  {enterprisesLoading ? 'Loading...' : 'Select an enterprise...'}
+                </option>
+                {activeEnterprises.map((ent: any) => (
+                  <option key={ent.id} value={ent.id}>
+                    {ent.name}
+                  </option>
+                ))}
+              </select>
+              {errors.enterprise_id && (
+                <p className="mt-1 text-xs text-red-500">{errors.enterprise_id.message}</p>
+              )}
+            </div>
+          )}
+
+          {/* Logistics Admin selector - shown for Logistics User */}
+          {needsLogisticsAdmin && (
+            <div>
+              <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                Logistics Admin <span className="text-red-500">*</span>
+              </label>
+              <select
+                {...register('parent_user_id')}
+                className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+              >
+                <option value="">
+                  {logisticsAdminsLoading ? 'Loading...' : 'Select a logistics admin...'}
+                </option>
+                {logisticsAdmins
+                  .filter((u: any) => u.status === 'active')
+                  .map((admin: any) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.company_name ? `${admin.company_name} (${admin.name})` : admin.name}
+                    </option>
+                  ))}
+              </select>
+              {errors.parent_user_id && (
+                <p className="mt-1 text-xs text-red-500">{errors.parent_user_id.message}</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
@@ -191,8 +323,10 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             </p>
             <ul className="font-mono text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
               <li>User will be able to log in with their email and password</li>
-              <li>Password is required for all admin roles</li>
-              <li>Employees use OTP-based login (no password needed)</li>
+              <li>Password is required for all roles except Employee</li>
+              <li>Employees use OTP-based login (default password set automatically)</li>
+              {needsEnterprise && <li>Selected enterprise determines the user's data scope</li>}
+              {needsLogisticsAdmin && <li>Logistics User will be managed by the selected Logistics Admin</li>}
             </ul>
           </div>
         </div>

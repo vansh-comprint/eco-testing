@@ -338,7 +338,7 @@ export function EmployeeInvite() {
                   type="text"
                   placeholder="e.g., Vikram Singh"
                   value={invite.name}
-                  onChange={(e) => handleChange(index, 'name', e.target.value)}
+                  onChange={(e) => handleChange(index, 'name', e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''))}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                 />
                 {errors[index]?.name && (
@@ -369,6 +369,7 @@ export function EmployeeInvite() {
                   </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
                     placeholder="9876543210"
                     value={invite.phone}
                     onChange={(e) => handleChange(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}

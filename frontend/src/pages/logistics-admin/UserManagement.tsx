@@ -52,11 +52,19 @@ export function LogisticsUserManagement() {
       return;
     }
     if (form.password.length < 8) {
-      addToast({
-        type: 'error',
-        title: 'Password Too Short',
-        message: 'Password must be at least 8 characters',
-      });
+      addToast({ type: 'error', title: 'Weak Password', message: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (!/[a-zA-Z]/.test(form.password)) {
+      addToast({ type: 'error', title: 'Weak Password', message: 'Password must contain at least one letter' });
+      return;
+    }
+    if (!/[0-9]/.test(form.password)) {
+      addToast({ type: 'error', title: 'Weak Password', message: 'Password must contain at least one number' });
+      return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(form.password)) {
+      addToast({ type: 'error', title: 'Weak Password', message: 'Password must contain at least one special character (!@#$...)' });
       return;
     }
     try {
@@ -226,7 +234,7 @@ export function LogisticsUserManagement() {
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') })}
                 placeholder="Enter full name"
                 className="w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
               />
@@ -277,7 +285,8 @@ export function LogisticsUserManagement() {
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                inputMode="numeric"
                 placeholder="Enter phone number (optional)"
                 className="w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
               />

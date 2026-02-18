@@ -25,7 +25,8 @@ import {
   Building2,
   Key,
 } from 'lucide-react';
-import { useAuth, useBranches, useITAdmins, useBulkCreateITAdmins, useUpdateBranch } from '@/hooks';
+import { useAuth, useBranches, useAllUsers, useBulkCreateITAdmins, useUpdateBranch, useApiError } from '@/hooks';
+import { generatePassword } from '@/lib/validation';
 
 interface ParsedRow {
   name: string;
@@ -60,30 +61,27 @@ const COLUMN_ALIASES: Record<string, string> = {
   'branch name': 'branch_name',
 };
 
-// Generate a secure random password
-function generatePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
+interface BulkITAdminUploadProps {
+  enterpriseId?: string;
 }
 
-export function BulkITAdminUpload() {
+export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdminUploadProps = {}) {
   const navigate = useNavigate();
   // V3.2: Use React Query hook for auth
   const { enterprise } = useAuth();
-  const enterpriseId = enterprise?.id || '';
+  const enterpriseId = propEnterpriseId || enterprise?.id || '';
 
   const { data: branches = [] } = useBranches(enterpriseId);
-  const { data: existingITAdmins = [] } = useITAdmins(enterpriseId);
+  // Fetch ALL users for this enterprise (not just IT admins) for duplicate detection
+  // Server rejects emails that exist in ANY role, so client must check broadly
+  const { data: allEnterpriseUsers = [] } = useAllUsers({ enterprise_id: enterpriseId, limit: 500 });
   const bulkCreate = useBulkCreateITAdmins();
   const updateBranch = useUpdateBranch();
+  const { handleError, showSuccess, showWarning } = useApiError();
 
-  // Build set of existing IT admin emails for duplicate detection
+  // Build set of ALL existing emails in this enterprise for duplicate detection
   const existingEmails = new Set(
-    (existingITAdmins as any[]).map((a: any) => a.email?.toLowerCase()).filter(Boolean)
+    (allEnterpriseUsers as any[]).map((a: any) => a.email?.toLowerCase()).filter(Boolean)
   );
 
   // Filter to branches without IT admin (available for assignment)
@@ -96,7 +94,8 @@ export function BulkITAdminUpload() {
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(true);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'error'>('idle');
-  const [uploadResult, setUploadResult] = useState<{ results: any[]; errors: Array<{ email: string; error: string }> } | null>(null);
+  const [uploadResult, setUploadResult] = useState<{ results: any[]; errors: Array<string | { email: string; error: string }> } | null>(null);
+  const [uploadError, setUploadError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validRows = parsedData.filter(row => row.errors.length === 0);
@@ -181,7 +180,7 @@ export function BulkITAdminUpload() {
       } else if (seenEmails.has(row.email.toLowerCase())) {
         row.errors.push('Duplicate email in file');
       } else if (existingEmails.has(row.email.toLowerCase())) {
-        row.errors.push('IT Admin with this email already exists');
+        row.errors.push('A user with this email already exists in this enterprise');
       } else {
         seenEmails.add(row.email.toLowerCase());
       }
@@ -415,9 +414,25 @@ export function BulkITAdminUpload() {
       const allErrors = [...result.errors, ...branchErrors];
 
       setUploadResult({ results: result.results, errors: allErrors });
-      setUploadStatus('success');
-    } catch {
+
+      if (allErrors.length === 0) {
+        // All succeeded → go to success screen
+        setUploadStatus('success');
+        showSuccess('IT Admins Created', `Successfully created ${result.results.length} IT Admin(s).`);
+      } else {
+        // Has errors → stay on preview page, show inline
+        setUploadStatus('ready');
+        if (result.results.length > 0) {
+          showWarning('Partial Success', `Created ${result.results.length} IT Admin(s), but ${allErrors.length} failed.`);
+        } else {
+          handleError(new Error(allErrors.map((e: any) => typeof e === 'string' ? e : `${e.email}: ${e.error}`).join('; ')), 'Bulk IT Admin Upload');
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setUploadError(msg);
       setUploadStatus('error');
+      handleError(err, 'Bulk IT Admin Upload');
     }
   };
 
@@ -427,6 +442,7 @@ export function BulkITAdminUpload() {
     setColumnMapping({});
     setUploadStatus('idle');
     setUploadResult(null);
+    setUploadError('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -587,7 +603,7 @@ export function BulkITAdminUpload() {
     URL.revokeObjectURL(url);
   };
 
-  if (!enterprise) {
+  if (!enterpriseId) {
     return (
       <div className="flex items-center justify-center min-h-[400px] border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
         <p className="font-display text-slate-500 dark:text-zinc-500 uppercase tracking-wide">Enterprise not found</p>
@@ -640,7 +656,7 @@ export function BulkITAdminUpload() {
                 <p className="font-mono font-bold text-[10px] text-red-400 uppercase tracking-widest mb-2">Failed Uploads:</p>
                 {uploadResult.errors.map((err, i) => (
                   <p key={i} className="font-mono text-xs text-red-400">
-                    {err.email}: {err.error}
+                    {typeof err === 'string' ? err : `${err.email}: ${err.error}`}
                   </p>
                 ))}
               </div>
@@ -655,7 +671,7 @@ export function BulkITAdminUpload() {
                 Upload More
               </button>
               <button
-                onClick={() => navigate('/org-admin/it-admins')}
+                onClick={() => navigate(-1)}
                 className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
               >
                 View IT Admins
@@ -829,6 +845,43 @@ export function BulkITAdminUpload() {
           <div className="w-12 h-12 border-2 border-ecotribe-primary border-t-transparent animate-spin mx-auto mb-4" />
           <p className="font-mono text-sm text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Parsing CSV file...</p>
         </div>
+      )}
+
+      {/* Error State */}
+      {uploadStatus === 'error' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-red-500/30"
+        >
+          <div className="py-16 px-8 text-center">
+            <div className="w-16 h-16 border border-red-500/30 bg-red-500/10 flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8 text-red-400" />
+            </div>
+            <h2 className="font-brand font-bold text-2xl text-black dark:text-white uppercase tracking-tight mb-3">
+              Upload Failed
+            </h2>
+            <p className="font-mono text-sm text-red-400 mb-6 max-w-md mx-auto break-words">
+              {uploadError || 'An unexpected error occurred while creating IT Admins.'}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleReset}
+                className="interactive px-6 py-3 bg-white/5 border border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Try Again
+              </button>
+              <button
+                onClick={() => navigate(-1)}
+                className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Go Back
+              </button>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Preview & Validation */}
@@ -1007,15 +1060,69 @@ export function BulkITAdminUpload() {
             </div>
           )}
 
+          {/* Upload Results (shown inline when there are errors) */}
+          {uploadResult && uploadResult.errors.length > 0 && (
+            <div className="border border-red-500/20 bg-red-500/5">
+              <div className="p-5 border-b border-red-500/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                    <h2 className="font-display font-bold text-sm text-red-400 uppercase tracking-wide">
+                      Upload Results
+                    </h2>
+                  </div>
+                  <div className="flex gap-4">
+                    {uploadResult.results.length > 0 && (
+                      <span className="font-mono text-xs text-emerald-400">
+                        {uploadResult.results.length} created
+                      </span>
+                    )}
+                    <span className="font-mono text-xs text-red-400">
+                      {uploadResult.errors.length} failed
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-5 space-y-3 max-h-60 overflow-y-auto">
+                {uploadResult.errors.map((err, i) => (
+                  <div key={i} className="p-3 border border-red-500/10 bg-red-500/5">
+                    <p className="font-mono text-xs text-red-400">
+                      {typeof err === 'string' ? err : `${err.email}: ${err.error}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {uploadResult.results.length > 0 && (
+                <div className="p-5 border-t border-red-500/10">
+                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">
+                    Successfully created admins are already active. Fix the errors above and re-upload the failed ones.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
-              onClick={() => navigate('/org-admin/it-admins')}
+              onClick={() => navigate(-1)}
               disabled={uploadStatus === 'uploading'}
               className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
+            {uploadResult && uploadResult.results.length > 0 && uploadResult.errors.length > 0 && (
+              <button
+                onClick={() => {
+                  setUploadResult(null);
+                  setUploadStatus('success');
+                }}
+                className="interactive px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                View {uploadResult.results.length} Created
+              </button>
+            )}
             <button
               onClick={handleUpload}
               disabled={validRows.length === 0 || uploadStatus === 'uploading'}
@@ -1026,7 +1133,7 @@ export function BulkITAdminUpload() {
               ) : (
                 <Mail className="w-4 h-4" />
               )}
-              Create {validRows.length} IT Admins
+              {uploadResult ? 'Retry Upload' : `Create ${validRows.length} IT Admins`}
             </button>
           </div>
         </motion.div>

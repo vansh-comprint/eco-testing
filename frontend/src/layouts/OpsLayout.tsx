@@ -42,6 +42,7 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
   const { theme } = useThemeStore();
   const { selectedEnterprise, isAllEnterprises } = useOpsEnterprise();
   const isDark = theme === 'dark';
+  const homePath = '/ops';
 
   // V3: logout from useAuth already handles navigation
   const handleLogout = () => {
@@ -101,7 +102,7 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
         <div className="h-full flex flex-col bg-white/60 dark:bg-black/60 backdrop-blur-xl border-r border-black/10 dark:border-white/10">
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-4 border-b border-black/10 dark:border-white/10">
-            <Link to="/" className="interactive flex flex-col items-start min-w-0">
+            <Link to={homePath} className="interactive flex flex-col items-start min-w-0">
               <AnimatePresence mode="wait">
                 {sidebarOpen ? (
                   <motion.div
@@ -230,7 +231,7 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link to="/" className="interactive">
+          <Link to={homePath} className="interactive">
             <span className="font-brand font-black text-lg tracking-tight text-black dark:text-white">
               ECO<span className="text-ecotribe-primary">/</span><span className="text-ecotribe-primary">TRIBE</span>
             </span>
@@ -262,7 +263,7 @@ function OpsLayoutInner({ title, adminNavItems, enterpriseNavItems }: OpsLayoutP
               className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-r border-black/10 dark:border-white/10"
             >
               <div className="h-14 flex items-center justify-between px-4 border-b border-black/10 dark:border-white/10">
-                <Link to="/" className="interactive">
+                <Link to={homePath} className="interactive">
                   <span className="font-brand font-black text-xl tracking-tight text-black dark:text-white">
                     ECO<span className="text-ecotribe-primary">/</span><span className="text-ecotribe-primary">TRIBE</span>
                   </span>

@@ -32,6 +32,7 @@ import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreate
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { validateBranchCode } from '@/lib/validations/branch';
+import { validatePassword } from '@/lib/validation';
 import type { BranchResponse, BranchSummary } from '@/lib/api/branches';
 
 // Use API response type directly — the hooks return BranchResponse
@@ -874,7 +875,10 @@ function BranchFormModal({
       if (!newAdminData.email.trim()) adminErrors.email = 'Email is required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAdminData.email)) adminErrors.email = 'Enter a valid email';
       if (!newAdminData.password) adminErrors.password = 'Password is required';
-      else if (newAdminData.password.length < 8) adminErrors.password = 'Minimum 8 characters';
+      else {
+        const pwError = validatePassword(newAdminData.password);
+        if (pwError) adminErrors.password = pwError;
+      }
       if (newAdminData.phone) {
         const cleaned = newAdminData.phone.replace(/\D/g, '');
         if (cleaned.length !== 10 || !/^[6-9]\d{9}$/.test(cleaned)) adminErrors.phone = 'Enter a valid 10-digit mobile number';
@@ -1069,7 +1073,7 @@ function BranchFormModal({
                       type="text"
                       value={newAdminData.name}
                       onChange={(e) => {
-                        setNewAdminData(prev => ({ ...prev, name: e.target.value }));
+                        setNewAdminData(prev => ({ ...prev, name: e.target.value.replace(/[^a-zA-Z\s'.\-]/g, '') }));
                         if (newAdminErrors.name) setNewAdminErrors(prev => ({ ...prev, name: '' }));
                       }}
                       placeholder="Full Name *"
@@ -1099,9 +1103,10 @@ function BranchFormModal({
                       type="tel"
                       value={newAdminData.phone}
                       onChange={(e) => {
-                        setNewAdminData(prev => ({ ...prev, phone: e.target.value }));
+                        setNewAdminData(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') }));
                         if (newAdminErrors.phone) setNewAdminErrors(prev => ({ ...prev, phone: '' }));
                       }}
+                      inputMode="numeric"
                       placeholder="Phone (Optional)"
                       maxLength={10}
                       className={`w-full px-3 py-2 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
@@ -1225,7 +1230,7 @@ function BranchFormModal({
               type="text"
               name="site_contact_person"
               value={formData.site_contact_person}
-              onChange={handleChange}
+              onChange={(e) => { e.target.value = e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''); handleChange(e); }}
               placeholder="Contact Person Name"
               className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
             />
@@ -1234,7 +1239,8 @@ function BranchFormModal({
                 type="tel"
                 name="site_contact_phone"
                 value={formData.site_contact_phone}
-                onChange={handleChange}
+                onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); handleChange(e); }}
+                inputMode="numeric"
                 placeholder="Contact Phone (10 digits)"
                 maxLength={10}
                 className={`w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${

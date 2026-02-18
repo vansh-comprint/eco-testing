@@ -101,12 +101,13 @@ export function useBatchesByBranch(branchId: string) {
  * Fetch batches for IT Admin (across all their assigned branches)
  * V3.2: IT Admin can manage multiple branches - API handles role-based scoping
  */
-export function useBatchesByITAdmin(userId: string) {
+export function useBatchesByITAdmin(userId: string, branchId?: string | null) {
   return useQuery({
-    queryKey: batchKeys.byITAdmin(userId),
+    queryKey: [...batchKeys.byITAdmin(userId), branchId ?? 'all'],
     queryFn: async () => {
-      // API handles role-based scoping automatically
-      const response = await batchesApi.list({ limit: 100 });
+      const params: { limit: number; branch_id?: string } = { limit: 100 };
+      if (branchId) params.branch_id = branchId;
+      const response = await batchesApi.list(params);
       return response.data;
     },
     enabled: !!userId,

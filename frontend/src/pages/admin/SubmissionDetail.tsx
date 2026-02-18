@@ -129,10 +129,11 @@ export function SubmissionDetail() {
   const { user } = useAuth();
 
   // Context detection
+  const isSuperAdmin = user?.role === 'super_admin' || location.pathname.startsWith('/super');
   const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const isEmployee = user?.role === 'employee' || location.pathname.startsWith('/check-in');
-  const basePath = isEmployee ? '/check-in' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
+  const basePath = isEmployee ? '/check-in' : isSuperAdmin ? '/super' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
 
   const queryClient = useQueryClient();
   const { data: assets = [] } = useAllAssets();
@@ -296,7 +297,7 @@ export function SubmissionDetail() {
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowApproveModal(false);
-      navigate(`${basePath}${isOpsAdmin ? '/reviews' : '/dashboard'}`);
+      navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);
     } catch (error) {
       console.error('Failed to approve:', error);
       alert('Failed to approve submission');
@@ -321,7 +322,7 @@ export function SubmissionDetail() {
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowRejectModal(false);
-      navigate(`${basePath}${isOpsAdmin ? '/reviews' : '/dashboard'}`);
+      navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);
     } catch (error) {
       console.error('Failed to reject:', error);
       alert('Failed to reject submission');

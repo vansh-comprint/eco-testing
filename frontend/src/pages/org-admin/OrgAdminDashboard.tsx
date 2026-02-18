@@ -131,7 +131,7 @@ export function OrgAdminDashboard() {
       <PageHeader
         label="Organization Admin Portal"
         title={`Welcome, ${user?.name?.split(' ')[0]}`}
-        subtitle={`${enterprise?.name || 'Enterprise'} — ${branches.length} branches, ${assets.length} assets`}
+        subtitle={`${enterprise?.name || 'Enterprise'} — ${stats.branch_total ?? branches.length} branches, ${stats.asset_total ?? assets.length} assets`}
         actions={
           <button
             onClick={() => setIsAddITAdminModalOpen(true)}

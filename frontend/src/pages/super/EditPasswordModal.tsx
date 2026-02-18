@@ -5,10 +5,11 @@ import { z } from 'zod';
 import { Key } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { passwordSchema } from '@/lib/validation';
 
 // Validation schema
 const editPasswordSchema = z.object({
-  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  newPassword: passwordSchema,
   confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
@@ -118,7 +119,7 @@ export function EditPasswordModal({ isOpen, onClose, onSuccess, userId, userEmai
             type="password"
             {...register('newPassword')}
             error={errors.newPassword?.message}
-            placeholder="Min. 8 characters"
+            placeholder="Letters, numbers & special chars"
             required
             autoFocus
           />
@@ -134,12 +135,13 @@ export function EditPasswordModal({ isOpen, onClose, onSuccess, userId, userEmai
 
           <div className="pt-2 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">
             <p className="font-mono text-xs text-emerald-800 dark:text-emerald-200 font-bold mb-1">
-              Direct Password Update:
+              Password Requirements:
             </p>
             <ul className="font-mono text-xs text-emerald-700 dark:text-emerald-300 space-y-1 list-disc list-inside">
-              <li>Password will be updated immediately</li>
-              <li>User can log in with new password right away</li>
-              <li>Share the new password securely with the user</li>
+              <li>Minimum 8 characters</li>
+              <li>At least one letter (a-z, A-Z)</li>
+              <li>At least one number (0-9)</li>
+              <li>At least one special character (!@#$...)</li>
             </ul>
           </div>
         </div>

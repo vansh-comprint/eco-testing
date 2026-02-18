@@ -1,27 +1,28 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Users, Info } from 'lucide-react';
 import { CSVUserUpload } from '@/components/users';
 import { useAuth, useCreateSubUsers } from '@/hooks';
 import type { CreateSubUserInput } from '@/types';
 
-export function BulkUserUpload() {
+interface BulkUserUploadProps {
+  enterpriseId?: string;
+}
+
+export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploadProps = {}) {
   const navigate = useNavigate();
-  const location = useLocation();
 
   // V3: Use React Query hooks
-  const { enterprise, user } = useAuth();
+  const { enterprise } = useAuth();
   const createSubUsersMutation = useCreateSubUsers();
 
-  // V3.2: Detect if we're in Org Admin context
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  const resolvedEnterpriseId = propEnterpriseId || enterprise?.id || '';
 
   const handleUpload = async (users: CreateSubUserInput[]) => {
     await createSubUsersMutation.mutateAsync(users);
   };
 
-  if (!enterprise) {
+  if (!resolvedEnterpriseId) {
     return (
       <div className="flex items-center justify-center min-h-[400px] border border-white/10 bg-slate-50 dark:bg-white/[0.02]">
         <p className="font-display text-zinc-500 uppercase tracking-wide">Enterprise not found</p>
@@ -94,9 +95,9 @@ export function BulkUserUpload() {
         transition={{ delay: 0.2 }}
       >
         <CSVUserUpload
-          enterpriseId={enterprise.id}
+          enterpriseId={resolvedEnterpriseId}
           onUpload={handleUpload}
-          onCancel={() => navigate(`${basePath}/employees`)}
+          onCancel={() => navigate(-1)}
         />
       </motion.div>
     </div>

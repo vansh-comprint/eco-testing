@@ -17,6 +17,7 @@ import {
   type ITAdminWithBranches,
   type UserCreateRequest,
 } from '@/lib/api/users';
+import { parseApiError } from '@/lib/api/error-handler';
 import { assetKeys } from './useAssets';
 import { batchKeys } from './useBatches';
 import { userKeys } from './useUsers';
@@ -214,7 +215,7 @@ export function useCreateBranch() {
         special_instructions: branch.special_instructions,
       };
       const response = await branchesApi.create(apiData);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to create branch');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to create branch');
 
       // If IT admin specified, assign them to the branch
       if (branch.it_admin_id && response.data) {
@@ -242,7 +243,7 @@ export function useUpdateBranch() {
   return useMutation({
     mutationFn: async ({ branchId, updates }: { branchId: string; updates: BranchUpdateRequest }) => {
       const response = await branchesApi.update(branchId, updates);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update branch');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update branch');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -285,7 +286,7 @@ export function useUpdateBranchStatus() {
   return useMutation({
     mutationFn: async ({ branchId, status }: { branchId: string; status: 'active' | 'inactive' | 'needs_admin' }) => {
       const response = await branchesApi.update(branchId, { status });
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update branch status');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update branch status');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -349,12 +350,14 @@ export function useBulkCreateBranches() {
       });
 
       if (!response.success || !response.data) {
-        throw new Error(response.error?.message || 'Failed to create branches');
+        throw parseApiError(response) || new Error('Failed to create branches');
       }
       const result = response.data as any;
 
       if (result.error_count > 0 && result.created_count === 0) {
-        const errorMsg = result.errors.map((e: any) => `Row ${e.index + 1}: ${e.error}`).join(', ');
+        const errorMsg = result.errors
+          .map((e: any) => typeof e === 'string' ? e : `Row ${e.index + 1}: ${e.error}`)
+          .join('; ');
         throw new Error(`Failed to create branches: ${errorMsg}`);
       }
 
@@ -400,7 +403,7 @@ export function useCreateITAdmin() {
         branch_id: input.branch_id,
       };
       const response = await usersApi.create(apiData);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to create IT admin');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to create IT admin');
       return response.data;
     },
     onSuccess: () => {
@@ -420,7 +423,7 @@ export function useUpdateITAdmin() {
   return useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: { name?: string; phone?: string; branch_id?: string } }) => {
       const response = await usersApi.update(userId, data);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update IT admin');
       return response.data;
     },
     onSuccess: () => {
@@ -454,15 +457,20 @@ export function useBulkCreateITAdmins() {
         enterprise_id: input.enterprise_id,
       }));
 
-      const response = await usersApi.bulkCreate({ users, role: 'it_admin' });
+      // enterprise_id must be at top-level — backend UserBulkCreate expects it there,
+      // not per-user (UserBulkItem doesn't have enterprise_id field)
+      const enterprise_id = inputs[0]?.enterprise_id;
+      const response = await usersApi.bulkCreate({ users, role: 'it_admin', enterprise_id });
 
       if (!response.success || !response.data) {
-        throw new Error(response.error?.message || 'Failed to create IT admins');
+        throw parseApiError(response) || new Error('Failed to create IT admins');
       }
       const result = response.data as any;
 
       if (result.error_count > 0 && result.created_count === 0) {
-        const errorMsg = result.errors.map((e: any) => `${e.email}: ${e.error}`).join(', ');
+        const errorMsg = result.errors
+          .map((e: any) => typeof e === 'string' ? e : `${e.email}: ${e.error}`)
+          .join('; ');
         throw new Error(`Failed to create IT admins: ${errorMsg}`);
       }
 
@@ -485,7 +493,7 @@ export function useUpdateITAdminStatus() {
   return useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: 'active' | 'inactive' }) => {
       const response = await usersApi.update(userId, { status });
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update IT admin status');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update IT admin status');
       return response.data;
     },
     onSuccess: () => {

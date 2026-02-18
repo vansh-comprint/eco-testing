@@ -12,6 +12,7 @@ import {
   type PasswordResetRequest,
   type UserListParams,
 } from '@/lib/api/users';
+import { parseApiError } from '@/lib/api/error-handler';
 import { dashboardStatsKeys } from './useDashboardStats';
 
 // Query keys for cache management
@@ -45,13 +46,13 @@ export function useUsers(params: UserListParams = {}) {
 }
 
 /**
- * Fetch all users (no pagination)
+ * Fetch users with max page size (100)
  */
 export function useAllUsers(params: UserListParams = {}) {
   return useQuery({
-    queryKey: userKeys.list({ ...params, limit: 1000 }),
+    queryKey: userKeys.list({ ...params, limit: 100 }),
     queryFn: async () => {
-      const response = await usersApi.list({ ...params, limit: 1000 });
+      const response = await usersApi.list({ ...params, limit: 100 });
       return response.data || [];
     },
     staleTime: 30000,
@@ -139,7 +140,7 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: async (data: UserCreateRequest) => {
       const response = await usersApi.create(data);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to create user');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to create user');
       return response.data;
     },
     onSuccess: () => {
@@ -158,7 +159,7 @@ export function useUpdateUser() {
   return useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: UserUpdateRequest }) => {
       const response = await usersApi.update(userId, data);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update user');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update user');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -198,7 +199,7 @@ export function useResetUserPassword() {
   return useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: PasswordResetRequest }) => {
       const response = await usersApi.resetPassword(userId, data);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to reset password');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to reset password');
       return response.data;
     },
     onSuccess: (data, variables) => {
@@ -232,7 +233,7 @@ export function useUpdateCurrentUser() {
   return useMutation({
     mutationFn: async (data: UserUpdateRequest) => {
       const response = await usersApi.updateMe(data);
-      if (!response.success) throw new Error(response.error?.message || 'Failed to update profile');
+      if (!response.success) throw parseApiError(response) || new Error('Failed to update profile');
       return response.data;
     },
     onSuccess: (data) => {

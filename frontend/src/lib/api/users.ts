@@ -28,6 +28,7 @@ export interface UserCreateRequest {
   phone?: string;
   role: string;
   password?: string;
+  status?: string;
   enterprise_id?: string;
   branch_id?: string;
   parent_user_id?: string;  // For logistics_user → logistics_admin hierarchy

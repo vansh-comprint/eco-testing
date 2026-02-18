@@ -25,14 +25,8 @@ export function SuperAdminDashboard() {
   // Admin users list for the table via React Query
   const { data: admins = [], isLoading: loading } = usePlatformAdmins();
 
-  const systemServices = [
-    { service: 'Database', status: 'operational', uptime: '100%' },
-    { service: 'Auth Service', status: 'operational', uptime: '100%' },
-    { service: 'Storage', status: 'operational', uptime: '100%' },
-  ];
-
   const quickActions = [
-    { icon: <Laptop className={iconSize.xl} />, title: 'All Assets', description: 'View all assets across all enterprises', path: '/super/assets' },
+    { icon: <Laptop className={iconSize.xl} />, title: 'All Assets', description: 'View all assets across all enterprises', path: '/super/enterprise-assets' },
     { icon: <Users className={iconSize.xl} />, title: 'All Users', description: 'View all users across all roles', path: '/super/users' },
     { icon: <Building2 className={iconSize.xl} />, title: 'Enterprises', description: 'View and manage all registered enterprises', path: '/super/enterprises' },
     { icon: <Truck className={iconSize.xl} />, title: 'Logistics', description: 'View logistics admins and field users', path: '/super/logistics' },
@@ -62,14 +56,6 @@ export function SuperAdminDashboard() {
       icon: <Shield className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
       onClick: () => navigate('/super/admins'),
-    },
-    {
-      label: 'System Health',
-      value: '100%',
-      subLabel: 'All systems',
-      icon: <Shield className={`${iconSize.lg} text-slate-600 dark:text-zinc-400`} />,
-      accent: 'neutral' as StatAccent,
-      onClick: () => navigate('/super/analytics'),
     },
   ];
 
@@ -128,17 +114,16 @@ export function SuperAdminDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <DashboardStatGrid items={statItems} columns={4} />
+        <DashboardStatGrid items={statItems} columns={3} />
       </motion.div>
 
-      {/* Admins & System Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Admin Users */}
+      {/* Admin Users */}
+      <div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className={`lg:col-span-2 ${glass.subtle}`}
+          className={glass.subtle}
         >
           <div className="p-6 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
             <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>
@@ -190,52 +175,28 @@ export function SuperAdminDashboard() {
           </div>{/* overflow-x-auto */}
           {/* Pagination */}
           {admins.length > ADMIN_PAGE_SIZE && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
-              <button
-                onClick={() => setAdminPage(p => Math.max(1, p - 1))}
-                disabled={adminPage === 1}
-                className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400`}
-              >
-                <ChevronLeft className="w-3 h-3" /> Prev
-              </button>
-              <span className={`font-mono text-xs ${text.muted}`}>
+            <div className="flex items-center justify-end gap-3 px-4 py-3 border-t border-slate-200/60 dark:border-zinc-800/60">
+              <span className={`font-mono text-xs ${text.muted} mr-auto`}>
                 Page {adminPage} of {Math.ceil(admins.length / ADMIN_PAGE_SIZE)}
               </span>
               <button
+                onClick={() => setAdminPage(p => Math.max(1, p - 1))}
+                disabled={adminPage === 1}
+                className={`p-1.5 border border-slate-200 dark:border-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400 hover:border-lime-500/30`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => setAdminPage(p => Math.min(Math.ceil(admins.length / ADMIN_PAGE_SIZE), p + 1))}
                 disabled={adminPage >= Math.ceil(admins.length / ADMIN_PAGE_SIZE)}
-                className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400`}
+                className={`p-1.5 border border-slate-200 dark:border-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${text.muted} hover:text-lime-600 dark:hover:text-lime-400 hover:border-lime-500/30`}
               >
-                Next <ChevronRight className="w-3 h-3" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
         </motion.div>
 
-        {/* System Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className={glass.subtle}
-        >
-          <div className="p-6 border-b border-slate-200/80 dark:border-zinc-800">
-            <h2 className={`font-brand font-bold text-lg uppercase tracking-wide ${text.primary}`}>System Status</h2>
-          </div>
-          <div className="p-4 space-y-1">
-            {systemServices.map((service, index) => (
-              <div key={index} className={`flex items-center justify-between py-3 px-2 ${hoverStyles.row}`}>
-                <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 ${service.status === 'operational' ? 'bg-emerald-500' :
-                    service.status === 'degraded' ? 'bg-amber-500' : 'bg-red-500'
-                    }`} />
-                  <span className={`font-display font-bold text-sm uppercase ${text.primary}`}>{service.service}</span>
-                </div>
-                <span className={`font-mono text-xs ${text.muted}`}>{service.uptime}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
       </div>
 
       {/* Quick Actions */}
