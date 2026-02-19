@@ -26,7 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAssets, useBatches, useBranches, useDashboardStats } from '@/hooks';
 import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { itAdminKeys } from '@/hooks/useBranches';
-import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
+import { PageHeader, DashboardStatGrid, Badge, SectionSkeleton } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 import { AddITAdminModal } from '@/pages/org-admin';
@@ -38,9 +38,9 @@ export function OrgAdminDashboard() {
   const { user, enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: assets = [] } = useAssets(enterpriseId);
-  const { data: batches = [] } = useBatches(enterpriseId);
-  const { data: branches = [] } = useBranches(enterpriseId);
+  const { data: assets = [], isLoading: assetsLoading } = useAssets(enterpriseId);
+  const { data: batches = [], isLoading: batchesLoading } = useBatches(enterpriseId);
+  const { data: branches = [], isLoading: branchesLoading } = useBranches(enterpriseId);
   const { stats } = useDashboardStats();
 
   // Batch lists for "Recent Decisions" section (needs full objects)
@@ -56,8 +56,8 @@ export function OrgAdminDashboard() {
       const value = branchAssets.reduce((sum, a) => sum + safeNumber(a.final_price || a.base_price), 0);
       return {
         id: branch.id,
-        name: branch.name,
-        code: branch.code,
+        name: branch.branch_name,
+        code: branch.branch_code,
         assetCount: branchAssets.length,
         batchCount: branchBatches.length,
         completedCount: completed,
@@ -261,40 +261,45 @@ export function OrgAdminDashboard() {
             </button>
           </div>
           <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {branchPerformance.slice(0, 5).map((branch) => (
-              <div key={branch.id} className={`p-4 ${hoverStyles.row}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <span className={`font-display font-bold text-sm uppercase ${text.primary}`}>{branch.name}</span>
-                    {!branch.hasAdmin && (
-                      <span className="px-1.5 py-0.5 bg-red-50 dark:bg-red-500/10 border border-red-500/20 font-mono text-[9px] text-red-500 uppercase">No Admin</span>
-                    )}
-                  </div>
-                  <span className="font-mono text-xs text-ecotribe-primary font-bold">
-                    {branch.completionRate}%
-                  </span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className={`font-mono text-xs ${text.muted}`}>{branch.assetCount} assets</span>
-                  <span className={`font-mono text-xs ${text.muted}`}>{branch.batchCount} batches</span>
-                  {branch.value > 0 && (
-                    <span className="font-mono text-xs text-emerald-500">₹{(branch.value / 1000).toFixed(0)}K</span>
-                  )}
-                </div>
-                {/* Mini progress bar */}
-                <div className="mt-2 h-1.5 bg-slate-100 dark:bg-white/5 overflow-hidden">
-                  <div
-                    className="h-full bg-ecotribe-primary transition-all duration-500"
-                    style={{ width: `${branch.completionRate}%` }}
-                  />
-                </div>
+            {(assetsLoading || batchesLoading || branchesLoading) ? (
+              <div className="p-5">
+                <SectionSkeleton rows={4} showHeader={false} />
               </div>
-            ))}
-            {branchPerformance.length === 0 && (
+            ) : branchPerformance.length === 0 ? (
               <div className="p-8 text-center">
                 <p className={`font-display ${text.muted}`}>No branches yet</p>
               </div>
+            ) : (
+              branchPerformance.slice(0, 5).map((branch) => (
+                <div key={branch.id} className={`p-4 ${hoverStyles.row}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-slate-400" />
+                      <span className={`font-display font-bold text-sm uppercase ${text.primary}`}>{branch.name}</span>
+                      {!branch.hasAdmin && (
+                        <span className="px-1.5 py-0.5 bg-red-50 dark:bg-red-500/10 border border-red-500/20 font-mono text-[9px] text-red-500 uppercase">No Admin</span>
+                      )}
+                    </div>
+                    <span className="font-mono text-xs text-ecotribe-primary font-bold">
+                      {branch.completionRate}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`font-mono text-xs ${text.muted}`}>{branch.assetCount} assets</span>
+                    <span className={`font-mono text-xs ${text.muted}`}>{branch.batchCount} batches</span>
+                    {branch.value > 0 && (
+                      <span className="font-mono text-xs text-emerald-500">₹{(branch.value / 1000).toFixed(0)}K</span>
+                    )}
+                  </div>
+                  {/* Mini progress bar */}
+                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full bg-ecotribe-primary transition-all duration-500"
+                      style={{ width: `${branch.completionRate}%` }}
+                    />
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </motion.div>
@@ -400,36 +405,41 @@ export function OrgAdminDashboard() {
             </h2>
           </div>
           <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {[...approvedBatches, ...rejectedBatches]
-              .sort((a, b) => new Date(b.approved_at || b.rejected_at || b.created_at).getTime() - new Date(a.approved_at || a.rejected_at || a.created_at).getTime())
-              .slice(0, 5).map((batch) => (
-              <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
-                <div className={`w-10 h-10 border flex items-center justify-center ${
-                  batch.status === 'rejected'
-                    ? 'border-red-500/30 bg-red-50/80 dark:bg-red-500/10'
-                    : 'border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10'
-                }`}>
-                  {batch.status === 'rejected' ? (
-                    <XCircle className={`${iconSize.lg} text-red-500`} />
-                  ) : (
-                    <CheckCircle className={`${iconSize.lg} text-emerald-500`} />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-display font-bold text-sm truncate ${text.primary}`}>{batch.name}</p>
-                  <p className={`font-mono text-xs ${text.muted}`}>
-                    {batch.asset_count || 0} assets • ₹{(batch.estimated_value || 0).toLocaleString()}
-                  </p>
-                </div>
-                <Badge variant={batch.status === 'rejected' ? 'error' : 'success'} size="sm">
-                  {batch.status === 'rejected' ? 'Rejected' : 'Approved'}
-                </Badge>
+            {batchesLoading ? (
+              <div className="p-5">
+                <SectionSkeleton rows={3} showHeader={false} />
               </div>
-            ))}
-            {approvedBatches.length === 0 && rejectedBatches.length === 0 && (
+            ) : ([...approvedBatches, ...rejectedBatches].length === 0) ? (
               <div className="p-8 text-center">
                 <p className={`font-display ${text.muted}`}>No recent decisions</p>
               </div>
+            ) : (
+              [...approvedBatches, ...rejectedBatches]
+                .sort((a, b) => new Date(b.approved_at || b.rejected_at || b.created_at).getTime() - new Date(a.approved_at || a.rejected_at || a.created_at).getTime())
+                .slice(0, 5).map((batch) => (
+                <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
+                  <div className={`w-10 h-10 border flex items-center justify-center ${
+                    batch.status === 'rejected'
+                      ? 'border-red-500/30 bg-red-50/80 dark:bg-red-500/10'
+                      : 'border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10'
+                  }`}>
+                    {batch.status === 'rejected' ? (
+                      <XCircle className={`${iconSize.lg} text-red-500`} />
+                    ) : (
+                      <CheckCircle className={`${iconSize.lg} text-emerald-500`} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-display font-bold text-sm truncate ${text.primary}`}>{batch.name}</p>
+                    <p className={`font-mono text-xs ${text.muted}`}>
+                      {batch.asset_count || 0} assets • ₹{(batch.estimated_value || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <Badge variant={batch.status === 'rejected' ? 'error' : 'success'} size="sm">
+                    {batch.status === 'rejected' ? 'Rejected' : 'Approved'}
+                  </Badge>
+                </div>
+              ))
             )}
           </div>
         </motion.div>

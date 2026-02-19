@@ -23,7 +23,7 @@ import {
   X,
   RefreshCcw
 } from 'lucide-react';
-import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useEnterprises } from '@/hooks';
+import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useEnterprises, useDashboardStats } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { ConfirmationModal, useToast } from '@/components/ui';
 import { useUserRole } from '@/stores/authStoreApi';
@@ -48,6 +48,10 @@ export function PickupQueue() {
   const selectedEnterpriseId = opsContext?.selectedEnterpriseId ?? null;
   const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
   const selectedEnterprise = opsContext?.selectedEnterprise ?? null;
+
+  const { stats: dashStats } = useDashboardStats({
+    enterpriseId: isAllEnterprises ? null : selectedEnterpriseId,
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<QueueFilter>(isSuperAdmin ? 'all' : 'pending');
@@ -99,12 +103,12 @@ export function PickupQueue() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-  // Stats respect enterprise filter for OPS Admin
+  // Stats respect enterprise filter for OPS Admin — use backend stats where available
   const enterpriseFilteredRequests = pickupRequests.filter(r => isAllEnterprises || r.enterprise_id === selectedEnterpriseId);
-  const pendingCount = enterpriseFilteredRequests.filter(r => r.status === 'pending').length;
-  const assignedCount = enterpriseFilteredRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
-  const completedCount = enterpriseFilteredRequests.filter(r => r.status === 'completed' || r.status === 'failed').length;
-  const totalActive = enterpriseFilteredRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
+  const pendingCount = dashStats.pickup_pending ?? enterpriseFilteredRequests.filter(r => r.status === 'pending').length;
+  const assignedCount = dashStats.pickup_assigned ?? enterpriseFilteredRequests.filter(r => r.logistics_admin_id && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
+  const completedCount = dashStats.pickup_completed ?? enterpriseFilteredRequests.filter(r => r.status === 'completed' || r.status === 'failed').length;
+  const totalActive = (dashStats.pickup_pending ?? 0) + (dashStats.pickup_assigned ?? 0) + (dashStats.pickup_in_progress ?? 0) || enterpriseFilteredRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'failed').length;
 
   const getEnterpriseName = (enterpriseId: string) => {
     const enterprise = enterprises.find(e => e.id === enterpriseId);
@@ -633,8 +637,9 @@ export function PickupQueue() {
                           inputMode="numeric"
                           value={newAdminPhone}
                           onChange={(e) => setNewAdminPhone(e.target.value)}
+                          maxLength={10}
                           onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                            e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+                            e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
                           }}
                           className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />

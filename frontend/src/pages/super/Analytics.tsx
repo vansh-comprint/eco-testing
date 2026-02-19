@@ -4,35 +4,40 @@ import { motion } from 'framer-motion';
 import { BarChart3, ArrowLeft, Download, TrendingUp, TrendingDown, Building2, Users, Laptop, IndianRupee } from 'lucide-react';
 import { Button, Card, Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
-import { useEnterprises, useAllAssets, useAllUsers } from '@/hooks';
+import { useAllAssets, useDashboardStats } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 export function Analytics() {
   const navigate = useNavigate();
-  // Use React Query hooks for reliable data fetching
-  const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
+  // Dashboard stats provide aggregate counts — no need to fetch full entity lists for counts
+  const { stats, isLoading: statsLoading } = useDashboardStats();
+  // TODO: Replace useAllAssets with a backend revenue endpoint when available.
+  // Currently needed to compute total revenue from per-asset prices.
   const { data: assets = [], isLoading: assetsLoading } = useAllAssets();
-  const { data: users = [], isLoading: usersLoading } = useAllUsers({ limit: 100 });
 
-  const isLoading = enterprisesLoading || assetsLoading || usersLoading;
+  const isLoading = statsLoading || assetsLoading;
 
   const analyticsData = useMemo(() => {
     const totalRevenue = assets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
+    const totalEnterprises = stats.enterprise_total ?? 0;
+    const activeEnterprises = stats.enterprise_active ?? 0;
+    const inactiveEnterprises = stats.enterprise_inactive ?? 0;
     return {
-      totalEnterprises: enterprises.length,
-      totalUsers: users.length,
-      totalAssets: assets.length,
+      totalEnterprises,
+      totalUsers: stats.user_total ?? 0,
+      // TODO: stats.asset_total not returned for Super Admin yet — falling back to loaded list count
+      totalAssets: stats.asset_total ?? assets.length,
       totalRevenue,
-      activeEnterprises: enterprises.filter((e) => e.status === 'active').length,
-      inactiveEnterprises: enterprises.filter((e) => e.status === 'inactive').length,
-      pendingApprovals: enterprises.filter((e) => e.status === 'pending_verification').length,
+      activeEnterprises,
+      inactiveEnterprises,
+      pendingApprovals: Math.max(0, totalEnterprises - activeEnterprises - inactiveEnterprises),
       monthlyGrowth: {
         enterprises: 0,
         users: 0,
         revenue: 0,
       },
     };
-  }, [enterprises, users, assets]);
+  }, [assets, stats]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

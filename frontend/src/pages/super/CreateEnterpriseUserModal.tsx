@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useCreateUser } from '@/hooks';
-import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
+import { nameSchema, emailSchema, passwordSchema, PASSWORD_HINT, optionalPhoneSchema } from '@/lib/validation';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { branchesApi } from '@/lib/api/branches';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,9 +26,9 @@ interface Branch {
 
 // Validation schema — password required only for it_admin/org_admin, branch required for it_admin
 const createEnterpriseUserSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits').optional().or(z.literal('')),
+  name: nameSchema,
+  email: emailSchema,
+  phone: optionalPhoneSchema,
   password: z.string().optional(),
   enterpriseId: z.string().min(1, 'Enterprise is required'),
   role: z.enum(['it_admin', 'org_admin', 'employee']),
@@ -343,8 +343,9 @@ export function CreateEnterpriseUserModal({
             error={errors.phone?.message}
             placeholder="9876543210"
             inputMode="numeric"
+            maxLength={10}
             onInput={(e: React.FormEvent<HTMLInputElement>) => {
-              e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+              e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
             }}
           />
 

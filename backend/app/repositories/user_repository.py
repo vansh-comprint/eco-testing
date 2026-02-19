@@ -102,6 +102,7 @@ class UserRepository:
         roles: Optional[List[UserRole]] = None,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         parent_user_id: Optional[str] = None,
         status: Optional[UserStatus] = None,
         search: Optional[str] = None,
@@ -134,6 +135,8 @@ class UserRepository:
             query = query.where(User.enterprise_id == enterprise_id)
         if branch_id:
             query = query.where(User.branch_id == branch_id)
+        if branch_ids:
+            query = query.where(User.branch_id.in_(branch_ids))
         if parent_user_id:
             query = query.where(User.parent_user_id == parent_user_id)
         if status:

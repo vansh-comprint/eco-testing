@@ -25,7 +25,7 @@ import Papa from 'papaparse';
 import { useAuth, useBulkCreateBranches } from '@/hooks';
 import { PageHeader, Badge } from '@/components/ui';
 import { text, iconSize } from '@/lib/design-tokens';
-import { validateBranchCode } from '@/lib/validations/branch';
+import { validateBranchCode } from '@/lib/validation';
 
 interface ParsedRow {
   branch_name: string;

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useCreateUser, useEnterprises, useAllUsers } from '@/hooks';
-import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
+import { nameSchema, emailSchema, passwordSchema, PASSWORD_HINT, optionalPhoneSchema } from '@/lib/validation';
 import { text } from '@/lib/design-tokens';
 
 interface AddUserModalProps {
@@ -21,16 +21,9 @@ const LOGISTICS_USER_ROLE = 'logistics_user';
 
 // Validation schema
 const addUserSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters, spaces, hyphens, or apostrophes'),
-  email: z.string().email('Invalid email address'),
-  phone: z
-    .string()
-    .regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optional + prefix)')
-    .optional()
-    .or(z.literal('')),
+  name: nameSchema,
+  email: emailSchema,
+  phone: optionalPhoneSchema,
   role: z.string().min(1, 'Role is required'),
   password: passwordSchema.optional(),
   status: z.string().default('active'),
@@ -155,7 +148,6 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     { value: 'ops_admin', label: 'OPS Admin' },
     { value: 'org_admin', label: 'Org Admin' },
     { value: 'it_admin', label: 'IT Admin' },
-    { value: 'employee', label: 'Employee' },
     { value: 'logistics_admin', label: 'Logistics Admin' },
     { value: 'logistics_user', label: 'Logistics User' },
   ];
@@ -190,9 +182,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             required
             autoFocus
             onInput={(e: React.FormEvent<HTMLInputElement>) => {
-              // Strip numeric characters in real-time
-              const input = e.currentTarget;
-              input.value = input.value.replace(/[0-9]/g, '');
+              e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z\s'.\-]/g, '');
             }}
           />
 
@@ -211,10 +201,9 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             error={errors.phone?.message}
             placeholder="9876543210"
             inputMode="numeric"
+            maxLength={10}
             onInput={(e: React.FormEvent<HTMLInputElement>) => {
-              // Allow only digits and leading +
-              const input = e.currentTarget;
-              input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+              e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
             }}
           />
 

@@ -359,8 +359,9 @@ export function SignupPage() {
                     type="tel"
                     placeholder="9876543210"
                     value={formData.phone}
-                    onChange={(e) => updateField('phone', e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))}
+                    onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                     inputMode="numeric"
+                    maxLength={10}
                   />
                 </motion.div>
               )}

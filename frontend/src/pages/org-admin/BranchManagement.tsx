@@ -31,8 +31,7 @@ import {
 import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists, useCreateITAdmin } from '@/hooks';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
-import { validateBranchCode } from '@/lib/validations/branch';
-import { validatePassword } from '@/lib/validation';
+import { validateBranchCode, validatePassword } from '@/lib/validation';
 import type { BranchResponse, BranchSummary } from '@/lib/api/branches';
 
 // Use API response type directly — the hooks return BranchResponse
@@ -1103,7 +1102,7 @@ function BranchFormModal({
                       type="tel"
                       value={newAdminData.phone}
                       onChange={(e) => {
-                        setNewAdminData(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') }));
+                        setNewAdminData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }));
                         if (newAdminErrors.phone) setNewAdminErrors(prev => ({ ...prev, phone: '' }));
                       }}
                       inputMode="numeric"
@@ -1239,7 +1238,7 @@ function BranchFormModal({
                 type="tel"
                 name="site_contact_phone"
                 value={formData.site_contact_phone}
-                onChange={(e) => { e.target.value = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); handleChange(e); }}
+                onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); handleChange(e); }}
                 inputMode="numeric"
                 placeholder="Contact Phone (10 digits)"
                 maxLength={10}

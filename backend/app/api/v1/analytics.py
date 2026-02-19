@@ -24,12 +24,25 @@ async def get_platform_stats(
 
     **Permissions:** ANALYTICS_READ (Super Admin, OPS Admin)
     """
-    scoped_filters = get_scoped_filters(current_user)
+    from app.models.user import UserRole
+    from app.utils.scoping import get_it_admin_scoped_filters
+
+    if current_user.role == UserRole.IT_ADMIN.value:
+        scoped = await get_it_admin_scoped_filters(db, current_user)
+        enterprise_id = scoped.get("enterprise_id")
+        branch_ids = scoped.get("branch_ids")
+        branch_id = None
+    else:
+        scoped_filters = get_scoped_filters(current_user)
+        enterprise_id = scoped_filters.get("enterprise_id")
+        branch_id = scoped_filters.get("branch_id")
+        branch_ids = None
 
     service = AnalyticsService(db)
     stats = await service.get_platform_stats(
-        enterprise_id=scoped_filters.get("enterprise_id"),
-        branch_id=scoped_filters.get("branch_id"),
+        enterprise_id=enterprise_id,
+        branch_id=branch_id,
+        branch_ids=branch_ids,
     )
 
     return success_response(data=stats)
@@ -45,12 +58,25 @@ async def get_asset_distribution(
 
     **Permissions:** ANALYTICS_READ
     """
-    scoped_filters = get_scoped_filters(current_user)
+    from app.models.user import UserRole
+    from app.utils.scoping import get_it_admin_scoped_filters
+
+    if current_user.role == UserRole.IT_ADMIN.value:
+        scoped = await get_it_admin_scoped_filters(db, current_user)
+        enterprise_id = scoped.get("enterprise_id")
+        branch_ids = scoped.get("branch_ids")
+        branch_id = None
+    else:
+        scoped_filters = get_scoped_filters(current_user)
+        enterprise_id = scoped_filters.get("enterprise_id")
+        branch_id = scoped_filters.get("branch_id")
+        branch_ids = None
 
     service = AnalyticsService(db)
     distribution = await service.get_asset_distribution(
-        enterprise_id=scoped_filters.get("enterprise_id"),
-        branch_id=scoped_filters.get("branch_id"),
+        enterprise_id=enterprise_id,
+        branch_id=branch_id,
+        branch_ids=branch_ids,
     )
 
     return success_response(data=distribution)
@@ -67,13 +93,26 @@ async def get_monthly_trends(
 
     **Permissions:** ANALYTICS_READ
     """
-    scoped_filters = get_scoped_filters(current_user)
+    from app.models.user import UserRole
+    from app.utils.scoping import get_it_admin_scoped_filters
+
+    if current_user.role == UserRole.IT_ADMIN.value:
+        scoped = await get_it_admin_scoped_filters(db, current_user)
+        enterprise_id = scoped.get("enterprise_id")
+        branch_ids = scoped.get("branch_ids")
+        branch_id = None
+    else:
+        scoped_filters = get_scoped_filters(current_user)
+        enterprise_id = scoped_filters.get("enterprise_id")
+        branch_id = scoped_filters.get("branch_id")
+        branch_ids = None
 
     service = AnalyticsService(db)
     trends = await service.get_monthly_trends(
         months=months,
-        enterprise_id=scoped_filters.get("enterprise_id"),
-        branch_id=scoped_filters.get("branch_id"),
+        enterprise_id=enterprise_id,
+        branch_id=branch_id,
+        branch_ids=branch_ids,
     )
 
     return success_response(data={"trends": trends})

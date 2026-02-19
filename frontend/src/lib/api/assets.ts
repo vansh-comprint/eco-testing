@@ -40,6 +40,7 @@ export interface AssetResponse {
   condition_grade?: string;
   estimated_value?: number;
   final_value?: number;
+  epr_certificate_id?: string;
   created_at: string;
   updated_at?: string;
 }

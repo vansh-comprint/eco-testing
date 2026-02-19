@@ -187,13 +187,24 @@ class DisputeService:
         """List disputes with role-based filtering"""
         raised_by_user_id = None
         assigned_to_user_id = None
+        enterprise_id = None
+        branch_ids = None
 
-        # Employees see only their disputes
         if user.role == UserRole.EMPLOYEE.value:
             raised_by_user_id = user.id
-        # Admins see all
+        elif user.role == UserRole.IT_ADMIN.value:
+            enterprise_id = user.enterprise_id
+            from app.utils.scoping import get_it_admin_branch_ids
+            branch_ids = await get_it_admin_branch_ids(self.session, user.id)
+            if user.branch_id and user.branch_id not in branch_ids:
+                branch_ids.append(user.branch_id)
+        elif user.role == UserRole.ORG_ADMIN.value:
+            enterprise_id = user.enterprise_id
+        # Super/OPS Admin: no filter (see all)
 
         return await self.repo.list_with_filters(
+            enterprise_id=enterprise_id,
+            branch_ids=branch_ids,
             raised_by_user_id=raised_by_user_id,
             assigned_to_user_id=assigned_to_user_id,
             status=status,

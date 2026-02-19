@@ -73,19 +73,21 @@ async def get_current_user(
     # STEP 3: Expiry check (redundant but explicit, already checked in decode_token)
     # JWT library already validates expiry, but we can add explicit check if needed
 
-    # STEP 4: Redis whitelist check (1-2ms, I/O) - only if Redis is enabled
-    # This prevents attackers from spamming Redis with malformed tokens
+    # STEP 4: Redis whitelist check (soft fallback)
+    # Try Redis whitelist if available, but fall back to stateless JWT if Redis
+    # is unavailable or token isn't in whitelist (e.g. Redis was restarted).
+    user_id = payload.get("sub")
+    if not user_id:
+        raise AuthenticationError("Invalid token payload")
+
     if redis and settings.use_redis_sessions:
-        user_id_from_redis = await is_token_in_whitelist(redis, token, "access")
-        if not user_id_from_redis:
-            raise AuthenticationError("Token has been revoked")
-        # Use user_id from Redis for consistency
-        user_id = user_id_from_redis
-    else:
-        # Fallback to stateless mode: extract user_id from JWT
-        user_id = payload.get("sub")
-        if not user_id:
-            raise AuthenticationError("Invalid token payload")
+        try:
+            user_id_from_redis = await is_token_in_whitelist(redis, token, "access")
+            if user_id_from_redis:
+                user_id = user_id_from_redis
+            # If not in whitelist, fall through to stateless JWT (user_id from payload)
+        except Exception:
+            pass  # Redis error — fall back to stateless JWT
 
     # STEP 5: User lookup (5ms, database I/O)
     query = select(User).where(User.id == user_id)

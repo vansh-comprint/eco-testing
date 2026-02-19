@@ -5,13 +5,13 @@ import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useCreateUser, useLogisticsAdmins } from '@/hooks';
-import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
+import { nameSchema, emailSchema, passwordSchema, PASSWORD_HINT, phoneSchema } from '@/lib/validation';
 
 // Validation schema
 const createLogisticsUserSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits'),
+  name: nameSchema,
+  email: emailSchema,
+  phone: phoneSchema,
   password: passwordSchema,
   logistics_admin_id: z.string().min(1, 'Please select a logistics admin'),
 });
@@ -169,8 +169,9 @@ export function CreateLogisticsUserModal({ isOpen, onClose, onSuccess, logistics
             placeholder="9876543210"
             required
             inputMode="numeric"
+            maxLength={10}
             onInput={(e: React.FormEvent<HTMLInputElement>) => {
-              e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+              e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
             }}
           />
 

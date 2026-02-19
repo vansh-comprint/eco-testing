@@ -12,7 +12,7 @@ import {
   Laptop,
   ArrowRight
 } from 'lucide-react';
-import { useAuth, useAllAssets, useInfiniteDisputes } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -36,6 +36,8 @@ export function DisputeList() {
   // Determine base path based on current location
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+
+  const { stats: dashStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -98,12 +100,12 @@ export function DisputeList() {
     return result;
   }, [enrichedDisputes, searchQuery]);
 
-  // Stats
+  // Stats — use backend stats where available, keep canDispute client-side
   const stats = {
-    total: enrichedDisputes.length,
-    pending: enrichedDisputes.filter(d => !d.resolved_at).length,
-    upheld: enrichedDisputes.filter(d => d.resolution === 'upheld').length,
-    overturned: enrichedDisputes.filter(d => d.resolution === 'overturned').length,
+    total: dashStats.dispute_total ?? enrichedDisputes.length,
+    pending: dashStats.dispute_pending ?? enrichedDisputes.filter(d => !d.resolved_at).length,
+    upheld: dashStats.dispute_upheld ?? enrichedDisputes.filter(d => d.resolution === 'upheld').length,
+    overturned: dashStats.dispute_overturned ?? enrichedDisputes.filter(d => d.resolution === 'overturned').length,
     canDispute: rejectedAssets.length,
   };
 

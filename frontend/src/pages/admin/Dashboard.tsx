@@ -14,11 +14,10 @@ import {
   ArrowRight,
   TrendingUp,
   UserPlus,
-  Loader2
 } from 'lucide-react';
 import { useAuth, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useSubUsers, useBranches, useBranchesByITAdmin, useDashboardStats } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
-import { Badge, PageHeader, ConnectedSection } from '@/components/ui';
+import { Badge, PageHeader, ConnectedSection, SkeletonTable, SkeletonCard } from '@/components/ui';
 import type { StatAccent, StatBoxItem } from '@/components/ui';
 import { useMemo, useContext } from 'react';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
@@ -85,7 +84,7 @@ export function ITAdminDashboard() {
     return subUsers.filter((su: { branch_id?: string }) => su.branch_id && myBranchIds.has(su.branch_id));
   }, [isOrgAdmin, subUsers, myBranchIds, activeBranchFilter]);
 
-  const isLoading = assetsLoading || batchesLoading || subUsersLoading || statsLoading;
+  const listsLoading = assetsLoading || batchesLoading || subUsersLoading;
 
   // Asset and batch stats now come from useDashboardStats() (efficient backend COUNT/SUM queries)
   // Assets and batches are already filtered by enterpriseId from the hooks
@@ -227,18 +226,6 @@ export function ITAdminDashboard() {
     },
   ];
 
-  // Show loading state while data is being fetched
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-lime-500 mx-auto mb-4" />
-          <p className={`font-display font-bold uppercase tracking-wide ${text.muted}`}>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -269,7 +256,11 @@ export function ITAdminDashboard() {
         >
           {/* Recent Activity - Inside the connected section */}
           <div className="divide-y divide-slate-200 dark:divide-zinc-800">
-            {recentActivity.length === 0 ? (
+            {listsLoading ? (
+              <div className="p-4">
+                <SkeletonTable rows={4} columns={3} />
+              </div>
+            ) : recentActivity.length === 0 ? (
               <div className="py-12 text-center">
                 <Clock className={`${iconSize['2xl']} mx-auto mb-3 ${text.muted}`} />
                 <p className={`font-display font-bold uppercase tracking-wide ${text.muted}`}>No recent activity</p>
@@ -458,37 +449,42 @@ export function ITAdminDashboard() {
           }
         >
           <div className="divide-y divide-slate-200 dark:divide-zinc-800">
-            {enterpriseBatches.slice(0, 3).map((batch, index) => {
-              const actualAssetCount = enterpriseAssets.filter(a => a.batch_id === batch.id).length;
-
-              return (
-                <motion.div
-                  key={batch.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.05 * index }}
-                  onClick={() => navigate(`${basePath}/batches/${batch.id}`)}
-                  className={`flex items-center justify-between px-6 py-4 ${hoverStyles.row} cursor-pointer group`}
-                >
-                  <div>
-                    <p className={`font-display font-bold text-sm uppercase group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors ${text.primary}`}>
-                      {batch.name}
-                    </p>
-                    <p className={`text-xs ${text.muted}`}>{actualAssetCount} assets</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <BatchStatusBadge status={batch.status} />
-                    <ArrowRight className={`${iconSize.md} ${text.muted} group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors`} />
-                  </div>
-                </motion.div>
-              );
-            })}
-            {enterpriseBatches.length === 0 && (
+            {listsLoading ? (
+              <div className="p-4 space-y-3">
+                {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
+              </div>
+            ) : enterpriseBatches.length === 0 ? (
               <div className="py-8 text-center">
                 <Package className={`${iconSize['2xl']} mx-auto mb-3 ${text.muted}`} />
                 <p className={`font-display font-bold uppercase tracking-wide ${text.muted}`}>No batches yet</p>
                 <p className={`text-xs mt-1 ${text.muted}`}>Create a batch to organize assets</p>
               </div>
+            ) : (
+              enterpriseBatches.slice(0, 3).map((batch, index) => {
+                const actualAssetCount = enterpriseAssets.filter(a => a.batch_id === batch.id).length;
+
+                return (
+                  <motion.div
+                    key={batch.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.05 * index }}
+                    onClick={() => navigate(`${basePath}/batches/${batch.id}`)}
+                    className={`flex items-center justify-between px-6 py-4 ${hoverStyles.row} cursor-pointer group`}
+                  >
+                    <div>
+                      <p className={`font-display font-bold text-sm uppercase group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors ${text.primary}`}>
+                        {batch.name}
+                      </p>
+                      <p className={`text-xs ${text.muted}`}>{actualAssetCount} assets</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <BatchStatusBadge status={batch.status} />
+                      <ArrowRight className={`${iconSize.md} ${text.muted} group-hover:text-lime-600 dark:group-hover:text-lime-400 transition-colors`} />
+                    </div>
+                  </motion.div>
+                );
+              })
             )}
           </div>
         </ConnectedSection>

@@ -8,12 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.user import User, UserRole, UserStatus
-from app.models.enterprise import Branch
+from app.models.enterprise import Branch, Enterprise
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.utils.security import validate_user_modification
 from app.core.security import get_password_hash
+
+# Role categories for update validation
+ENTERPRISE_ROLES = {UserRole.ORG_ADMIN.value, UserRole.IT_ADMIN.value, UserRole.EMPLOYEE.value}
+PLATFORM_ROLES = {UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value}
 
 
 class UserService:
@@ -55,6 +59,7 @@ class UserService:
         roles: Optional[List[UserRole]] = None,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         parent_user_id: Optional[str] = None,
         status: Optional[UserStatus] = None,
         search: Optional[str] = None,
@@ -74,6 +79,7 @@ class UserService:
             roles=roles,
             enterprise_id=enterprise_id,
             branch_id=branch_id,
+            branch_ids=branch_ids,
             parent_user_id=parent_user_id,
             status=status,
             search=search,
@@ -277,6 +283,10 @@ class UserService:
         # Update only provided fields
         update_data = user_data.model_dump(exclude_unset=True)
 
+        # Enterprise association is immutable — set at creation, never changed via edit.
+        # To move a user to a different enterprise, deactivate and recreate.
+        update_data.pop("enterprise_id", None)
+
         # Validate email uniqueness if email is being changed
         if "email" in update_data and update_data["email"] != user.email:
             existing = await self.repository.get_by_email(update_data["email"])
@@ -288,6 +298,11 @@ class UserService:
             update_data["role"] = update_data["role"].value
         if "status" in update_data and update_data["status"]:
             update_data["status"] = update_data["status"].value
+
+        # --- Role-change validation ---
+        new_role = update_data.get("role")
+        if new_role and new_role != user.role:
+            await self._validate_role_change(user, update_data, new_role)
 
         # Track if branch_id is changing for an IT admin
         old_branch_id = user.branch_id
@@ -384,6 +399,65 @@ class UserService:
         elif role == UserRole.LOGISTICS_USER:
             if not user_data.parent_user_id:
                 raise ValidationError("Logistics User must be assigned to a Logistics Admin")
+
+    async def _validate_role_change(
+        self, user: User, update_data: dict, new_role: str
+    ) -> None:
+        """
+        Validate and adjust fields when a user's role is changing.
+
+        - Enterprise roles require enterprise_id (from update or existing user).
+        - Platform roles clear enterprise_id and branch_id.
+        - Logistics user requires parent_user_id pointing to a logistics_admin.
+        - Leaving logistics_user clears parent_user_id.
+        """
+        # Changing TO an enterprise role
+        if new_role in ENTERPRISE_ROLES:
+            enterprise_id = update_data.get("enterprise_id") or user.enterprise_id
+            if not enterprise_id:
+                raise ValidationError(
+                    f"enterprise_id is required when assigning role '{new_role}'"
+                )
+            # Validate enterprise exists
+            result = await self.db.execute(
+                select(Enterprise).where(Enterprise.id == enterprise_id)
+            )
+            enterprise = result.scalar_one_or_none()
+            if not enterprise:
+                raise NotFoundError("Enterprise", enterprise_id)
+            # Ensure enterprise_id is in update_data so it gets applied
+            if "enterprise_id" not in update_data:
+                update_data["enterprise_id"] = enterprise_id
+
+        # Changing TO a platform role — clear enterprise/branch association
+        elif new_role in PLATFORM_ROLES:
+            update_data["enterprise_id"] = None
+            update_data["branch_id"] = None
+
+        # Changing TO logistics_user — require parent_user_id
+        if new_role == UserRole.LOGISTICS_USER.value:
+            parent_user_id = update_data.get("parent_user_id") or user.parent_user_id
+            if not parent_user_id:
+                raise ValidationError(
+                    "parent_user_id is required when assigning role 'logistics_user'"
+                )
+            # Validate the parent is a logistics_admin
+            parent = await self.repository.get_by_id(parent_user_id)
+            if not parent:
+                raise NotFoundError("Parent user", parent_user_id)
+            if parent.role != UserRole.LOGISTICS_ADMIN.value:
+                raise ValidationError(
+                    f"Parent user '{parent_user_id}' is not a logistics_admin"
+                )
+            if "parent_user_id" not in update_data:
+                update_data["parent_user_id"] = parent_user_id
+
+        # Changing FROM logistics_user to something else — clear parent_user_id
+        if (
+            user.role == UserRole.LOGISTICS_USER.value
+            and new_role != UserRole.LOGISTICS_USER.value
+        ):
+            update_data["parent_user_id"] = None
 
     # ==================== Password Management ====================
 

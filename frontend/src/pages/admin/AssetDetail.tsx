@@ -1415,7 +1415,8 @@ export function AssetDetail() {
                       type="tel"
                       inputMode="numeric"
                       value={newUserForm.phone}
-                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setNewUserForm(prev => ({ ...prev, phone: v })); }}
+                      onChange={(e) => setNewUserForm(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      maxLength={10}
                       placeholder="9876543210"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
                     />

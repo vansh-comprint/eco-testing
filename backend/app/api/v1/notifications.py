@@ -1,5 +1,6 @@
 """API endpoints for Notifications"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,8 @@ from app.models import User
 from app.schemas.notification import NotificationCreate, NotificationBulkCreate
 from app.services.notification_service import NotificationService
 from app.utils.response import success_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -72,8 +75,9 @@ async def list_notifications(
             "unread_count": unread_count,
         }
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -174,8 +178,9 @@ async def mark_all_as_read(
             data={"count": count}, message=f"Marked {count} notifications as read"
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.delete("/{notification_id}", status_code=status.HTTP_200_OK)

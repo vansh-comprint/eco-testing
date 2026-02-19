@@ -123,7 +123,9 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
+    enterprise_id: Optional[str] = None
     branch_id: Optional[str] = None
+    parent_user_id: Optional[str] = Field(None, description="Parent user ID (for logistics users)")
 
     # Employee-specific
     employee_id: Optional[str] = Field(None, max_length=50)

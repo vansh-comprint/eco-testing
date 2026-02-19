@@ -5,13 +5,13 @@ import { z } from 'zod';
 import { UserPlus, Plus, ChevronDown, ChevronUp, Loader2, Check } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useAuth, useCreateITAdmin, useBranches, useCreateBranch } from '@/hooks';
-import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
+import { nameSchema, emailSchema, passwordSchema, PASSWORD_HINT, optionalPhoneSchema } from '@/lib/validation';
 
 // Validation schema — phone is optional, branch is optional
 const addITAdminSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').or(z.literal('')).optional(),
+  name: nameSchema,
+  email: emailSchema,
+  phone: optionalPhoneSchema,
   password: passwordSchema,
   branch_id: z.string().optional(),
 });
@@ -198,8 +198,9 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
           <Input
             label="Phone Number"
             {...register('phone')}
-            onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
+            onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10); }}
             inputMode="numeric"
+            maxLength={10}
             error={errors.phone?.message}
             placeholder="9876543210"
           />

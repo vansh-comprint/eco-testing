@@ -64,3 +64,14 @@
 - `frontend/src/hooks/useBatches.ts` — 9 mutations updated
 - `frontend/src/hooks/usePickups.ts` — 8 pickup mutations updated (skipped location mutations)
 - `frontend/src/hooks/usePayouts.ts` — 3 mutations updated
+
+## useDashboardStats Migration Pattern (2026-02-18)
+- Hook: `useDashboardStats(opts?: { enterpriseId?: string | null })` from `@/hooks`
+- Returns `{ stats: DashboardStats, isLoading }` — stats fields are all optional, always use `?? fallback`
+- Always add it as a new hook call (don't replace existing data-fetch hooks, only replace stat computation)
+- For pages with enterprise filter (PickupQueue): pass `{ enterpriseId: isAllEnterprises ? null : selectedEnterpriseId }`
+- Stats defined AFTER early-return loading guards are fine — hook must still be called before the guard (hooks rule)
+- PickupApprovals pattern: stats block is after loading guard in render body — hook was added before the guard
+- Kept client-side: `canDispute` (rejected assets count), `noBranches` (IT admins without branches), `totalAssigned` (asset reduce), `exceptions` (failed/cancelled pickups), `partial` disputes
+- `DashboardStats` type in `frontend/src/lib/api/dashboard.ts` — all optional fields, Phase 2 added pickup_pending, pickup_scheduled, pickup_in_progress, pickup_completed, employee_total, employee_active, dispute_total, dispute_pending, dispute_upheld, dispute_overturned, logistics_admin_total, logistics_admin_active, logistics_user_total
+- `totalActive` for PickupQueue: `(pending ?? 0) + (assigned ?? 0) + (in_progress ?? 0) || clientFallback` — uses short-circuit to avoid 0 before stats load

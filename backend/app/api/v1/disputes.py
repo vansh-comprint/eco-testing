@@ -1,5 +1,6 @@
 """API endpoints for Disputes"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,9 +8,12 @@ from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models import User
+from app.models.user import UserRole
 from app.schemas.dispute import DisputeCreate, DisputeUpdate, DisputeResolve
 from app.services.dispute_service import DisputeService
 from app.utils.response import success_response, paginated_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,6 +35,34 @@ def _to_dict(dispute) -> dict:
         "created_at": dispute.created_at,
         "updated_at": dispute.updated_at,
     }
+
+
+async def _check_dispute_access(db, dispute, current_user: User):
+    """Verify user can access this dispute."""
+    from app.utils.scoping import is_platform_admin, can_access_enterprise, can_access_branch_scoped
+    from app.utils.exceptions import AuthorizationError
+    from app.repositories.asset_repository import AssetRepository
+
+    if is_platform_admin(current_user):
+        return
+
+    # Employees can see their own disputes
+    if current_user.role == UserRole.EMPLOYEE.value:
+        if dispute.raised_by_user_id == current_user.id:
+            return
+        raise AuthorizationError("You can only view your own disputes")
+
+    # Check via asset's enterprise/branch
+    asset_repo = AssetRepository(db)
+    asset = await asset_repo.get_by_id(dispute.asset_id)
+    if not asset:
+        return
+
+    if asset.enterprise_id and not can_access_enterprise(current_user, str(asset.enterprise_id)):
+        raise AuthorizationError("You do not have access to this dispute")
+    if asset.branch_id and current_user.role == UserRole.IT_ADMIN.value:
+        if not await can_access_branch_scoped(db, current_user, str(asset.branch_id)):
+            raise AuthorizationError("You do not have access to this dispute")
 
 
 @router.get("")
@@ -70,8 +102,9 @@ async def list_disputes(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/open")
@@ -156,6 +189,7 @@ async def get_dispute(
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
 
+    await _check_dispute_access(db, dispute, current_user)
     return success_response(data=_to_dict(dispute))
 
 
@@ -175,6 +209,12 @@ async def update_dispute(
     **Required permission:** DISPUTE_MANAGE
     """
     service = DisputeService(db)
+
+    # Access check before update
+    existing = await service.get_dispute(dispute_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+    await _check_dispute_access(db, existing, current_user)
 
     try:
         dispute = await service.update_dispute(dispute_id, data, current_user)

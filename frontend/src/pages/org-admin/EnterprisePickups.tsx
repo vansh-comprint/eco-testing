@@ -22,7 +22,7 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useInfinitePickups, useBranches } from '@/hooks';
+import { useAuth, useInfinitePickups, useBranches, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import Papa from 'papaparse';
 
@@ -37,6 +37,7 @@ export function EnterprisePickups() {
   const pickups = useMemo(() => pickupPages?.pages.flatMap(p => p.data || []) ?? [], [pickupPages]);
   const totalPickups = pickupPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { stats: dashStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -44,20 +45,20 @@ export function EnterprisePickups() {
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name || ''));
+    branches.forEach(b => map.set(b.id, b.branch_name || ''));
     return map;
   }, [branches]);
 
-  // Stats
+  // Stats — use backend stats where available, keep failed client-side (no backend equivalent)
   const stats = useMemo(() => {
-    const pending = pickups.filter(p => p.status === 'pending').length;
-    const assigned = pickups.filter(p => ['assigned_to_logistics_admin', 'assigned_to_logistics_user'].includes(p.status)).length;
-    const scheduled = pickups.filter(p => p.status === 'scheduled').length;
-    const inProgress = pickups.filter(p => p.status === 'in_progress').length;
-    const completed = pickups.filter(p => p.status === 'completed').length;
+    const pending = dashStats.pickup_pending ?? pickups.filter(p => p.status === 'pending').length;
+    const assigned = dashStats.pickup_assigned ?? pickups.filter(p => ['assigned_to_logistics_admin', 'assigned_to_logistics_user'].includes(p.status)).length;
+    const scheduled = dashStats.pickup_scheduled ?? pickups.filter(p => p.status === 'scheduled').length;
+    const inProgress = dashStats.pickup_in_progress ?? pickups.filter(p => p.status === 'in_progress').length;
+    const completed = dashStats.pickup_completed ?? pickups.filter(p => p.status === 'completed').length;
     const failed = pickups.filter(p => ['failed', 'cancelled'].includes(p.status)).length;
     return { pending, assigned, scheduled, inProgress, completed, failed };
-  }, [pickups]);
+  }, [pickups, dashStats]);
 
   // Filtered pickups
   const filteredPickups = useMemo(() => {
@@ -228,7 +229,7 @@ export function EnterprisePickups() {
           >
             <option value="all">All Branches</option>
             {branches.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id}>{b.branch_name}</option>
             ))}
           </select>
         </div>

@@ -21,7 +21,7 @@ import {
   Package,
   AlertTriangle
 } from 'lucide-react';
-import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useRejectBatch, useApiError } from '@/hooks';
+import { useAuth, useBatches, useAssets, useApproveBatchWithPrices, useRejectBatch, useApiError, useDashboardStats } from '@/hooks';
 import { ConfirmationModal } from '@/components/ui';
 import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
 import { safeNumber } from '@/utils/formatters';
@@ -54,6 +54,7 @@ export function PickupApprovals() {
 
   // V3.2: Use new pricing mutation
   const approveBatchWithPricesMutation = useApproveBatchWithPrices();
+  const { stats: dashStats } = useDashboardStats();
 
   // Helper: Format asset specs for display
   function formatSpecs(specs?: { processor?: string; ram?: string; storage?: string }): string {
@@ -187,11 +188,11 @@ export function PickupApprovals() {
     );
   }
 
-  // Stats
+  // Stats — use backend batch stats where available, keep totalValue client-side
   const stats = {
-    pending: pendingBatches.filter(b => b.status === 'pending_approval').length,
-    approved: pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
-    rejected: pendingBatches.filter(b => b.status === 'rejected').length,
+    pending: dashStats.batch_pending_approval ?? pendingBatches.filter(b => b.status === 'pending_approval').length,
+    approved: dashStats.batch_approved ?? pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
+    rejected: dashStats.batch_rejected ?? pendingBatches.filter(b => b.status === 'rejected').length,
     totalValue: pendingBatches
       .filter(b => b.status === 'pending_approval')
       .reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),

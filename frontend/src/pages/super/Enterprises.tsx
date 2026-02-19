@@ -150,13 +150,13 @@ export function Enterprises() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatBox
           label="Active Enterprises"
-          value={dashStats.enterprise_active ?? activeEnterprises.length}
+          value={dashStats.enterprise_active ?? 0}
           icon={<Building2 className="w-5 h-5" />}
           accent="success"
         />
         <StatBox
           label="Inactive/Suspended"
-          value={dashStats.enterprise_inactive ?? inactiveEnterprises.length}
+          value={dashStats.enterprise_inactive ?? 0}
           icon={<Ban className="w-5 h-5" />}
           accent="warning"
         />
@@ -172,7 +172,7 @@ export function Enterprises() {
               : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
           }`}
         >
-          Active ({dashStats.enterprise_active ?? activeEnterprises.length})
+          Active ({dashStats.enterprise_active ?? 0})
         </button>
         <button
           onClick={() => setActiveTab('inactive')}
@@ -182,7 +182,7 @@ export function Enterprises() {
               : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
           }`}
         >
-          Inactive ({dashStats.enterprise_inactive ?? inactiveEnterprises.length})
+          Inactive ({dashStats.enterprise_inactive ?? 0})
         </button>
       </div>
 

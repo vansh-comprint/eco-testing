@@ -22,7 +22,8 @@ from app.schemas.enterprise import (
 from app.services.enterprise_service import EnterpriseService, EnterpriseApplicationService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
-from app.utils.scoping import get_scoped_filters
+from app.utils.scoping import get_scoped_filters, is_platform_admin, can_access_enterprise
+from app.utils.exceptions import AuthorizationError as EcoTribeAuthorizationError
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +423,10 @@ async def get_enterprise(
 
     **Permissions:** ENTERPRISE_READ
     """
+    if not is_platform_admin(current_user):
+        if not can_access_enterprise(current_user, enterprise_id):
+            raise EcoTribeAuthorizationError("You do not have access to this enterprise")
+
     try:
         service = EnterpriseService(db)
         enterprise = await service.get_enterprise(enterprise_id)
@@ -442,6 +447,10 @@ async def update_enterprise(
 
     **Permissions:** ENTERPRISE_UPDATE
     """
+    if not is_platform_admin(current_user):
+        if not can_access_enterprise(current_user, enterprise_id):
+            raise EcoTribeAuthorizationError("You do not have access to this enterprise")
+
     try:
         service = EnterpriseService(db)
         enterprise = await service.update_enterprise(
@@ -467,6 +476,10 @@ async def delete_enterprise(
 
     **Permissions:** ENTERPRISE_DELETE
     """
+    if not is_platform_admin(current_user):
+        if not can_access_enterprise(current_user, enterprise_id):
+            raise EcoTribeAuthorizationError("You do not have access to this enterprise")
+
     try:
         service = EnterpriseService(db)
         await service.delete_enterprise(enterprise_id)

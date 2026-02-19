@@ -37,12 +37,13 @@ export interface EPRCertificateListParams {
   limit?: number;
   status?: string;
   search?: string;
+  enterprise_id?: string;
 }
 
 export interface EPRCertificateCreateRequest {
   enterprise_id?: string;
   batch_id?: string;
-  total_weight_kg: number;
+  total_weight_kg?: number;
   recycled_weight_kg?: number;
   disposed_weight_kg?: number;
   recycler_name?: string;
@@ -83,6 +84,7 @@ export const eprCertificatesApi = {
     query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
+    if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
     return fetchWithAuth<EPRCertificateResponse[]>(`/epr-certificates?${query.toString()}`);
   },
 

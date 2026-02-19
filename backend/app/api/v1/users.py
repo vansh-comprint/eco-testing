@@ -82,13 +82,27 @@ async def list_users(
     # Get scoped filters based on current user's role
     scoped_filters = get_scoped_filters(current_user)
 
-    # Only platform admins can explicitly filter by enterprise/branch
-    # Non-platform admins are locked to their scoped_filters from get_scoped_filters()
     if is_platform_admin(current_user):
         if enterprise_id:
             scoped_filters["enterprise_id"] = enterprise_id
         if branch_id:
             scoped_filters["branch_id"] = branch_id
+    elif current_user.role == UserRole.ORG_ADMIN.value:
+        # Org Admin can filter by branch within their enterprise
+        if branch_id:
+            scoped_filters["branch_id"] = branch_id
+    elif current_user.role == UserRole.IT_ADMIN.value:
+        # Multi-branch scoping for IT Admin
+        from app.utils.scoping import get_it_admin_branch_ids
+        managed = await get_it_admin_branch_ids(db, current_user.id)
+        if current_user.branch_id and current_user.branch_id not in managed:
+            managed.append(current_user.branch_id)
+        if branch_id:
+            if str(branch_id) in [str(b) for b in managed]:
+                scoped_filters["branch_id"] = branch_id
+            # else: ignore invalid branch filter
+        elif managed:
+            scoped_filters["branch_ids"] = managed
 
     service = UserService(db)
     users, total = await service.list_users(
@@ -215,6 +229,14 @@ async def get_user(
     """
     service = UserService(db)
     user = await service.get_user(user_id)
+
+    # Access check for non-platform admins
+    if not is_platform_admin(current_user):
+        target_enterprise = getattr(user, 'enterprise_id', None)
+        if target_enterprise and not can_access_enterprise(current_user, str(target_enterprise)):
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("You do not have access to this user")
+
     return success_response(data=user.model_dump())
 
 

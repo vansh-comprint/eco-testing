@@ -55,7 +55,7 @@ export { Timeline, StatusTimeline } from './Timeline';
 export { Avatar, AvatarGroup } from './Avatar';
 
 // Skeleton
-export { Skeleton, SkeletonText, SkeletonCard, SkeletonTable } from './Skeleton';
+export { Skeleton, SkeletonText, SkeletonCard, SkeletonTable, SectionSkeleton, StatCardSkeleton } from './Skeleton';
 
 // EmptyState
 export { EmptyState } from './EmptyState';

@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize } from '@/lib/design-tokens';
+import { emailSchema, optionalEmailSchema, phoneSchema, optionalPhoneSchema, optionalGstSchema, optionalPanSchema, pinCodeSchema } from '@/lib/validation';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Dropdown options (matching registration page)
@@ -48,32 +49,15 @@ const createEnterpriseSchema = z.object({
   // Enterprise Details
   name: z.string().min(1, 'Company name is required'),
   legalName: z.string().optional().or(z.literal('')),
-  gstNumber: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .refine(
-      (v) => !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase()),
-      { message: 'Invalid GST format (e.g. 29AABCT1234H1Z5)' }
-    ),
-  panNumber: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .refine(
-      (v) => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v.toUpperCase()),
-      { message: 'Invalid PAN format (e.g. AABCT1234H)' }
-    ),
+  gstNumber: optionalGstSchema,
+  panNumber: optionalPanSchema,
 
   // Address
   addressLine1: z.string().min(1, 'Address is required'),
   addressLine2: z.string().optional(),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
-  pinCode: z
-    .string()
-    .min(1, 'PIN code is required')
-    .regex(/^[0-9]{6}$/, 'PIN code must be 6 digits'),
+  pinCode: pinCodeSchema,
   country: z.string().default('India'),
 
   // Business Info
@@ -81,16 +65,13 @@ const createEnterpriseSchema = z.object({
   companySize: z.string().optional().or(z.literal('')),
   // Contact
   contactPerson: z.string().min(1, 'Contact person is required'),
-  contactEmail: z.string().email('Invalid email address'),
-  contactPhone: z
-    .string()
-    .min(1, 'Contact phone is required')
-    .regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optionally starting with +)'),
+  contactEmail: emailSchema,
+  contactPhone: phoneSchema,
 
   // Org Admin (Optional) - V3: Org Admin manages the enterprise, creates branches & IT Admins
   orgAdminName: z.string().optional(),
-  orgAdminEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  orgAdminPhone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional().or(z.literal('')),
+  orgAdminEmail: optionalEmailSchema,
+  orgAdminPhone: optionalPhoneSchema,
 });
 
 type CreateEnterpriseForm = z.infer<typeof createEnterpriseSchema>;
@@ -581,7 +562,8 @@ export function CreateEnterprise() {
                       error={errors.contactPhone?.message}
                       placeholder="9876543210"
                       inputMode="numeric"
-                      onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
+                      maxLength={10}
+                      onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10); }}
                     />
                   </div>
                 </div>
@@ -671,7 +653,8 @@ export function CreateEnterprise() {
                     error={errors.orgAdminPhone?.message}
                     placeholder="9876543210"
                     inputMode="numeric"
-                    onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
+                    maxLength={10}
+                    onInput={(e: React.FormEvent<HTMLInputElement>) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10); }}
                   />
                 </div>
                 <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">

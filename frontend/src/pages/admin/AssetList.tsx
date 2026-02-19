@@ -22,7 +22,7 @@ import {
   Info
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch } from '@/hooks';
+import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch, useDashboardStats } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
@@ -99,6 +99,8 @@ export function AssetList() {
   const createBatchMutation = useCreateBatch();
 
   const isLoading = assetsLoading || batchesLoading;
+
+  const { stats: dashboardStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
@@ -188,18 +190,12 @@ export function AssetList() {
   }, [enterpriseAssets, searchQuery, statusFilter, batchFilter, branchFilter, sortBy]);
 
   const stats = {
-    total: totalAssetCount,
-    pending: enterpriseAssets.filter(a => a.status === 'pending_assignment').length,
-    // V3.2: Ready for pickup includes both ready_for_pickup and conditionally_accepted
-    readyForPickup: enterpriseAssets.filter(a =>
-      a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted'
-    ).length,
-    // V3.2: Processing excludes conditionally_accepted (those are ready for pickup)
-    inProgress: enterpriseAssets.filter(a =>
-      ['assigned', 'check_in_started', 'submitted', 'remote_review', 'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit', 'facility_qc'].includes(a.status)
-    ).length,
-    completed: enterpriseAssets.filter(a => a.status === 'completed').length,
-    rejected: enterpriseAssets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status)).length,
+    total: dashboardStats.asset_total ?? totalAssetCount,
+    pending: dashboardStats.asset_pending_assignment ?? 0,
+    readyForPickup: dashboardStats.asset_accepted ?? 0,
+    inProgress: dashboardStats.asset_in_review ?? 0,
+    completed: dashboardStats.asset_completed ?? 0,
+    rejected: dashboardStats.asset_rejected ?? 0,
   };
 
   // Get only pending assets that can be assigned

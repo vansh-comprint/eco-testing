@@ -79,6 +79,9 @@ export function AllUsers() {
   };
 
   const filteredUsers = users.filter(user => {
+    // Employees are managed from Enterprise Detail, not All Users
+    if (user.role === 'employee') return false;
+
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,12 +92,12 @@ export function AllUsers() {
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {
-    total: dashStats.user_total ?? users.length,
-    superAdmins: dashStats.user_super_admin ?? users.filter(u => u.role === 'super_admin').length,
-    opsAdmins: dashStats.user_ops_admin ?? users.filter(u => u.role === 'ops_admin').length,
-    itAdmins: dashStats.user_it_admin ?? users.filter(u => u.role === 'it_admin').length,
-    orgAdmins: dashStats.user_org_admin ?? users.filter(u => u.role === 'org_admin').length,
-    logistics: dashStats.user_logistics ?? users.filter(u => u.role === 'logistics_admin' || u.role === 'logistics_user').length,
+    total: dashStats.user_total ?? 0,
+    superAdmins: dashStats.user_super_admin ?? 0,
+    opsAdmins: dashStats.user_ops_admin ?? 0,
+    itAdmins: dashStats.user_it_admin ?? 0,
+    orgAdmins: dashStats.user_org_admin ?? 0,
+    logistics: dashStats.user_logistics ?? 0,
   };
 
   const handleModalSuccess = () => {
@@ -254,7 +257,6 @@ export function AllUsers() {
                 <option value="ops_admin">OPS Admin</option>
                 <option value="org_admin">Org Admin</option>
                 <option value="it_admin">IT Admin</option>
-                <option value="employee">Employee</option>
                 <option value="logistics_admin">Logistics Admin</option>
                 <option value="logistics_user">Logistics User</option>
               </select>

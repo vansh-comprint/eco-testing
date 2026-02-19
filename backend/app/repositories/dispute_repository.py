@@ -16,6 +16,8 @@ class DisputeRepository(BaseRepository[Dispute]):
 
     async def list_with_filters(
         self,
+        enterprise_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         raised_by_user_id: Optional[str] = None,
         assigned_to_user_id: Optional[str] = None,
         status: Optional[str] = None,
@@ -24,9 +26,19 @@ class DisputeRepository(BaseRepository[Dispute]):
         limit: int = 100,
     ) -> Tuple[List[Dispute], int]:
         """List disputes with filters"""
-        base_query = select(Dispute)
+        from app.models import Asset
+
+        # Join with Asset for enterprise/branch filtering if needed
+        if enterprise_id or branch_ids:
+            base_query = select(Dispute).join(Asset, Dispute.asset_id == Asset.id)
+        else:
+            base_query = select(Dispute)
         conditions = []
 
+        if enterprise_id:
+            conditions.append(Asset.enterprise_id == enterprise_id)
+        if branch_ids:
+            conditions.append(Asset.branch_id.in_(branch_ids))
         if raised_by_user_id:
             conditions.append(Dispute.raised_by_user_id == raised_by_user_id)
         if assigned_to_user_id:

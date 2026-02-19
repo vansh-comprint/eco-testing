@@ -390,6 +390,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
             {role === 'super_admin' && filteredOpsViewNavItems && sidebarOpen && (
               <>
                 <div className="my-3 border-t border-black/10 dark:border-white/10" />
+                {/* Badge total for collapsed state */}
                 <button
                   onClick={() => setOpsViewEnabled(!opsViewEnabled)}
                   className={`interactive w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-300 ${
@@ -454,6 +455,15 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
                               {item.icon}
                             </span>
                             <span className="font-brand font-bold text-xs uppercase tracking-wide truncate">{item.label}</span>
+                            {item.badge && item.badge > 0 && (
+                              <span className={`ml-auto font-mono font-bold text-[10px] px-2 py-0.5 ${
+                                isActive
+                                  ? 'bg-ecotribe-primary/20 text-ecotribe-primary'
+                                  : 'bg-black/10 dark:bg-white/10 text-black/70 dark:text-white'
+                              }`}>
+                                {item.badge}
+                              </span>
+                            )}
                           </Link>
                         );
                       })}
@@ -731,6 +741,15 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
                             >
                               <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">{item.icon}</span>
                               <span className="font-brand font-bold text-xs uppercase tracking-wide truncate">{item.label}</span>
+                              {item.badge && item.badge > 0 && (
+                                <span className={`ml-auto font-mono font-bold text-[10px] px-2 py-0.5 ${
+                                  isActive
+                                    ? 'bg-ecotribe-primary/20 text-ecotribe-primary'
+                                    : 'bg-black/10 dark:bg-white/10 text-black/70 dark:text-white'
+                                }`}>
+                                  {item.badge}
+                                </span>
+                              )}
                             </Link>
                           );
                         })}

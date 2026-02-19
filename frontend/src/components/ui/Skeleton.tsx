@@ -97,4 +97,33 @@ export const SkeletonTable: React.FC<{ rows?: number; columns?: number }> = ({
   </div>
 );
 
+export const SectionSkeleton: React.FC<{ rows?: number; showHeader?: boolean; className?: string }> = ({
+  rows = 3,
+  showHeader = true,
+  className,
+}) => (
+  <div className={cn('animate-pulse', className)}>
+    {showHeader && <Skeleton variant="text" height={16} className="w-48 mb-4" />}
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} height={48} className="w-full" />
+      ))}
+    </div>
+  </div>
+);
+
+export const StatCardSkeleton: React.FC<{ count?: number; className?: string }> = ({
+  count = 4,
+  className,
+}) => (
+  <div className={cn(`grid grid-cols-2 lg:grid-cols-${count} gap-4 animate-pulse`, className)}>
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="p-6 border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <Skeleton variant="text" height={12} className="w-24 mb-3" />
+        <Skeleton variant="text" height={28} className="w-16" />
+      </div>
+    ))}
+  </div>
+);
+
 export default Skeleton;

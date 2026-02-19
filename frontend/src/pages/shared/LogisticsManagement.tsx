@@ -13,7 +13,7 @@ import { logisticsApi } from '@/lib/api/logistics';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { useUserRole } from '@/stores/authStoreApi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useToggleCompanyStatus } from '@/hooks';
+import { useToggleCompanyStatus, useDashboardStats } from '@/hooks';
 
 interface LogisticsAdmin {
   id: string;
@@ -107,6 +107,7 @@ export function LogisticsManagement() {
 
   const { addToast } = useToast();
   const toggleCompanyMutation = useToggleCompanyStatus();
+  const { stats: dashStats } = useDashboardStats();
 
   const toggleExpand = (adminId: string) => {
     setExpandedAdmins(prev => {
@@ -126,9 +127,9 @@ export function LogisticsManagement() {
     )
   );
 
-  const totalAdmins = logisticsData.length;
-  const totalUsers = logisticsData.reduce((sum, item) => sum + item.users.length, 0);
-  const activeAdmins = logisticsData.filter(item => item.admin.status === 'active').length;
+  const totalAdmins = dashStats.logistics_admin_total ?? logisticsData.length;
+  const totalUsers = dashStats.logistics_user_total ?? logisticsData.reduce((sum, item) => sum + item.users.length, 0);
+  const activeAdmins = dashStats.logistics_admin_active ?? logisticsData.filter(item => item.admin.status === 'active').length;
 
   return (
     <div className="space-y-6">

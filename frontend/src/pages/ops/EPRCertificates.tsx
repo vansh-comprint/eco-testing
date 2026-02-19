@@ -26,8 +26,8 @@ import {
 import {
   useEPRCertificates,
   useEPRWeightTotals,
-  useGenerateEPRCertificate,
-  useIssueEPRCertificate,
+  useCreateEPRCertificate,
+  useUpdateEPRCertificate,
   EPR_STATUS_LABELS,
   EPR_STATUS_COLORS,
 } from '@/hooks/useEPRCertificates';
@@ -46,8 +46,8 @@ export function OpsEPRCertificates() {
   const isAllEnterprises = opsCtx?.isAllEnterprises ?? true;
   const selectedEnterprise = opsCtx?.selectedEnterprise ?? null;
   const { addToast } = useToast();
-  const generateMutation = useGenerateEPRCertificate();
-  const issueMutation = useIssueEPRCertificate();
+  const generateMutation = useCreateEPRCertificate();
+  const issueMutation = useUpdateEPRCertificate();
   const printRef = useRef<HTMLDivElement>(null);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -492,15 +492,18 @@ export function OpsEPRCertificates() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        issueMutation.mutate(cert.id, {
-                          onSuccess: () => {
-                            addToast({ type: 'success', title: 'Certificate Issued' });
-                            refetch();
+                        issueMutation.mutate(
+                          { certificateId: cert.id, input: { status: 'issued' } },
+                          {
+                            onSuccess: () => {
+                              addToast({ type: 'success', title: 'Certificate Issued' });
+                              refetch();
+                            },
+                            onError: (err: any) => {
+                              addToast({ type: 'error', title: 'Failed', message: err.message });
+                            },
                           },
-                          onError: (err: any) => {
-                            addToast({ type: 'error', title: 'Failed', message: err.message });
-                          },
-                        });
+                        );
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 text-white text-xs font-mono uppercase tracking-wider hover:bg-emerald-600 transition-colors"
                     >

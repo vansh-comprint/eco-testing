@@ -141,12 +141,21 @@ class RemoteReviewService:
         limit: int = 100,
     ) -> Tuple[List[RemoteReview], int]:
         """List reviews with role-based filtering"""
+        branch_ids = None
+
         # Apply role-based scoping
-        if user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
+        if user.role == UserRole.IT_ADMIN.value:
+            enterprise_id = user.enterprise_id
+            from app.utils.scoping import get_it_admin_branch_ids
+            branch_ids = await get_it_admin_branch_ids(self.session, user.id)
+            if user.branch_id and user.branch_id not in branch_ids:
+                branch_ids.append(user.branch_id)
+        elif user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
             enterprise_id = user.enterprise_id
 
         return await self.repo.list_with_filters(
             enterprise_id=enterprise_id,
+            branch_ids=branch_ids,
             decision=decision,
             skip=skip,
             limit=limit,
@@ -216,11 +225,20 @@ class FacilityQCService:
         limit: int = 100,
     ) -> Tuple[List[FacilityQC], int]:
         """List QC records with role-based filtering"""
-        if user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
+        branch_ids = None
+
+        if user.role == UserRole.IT_ADMIN.value:
+            enterprise_id = user.enterprise_id
+            from app.utils.scoping import get_it_admin_branch_ids
+            branch_ids = await get_it_admin_branch_ids(self.session, user.id)
+            if user.branch_id and user.branch_id not in branch_ids:
+                branch_ids.append(user.branch_id)
+        elif user.role not in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
             enterprise_id = user.enterprise_id
 
         return await self.repo.list_with_filters(
             enterprise_id=enterprise_id,
+            branch_ids=branch_ids,
             decision=decision,
             skip=skip,
             limit=limit,

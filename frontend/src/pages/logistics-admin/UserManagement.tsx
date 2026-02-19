@@ -285,8 +285,9 @@ export function LogisticsUserManagement() {
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 inputMode="numeric"
+                maxLength={10}
                 placeholder="Enter phone number (optional)"
                 className="w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
               />

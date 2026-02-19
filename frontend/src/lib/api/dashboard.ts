@@ -80,8 +80,22 @@ export interface DashboardStats {
   pickup_in_progress?: number;
   pickup_completed?: number;
 
+  // Pickup breakdown (IT Admin, Org Admin, OPS Admin)
+  pickup_pending?: number;
+  pickup_scheduled?: number;
+
+  // Employee (IT Admin, Org Admin)
+  employee_total?: number;
+  employee_active?: number;
+
   // Dispute (Org Admin, OPS Admin)
   pending_disputes?: number;
+
+  // Dispute breakdown (IT Admin, Org Admin, OPS Admin)
+  dispute_total?: number;
+  dispute_pending?: number;
+  dispute_upheld?: number;
+  dispute_overturned?: number;
 
   // Stalled (Org Admin, IT Admin)
   stalled_batches?: number;
@@ -104,6 +118,11 @@ export interface DashboardStats {
   user_logistics_admin?: number;
   user_logistics_user?: number;
   user_logistics?: number;
+
+  // Logistics management (Super Admin)
+  logistics_admin_total?: number;
+  logistics_admin_active?: number;
+  logistics_user_total?: number;
 
   // Employee
   my_assets?: number;

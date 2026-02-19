@@ -17,7 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
+import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch, useDashboardStats } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -66,6 +66,7 @@ export function BatchList() {
   const assets = isOrgAdmin ? orgAssets : itAssets;
 
   const updateBatchMutation = useUpdateBatch();
+  const { stats: dashboardStats } = useDashboardStats();
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
   // Branch filtering: URL query param (from "View Batches" button) or IT Admin branch selector
@@ -128,13 +129,13 @@ export function BatchList() {
     return result;
   }, [allBatches, statusFilter, sortBy]);
 
-  // Stats from total count (server-side) and loaded batches
+  // Stats from backend dashboard endpoint
   const stats = {
-    total: totalCount,
-    draft: allBatches.filter(b => b.status === 'draft').length,
-    pendingApproval: allBatches.filter(b => b.status === 'pending_approval').length,
-    active: allBatches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
-    totalValue: allBatches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
+    total: dashboardStats.batch_total ?? totalCount,
+    draft: dashboardStats.batch_draft ?? 0,
+    pendingApproval: dashboardStats.batch_pending_approval ?? 0,
+    active: dashboardStats.batch_active ?? 0,
+    totalValue: dashboardStats.batch_total_value ?? 0,
   };
 
   // V3: Use centralized status display helper

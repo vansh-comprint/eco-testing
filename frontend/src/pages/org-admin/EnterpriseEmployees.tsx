@@ -19,7 +19,7 @@ import {
   Download,
   Filter,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useBranches } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats } from '@/hooks';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -38,6 +38,7 @@ export function EnterpriseEmployees() {
 
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { stats: dashStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -67,15 +68,15 @@ export function EnterpriseEmployees() {
     return counts;
   }, [assets]);
 
-  // Stats
+  // Stats — use backend stats for total/active, keep others client-side
   const stats = useMemo(() => {
-    const total = employees.length;
-    const active = employees.filter(e => e.status === 'active').length;
+    const total = dashStats.employee_total ?? employees.length;
+    const active = dashStats.employee_active ?? employees.filter(e => e.status === 'active').length;
     const pending = employees.filter(e => e.status === 'pending_invite').length;
-    const inactive = employees.filter(e => e.status === 'inactive').length;
+    const inactive = total - active;
     const totalAssigned = Array.from(employeeAssetCounts.values()).reduce((sum, c) => sum + c.assigned, 0);
     return { total, active, pending, inactive, totalAssigned };
-  }, [employees, employeeAssetCounts]);
+  }, [employees, employeeAssetCounts, dashStats]);
 
   // Filtered employees
   const filteredEmployees = useMemo(() => {

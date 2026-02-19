@@ -14,7 +14,7 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAllAssets, useInfiniteDisputes, useResolveDispute, useApiError } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes, useResolveDispute, useApiError, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 
@@ -26,6 +26,9 @@ export function OpsDisputes() {
   const resolveDisputeMutation = useResolveDispute();
   const { handleError, showSuccess } = useApiError();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
+  const { stats } = useDashboardStats({
+    enterpriseId: isAllEnterprises ? null : selectedEnterpriseId,
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DisputeFilter>('pending');
@@ -36,7 +39,7 @@ export function OpsDisputes() {
   // Infinite scroll disputes — pass status filter to server when applicable
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
-    if (statusFilter === 'pending') params.status = 'pending';
+    if (statusFilter === 'pending') params.status = 'open';
     // 'resolved' and 'all' are handled client-side since there's no single "resolved" status value
     return params;
   }, [statusFilter]);
@@ -154,52 +157,41 @@ export function OpsDisputes() {
         </motion.div>
       </div>
 
-      {/* Stats - respects enterprise filter */}
+      {/* Stats - server-side via dashboard stats API */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
       >
-        {(() => {
-          // Get enterprise-filtered disputes for stats
-          const enterpriseFilteredDisputes = disputes.filter(d => {
-            const asset = assets.find(a => a.id === d.assetId);
-            return isAllEnterprises || asset?.enterprise_id === selectedEnterpriseId;
-          });
-          return (
-            <>
-              <div className="border border-amber-400/30 bg-amber-400/5 p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending</span>
-                </div>
-                <p className="font-brand font-bold text-3xl text-amber-400">
-                  {enterpriseFilteredDisputes.filter(d => !d.resolution).length}
-                </p>
-              </div>
+        <div className="border border-amber-400/30 bg-amber-400/5 p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending</span>
+          </div>
+          <p className="font-brand font-bold text-3xl text-amber-400">
+            {stats.dispute_pending ?? 0}
+          </p>
+        </div>
 
-              <div className="border border-emerald-400/30 bg-emerald-400/5 p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Overturned</span>
-                </div>
-                <p className="font-brand font-bold text-3xl text-emerald-400">
-                  {enterpriseFilteredDisputes.filter(d => d.resolution === 'overturned').length}
-                </p>
-              </div>
+        <div className="border border-emerald-400/30 bg-emerald-400/5 p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Overturned</span>
+          </div>
+          <p className="font-brand font-bold text-3xl text-emerald-400">
+            {stats.dispute_overturned ?? 0}
+          </p>
+        </div>
 
-              <div className="border border-red-400/30 bg-red-400/5 p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <XCircle className="w-4 h-4 text-red-400" />
-                  <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Upheld</span>
-                </div>
-                <p className="font-brand font-bold text-3xl text-red-400">
-                  {enterpriseFilteredDisputes.filter(d => d.resolution === 'upheld').length}
-                </p>
-              </div>
-            </>
-          );
-        })()}
+        <div className="border border-red-400/30 bg-red-400/5 p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <XCircle className="w-4 h-4 text-red-400" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Upheld</span>
+          </div>
+          <p className="font-brand font-bold text-3xl text-red-400">
+            {stats.dispute_upheld ?? 0}
+          </p>
+        </div>
       </motion.div>
 
       {/* Filters */}

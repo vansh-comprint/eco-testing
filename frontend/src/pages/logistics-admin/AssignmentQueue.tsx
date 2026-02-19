@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Plus, AlertCircle, AlertTriangle, Package } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
+import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser, useDashboardStats } from '@/hooks';
 import { useToast } from '@/components/ui';
 import type { PickupResponse } from '@/lib/api/pickups';
 
@@ -17,6 +17,7 @@ export function LogisticsAssignmentQueue() {
   const { data: enterprises = [] } = useEnterprises();
   const assignMutation = useAssignToLogisticsUser();
   const createUserMutation = useCreateLogisticsUser();
+  const { stats: dashboardStats } = useDashboardStats();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -38,17 +39,13 @@ export function LogisticsAssignmentQueue() {
     return logisticsUsers.filter(u => u.parent_user_id === currentLogisticsAdminId && u.status === 'active');
   }, [logisticsUsers, currentLogisticsAdminId]);
 
-  // Stats (computed from all pickups, not filtered)
-  const stats = useMemo(() => {
-    const needsAssignment = pickupRequests.filter(r =>
-      !r.logistics_user_id &&
-      ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user'].includes(r.status)
-    ).length;
-    const scheduled = pickupRequests.filter(r => r.status === 'scheduled').length;
-    const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
-    const completed = pickupRequests.filter(r => r.status === 'completed').length;
-    return { needsAssignment, scheduled, inProgress, completed };
-  }, [pickupRequests]);
+  // Stats from backend dashboard endpoint
+  const stats = {
+    needsAssignment: dashboardStats.pickup_pending_assignment ?? 0,
+    scheduled: dashboardStats.pickup_assigned ?? 0,
+    inProgress: dashboardStats.pickup_in_progress ?? 0,
+    completed: dashboardStats.pickup_completed ?? 0,
+  };
 
   const queue = useMemo(() => {
     return pickupRequests
@@ -469,9 +466,11 @@ export function LogisticsAssignmentQueue() {
                         />
                         <input
                           type="tel"
+                          inputMode="numeric"
                           placeholder="Phone"
                           value={newUserPhone}
-                          onChange={(e) => setNewUserPhone(e.target.value)}
+                          onChange={(e) => setNewUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          maxLength={10}
                           className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                       </div>

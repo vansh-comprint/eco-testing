@@ -208,6 +208,17 @@ async def update_branch(
     **Permissions:** BRANCH_UPDATE
     """
     service = BranchService(db)
+
+    # Access control (same as get_branch)
+    existing = await service.get_branch(branch_id)
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if existing.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if existing.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+
     branch = await service.update_branch(branch_id, branch_data, current_user.id)
     return success_response(data=branch.model_dump(), message="Branch updated successfully")
 
@@ -224,5 +235,16 @@ async def delete_branch(
     **Permissions:** BRANCH_DELETE
     """
     service = BranchService(db)
+
+    # Access control (same as get_branch)
+    existing = await service.get_branch(branch_id)
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if existing.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if existing.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+
     await service.delete_branch(branch_id)
     return success_response(message="Branch deleted successfully")

@@ -378,7 +378,8 @@ export function Settings() {
                       type="tel"
                       inputMode="numeric"
                       value={profileForm.phone}
-                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setProfileForm({ ...profileForm, phone: v }); }}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      maxLength={10}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -905,7 +906,8 @@ export function Settings() {
                     inputMode="numeric"
                     placeholder="9876543210"
                     value={locationForm.contact_phone || ''}
-                    onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setLocationForm({ ...locationForm, contact_phone: v }); }}
+                    onChange={(e) => setLocationForm({ ...locationForm, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    maxLength={10}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>

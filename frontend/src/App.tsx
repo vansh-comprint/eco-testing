@@ -158,8 +158,9 @@ const superAdminNavItems = [
 const superOpsViewNavItems = [
   { label: 'Branches', path: '/super/branches', icon: <EnterpriseIcon />, permission: Permission.BRANCH_READ },
   { label: 'Assets', path: '/super/enterprise-assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
-  { label: 'QC Queue', path: '/super/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
+  { label: 'Pickups', path: '/super/pickups', icon: <PackageIcon />, permission: Permission.PICKUP_VIEW },
   { label: 'Reviews', path: '/super/reviews', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
+  { label: 'QC Queue', path: '/super/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
   { label: 'Payouts', path: '/super/payouts', icon: <PayoutIcon />, permission: Permission.PAYOUT_VIEW },
   { label: 'Disputes', path: '/super/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
 ];

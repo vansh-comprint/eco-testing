@@ -1,5 +1,6 @@
 """API endpoints for Payouts and Wallets"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,8 @@ from app.schemas.payout import (
 from app.services.payout_service import PayoutService, WalletService
 from app.utils.response import success_response, paginated_response
 from app.utils.security import validate_wallet_access, validate_amount
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -110,8 +113,9 @@ async def list_payouts(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -158,6 +162,13 @@ async def get_payout(
     payout = await service.get_payout(payout_id)
     if not payout:
         raise HTTPException(status_code=404, detail="Payout not found")
+
+    # Access check
+    from app.utils.scoping import is_platform_admin, can_access_enterprise
+    from app.utils.exceptions import AuthorizationError
+    if not is_platform_admin(current_user):
+        if not can_access_enterprise(current_user, str(payout.enterprise_id)):
+            raise AuthorizationError("You do not have access to this payout")
 
     return success_response(data=_payout_to_dict(payout))
 
@@ -225,8 +236,9 @@ async def get_wallet(
         await db.commit()
         return success_response(data=_wallet_to_dict(wallet))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/wallet/{enterprise_id}/credit")
@@ -339,5 +351,6 @@ async def list_wallet_transactions(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")

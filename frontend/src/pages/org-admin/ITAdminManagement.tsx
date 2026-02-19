@@ -22,7 +22,7 @@ import {
   ChevronUp,
   Pencil,
 } from 'lucide-react';
-import { useAuth, useITAdmins, useITAdminBranches, useBranches, useUpdateITAdmin, useUpdateITAdminStatus } from '@/hooks';
+import { useAuth, useITAdmins, useITAdminBranches, useBranches, useUpdateITAdmin, useUpdateITAdminStatus, useDashboardStats } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { USER_STATUS_DISPLAY } from '@/lib/status-display';
 import { ConfirmationModal } from '@/components/ui';
@@ -57,6 +57,7 @@ export function ITAdminManagement() {
 
   const { data: itAdmins = [], isLoading } = useITAdmins(enterpriseId);
   const { data: itAdminBranches = [] } = useITAdminBranches(enterpriseId);
+  const { stats: dashStats } = useDashboardStats();
 
   const updateITAdmin = useUpdateITAdmin();
   const updateStatus = useUpdateITAdminStatus();
@@ -106,9 +107,9 @@ export function ITAdminManagement() {
   }).length;
 
   const stats = {
-    total: itAdmins.length,
-    active: (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'active').length,
-    inactive: (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'inactive').length,
+    total: dashStats.it_admin_total ?? itAdmins.length,
+    active: dashStats.it_admin_active ?? (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'active').length,
+    inactive: (dashStats.it_admin_total ?? itAdmins.length) - (dashStats.it_admin_active ?? (itAdmins as any[]).filter((a: ITAdmin) => a.status === 'active').length),
     noBranches: adminsWithoutBranches,
   };
 
@@ -580,8 +581,9 @@ function EditITAdminModal({
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
               inputMode="numeric"
+              maxLength={10}
               placeholder="9876543210"
               className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
             />

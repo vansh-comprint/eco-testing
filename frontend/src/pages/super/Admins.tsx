@@ -6,6 +6,7 @@ import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
 import { CreateOpsAdminModal, EditUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { useQuery } from '@tanstack/react-query';
+import { useDashboardStats } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface Admin {
@@ -26,6 +27,7 @@ export function Admins() {
   const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
+  const { stats: dashboardStats } = useDashboardStats();
 
   const { data: admins = [], isLoading } = useQuery({
     queryKey: ['users', 'admins'],
@@ -79,8 +81,8 @@ export function Admins() {
 
   const stats = {
     total: admins.length,
-    superAdmins: admins.filter(a => a.role === 'super_admin').length,
-    opsAdmins: admins.filter(a => a.role === 'ops_admin').length,
+    superAdmins: dashboardStats.user_super_admin ?? 0,
+    opsAdmins: dashboardStats.user_ops_admin ?? 0,
     active: admins.filter(a => a.status === 'active').length,
   };
 

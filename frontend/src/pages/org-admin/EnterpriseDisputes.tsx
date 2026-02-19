@@ -20,7 +20,7 @@ import {
   Scale,
   Monitor,
 } from 'lucide-react';
-import { useAuth, useInfiniteDisputes, useAssets, useBranches } from '@/hooks';
+import { useAuth, useInfiniteDisputes, useAssets, useBranches, useDashboardStats } from '@/hooks';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -38,6 +38,7 @@ export function EnterpriseDisputes() {
   const totalDisputes = disputePages?.pages[0]?.pagination?.total;
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { stats: dashStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -45,7 +46,7 @@ export function EnterpriseDisputes() {
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name || ''));
+    branches.forEach(b => map.set(b.id, b.branch_name || ''));
     return map;
   }, [branches]);
 
@@ -56,15 +57,15 @@ export function EnterpriseDisputes() {
     return map;
   }, [assets]);
 
-  // Stats
+  // Stats — use backend stats where available, keep partial client-side
   const stats = useMemo(() => {
-    const total = disputes.length;
-    const pending = disputes.filter(d => d.status === 'pending').length;
-    const upheld = disputes.filter(d => d.status === 'upheld').length;
-    const overturned = disputes.filter(d => d.status === 'overturned').length;
+    const total = dashStats.dispute_total ?? disputes.length;
+    const pending = dashStats.dispute_pending ?? disputes.filter(d => d.status === 'pending').length;
+    const upheld = dashStats.dispute_upheld ?? disputes.filter(d => d.status === 'upheld').length;
+    const overturned = dashStats.dispute_overturned ?? disputes.filter(d => d.status === 'overturned').length;
     const partial = disputes.filter(d => d.status === 'partial').length;
     return { total, pending, upheld, overturned, partial };
-  }, [disputes]);
+  }, [disputes, dashStats]);
 
   // Filtered disputes
   const filteredDisputes = useMemo(() => {
@@ -224,7 +225,7 @@ export function EnterpriseDisputes() {
             >
               <option value="all">All Branches</option>
               {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+                <option key={b.id} value={b.id}>{b.branch_name}</option>
               ))}
             </select>
           </div>

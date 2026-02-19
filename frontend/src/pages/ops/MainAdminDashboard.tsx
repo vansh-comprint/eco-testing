@@ -17,16 +17,16 @@ import {
 } from 'lucide-react';
 import { useAuth, useAllAssets, useEnterprises, useAllBatches, useDashboardStats } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
-import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
+import { PageHeader, DashboardStatGrid, Badge, SkeletonTable, SkeletonCard } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 
 export function MainAdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: assets = [] } = useAllAssets();
-  const { data: enterprises = [] } = useEnterprises();
-  const { data: batches = [] } = useAllBatches();
+  const { data: assets = [], isLoading: assetsLoading } = useAllAssets();
+  const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
+  const { data: batches = [], isLoading: batchesLoading } = useAllBatches();
   const { selectedEnterprise, selectedEnterpriseId, setSelectedEnterpriseId, isAllEnterprises } = useOpsEnterprise();
   // Pass enterprise_id so stats are server-computed for the selected enterprise
   const { stats } = useDashboardStats({
@@ -354,45 +354,51 @@ export function MainAdminDashboard() {
             </div>
             {/* Mobile Card Layout */}
             <div className="md:hidden divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-              {enterprises.map((enterprise) => {
-                const enterpriseAssets = assets.filter(a => a.enterprise_id === enterprise.id);
-                const enterprisePending = enterpriseAssets.filter(a =>
-                  ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
-                ).length;
-                const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
+              {enterprisesLoading || assetsLoading ? (
+                <div className="p-4 space-y-3">
+                  {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
+                </div>
+              ) : (
+                enterprises.map((enterprise) => {
+                  const enterpriseAssets = assets.filter(a => a.enterprise_id === enterprise.id);
+                  const enterprisePending = enterpriseAssets.filter(a =>
+                    ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
+                  ).length;
+                  const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
-                return (
-                  <div
-                    key={enterprise.id}
-                    onClick={() => handleEnterpriseClick(enterprise.id)}
-                    className={`p-4 ${hoverStyles.row} cursor-pointer active:scale-[0.98] transition-all`}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
-                        <Building2 className={`${iconSize.lg} ${text.muted}`} />
+                  return (
+                    <div
+                      key={enterprise.id}
+                      onClick={() => handleEnterpriseClick(enterprise.id)}
+                      className={`p-4 ${hoverStyles.row} cursor-pointer active:scale-[0.98] transition-all`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
+                          <Building2 className={`${iconSize.lg} ${text.muted}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-display font-bold truncate ${text.primary}`}>{enterprise.name}</p>
+                          <p className={`font-mono text-xs truncate ${text.muted}`}>{enterprise.contact_email}</p>
+                        </div>
+                        <Badge variant={enterprise.status === 'active' ? 'success' : 'warning'} size="sm">
+                          {enterprise.status}
+                        </Badge>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-display font-bold truncate ${text.primary}`}>{enterprise.name}</p>
-                        <p className={`font-mono text-xs truncate ${text.muted}`}>{enterprise.contact_email}</p>
-                      </div>
-                      <Badge variant={enterprise.status === 'active' ? 'success' : 'warning'} size="sm">
-                        {enterprise.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={`font-mono ${text.muted}`}>{enterpriseAssets.length} assets</span>
-                      {enterprisePending > 0 && (
-                        <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono font-bold">
-                          {enterprisePending} pending
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={`font-mono ${text.muted}`}>{enterpriseAssets.length} assets</span>
+                        {enterprisePending > 0 && (
+                          <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono font-bold">
+                            {enterprisePending} pending
+                          </span>
+                        )}
+                        <span className="font-mono font-bold text-lime-600 dark:text-lime-400">
+                          ₹{enterpriseValue.toLocaleString()}
                         </span>
-                      )}
-                      <span className="font-mono font-bold text-lime-600 dark:text-lime-400">
-                        ₹{enterpriseValue.toLocaleString()}
-                      </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Desktop Table Layout */}
@@ -418,51 +424,55 @@ export function MainAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-                  {enterprises.map((enterprise) => {
-                    const enterpriseAssets = assets.filter(a => a.enterprise_id === enterprise.id);
-                    const enterprisePending = enterpriseAssets.filter(a =>
-                      ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
-                    ).length;
-                    const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
+                  {enterprisesLoading || assetsLoading ? (
+                    <tr><td colSpan={5} className="p-4"><SkeletonTable rows={4} columns={5} /></td></tr>
+                  ) : (
+                    enterprises.map((enterprise) => {
+                      const enterpriseAssets = assets.filter(a => a.enterprise_id === enterprise.id);
+                      const enterprisePending = enterpriseAssets.filter(a =>
+                        ['submitted', 'remote_review', 'in_transit', 'facility_qc'].includes(a.status)
+                      ).length;
+                      const enterpriseValue = enterpriseAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
-                    return (
-                      <tr
-                        key={enterprise.id}
-                        onClick={() => handleEnterpriseClick(enterprise.id)}
-                        className={`${hoverStyles.row} cursor-pointer`}
-                      >
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center">
-                              <Building2 className={`${iconSize.lg} ${text.muted}`} />
+                      return (
+                        <tr
+                          key={enterprise.id}
+                          onClick={() => handleEnterpriseClick(enterprise.id)}
+                          className={`${hoverStyles.row} cursor-pointer`}
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center">
+                                <Building2 className={`${iconSize.lg} ${text.muted}`} />
+                              </div>
+                              <div>
+                                <p className={`font-display font-bold ${text.primary}`}>{enterprise.name}</p>
+                                <p className={`font-mono text-xs ${text.muted}`}>{enterprise.contact_email}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className={`font-display font-bold ${text.primary}`}>{enterprise.name}</p>
-                              <p className={`font-mono text-xs ${text.muted}`}>{enterprise.contact_email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant={enterprise.status === 'active' ? 'success' : 'warning'} size="sm">
-                            {enterprise.status}
-                          </Badge>
-                        </td>
-                        <td className={`p-4 font-mono font-bold ${text.primary}`}>{enterpriseAssets.length}</td>
-                        <td className="p-4">
-                          {enterprisePending > 0 ? (
-                            <span className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono font-bold text-xs">
-                              {enterprisePending}
-                            </span>
-                          ) : (
-                            <span className={`font-mono text-xs ${text.muted}`}>-</span>
-                          )}
-                        </td>
-                        <td className="p-4 font-mono font-bold text-lime-600 dark:text-lime-400">
-                          ₹{enterpriseValue.toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="p-4">
+                            <Badge variant={enterprise.status === 'active' ? 'success' : 'warning'} size="sm">
+                              {enterprise.status}
+                            </Badge>
+                          </td>
+                          <td className={`p-4 font-mono font-bold ${text.primary}`}>{enterpriseAssets.length}</td>
+                          <td className="p-4">
+                            {enterprisePending > 0 ? (
+                              <span className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono font-bold text-xs">
+                                {enterprisePending}
+                              </span>
+                            ) : (
+                              <span className={`font-mono text-xs ${text.muted}`}>-</span>
+                            )}
+                          </td>
+                          <td className="p-4 font-mono font-bold text-lime-600 dark:text-lime-400">
+                            ₹{enterpriseValue.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -572,7 +582,11 @@ export function MainAdminDashboard() {
                 </button>
               </div>
               <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-                {recentAssets.length > 0 ? (
+                {assetsLoading ? (
+                  <div className="p-4 space-y-3">
+                    {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
+                  </div>
+                ) : recentAssets.length > 0 ? (
                   recentAssets.map((asset) => (
                     <div key={asset.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
                       <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center">
@@ -671,7 +685,7 @@ export function MainAdminDashboard() {
           </div>
 
           {/* Batches for Enterprise View */}
-          {filteredBatches.length > 0 && (
+          {(batchesLoading || filteredBatches.length > 0) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -685,30 +699,36 @@ export function MainAdminDashboard() {
                 <span className={`font-mono text-xs ${text.muted}`}>{filteredBatches.length} total</span>
               </div>
               <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-                {filteredBatches.slice(0, 5).map((batch) => (
-                  <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
-                    <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center">
-                      <Package className={`${iconSize.lg} ${text.muted}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-display font-bold text-sm truncate ${text.primary}`}>
-                        {batch.name}
-                      </p>
-                      <p className={`font-mono text-xs ${text.muted}`}>
-                        {new Date(batch.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        batch.status === 'completed' ? 'success' :
-                        batch.status === 'cancelled' ? 'error' : 'warning'
-                      }
-                      size="xs"
-                    >
-                      {batch.status.replace(/_/g, ' ')}
-                    </Badge>
+                {batchesLoading ? (
+                  <div className="p-4 space-y-3">
+                    {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
                   </div>
-                ))}
+                ) : (
+                  filteredBatches.slice(0, 5).map((batch) => (
+                    <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
+                      <div className="w-10 h-10 border border-slate-200/80 dark:border-zinc-700 bg-slate-50/80 dark:bg-zinc-800/50 flex items-center justify-center">
+                        <Package className={`${iconSize.lg} ${text.muted}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-display font-bold text-sm truncate ${text.primary}`}>
+                          {batch.name}
+                        </p>
+                        <p className={`font-mono text-xs ${text.muted}`}>
+                          {new Date(batch.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          batch.status === 'completed' ? 'success' :
+                          batch.status === 'cancelled' ? 'error' : 'warning'
+                        }
+                        size="xs"
+                      >
+                        {batch.status.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           )}

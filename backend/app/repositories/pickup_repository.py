@@ -26,6 +26,7 @@ class PickupRepository(BaseRepository[PickupRequest]):
     async def list_with_filters(
         self,
         enterprise_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         logistics_admin_id: Optional[str] = None,
         logistics_user_id: Optional[str] = None,
         status: Optional[str] = None,
@@ -34,11 +35,20 @@ class PickupRepository(BaseRepository[PickupRequest]):
         limit: int = 100,
     ) -> Tuple[List[PickupRequest], int]:
         """List pickup requests with filters"""
-        base_query = select(PickupRequest)
+        from app.models.batch import Batch
+
+        if branch_ids:
+            base_query = select(PickupRequest).join(
+                Batch, PickupRequest.batch_id == Batch.id
+            )
+        else:
+            base_query = select(PickupRequest)
         conditions = []
 
         if enterprise_id:
             conditions.append(PickupRequest.enterprise_id == enterprise_id)
+        if branch_ids:
+            conditions.append(Batch.branch_id.in_(branch_ids))
         if logistics_admin_id:
             conditions.append(PickupRequest.logistics_admin_id == logistics_admin_id)
         if logistics_user_id:

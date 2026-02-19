@@ -14,7 +14,7 @@ import {
   ClipboardCheck,
   RefreshCw,
 } from 'lucide-react';
-import { useAuth, useAllAssets, useDashboardStats } from '@/hooks';
+import { useAuth, useSelfAssignedAssets, useDashboardStats } from '@/hooks';
 import { assetStatusLabels } from '@/types/asset';
 import type { AssetStatus } from '@/types/asset';
 import { glass, text, iconSize } from '@/lib/design-tokens';
@@ -23,11 +23,9 @@ import { contentVariants, createSectionTransition } from '@/lib/animations';
 export function SubUserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: assets = [] } = useAllAssets();
+  const { data: myAssets = [] } = useSelfAssignedAssets(user?.id || '');
   const { stats } = useDashboardStats();
 
-  // Get assets assigned to this sub-user (still needed for rendering individual cards)
-  const myAssets = assets.filter(a => a.assigned_to_user_id === user?.id);
   const pendingAssets = myAssets.filter(a => a.status === 'assigned' || a.status === 'check_in_started');
   const submittedAssets = myAssets.filter(a => !['pending_assignment', 'assigned', 'check_in_started'].includes(a.status));
 

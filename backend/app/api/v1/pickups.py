@@ -1,5 +1,6 @@
 """API endpoints for Pickup Requests"""
 
+import logging
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -24,6 +25,8 @@ from app.schemas.pickup import (
 from app.services.pickup_service import PickupService
 from app.services.pickup_location_service import PickupLocationService
 from app.utils.response import success_response, paginated_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -260,8 +263,9 @@ async def list_pickups(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/pending-assignment")
@@ -340,8 +344,9 @@ async def create_pickup(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 # ============================================================================
@@ -432,6 +437,12 @@ async def get_pickup_location(
     location = await service.get_location(location_id)
     if not location:
         raise HTTPException(status_code=404, detail="Pickup location not found")
+
+    from app.utils.scoping import is_platform_admin, can_access_enterprise
+    from app.utils.exceptions import AuthorizationError
+    if not is_platform_admin(current_user):
+        if not can_access_enterprise(current_user, str(location.enterprise_id)):
+            raise AuthorizationError("You do not have access to this pickup location")
 
     return success_response(data=_location_to_response(location))
 
@@ -575,8 +586,9 @@ async def assign_to_logistics_admin(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/{pickup_id}/assign-user")
@@ -598,8 +610,9 @@ async def assign_to_logistics_user(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/{pickup_id}/start")
@@ -620,8 +633,9 @@ async def start_pickup(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/{pickup_id}/complete")
@@ -643,8 +657,9 @@ async def complete_pickup(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/{pickup_id}/cancel")
@@ -666,5 +681,6 @@ async def cancel_pickup(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")

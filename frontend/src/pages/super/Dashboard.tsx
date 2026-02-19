@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Users, IndianRupee, Shield, Plus, FileText, Settings, BarChart3, UserPlus, Truck, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
+import { Badge, PageHeader, DashboardStatGrid, SkeletonTable } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 import { CreateOpsAdminModal, CreateLogisticsAdminModal } from '@/pages/super';
@@ -140,7 +140,11 @@ export function SuperAdminDashboard() {
                 <span className={`font-mono text-[10px] uppercase tracking-widest ${text.muted} text-right w-16`}>Status</span>
               </div>
               <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-                {admins.length === 0 ? (
+                {loading ? (
+                  <div className="p-4">
+                    <SkeletonTable rows={3} columns={4} />
+                  </div>
+                ) : admins.length === 0 ? (
                   <div className="p-8 text-center">
                     <p className={`font-mono text-sm ${text.muted}`}>No admin users yet</p>
                   </div>

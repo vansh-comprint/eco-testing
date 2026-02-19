@@ -131,13 +131,25 @@ class SubmissionService:
             )
 
         # Apply role-based scoping - IGNORE user-provided enterprise_id
+        branch_ids = None
+
         if user.role == UserRole.EMPLOYEE.value:
             user_id = user.id
             enterprise_id = None
             branch_id = None
         elif user.role == UserRole.IT_ADMIN.value:
             enterprise_id = user.enterprise_id
-            branch_id = user.branch_id
+            from app.utils.scoping import get_it_admin_branch_ids
+            managed_branch_ids = await get_it_admin_branch_ids(self.session, user.id)
+            if user.branch_id and user.branch_id not in managed_branch_ids:
+                managed_branch_ids.append(user.branch_id)
+            if branch_id:
+                # Specific branch requested — validate it's within scope
+                if str(branch_id) not in [str(b) for b in managed_branch_ids]:
+                    branch_id = None  # Ignore invalid branch filter
+            else:
+                branch_id = None  # Will use branch_ids in repo
+            branch_ids = managed_branch_ids if not branch_id else None
         elif user.role == UserRole.ORG_ADMIN.value:
             enterprise_id = user.enterprise_id
             branch_id = branch_id  # Org admin can filter by branch within their enterprise
@@ -146,6 +158,7 @@ class SubmissionService:
         return await self.repo.list_with_filters(
             enterprise_id=enterprise_id,
             branch_id=branch_id,
+            branch_ids=branch_ids,
             user_id=user_id,
             skip=skip,
             limit=limit,

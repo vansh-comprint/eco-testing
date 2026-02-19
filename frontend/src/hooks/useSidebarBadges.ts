@@ -64,6 +64,9 @@ export function getBadgeForPath(badges: SidebarBadges, path: string): number | u
     // Super Admin
     '/super/applications': 'applications',
     '/super/pickups': 'opsPickups',
+    '/super/reviews': 'reviews',
+    '/super/qc': 'qc',
+    '/super/disputes': 'disputes',
 
     // Review & QC
     '/review/queue': 'reviews',

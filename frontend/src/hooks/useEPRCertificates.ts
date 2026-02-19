@@ -29,7 +29,7 @@ export const eprKeys = {
 /**
  * Fetch EPR certificates (auto-scoped by backend based on user role)
  */
-export function useEPRCertificates(params: { status?: string; search?: string } = {}) {
+export function useEPRCertificates(params: { status?: string; search?: string; enterprise_id?: string } = {}) {
   return useQuery({
     queryKey: eprKeys.list(params),
     queryFn: async () => {

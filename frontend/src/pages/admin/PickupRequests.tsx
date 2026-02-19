@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfinitePickups } from '@/hooks';
+import { useAuth, useInfinitePickups, useDashboardStats } from '@/hooks';
 // PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
@@ -70,6 +70,8 @@ export function PickupRequests() {
     return params;
   }, [statusFilter, enterpriseId]);
 
+  const { stats: dashStats } = useDashboardStats();
+
   const {
     data,
     fetchNextPage,
@@ -110,16 +112,16 @@ export function PickupRequests() {
     return result;
   }, [allPickups, searchQuery]);
 
-  // Calculate stats from loaded data
+  // Calculate stats — use backend stats for most, keep exceptions client-side
   const stats = useMemo(() => {
-    const requested = allPickups.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
-    const scheduled = allPickups.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
-    const inProgress = allPickups.filter(r => r.status === 'in_progress').length;
-    const completed = allPickups.filter(r => r.status === 'completed').length;
+    const requested = dashStats.pickup_pending ?? allPickups.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
+    const scheduled = dashStats.pickup_scheduled ?? allPickups.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
+    const inProgress = dashStats.pickup_in_progress ?? allPickups.filter(r => r.status === 'in_progress').length;
+    const completed = dashStats.pickup_completed ?? allPickups.filter(r => r.status === 'completed').length;
     const exceptions = allPickups.filter(r => r.status === 'failed' || r.status === 'cancelled').length;
 
     return { requested, scheduled, inProgress, completed, exceptions };
-  }, [allPickups]);
+  }, [allPickups, dashStats]);
 
   // V3.2: Get branch name from joined data
   const getBranchName = (request: typeof allPickups[0]) => {

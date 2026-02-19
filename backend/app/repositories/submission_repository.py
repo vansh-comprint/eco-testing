@@ -45,6 +45,7 @@ class SubmissionRepository(BaseRepository[Submission]):
         self,
         enterprise_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         user_id: Optional[str] = None,
         asset_id: Optional[str] = None,
         from_date: Optional[datetime] = None,
@@ -62,7 +63,9 @@ class SubmissionRepository(BaseRepository[Submission]):
 
         if enterprise_id:
             conditions.append(Asset.enterprise_id == enterprise_id)
-        if branch_id:
+        if branch_ids:
+            conditions.append(Asset.branch_id.in_(branch_ids))
+        elif branch_id:
             conditions.append(Asset.branch_id == branch_id)
         if user_id:
             conditions.append(Submission.user_id == user_id)

@@ -32,6 +32,7 @@ class RemoteReviewRepository(BaseRepository[RemoteReview]):
     async def list_with_filters(
         self,
         enterprise_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         reviewer_id: Optional[str] = None,
         decision: Optional[str] = None,
         skip: int = 0,
@@ -43,6 +44,8 @@ class RemoteReviewRepository(BaseRepository[RemoteReview]):
 
         if enterprise_id:
             conditions.append(Asset.enterprise_id == enterprise_id)
+        if branch_ids:
+            conditions.append(Asset.branch_id.in_(branch_ids))
         if reviewer_id:
             conditions.append(RemoteReview.reviewer_id == reviewer_id)
         if decision:
@@ -76,6 +79,7 @@ class FacilityQCRepository(BaseRepository[FacilityQC]):
     async def list_with_filters(
         self,
         enterprise_id: Optional[str] = None,
+        branch_ids: Optional[List[str]] = None,
         reviewer_id: Optional[str] = None,
         decision: Optional[str] = None,
         skip: int = 0,
@@ -87,6 +91,8 @@ class FacilityQCRepository(BaseRepository[FacilityQC]):
 
         if enterprise_id:
             conditions.append(Asset.enterprise_id == enterprise_id)
+        if branch_ids:
+            conditions.append(Asset.branch_id.in_(branch_ids))
         if reviewer_id:
             conditions.append(FacilityQC.reviewer_id == reviewer_id)
         if decision:

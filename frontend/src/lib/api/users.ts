@@ -41,6 +41,8 @@ export interface UserUpdateRequest {
   role?: string;
   status?: string;
   branch_id?: string;
+  enterprise_id?: string;
+  parent_user_id?: string;
 }
 
 export interface PasswordResetRequest {

@@ -1,6 +1,7 @@
 """Batch management endpoints"""
 
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -170,6 +171,70 @@ async def create_batch(
     service = BatchService(db)
     batch = await service.create_batch(batch_data, current_user.id)
     return success_response(data=batch.model_dump(), message="Batch created successfully")
+
+
+class BatchAssetsRequest(BaseModel):
+    asset_ids: List[str]
+
+
+@router.post("/{batch_id}/assets", response_model=dict)
+async def add_assets_to_batch(
+    batch_id: str,
+    data: BatchAssetsRequest,
+    current_user: User = Depends(require_permission(Permission.BATCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Add assets to a batch.
+
+    **Permissions:** BATCH_UPDATE
+    """
+    service = BatchService(db)
+    batch = await service.get_batch(batch_id)
+    await _check_batch_access(db, batch, current_user)
+
+    from app.services.asset_service import AssetService
+    from app.schemas.asset import AssetUpdate
+
+    asset_service = AssetService(db)
+    for asset_id in data.asset_ids:
+        asset = await asset_service.get_asset(asset_id)
+        # Verify the asset belongs to the same enterprise
+        if str(asset.enterprise_id) != str(batch.enterprise_id):
+            raise AuthorizationError(f"Asset '{asset_id}' does not belong to this enterprise")
+        await asset_service.update_asset(asset_id, AssetUpdate(batch_id=batch_id), current_user.id)
+
+    updated_batch = await service.get_batch(batch_id)
+    return success_response(data=updated_batch.model_dump(), message="Assets added to batch")
+
+
+@router.delete("/{batch_id}/assets", response_model=dict)
+async def remove_assets_from_batch(
+    batch_id: str,
+    data: BatchAssetsRequest,
+    current_user: User = Depends(require_permission(Permission.BATCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Remove assets from a batch.
+
+    **Permissions:** BATCH_UPDATE
+    """
+    service = BatchService(db)
+    batch = await service.get_batch(batch_id)
+    await _check_batch_access(db, batch, current_user)
+
+    from app.services.asset_service import AssetService
+    from app.schemas.asset import AssetUpdate
+
+    asset_service = AssetService(db)
+    for asset_id in data.asset_ids:
+        asset = await asset_service.get_asset(asset_id)
+        if str(getattr(asset, 'batch_id', '')) == str(batch_id):
+            await asset_service.update_asset(asset_id, AssetUpdate(batch_id=None), current_user.id)
+
+    updated_batch = await service.get_batch(batch_id)
+    return success_response(data=updated_batch.model_dump(), message="Assets removed from batch")
 
 
 @router.get("/{batch_id}", response_model=dict)

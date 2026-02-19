@@ -36,7 +36,7 @@ import {
 import { useCreateEnterpriseApplication, useCheckGSTExists, useCheckEmailExists, useUploadDocument } from '@/hooks';
 import { API_BASE_URL } from '@/lib/api/client';
 import { text } from '@/lib/design-tokens';
-import { validatePassword, PASSWORD_HINT } from '@/lib/validation';
+import { validatePassword, PASSWORD_HINT, gstSchema, panSchema, phoneSchema, pinCodeSchema } from '@/lib/validation';
 
 // Required documents list
 const requiredDocuments = [
@@ -170,28 +170,11 @@ export function EnterpriseRegister() {
     }
   };
 
-  // Validate GST number format (15 characters)
-  const validateGST = (gst: string): boolean => {
-    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    return gstRegex.test(gst.toUpperCase());
-  };
-
-  // Validate PAN number format (10 characters)
-  const validatePAN = (pan: string): boolean => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    return panRegex.test(pan.toUpperCase());
-  };
-
-  // Validate Indian phone number (10 digits, starts with 6-9)
-  const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^[6-9]\d{9}$/;
-    return phoneRegex.test(phone);
-  };
-
-  // Validate PIN code (6 digits)
-  const validatePinCode = (pin: string): boolean => {
-    return /^\d{6}$/.test(pin);
-  };
+  // Validate using shared Zod schemas from @/lib/validation
+  const validateGST = (gst: string): boolean => gstSchema.safeParse(gst).success;
+  const validatePAN = (pan: string): boolean => panSchema.safeParse(pan).success;
+  const validatePhone = (phone: string): boolean => phoneSchema.safeParse(phone).success;
+  const validatePinCode = (pin: string): boolean => pinCodeSchema.safeParse(pin).success;
 
   // Validate name (letters and spaces only, no numbers)
   const validateName = (name: string): boolean => {

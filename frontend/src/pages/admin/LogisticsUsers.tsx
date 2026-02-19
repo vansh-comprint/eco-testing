@@ -74,7 +74,8 @@ export function ITAdminLogisticsUsers() {
             type="tel"
             inputMode="numeric"
             value={form.phone}
-            onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setForm({ ...form, phone: v }); }}
+            onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+            maxLength={10}
             placeholder="Phone Number"
             className="flex-1 px-4 py-3 text-sm border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
           />

@@ -1,5 +1,6 @@
 """API endpoints for Reviews (RemoteReview, FacilityQC, OnSiteQC)"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,6 +8,7 @@ from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models import User
+from app.models.user import UserRole
 from app.schemas.review import (
     RemoteReviewCreate,
     RemoteReviewUpdate,
@@ -20,7 +22,30 @@ from app.services.review_service import (
 )
 from app.utils.response import success_response, paginated_response
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+async def _check_review_access(db, asset_id: str, current_user: User):
+    """Verify user can access reviews for this asset."""
+    from app.utils.scoping import is_platform_admin, can_access_enterprise, can_access_branch_scoped
+    from app.utils.exceptions import AuthorizationError
+    from app.repositories.asset_repository import AssetRepository
+
+    if is_platform_admin(current_user):
+        return
+
+    asset_repo = AssetRepository(db)
+    asset = await asset_repo.get_by_id(asset_id)
+    if not asset:
+        return
+
+    if asset.enterprise_id and not can_access_enterprise(current_user, str(asset.enterprise_id)):
+        raise AuthorizationError("You do not have access to this review")
+    if asset.branch_id and current_user.role == UserRole.IT_ADMIN.value:
+        if not await can_access_branch_scoped(db, current_user, str(asset.branch_id)):
+            raise AuthorizationError("You do not have access to this review")
 
 
 # ============================================================================
@@ -81,8 +106,9 @@ async def list_remote_reviews(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/remote", status_code=status.HTTP_201_CREATED)
@@ -111,8 +137,9 @@ async def create_remote_review(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/remote/{review_id}")
@@ -135,6 +162,7 @@ async def get_remote_review(
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
 
+    await _check_review_access(db, review.asset_id, current_user)
     return success_response(data=_remote_review_to_dict(review))
 
 
@@ -228,8 +256,9 @@ async def list_facility_qc(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/facility", status_code=status.HTTP_201_CREATED)
@@ -279,6 +308,7 @@ async def get_facility_qc(
     if not qc:
         raise HTTPException(status_code=404, detail="QC record not found")
 
+    await _check_review_access(db, qc.asset_id, current_user)
     return success_response(data=_facility_qc_to_dict(qc))
 
 
@@ -343,8 +373,9 @@ async def list_onsite_qc(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("/onsite", status_code=status.HTTP_201_CREATED)
@@ -394,4 +425,5 @@ async def get_onsite_qc(
     if not qc:
         raise HTTPException(status_code=404, detail="QC record not found")
 
+    await _check_review_access(db, qc.asset_id, current_user)
     return success_response(data=_onsite_qc_to_dict(qc))

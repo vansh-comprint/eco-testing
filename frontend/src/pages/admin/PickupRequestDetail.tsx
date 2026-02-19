@@ -720,7 +720,8 @@ export function PickupRequestDetail() {
                           inputMode="numeric"
                           placeholder="Phone"
                           value={newUserPhone}
-                          onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setNewUserPhone(v); }}
+                          onChange={(e) => setNewUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          maxLength={10}
                           className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
                         />
                       </div>

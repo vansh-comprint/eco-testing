@@ -198,6 +198,22 @@ async def get_badge_counts(
         if applications:
             badges["applications"] = applications
 
+        # Assets awaiting remote review
+        q = select(func.count()).select_from(Asset).where(
+            Asset.status == AssetStatus.REMOTE_REVIEW.value
+        )
+        reviews = await _count(db, q)
+        if reviews:
+            badges["reviews"] = reviews
+
+        # Assets awaiting facility QC
+        q = select(func.count()).select_from(Asset).where(
+            Asset.status == AssetStatus.FACILITY_QC.value
+        )
+        qc = await _count(db, q)
+        if qc:
+            badges["qc"] = qc
+
         # Pickup requests pending assignment
         q = select(func.count()).select_from(PickupRequest).where(
             PickupRequest.status == PickupStatus.PENDING.value
@@ -205,6 +221,14 @@ async def get_badge_counts(
         pickups = await _count(db, q)
         if pickups:
             badges["opsPickups"] = pickups
+
+        # Open disputes
+        q = select(func.count()).select_from(Dispute).where(
+            Dispute.status == DisputeStatus.OPEN.value
+        )
+        disputes = await _count(db, q)
+        if disputes:
+            badges["disputes"] = disputes
 
     elif role == UserRole.LOGISTICS_ADMIN.value:
         # Pickups assigned to this logistics admin but not yet assigned to a field user
@@ -406,6 +430,49 @@ async def get_dashboard_stats(
             ),
         )
 
+        # -- Pickup breakdown for Org Admin --
+        pc = await _status_counts(
+            db, PickupRequest, PickupRequest.status, PickupRequest.enterprise_id == eid
+        )
+        stats["pickup_pending"] = pc.get(PickupStatus.PENDING.value, 0)
+        stats["pickup_assigned"] = sum(
+            pc.get(s, 0) for s in [
+                PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value,
+                PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            ]
+        )
+        stats["pickup_scheduled"] = pc.get(PickupStatus.SCHEDULED.value, 0)
+        stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
+        stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
+
+        # -- Employee stats for Org Admin --
+        stats["employee_total"] = await _count(
+            db, select(func.count()).select_from(User).where(
+                and_(User.enterprise_id == eid, User.role.in_([UserRole.EMPLOYEE.value, "sub_user"]))
+            )
+        )
+        stats["employee_active"] = await _count(
+            db, select(func.count()).select_from(User).where(
+                and_(
+                    User.enterprise_id == eid,
+                    User.role.in_([UserRole.EMPLOYEE.value, "sub_user"]),
+                    User.status == "active",
+                )
+            )
+        )
+
+        # -- Dispute breakdown for Org Admin --
+        dc = await _status_counts(
+            db, Dispute, Dispute.status,
+            Dispute.asset_id.in_(select(Asset.id).where(Asset.enterprise_id == eid))
+        )
+        stats["dispute_total"] = sum(dc.values())
+        stats["dispute_pending"] = sum(
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+        )
+        stats["dispute_upheld"] = dc.get("upheld", 0)
+        stats["dispute_overturned"] = dc.get("overturned", 0)
+
     elif role == UserRole.IT_ADMIN.value:
         eid = user.enterprise_id
 
@@ -487,6 +554,43 @@ async def get_dashboard_stats(
             ),
         )
 
+        # -- Pickup stats for IT Admin --
+        pickup_filters = [PickupRequest.enterprise_id == eid]
+        if effective_branch_ids:
+            pickup_filters.append(PickupRequest.branch_id.in_(effective_branch_ids))
+        pc = await _status_counts(db, PickupRequest, PickupRequest.status, *pickup_filters)
+        stats["pickup_pending"] = pc.get(PickupStatus.PENDING.value, 0)
+        stats["pickup_scheduled"] = sum(
+            pc.get(s, 0) for s in [PickupStatus.SCHEDULED.value, PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value]
+        )
+        stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
+        stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
+
+        # -- Employee stats for IT Admin --
+        emp_filters = [User.enterprise_id == eid, User.role.in_([UserRole.EMPLOYEE.value, "sub_user"])]
+        if effective_branch_ids:
+            emp_filters.append(User.branch_id.in_(effective_branch_ids))
+        stats["employee_total"] = await _count(
+            db, select(func.count()).select_from(User).where(and_(*emp_filters))
+        )
+        stats["employee_active"] = await _count(
+            db, select(func.count()).select_from(User).where(
+                and_(*emp_filters, User.status == "active")
+            )
+        )
+
+        # -- Dispute stats for IT Admin --
+        dispute_asset_scope = select(Asset.id).where(scope)
+        dc = await _status_counts(
+            db, Dispute, Dispute.status, Dispute.asset_id.in_(dispute_asset_scope)
+        )
+        stats["dispute_total"] = sum(dc.values())
+        stats["dispute_pending"] = sum(
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+        )
+        stats["dispute_upheld"] = dc.get("upheld", 0)
+        stats["dispute_overturned"] = dc.get("overturned", 0)
+
     elif role == UserRole.OPS_ADMIN.value:
         # When enterprise_id is provided, scope all stats to that enterprise
         eid = enterprise_id  # None means platform-wide
@@ -529,23 +633,29 @@ async def get_dashboard_stats(
         )
 
         # Disputes (platform-wide or enterprise-scoped)
-        if eid:
-            stats["pending_disputes"] = await _count(
-                db,
-                select(func.count()).select_from(Dispute).where(
-                    and_(
-                        Dispute.status == DisputeStatus.OPEN.value,
-                        Dispute.asset_id.in_(
-                            select(Asset.id).where(Asset.enterprise_id == eid)
-                        ),
-                    )
-                ),
-            )
-        else:
-            stats["pending_disputes"] = await _count(
-                db,
-                select(func.count()).select_from(Dispute).where(Dispute.status == DisputeStatus.OPEN.value),
-            )
+        dispute_filters = [Dispute.asset_id.in_(select(Asset.id).where(Asset.enterprise_id == eid))] if eid else []
+        dc = await _status_counts(db, Dispute, Dispute.status, *dispute_filters)
+        stats["dispute_total"] = sum(dc.values())
+        stats["dispute_pending"] = sum(
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+        )
+        stats["dispute_upheld"] = dc.get("upheld", 0)
+        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["pending_disputes"] = stats["dispute_pending"]
+
+        # -- Pickup granular breakdown --
+        pickup_filters = [PickupRequest.enterprise_id == eid] if eid else []
+        pc = await _status_counts(db, PickupRequest, PickupRequest.status, *pickup_filters)
+        stats["pickup_pending"] = pc.get(PickupStatus.PENDING.value, 0)
+        stats["pickup_assigned"] = sum(
+            pc.get(s, 0) for s in [
+                PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value,
+                PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            ]
+        )
+        stats["pickup_scheduled"] = pc.get(PickupStatus.SCHEDULED.value, 0)
+        stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
+        stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
 
     elif role == UserRole.SUPER_ADMIN.value:
         # -- Enterprise status breakdown via GROUP BY --
@@ -568,6 +678,39 @@ async def get_dashboard_stats(
         stats["user_logistics_user"] = uc.get(UserRole.LOGISTICS_USER.value, 0)
         stats["user_logistics"] = stats["user_logistics_admin"] + stats["user_logistics_user"]
         stats["admin_count"] = stats["user_super_admin"] + stats["user_ops_admin"] + stats["user_logistics_admin"]
+
+        # -- Asset summary for Analytics --
+        sa = await _status_counts(db, Asset, Asset.status)
+        stats["asset_total"] = sum(sa.values())
+        stats["asset_completed"] = sa.get(AssetStatus.COMPLETED.value, 0)
+        stats["asset_pending"] = sum(sa.get(s, 0) for s in _ASSET_PENDING)
+        stats["asset_in_review"] = sum(sa.get(s, 0) for s in _ASSET_IN_REVIEW)
+        stats["asset_accepted"] = sum(sa.get(s, 0) for s in _ASSET_ACCEPTED)
+        stats["asset_rejected"] = sum(sa.get(s, 0) for s in _ASSET_REJECTED)
+
+        # -- Financial for Analytics --
+        stats["total_payout_value"] = await _sum(
+            db, select(func.sum(Asset.final_price)).where(Asset.status == AssetStatus.COMPLETED.value)
+        )
+
+        # -- Logistics management stats --
+        stats["logistics_admin_total"] = stats["user_logistics_admin"]
+        stats["logistics_admin_active"] = await _count(
+            db, select(func.count()).select_from(User).where(
+                and_(User.role == UserRole.LOGISTICS_ADMIN.value, User.status == "active")
+            )
+        )
+        stats["logistics_user_total"] = stats["user_logistics_user"]
+
+        # -- Dispute breakdown --
+        dc = await _status_counts(db, Dispute, Dispute.status)
+        stats["dispute_total"] = sum(dc.values())
+        stats["dispute_pending"] = sum(
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+        )
+        stats["dispute_upheld"] = dc.get("upheld", 0)
+        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["pending_disputes"] = stats["dispute_pending"]
 
     elif role in (UserRole.EMPLOYEE.value, "sub_user"):
         # Employee: scoped to their assigned assets

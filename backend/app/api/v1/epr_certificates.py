@@ -90,6 +90,14 @@ async def get_epr_certificate(
     """
     service = EPRCertificateService(db)
     certificate = await service.get_certificate(certificate_id)
+
+    from app.utils.scoping import is_platform_admin, can_access_enterprise
+    if not is_platform_admin(current_user):
+        cert_enterprise = getattr(certificate, 'enterprise_id', None)
+        if cert_enterprise and not can_access_enterprise(current_user, str(cert_enterprise)):
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("You do not have access to this certificate")
+
     return success_response(data=certificate.model_dump())
 
 

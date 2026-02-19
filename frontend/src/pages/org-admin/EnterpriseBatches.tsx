@@ -22,7 +22,7 @@ import {
   ArrowRight,
   User,
 } from 'lucide-react';
-import { useAuth, useAssets, useInfiniteBatches, useBranches, useITAdmins } from '@/hooks';
+import { useAuth, useAssets, useInfiniteBatches, useBranches, useITAdmins, useDashboardStats } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -42,6 +42,7 @@ export function EnterpriseBatches() {
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { data: itAdmins = [] } = useITAdmins(enterpriseId);
+  const { stats: dashboardStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusGroup>('all');
@@ -50,7 +51,7 @@ export function EnterpriseBatches() {
   // Lookups
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.name || ''));
+    branches.forEach(b => map.set(b.id, b.branch_name || ''));
     return map;
   }, [branches]);
 
@@ -69,17 +70,16 @@ export function EnterpriseBatches() {
     return counts;
   }, [assets]);
 
-  // Stats
-  const stats = useMemo(() => {
-    const draft = batches.filter(b => b.status === 'draft').length;
-    const pendingApproval = batches.filter(b => b.status === 'pending_approval').length;
-    const approved = batches.filter(b => b.status === 'approved').length;
-    const pickup = batches.filter(b => b.status === 'pickup_in_progress').length;
-    const completed = batches.filter(b => b.status === 'completed').length;
-    const rejected = batches.filter(b => b.status === 'rejected').length;
-    const totalValue = batches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0);
-    return { draft, pendingApproval, approved, pickup, completed, rejected, totalValue };
-  }, [batches]);
+  // Stats from backend dashboard endpoint
+  const stats = {
+    draft: dashboardStats.batch_draft ?? 0,
+    pendingApproval: dashboardStats.batch_pending_approval ?? 0,
+    approved: dashboardStats.batch_approved ?? 0,
+    pickup: dashboardStats.batch_pickup_in_progress ?? 0,
+    completed: dashboardStats.batch_completed ?? 0,
+    rejected: dashboardStats.batch_rejected ?? 0,
+    totalValue: dashboardStats.batch_total_value ?? 0,
+  };
 
   // Filtered batches
   const filteredBatches = useMemo(() => {
@@ -223,7 +223,7 @@ export function EnterpriseBatches() {
           >
             <option value="all">All Branches</option>
             {branches.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id}>{b.branch_name}</option>
             ))}
           </select>
         </div>

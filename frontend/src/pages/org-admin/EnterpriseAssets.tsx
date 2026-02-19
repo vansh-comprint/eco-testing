@@ -21,7 +21,7 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useInfiniteAssets, useBranches } from '@/hooks';
+import { useAuth, useInfiniteAssets, useBranches, useDashboardStats } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -38,6 +38,7 @@ export function EnterpriseAssets() {
   const assets = useMemo(() => assetPages?.pages.flatMap(p => p.data || []) ?? [], [assetPages]);
   const totalAssets = assetPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { stats: dashboardStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -51,16 +52,15 @@ export function EnterpriseAssets() {
     return map;
   }, [branches]);
 
-  // Stats
-  const stats = useMemo(() => {
-    const total = assets.length;
-    const pending = assets.filter(a => ['pending_assignment', 'assigned', 'check_in_started'].includes(a.status)).length;
-    const inReview = assets.filter(a => ['submitted', 'remote_review', 'facility_review'].includes(a.status)).length;
-    const accepted = assets.filter(a => ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'].includes(a.status)).length;
-    const completed = assets.filter(a => a.status === 'completed').length;
-    const rejected = assets.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status)).length;
-    return { total, pending, inReview, accepted, completed, rejected };
-  }, [assets]);
+  // Stats from backend dashboard endpoint
+  const stats = {
+    total: dashboardStats.asset_total ?? 0,
+    pending: dashboardStats.asset_pending ?? 0,
+    inReview: dashboardStats.asset_in_review ?? 0,
+    accepted: dashboardStats.asset_accepted ?? 0,
+    completed: dashboardStats.asset_completed ?? 0,
+    rejected: dashboardStats.asset_rejected ?? 0,
+  };
 
   // Filtered & sorted assets
   const filteredAssets = useMemo(() => {

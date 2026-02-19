@@ -1,5 +1,6 @@
 """API endpoints for Submissions"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,12 +8,15 @@ from app.core.database import get_db
 from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models import User
+from app.models.user import UserRole
 from app.schemas.submission import (
     SubmissionCreate,
     SubmissionUpdate,
 )
 from app.services.submission_service import SubmissionService
 from app.utils.response import success_response, paginated_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +38,34 @@ def _to_response(submission) -> dict:
         "created_at": submission.created_at,
         "updated_at": submission.updated_at,
     }
+
+
+async def _check_submission_access(db, submission, current_user: User):
+    """Verify user can access this submission's asset's enterprise/branch."""
+    from app.utils.scoping import is_platform_admin, can_access_enterprise, can_access_branch_scoped
+    from app.utils.exceptions import AuthorizationError
+    from app.repositories.asset_repository import AssetRepository
+
+    if is_platform_admin(current_user):
+        return
+
+    # Employees can access their own submissions
+    if current_user.role == UserRole.EMPLOYEE.value:
+        if submission.user_id == current_user.id:
+            return
+        raise AuthorizationError("You can only view your own submissions")
+
+    # For other roles, check via the asset's enterprise/branch
+    asset_repo = AssetRepository(db)
+    asset = await asset_repo.get_by_id(submission.asset_id)
+    if not asset:
+        return  # Asset deleted — allow access to orphaned submission for admins
+
+    if asset.enterprise_id and not can_access_enterprise(current_user, str(asset.enterprise_id)):
+        raise AuthorizationError("You do not have access to this submission")
+    if asset.branch_id and current_user.role == UserRole.IT_ADMIN.value:
+        if not await can_access_branch_scoped(db, current_user, str(asset.branch_id)):
+            raise AuthorizationError("You do not have access to this submission")
 
 
 @router.get("")
@@ -77,8 +109,9 @@ async def list_submissions(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/pending-review")
@@ -115,8 +148,9 @@ async def list_pending_review(
             total=total,
         )
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -144,8 +178,9 @@ async def create_submission(
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/by-asset/{asset_id}")
@@ -169,6 +204,7 @@ async def get_submission_by_asset(
     if not submission:
         raise HTTPException(status_code=404, detail="No submission found for this asset")
 
+    await _check_submission_access(db, submission, current_user)
     return success_response(data=_to_response(submission))
 
 
@@ -192,6 +228,7 @@ async def get_submission(
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
 
+    await _check_submission_access(db, submission, current_user)
     return success_response(data=_to_response(submission))
 
 

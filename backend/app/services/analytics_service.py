@@ -1,7 +1,7 @@
 """Analytics service for business intelligence and reporting"""
 
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +21,7 @@ class AnalyticsService:
         self,
         enterprise_id: str | None = None,
         branch_id: str | None = None,
+        branch_ids: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Get platform-wide statistics.
@@ -28,6 +29,7 @@ class AnalyticsService:
         Args:
             enterprise_id: Optional filter for specific enterprise
             branch_id: Optional filter for specific branch
+            branch_ids: Optional filter for multiple branches (IT Admin multi-branch)
 
         Returns:
             Dictionary with total_enterprises, total_assets, total_users, monthly_revenue
@@ -41,7 +43,9 @@ class AnalyticsService:
         asset_query = select(func.count()).select_from(Asset)
         if enterprise_id:
             asset_query = asset_query.where(Asset.enterprise_id == enterprise_id)
-        if branch_id:
+        if branch_ids:
+            asset_query = asset_query.where(Asset.branch_id.in_(branch_ids))
+        elif branch_id:
             asset_query = asset_query.where(Asset.branch_id == branch_id)
         asset_result = await self.db.execute(asset_query)
         total_assets = asset_result.scalar() or 0
@@ -75,6 +79,7 @@ class AnalyticsService:
         self,
         enterprise_id: str | None = None,
         branch_id: str | None = None,
+        branch_ids: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Get asset count distribution by status.
@@ -82,6 +87,7 @@ class AnalyticsService:
         Args:
             enterprise_id: Optional filter for specific enterprise
             branch_id: Optional filter for specific branch
+            branch_ids: Optional filter for multiple branches (IT Admin multi-branch)
 
         Returns:
             Dictionary with distribution (categorized) and raw (all statuses)
@@ -90,7 +96,9 @@ class AnalyticsService:
         base_conditions = []
         if enterprise_id:
             base_conditions.append(Asset.enterprise_id == enterprise_id)
-        if branch_id:
+        if branch_ids:
+            base_conditions.append(Asset.branch_id.in_(branch_ids))
+        elif branch_id:
             base_conditions.append(Asset.branch_id == branch_id)
 
         # Status distribution
@@ -118,6 +126,7 @@ class AnalyticsService:
         months: int = 6,
         enterprise_id: str | None = None,
         branch_id: str | None = None,
+        branch_ids: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Get monthly trends for assets processed.
@@ -150,7 +159,9 @@ class AnalyticsService:
             )
             if enterprise_id:
                 asset_query = asset_query.where(Asset.enterprise_id == enterprise_id)
-            if branch_id:
+            if branch_ids:
+                asset_query = asset_query.where(Asset.branch_id.in_(branch_ids))
+            elif branch_id:
                 asset_query = asset_query.where(Asset.branch_id == branch_id)
 
             result = await self.db.execute(asset_query)

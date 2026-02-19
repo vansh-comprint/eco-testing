@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Key, Save } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, Badge, useToast } from '@/components/ui';
-import { useUpdateUser, useResetUserPassword } from '@/hooks';
-import { passwordSchema } from '@/lib/validation';
+import { useUpdateUser, useResetUserPassword, useEnterprises, useAllUsers } from '@/hooks';
+import { nameSchema, emailSchema, passwordSchema, optionalPhoneSchema } from '@/lib/validation';
 import { text } from '@/lib/design-tokens';
 
 interface UserData {
@@ -16,6 +16,7 @@ interface UserData {
   role: string;
   status: string;
   enterprise_id?: string;
+  enterprise_name?: string;
   created_at: string;
 }
 
@@ -33,16 +34,36 @@ interface EditUserModalProps {
   hideRole?: boolean;
 }
 
+// Roles that require an enterprise
+const ENTERPRISE_ROLES = ['it_admin', 'org_admin', 'employee'];
+// Roles that require a parent logistics admin
+const LOGISTICS_USER_ROLE = 'logistics_user';
+
 // Validation schemas
 const userDetailsSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .regex(/^[a-zA-Z\s'.\-]+$/, 'Name must contain only letters, spaces, hyphens, or apostrophes'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Phone must be 10-15 digits (optional + prefix)').optional().or(z.literal('')),
+  name: nameSchema,
+  email: emailSchema,
+  phone: optionalPhoneSchema,
   role: z.string(),
   status: z.string(),
+  enterprise_id: z.string().optional(),
+  parent_user_id: z.string().optional(),
+}).refine((data) => {
+  if (ENTERPRISE_ROLES.includes(data.role) && !data.enterprise_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Enterprise is required for this role',
+  path: ['enterprise_id'],
+}).refine((data) => {
+  if (data.role === LOGISTICS_USER_ROLE && !data.parent_user_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Logistics Admin is required for Logistics User',
+  path: ['parent_user_id'],
 });
 
 const passwordResetSchema = z.object({
@@ -74,22 +95,53 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
   const updateUserMutation = useUpdateUser();
   const resetPasswordMutation = useResetUserPassword();
 
+  // Fetch enterprises for enterprise-role selection
+  const { data: enterprises = [], isLoading: enterprisesLoading } = useEnterprises();
+
+  // Fetch logistics admins for logistics-user parent selection
+  const { data: logisticsAdmins = [], isLoading: logisticsAdminsLoading } = useAllUsers({
+    role: 'logistics_admin',
+    limit: 100,
+  });
+
   // User Details Form
   const {
     register: registerDetails,
     handleSubmit: handleSubmitDetails,
     formState: { errors: detailsErrors },
     reset: resetDetails,
+    watch,
+    setValue,
   } = useForm<UserDetailsForm>({
-    resolver: zodResolver(userDetailsSchema),
+    resolver: zodResolver(userDetailsSchema) as any,
     defaultValues: {
       name: user.name,
       email: user.email,
       phone: user.phone || '',
       role: user.role,
       status: user.status,
+      enterprise_id: user.enterprise_id || '',
+      parent_user_id: '',
     },
   });
+
+  // Watch role field for conditional rendering
+  const selectedRole = watch('role');
+  const needsEnterprise = ENTERPRISE_ROLES.includes(selectedRole || '');
+  const needsLogisticsAdmin = selectedRole === LOGISTICS_USER_ROLE;
+
+  // Clear conditional fields when role changes
+  useEffect(() => {
+    if (!ENTERPRISE_ROLES.includes(selectedRole || '')) {
+      setValue('enterprise_id', '');
+    }
+    if (selectedRole !== LOGISTICS_USER_ROLE) {
+      setValue('parent_user_id', '');
+    }
+  }, [selectedRole, setValue]);
+
+  // Filter to only active enterprises
+  const activeEnterprises = enterprises.filter((e: any) => e.status === 'active' || e.is_active);
 
   // Password Reset Form
   const {
@@ -113,6 +165,8 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
           phone: data.phone || undefined,
           role: data.role,
           status: data.status,
+          enterprise_id: ENTERPRISE_ROLES.includes(data.role) ? data.enterprise_id : undefined,
+          parent_user_id: data.role === LOGISTICS_USER_ROLE ? data.parent_user_id : undefined,
         },
       });
 
@@ -224,13 +278,18 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
 
       {/* User Details Tab */}
       {activeTab === 'details' && (
-        <form onSubmit={handleSubmitDetails(onSubmitDetails)}>
+        <form onSubmit={handleSubmitDetails(onSubmitDetails as any)}>
           <div className="space-y-4">
             <div className="p-4 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded">
               <p className={`font-mono text-xs ${text.muted}`}>
                 <span className="font-bold">Created:</span>{' '}
                 {new Date(user.created_at).toLocaleDateString()}
               </p>
+              {user.enterprise_name && (
+                <p className={`font-mono text-xs ${text.muted} mt-1`}>
+                  <span className="font-bold">Enterprise:</span> {user.enterprise_name}
+                </p>
+              )}
             </div>
 
             <Input
@@ -260,9 +319,9 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
               error={detailsErrors.phone?.message}
               placeholder="9876543210"
               inputMode="numeric"
+              maxLength={10}
               onInput={(e: React.FormEvent<HTMLInputElement>) => {
-                const input = e.currentTarget;
-                input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+                e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
               }}
             />
 
@@ -305,6 +364,58 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
                 <p className="mt-1 text-xs text-red-500">{detailsErrors.status.message}</p>
               )}
             </div>
+
+            {/* Enterprise selector - shown for IT Admin, Org Admin, Employee */}
+            {needsEnterprise && (
+              <div>
+                <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                  Enterprise <span className="text-red-500">*</span>
+                </label>
+                <select
+                  {...registerDetails('enterprise_id')}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                >
+                  <option value="">
+                    {enterprisesLoading ? 'Loading...' : 'Select an enterprise...'}
+                  </option>
+                  {activeEnterprises.map((ent: any) => (
+                    <option key={ent.id} value={ent.id}>
+                      {ent.name}
+                    </option>
+                  ))}
+                </select>
+                {detailsErrors.enterprise_id && (
+                  <p className="mt-1 text-xs text-red-500">{detailsErrors.enterprise_id.message}</p>
+                )}
+              </div>
+            )}
+
+            {/* Logistics Admin selector - shown for Logistics User */}
+            {needsLogisticsAdmin && (
+              <div>
+                <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                  Logistics Admin <span className="text-red-500">*</span>
+                </label>
+                <select
+                  {...registerDetails('parent_user_id')}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                >
+                  <option value="">
+                    {logisticsAdminsLoading ? 'Loading...' : 'Select a logistics admin...'}
+                  </option>
+                  {logisticsAdmins
+                    .filter((u: any) => u.status === 'active')
+                    .map((admin: any) => (
+                      <option key={admin.id} value={admin.id}>
+                        {admin.company_name ? `${admin.company_name} (${admin.name})` : admin.name}
+                      </option>
+                    ))}
+                </select>
+                {detailsErrors.parent_user_id && (
+                  <p className="mt-1 text-xs text-red-500">{detailsErrors.parent_user_id.message}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <ModalFooter className="mt-6">

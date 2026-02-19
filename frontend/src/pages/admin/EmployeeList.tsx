@@ -16,7 +16,7 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -72,6 +72,7 @@ export function EmployeeList() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
   
+  const { stats: dashStats } = useDashboardStats();
   const sendInvitationMutation = useSendSubUserInvitation();
   const { showSuccess, handleError } = useApiError();
 
@@ -155,9 +156,9 @@ export function EmployeeList() {
   }, [enterpriseSubUsers, activeBranchFilter]);
 
   const stats = {
-    total: scopedUsers.length,
-    active: scopedUsers.filter(u => u.status === 'active').length,
-    pending: scopedUsers.filter(u => u.status === 'pending_invite').length,
+    total: dashStats.employee_total ?? scopedUsers.length,
+    active: dashStats.employee_active ?? scopedUsers.filter(u => u.status === 'active').length,
+    pending: (dashStats.employee_total ?? scopedUsers.length) - (dashStats.employee_active ?? scopedUsers.filter(u => u.status === 'active').length),
     totalAssigned: scopedUsers.reduce((sum, u) => sum + u.assignedAssets, 0),
   };
 

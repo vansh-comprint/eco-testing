@@ -133,7 +133,7 @@ export function EnterpriseDetail() {
       const branches: Record<string, string> = {};
       if (branchesResult.success && branchesResult.data) {
         branchesResult.data.forEach((b) => {
-          branches[b.id] = b.name || '';
+          branches[b.id] = b.branch_name || '';
         });
       }
 

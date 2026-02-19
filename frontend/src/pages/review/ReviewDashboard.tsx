@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, ClipboardCheck, AlertTriangle, Clock, CheckCircle, ArrowRight, Laptop, TrendingUp } from 'lucide-react';
-import { useAuth, useInfiniteAssets } from '@/hooks';
+import { Eye, ClipboardCheck, AlertTriangle, IndianRupee, CheckCircle, ArrowRight, Laptop, TrendingUp } from 'lucide-react';
+import { useAuth, useInfiniteAssets, useDashboardStats } from '@/hooks';
 
 export function ReviewDashboard() {
   const navigate = useNavigate();
@@ -12,6 +12,9 @@ export function ReviewDashboard() {
   const { data: remoteReviewData } = useInfiniteAssets({ status: 'submitted' });
   const { data: inTransitData } = useInfiniteAssets({ status: 'in_transit' });
   const { data: facilityQCData } = useInfiniteAssets({ status: 'facility_qc' });
+
+  // Live stats from backend
+  const { stats } = useDashboardStats();
 
   // Flatten for preview display (first page is enough for top 3)
   const pendingRemoteReview = useMemo(
@@ -34,33 +37,29 @@ export function ReviewDashboard() {
   // TODO: Add disputes hook when available
   const pendingDisputes: Array<{ id: string; assetId: string; itAdminNotes: string; type?: string }> = [];
 
-  // Get today's stats
-  // TODO: Add review stats hook when available
-  const stats = { reviewedToday: 0, qcCompletedToday: 0, disputesResolved: 0, avgReviewTime: '0m' };
-
   const statCards = [
     {
-      label: 'Reviewed Today',
-      value: stats.reviewedToday,
+      label: 'Pending Review',
+      value: stats.pending_review ?? 0,
       icon: Eye,
       color: 'blue',
     },
     {
-      label: 'QC Completed',
-      value: stats.qcCompletedToday,
+      label: 'Pending QC',
+      value: stats.pending_qc ?? 0,
       icon: ClipboardCheck,
       color: 'emerald',
     },
     {
-      label: 'Disputes Resolved',
-      value: stats.disputesResolved,
-      icon: AlertTriangle,
+      label: 'Pending Payout',
+      value: stats.pending_payout ?? 0,
+      icon: IndianRupee,
       color: 'amber',
     },
     {
-      label: 'Avg Review Time',
-      value: stats.avgReviewTime,
-      icon: Clock,
+      label: 'Completed Assets',
+      value: stats.asset_completed ?? 0,
+      icon: TrendingUp,
       color: 'purple',
     },
   ];
