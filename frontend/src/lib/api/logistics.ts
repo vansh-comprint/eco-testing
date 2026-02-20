@@ -86,6 +86,7 @@ export interface LogisticsUserCreateRequest {
 
 export interface LogisticsUserUpdateRequest {
   name?: string;
+  email?: string;
   phone?: string;
   vehicle_number?: string;
   vehicle_type?: string;

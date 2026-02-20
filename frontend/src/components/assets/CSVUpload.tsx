@@ -38,6 +38,7 @@ export interface BulkUploadResult {
 interface CSVUploadProps {
   enterpriseId: string;
   batchId?: string;
+  branches?: Array<{ id: string; branch_name: string }>;
   onUpload: (assets: CreateAssetInput[], metadata: BulkUploadMetadata) => Promise<BulkUploadResult | void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -47,6 +48,7 @@ interface ParsedRow {
   serialNumber: string;
   brand: string;
   model: string;
+  branch: string;
   processor?: string;
   ram?: string;
   storage?: string;
@@ -62,7 +64,7 @@ interface ParsedRow {
   warnings: string[];
 }
 
-const REQUIRED_COLUMNS = ['serialNumber', 'brand', 'model'];
+const REQUIRED_COLUMNS = ['serialNumber', 'brand', 'model', 'branch'];
 const OPTIONAL_COLUMNS = ['processor', 'ram', 'storage', 'screenSize', 'os', 'gpu', 'purchaseDate'];
 const USER_COLUMNS = ['assignedEmail', 'assignedName', 'assignedDepartment'];
 const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS, ...USER_COLUMNS];
@@ -153,9 +155,17 @@ const COLUMN_ALIASES: Record<string, string> = {
   'graphics': 'gpu',
   'graphics card': 'gpu',
   'video card': 'gpu',
+  // Branch
+  'branch': 'branch',
+  'branch_name': 'branch',
+  'branch name': 'branch',
+  'branchname': 'branch',
+  'office': 'branch',
+  'site': 'branch',
+  'location': 'branch',
 };
 
-export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading }: CSVUploadProps) {
+export function CSVUpload({ enterpriseId, batchId, branches = [], onUpload, onCancel, isLoading }: CSVUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
@@ -241,6 +251,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         serialNumber: '',
         brand: '',
         model: '',
+        branch: '',
         errors: [],
         warnings: [],
       };
@@ -275,6 +286,20 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         row.errors.push('Model is required');
       }
 
+      // Validate branch (required when branches are available)
+      if (branches.length > 0) {
+        if (!row.branch) {
+          row.errors.push('Branch is required');
+        } else {
+          const matchedBranch = branches.find(
+            b => b.branch_name.toLowerCase() === row.branch.toLowerCase()
+          );
+          if (!matchedBranch) {
+            row.errors.push(`Branch "${row.branch}" is not valid. Use the dropdown to select an available branch`);
+          }
+        }
+      }
+
       // Validate email if provided
       if (row.assignedEmail && !isValidEmail(row.assignedEmail)) {
         row.errors.push('Invalid email format');
@@ -295,7 +320,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
 
     setParsedData(rows);
     setUploadStatus('ready');
-  }, []);
+  }, [branches]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -419,10 +444,16 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
 
     setUploadStatus('uploading');
     try {
+      // Build branch name -> id lookup
+      const branchNameToId = new Map<string, string>(
+        branches.map(b => [b.branch_name.toLowerCase(), b.id])
+      );
+
       // V3: Use snake_case for database fields
       const assets: CreateAssetInput[] = validRows.map(row => ({
         enterprise_id: enterpriseId,
         batch_id: batchId,
+        branch_id: row.branch ? branchNameToId.get(row.branch.toLowerCase()) : undefined,
         serial_number: row.serialNumber.toUpperCase(),
         brand: row.brand,
         model: row.model,
@@ -475,15 +506,15 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
 
   const downloadTemplate = () => {
     const headers = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS, ...USER_COLUMNS].join(',');
+    const exampleBranch = branches.length > 0 ? branches[0].branch_name : 'Main Branch';
     // Comprehensive examples showing valid options for each field
+    // Column order: serialNumber, brand, model, branch, processor, ram, storage, screenSize, os, gpu, purchaseDate, assignedEmail, assignedName, assignedDepartment
     const examples = [
-      'DELL-XPS15-001,Dell,XPS 15 9520,Intel Core i7-12700H,16GB DDR5,512GB NVMe SSD,15.6 inch FHD+,Windows 11 Pro,NVIDIA RTX 3050 Ti,2024-01-15,vikram@company.com,Vikram Singh,Engineering',
-      'HP-ELITE-002,HP,EliteBook 840 G9,Intel Core i5-1245U,8GB DDR4,256GB SSD,14 inch FHD,Windows 11 Pro,,2023-06-20,priya@company.com,Priya Sharma,Marketing',
-      'LENOVO-T14-003,Lenovo,ThinkPad T14 Gen 3,AMD Ryzen 7 PRO 6850U,16GB DDR5,512GB PCIe SSD,14 inch 2.2K,Windows 11 Pro,AMD Radeon Graphics,2024-03-10,,,',
-      'APPLE-MBP-004,Apple,MacBook Pro 14,Apple M3 Pro,18GB Unified,512GB SSD,14.2 inch Liquid Retina,macOS Sonoma,Apple M3 Pro GPU,2024-02-28,amit@company.com,Amit Kumar,Design',
-      'ASUS-ZEN-005,Asus,ZenBook 14,Intel Core i5-1340P,16GB LPDDR5,512GB SSD,14 inch OLED,Windows 11 Home,Intel Iris Xe,2023-11-15,,,',
-      'ACER-ASPIRE-006,Acer,Aspire 5,AMD Ryzen 5 7530U,8GB DDR4,256GB SSD,15.6 inch FHD,Windows 11 Home,AMD Radeon Graphics,2023-09-01,neha@company.com,Neha Patel,Sales',
-      'MS-SURFACE-007,Microsoft,Surface Laptop 5,Intel Core i7-1265U,16GB LPDDR5x,512GB SSD,13.5 inch PixelSense,Windows 11 Pro,Intel Iris Xe,2024-04-10,,,',
+      `DELL-XPS15-001,Dell,XPS 15 9520,${exampleBranch},Intel Core i7-12700H,16GB DDR5,512GB NVMe SSD,15.6 inch FHD+,Windows 11 Pro,NVIDIA RTX 3050 Ti,2024-01-15,vikram@company.com,Vikram Singh,Engineering`,
+      `HP-ELITE-002,HP,EliteBook 840 G9,${exampleBranch},Intel Core i5-1245U,8GB DDR4,256GB SSD,14 inch FHD,Windows 11 Pro,,2023-06-20,priya@company.com,Priya Sharma,Marketing`,
+      `LENOVO-T14-003,Lenovo,ThinkPad T14 Gen 3,${exampleBranch},AMD Ryzen 7 PRO 6850U,16GB DDR5,512GB PCIe SSD,14 inch 2.2K,Windows 11 Pro,AMD Radeon Graphics,2024-03-10,,,`,
+      `APPLE-MBP-004,Apple,MacBook Pro 14,${exampleBranch},Apple M3 Pro,18GB Unified,512GB SSD,14.2 inch Liquid Retina,macOS Sonoma,Apple M3 Pro GPU,2024-02-28,amit@company.com,Amit Kumar,Design`,
+      `ASUS-ZEN-005,Asus,ZenBook 14,${exampleBranch},Intel Core i5-1340P,16GB LPDDR5,512GB SSD,14 inch OLED,Windows 11 Home,Intel Iris Xe,2023-11-15,,,`,
     ];
     const content = `${headers}\n${examples.join('\n')}`;
 
@@ -516,11 +547,18 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
     // Create main Assets sheet
     const worksheet = workbook.addWorksheet('Assets');
 
+    // Branch names for dropdown (only active branches passed via prop)
+    const branchOptions = branches.map(b => b.branch_name);
+    const exampleBranch = branchOptions[0] || 'Main Branch';
+
     // Define columns with headers and widths
+    // A: serialNumber, B: brand, C: model, D: branch (required), E: processor, F: ram,
+    // G: storage, H: screenSize, I: os, J: gpu, K: purchaseDate, L: assignedEmail, M: assignedName, N: assignedDepartment
     worksheet.columns = [
       { header: 'serialNumber', key: 'serialNumber', width: 20 },
       { header: 'brand', key: 'brand', width: 14 },
       { header: 'model', key: 'model', width: 22 },
+      { header: 'branch', key: 'branch', width: 22 },
       { header: 'processor', key: 'processor', width: 26 },
       { header: 'ram', key: 'ram', width: 16 },
       { header: 'storage', key: 'storage', width: 18 },
@@ -550,6 +588,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       serialNumber: 'DELL-001',
       brand: 'Dell',
       model: 'XPS 15',
+      branch: exampleBranch,
       processor: 'Intel i7',
       ram: '16GB',
       storage: '512GB',
@@ -566,6 +605,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       serialNumber: 'HP-002',
       brand: 'HP',
       model: 'EliteBook 840',
+      branch: exampleBranch,
       processor: 'Intel i5',
       ram: '8GB',
       storage: '256GB',
@@ -586,6 +626,21 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
     // Apply dropdowns for rows 2-101
     // Warning style allows users to type custom values - click Yes to confirm
 
+    // Branch dropdown (column D) - REQUIRED, strict validation
+    if (branchOptions.length > 0) {
+      for (let row = 2; row <= 101; row++) {
+        worksheet.getCell(`D${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`"${branchOptions.join(',')}"`],
+          showErrorMessage: true,
+          errorStyle: 'stop',
+          errorTitle: 'Invalid Branch',
+          error: 'Please select a valid branch from the dropdown. Only active branches are shown.'
+        };
+      }
+    }
+
     // Brand dropdown (column B)
     for (let row = 2; row <= 101; row++) {
       worksheet.getCell(`B${row}`).dataValidation = {
@@ -599,9 +654,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // RAM dropdown (column E)
+    // RAM dropdown (column F - shifted from E)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`E${row}`).dataValidation = {
+      worksheet.getCell(`F${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${ramOptions.join(',')}"`],
@@ -612,9 +667,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // Storage dropdown (column F)
+    // Storage dropdown (column G - shifted from F)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`F${row}`).dataValidation = {
+      worksheet.getCell(`G${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${storageOptions.join(',')}"`],
@@ -625,9 +680,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // Screen Size dropdown (column G)
+    // Screen Size dropdown (column H - shifted from G)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`G${row}`).dataValidation = {
+      worksheet.getCell(`H${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${screenOptions.join(',')}"`],
@@ -638,9 +693,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // OS dropdown (column H)
+    // OS dropdown (column I - shifted from H)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`H${row}`).dataValidation = {
+      worksheet.getCell(`I${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${osOptions.join(',')}"`],
@@ -651,9 +706,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // GPU dropdown (column I)
+    // GPU dropdown (column J - shifted from I)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`I${row}`).dataValidation = {
+      worksheet.getCell(`J${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${gpuOptions.join(',')}"`],
@@ -664,9 +719,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // Department dropdown (column M)
+    // Department dropdown (column N - shifted from M)
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`M${row}`).dataValidation = {
+      worksheet.getCell(`N${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${departmentOptions.join(',')}"`],
@@ -677,9 +732,9 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       };
     }
 
-    // Date validation for purchaseDate column (column J) - DD/MM/YYYY format
+    // Date validation for purchaseDate column (column K - shifted from J) - DD/MM/YYYY format
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`J${row}`).dataValidation = {
+      worksheet.getCell(`K${row}`).dataValidation = {
         type: 'date',
         allowBlank: true,
         operator: 'between',
@@ -690,25 +745,26 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
         error: 'Please enter a valid date (e.g., 15/01/2024)'
       };
       // Set date format to DD/MM/YYYY
-      worksheet.getCell(`J${row}`).numFmt = 'dd/mm/yyyy';
+      worksheet.getCell(`K${row}`).numFmt = 'dd/mm/yyyy';
     }
 
     // Create reference sheet with all valid options
     const refSheet = workbook.addWorksheet('Valid Options');
     refSheet.getRow(1).values = ['VALID OPTIONS REFERENCE - Dropdowns are available in the Assets sheet'];
-    refSheet.mergeCells('A1:G1');
+    refSheet.mergeCells('A1:H1');
     refSheet.getCell('A1').font = { bold: true, size: 12 };
 
-    refSheet.getRow(3).values = ['Brand', 'RAM', 'Storage', 'Screen Size', 'OS', 'GPU', 'Department'];
+    refSheet.getRow(3).values = ['Branch (Required)', 'Brand', 'RAM', 'Storage', 'Screen Size', 'OS', 'GPU', 'Department'];
     refSheet.getRow(3).font = { bold: true };
 
     const maxLength = Math.max(
-      brandOptions.length, ramOptions.length, storageOptions.length,
+      branchOptions.length, brandOptions.length, ramOptions.length, storageOptions.length,
       screenOptions.length, osOptions.length, gpuOptions.length, departmentOptions.length
     );
 
     for (let i = 0; i < maxLength; i++) {
       refSheet.addRow([
+        branchOptions[i] || '',
         brandOptions[i] || '',
         ramOptions[i] || '',
         storageOptions[i] || '',
@@ -721,6 +777,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
 
     // Set column widths for reference sheet
     refSheet.columns = [
+      { width: 22 },
       { width: 16 },
       { width: 16 },
       { width: 18 },
@@ -763,6 +820,7 @@ export function CSVUpload({ enterpriseId, batchId, onUpload, onCancel, isLoading
       ['serialNumber', 'YES', 'Unique identifier for the asset (min 5 characters)', 'DELL-001, HP-XYZ-123, SN2024001'],
       ['brand', 'YES', 'Manufacturer/brand of the device', 'Dell, HP, Lenovo, Apple, Asus'],
       ['model', 'YES', 'Model name/number of the device', 'XPS 15, EliteBook 840, ThinkPad T14'],
+      ['branch', 'YES', 'Branch/office location (use dropdown - only active branches shown)', branchOptions.join(', ') || 'Select from dropdown'],
       ['processor', 'No', 'CPU type and model', 'Intel i7, Intel i5, AMD Ryzen 7, Apple M3'],
       ['ram', 'No', 'Memory size (use dropdown or enter custom)', '4GB, 8GB, 16GB, 32GB'],
       ['storage', 'No', 'Storage capacity (use dropdown or enter custom)', '128GB, 256GB, 512GB, 1TB'],
@@ -954,6 +1012,7 @@ Generated by EcoTribe Asset Management
       { header: 'serialNumber', key: 'serialNumber', width: 20 },
       { header: 'brand', key: 'brand', width: 14 },
       { header: 'model', key: 'model', width: 22 },
+      { header: 'branch', key: 'branch', width: 22 },
       { header: 'processor', key: 'processor', width: 26 },
       { header: 'ram', key: 'ram', width: 16 },
       { header: 'storage', key: 'storage', width: 18 },
@@ -985,6 +1044,7 @@ Generated by EcoTribe Asset Management
         serialNumber: row.serialNumber || '',
         brand: row.brand || '',
         model: row.model || '',
+        branch: row.branch || '',
         processor: row.processor || '',
         ram: row.ram || '',
         storage: row.storage || '',
@@ -1273,39 +1333,6 @@ Generated by EcoTribe Asset Management
                 </div>
               </div>
 
-              {/* Column Info */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 border border-red-500/10 bg-red-500/5">
-                  <p className="font-mono font-bold text-[10px] text-red-400 uppercase tracking-widest mb-2">Required Columns</p>
-                  <div className="flex flex-wrap gap-2">
-                    {REQUIRED_COLUMNS.map(col => (
-                      <span key={col} className="px-2 py-1 border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-mono">
-                        {col}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4 border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
-                  <p className="font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">Device Specs (Optional)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {OPTIONAL_COLUMNS.map(col => (
-                      <span key={col} className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-500 text-xs font-mono">
-                        {col}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4 border border-blue-500/10 bg-blue-500/5">
-                  <p className="font-mono font-bold text-[10px] text-blue-400 uppercase tracking-widest mb-2">User Assignment (Optional)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {USER_COLUMNS.map(col => (
-                      <span key={col} className="px-2 py-1 border border-blue-500/20 bg-blue-500/10 text-blue-400 text-xs font-mono">
-                        {col}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </motion.div>
@@ -1463,6 +1490,7 @@ Generated by EcoTribe Asset Management
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Status</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Serial</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Device</th>
+                          <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Branch</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Specs</th>
                           <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest">Assigned To</th>
                         </tr>
@@ -1488,6 +1516,15 @@ Generated by EcoTribe Asset Management
                             <td className="py-3 px-5">
                               <p className="font-display text-sm text-black dark:text-white">{row.brand || '-'}</p>
                               <p className="font-mono text-xs text-zinc-600">{row.model || '-'}</p>
+                            </td>
+                            <td className="py-3 px-5">
+                              {row.branch ? (
+                                <span className="px-2 py-0.5 border border-lime-500/20 bg-lime-500/10 text-lime-400 text-[10px] font-mono">
+                                  {row.branch}
+                                </span>
+                              ) : (
+                                <span className="font-mono text-xs text-red-400">Missing</span>
+                              )}
                             </td>
                             <td className="py-3 px-5 font-mono text-xs text-zinc-600">
                               {[row.processor, row.ram, row.storage].filter(Boolean).join(' • ') || '-'}

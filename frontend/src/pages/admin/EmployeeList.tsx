@@ -8,26 +8,28 @@ import {
   Search,
   Mail,
   Phone,
-  Eye,
   CheckCircle,
   Clock,
   XCircle,
   Laptop,
   Send,
-  Loader2
+  Loader2,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDashboardStats } from '@/hooks';
-import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { subUsersApi } from '@/lib/api/sub-users';
+import { subUserKeys } from '@/hooks/useEmployees';
+import { InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal } from '@/components/ui';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
-import { formatDistanceToNow } from 'date-fns';
 
 type SubUserStatus = 'active' | 'pending_invite' | 'inactive';
 
 const STATUS_OPTIONS = [
   { label: 'All Statuses', value: '' },
   { label: 'Active', value: 'active' },
-  { label: 'Pending Invite', value: 'pending_invite' },
   { label: 'Inactive', value: 'inactive' },
 ];
 
@@ -71,10 +73,41 @@ export function EmployeeList() {
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
-  
-  const { stats: dashStats } = useDashboardStats();
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [pendingToggle, setPendingToggle] = useState<{ userId: string; currentStatus: SubUserStatus; userName: string } | null>(null);
+
+  const queryClient = useQueryClient();
   const sendInvitationMutation = useSendSubUserInvitation();
   const { showSuccess, handleError } = useApiError();
+
+  const requestToggleStatus = (userId: string, currentStatus: SubUserStatus, userName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPendingToggle({ userId, currentStatus, userName });
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!pendingToggle) return;
+    const { userId, currentStatus } = pendingToggle;
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    setPendingToggle(null);
+    setTogglingIds(prev => new Set(prev).add(userId));
+    try {
+      await subUsersApi.update(userId, { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: subUserKeys.all });
+      showSuccess(
+        newStatus === 'active' ? 'Employee Activated' : 'Employee Deactivated',
+        newStatus === 'active' ? 'Employee is now active.' : 'Employee has been deactivated.'
+      );
+    } catch (error) {
+      handleError(error, 'Updating employee status');
+    } finally {
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
 
   const handleResendInvite = async (userId: string, email: string) => {
     setResendingIds(prev => new Set(prev).add(userId));
@@ -156,9 +189,9 @@ export function EmployeeList() {
   }, [enterpriseSubUsers, activeBranchFilter]);
 
   const stats = {
-    total: dashStats.employee_total ?? scopedUsers.length,
-    active: dashStats.employee_active ?? scopedUsers.filter(u => u.status === 'active').length,
-    pending: (dashStats.employee_total ?? scopedUsers.length) - (dashStats.employee_active ?? scopedUsers.filter(u => u.status === 'active').length),
+    total: scopedUsers.length,
+    active: scopedUsers.filter(u => u.status === 'active').length,
+    pending: scopedUsers.filter(u => u.status === 'pending_invite').length,
     totalAssigned: scopedUsers.reduce((sum, u) => sum + u.assignedAssets, 0),
   };
 
@@ -298,7 +331,8 @@ export function EmployeeList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.03 * Math.min(index, 10) }}
-                  className="p-5 hover:bg-white/70 dark:hover:bg-white/[0.06] transition-colors"
+                  onClick={() => navigate(`${basePath}/employees/${user.id}`)}
+                  className="p-5 hover:bg-white/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-5">
                     {/* Avatar */}
@@ -369,12 +403,26 @@ export function EmployeeList() {
                           )}
                         </button>
                       )}
-                      <button
-                        onClick={() => navigate(`${basePath}/employees/${user.id}`)}
-                        className="interactive p-2.5 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5 transition-all"
-                      >
-                        <Eye className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors" />
-                      </button>
+                      {(user.status === 'active' || user.status === 'inactive') && (
+                        <button
+                          onClick={(e) => requestToggleStatus(user.id, user.status, user.name, e)}
+                          disabled={togglingIds.has(user.id)}
+                          className={`interactive p-2.5 border transition-all disabled:opacity-50 ${
+                            user.status === 'active'
+                              ? 'border-slate-200 dark:border-white/10 hover:border-red-400/30 hover:bg-red-400/5'
+                              : 'border-slate-200 dark:border-white/10 hover:border-emerald-400/30 hover:bg-emerald-400/5'
+                          }`}
+                          title={user.status === 'active' ? 'Deactivate' : 'Activate'}
+                        >
+                          {togglingIds.has(user.id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-white/50" />
+                          ) : user.status === 'active' ? (
+                            <UserX className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-red-400 transition-colors" />
+                          ) : (
+                            <UserCheck className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-emerald-400 transition-colors" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -386,11 +434,6 @@ export function EmployeeList() {
                     {user.department !== 'Unassigned' && (
                       <span className="sm:hidden px-2 py-0.5 border border-slate-200 dark:border-white/10 text-[10px] uppercase">{user.department}</span>
                     )}
-                  </div>
-                  <div className="mt-2 sm:mt-3 ml-[4.25rem] font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                    {user.lastActive
-                      ? `Last active ${formatDistanceToNow(user.lastActive, { addSuffix: true })}`
-                      : 'Never logged in'}
                   </div>
                 </motion.div>
               );
@@ -431,6 +474,20 @@ export function EmployeeList() {
 
       <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
       <InfiniteScrollInfo loadedCount={subUsers.length} totalCount={totalSubUsers} />
+
+      <ConfirmationModal
+        isOpen={!!pendingToggle}
+        onClose={() => setPendingToggle(null)}
+        onConfirm={confirmToggleStatus}
+        title={pendingToggle?.currentStatus === 'active' ? 'Deactivate Employee?' : 'Activate Employee?'}
+        description={
+          pendingToggle?.currentStatus === 'active'
+            ? `Are you sure you want to deactivate ${pendingToggle?.userName}? They will lose access to the portal.`
+            : `Are you sure you want to activate ${pendingToggle?.userName}? They will regain access to the portal.`
+        }
+        confirmText={pendingToggle?.currentStatus === 'active' ? 'Deactivate' : 'Activate'}
+        variant={pendingToggle?.currentStatus === 'active' ? 'danger' : 'info'}
+      />
     </div>
   );
 }

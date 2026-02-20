@@ -11,7 +11,7 @@ import {
   type SubUserBulkItem,
   type SubUserCreateRequest,
 } from '@/lib/api/sub-users';
-import { assetsApi } from '@/lib/api/assets';
+import { assetsApi, type AssetResponse } from '@/lib/api/assets';
 import { parseApiError } from '@/lib/api/error-handler';
 import { assetKeys } from './useAssets';
 
@@ -177,11 +177,45 @@ export function useDeleteSubUser() {
 
   return useMutation({
     mutationFn: async (subUserId: string) => {
+      // Collect early-stage asset IDs assigned to this employee from all cached asset queries
+      const uniqueAssetIds = new Set<string>();
+      for (const [, data] of queryClient.getQueriesData<unknown>({ queryKey: assetKeys.all })) {
+        // Flat list: AssetResponse[]
+        if (Array.isArray(data)) {
+          (data as AssetResponse[]).forEach(a => {
+            if (a?.assigned_to_user_id === subUserId && ['assigned', 'check_in_started'].includes(a.status)) {
+              uniqueAssetIds.add(a.id);
+            }
+          });
+        }
+        // Infinite query: { pages: [{ data: AssetResponse[] }] }
+        const pages = (data as any)?.pages;
+        if (Array.isArray(pages)) {
+          pages.forEach((page: any) => {
+            if (Array.isArray(page?.data)) {
+              (page.data as AssetResponse[]).forEach(a => {
+                if (a?.assigned_to_user_id === subUserId && ['assigned', 'check_in_started'].includes(a.status)) {
+                  uniqueAssetIds.add(a.id);
+                }
+              });
+            }
+          });
+        }
+      }
+
+      // Delete employee — DB cascade sets assigned_to_user_id = NULL on all their assets
       await subUsersApi.delete(subUserId);
+
+      // Revert early-stage assets back to pending_assignment
+      if (uniqueAssetIds.size > 0) {
+        await Promise.all(
+          [...uniqueAssetIds].map(id => assetsApi.update(id, { status: 'pending_assignment' }))
+        );
+      }
     },
     onSuccess: (_, subUserId) => {
       queryClient.removeQueries({ queryKey: subUserKeys.detail(subUserId) });
-      queryClient.invalidateQueries({ queryKey: subUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: subUserKeys.all });
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });

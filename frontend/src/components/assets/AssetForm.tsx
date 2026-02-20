@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Laptop, Save, X, ChevronDown, Cpu, Monitor, UserCheck, User } from 'lucide-react';
-import { Button, Input, Textarea, Card, CardHeader, CardTitle, CardContent, Dropdown, EmployeeSelector } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { Laptop, Save, X, Cpu, Monitor, User, UserCheck } from 'lucide-react';
+import { Button, Input, Card, CardHeader, CardTitle, CardContent, Dropdown, EmployeeSelector } from '@/components/ui';
 import type { CreateAssetInput } from '@/hooks/useAssets';
 import type { AssetSpecs } from '@/types';
 
@@ -52,7 +50,6 @@ const GPU_MODELS: Record<string, string[]> = {
 };
 
 export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, onSubmit, onCancel, isLoading, showSelfAssign = false }: AssetFormProps) {
-  const [selfAssign, setSelfAssign] = useState(false);
   const [assignedEmployeeId, setAssignedEmployeeId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     serialNumber: '',
@@ -169,12 +166,8 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
       specs: Object.keys(specs).length > 0 ? specs as Record<string, unknown> : undefined,
       // FIX: Save purchase date if provided
       purchase_date: formData.purchaseDate || undefined,
-      // V3.2: Self-assignment fields
-      ...(selfAssign && userId && {
-        assigned_to_user_id: userId,
-      }),
-      // V3.3: Employee assignment (not self-assign)
-      ...(!selfAssign && assignedEmployeeId && {
+      // Assignment (self or employee)
+      ...(assignedEmployeeId && {
         assigned_to_user_id: assignedEmployeeId,
       }),
     };
@@ -218,8 +211,8 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           {/* Brand & Model Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">
-                Brand <span className="text-red-400">*</span>
+              <label className="block font-mono text-xs uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
+                Brand <span className="text-lime-600 dark:text-lime-400 ml-1">*</span>
               </label>
               <Dropdown
                 options={BRANDS.map(b => ({ label: b, value: b }))}
@@ -236,8 +229,8 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 dark:text-white/70 mb-1.5">
-                Model <span className="text-red-400">*</span>
+              <label className="block font-mono text-xs uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
+                Model <span className="text-lime-600 dark:text-lime-400 ml-1">*</span>
               </label>
               {!useCustomModel && suggestedModels.length > 0 ? (
                 <Dropdown
@@ -294,51 +287,56 @@ export function AssetForm({ enterpriseId, batchId, branchId, itAdminId, userId, 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Self-Assign Option */}
+          {/* Self-assign checkbox */}
           {showSelfAssign && userId && (
-            <label className="flex items-center gap-3 cursor-pointer group p-3 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
-              <div className={cn(
-                "w-5 h-5 border-2 flex items-center justify-center transition-all",
-                selfAssign
-                  ? "bg-ecotribe-primary border-ecotribe-primary"
-                  : "border-slate-300 dark:border-white/30 group-hover:border-slate-400 dark:group-hover:border-white/50"
-              )}>
-                {selfAssign && <UserCheck className="w-3 h-3 text-black" />}
-              </div>
+            <label
+              className={`flex items-center gap-3 p-3 border cursor-pointer transition-all select-none ${
+                assignedEmployeeId === userId
+                  ? 'border-ecotribe-primary/50 bg-ecotribe-primary/10'
+                  : 'border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5'
+              }`}
+            >
               <input
                 type="checkbox"
-                checked={selfAssign}
-                onChange={(e) => {
-                  setSelfAssign(e.target.checked);
-                  if (e.target.checked) {
-                    setAssignedEmployeeId(null); // Clear employee selection when self-assigning
+                checked={assignedEmployeeId === userId}
+                onChange={() => {
+                  if (assignedEmployeeId === userId) {
+                    setAssignedEmployeeId(null);
+                  } else {
+                    setAssignedEmployeeId(userId);
                   }
                 }}
-                className="sr-only"
+                className="w-4 h-4 accent-ecotribe-primary cursor-pointer"
               />
+              <UserCheck className={`w-4 h-4 flex-shrink-0 ${assignedEmployeeId === userId ? 'text-ecotribe-primary' : 'text-zinc-500'}`} />
               <div>
-                <span className="text-sm font-medium text-slate-900 dark:text-white">Assign to myself</span>
-                <p className="text-xs text-slate-500 dark:text-white/50">This asset will appear in your "My Evaluations" section</p>
+                <p className={`font-mono text-xs font-bold uppercase tracking-wider ${assignedEmployeeId === userId ? 'text-ecotribe-primary' : 'text-slate-700 dark:text-white/70'}`}>
+                  Assign to myself
+                </p>
+                <p className="font-mono text-[10px] text-zinc-500">Self-assign this asset to your account</p>
               </div>
             </label>
           )}
 
-          {/* Employee Selection (when not self-assigning) */}
-          {!selfAssign && (
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500 dark:text-white/50 mb-3">
-                Assign this asset to an employee for evaluation. They will receive an email with evaluation instructions.
-              </p>
-              <EmployeeSelector
-                enterpriseId={enterpriseId}
-                branchId={branchId}
-                value={assignedEmployeeId}
-                onChange={(id) => setAssignedEmployeeId(id)}
-                placeholder="Select or add an employee..."
-                showAddNew={true}
-              />
+          {/* Divider */}
+          {showSelfAssign && userId && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-black/5 dark:bg-white/5" />
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">or assign to employee</span>
+              <div className="flex-1 h-px bg-black/5 dark:bg-white/5" />
             </div>
           )}
+
+          {/* Other employee dropdown */}
+          <EmployeeSelector
+            enterpriseId={enterpriseId}
+            branchId={branchId}
+            value={assignedEmployeeId === userId ? null : assignedEmployeeId}
+            onChange={(id) => setAssignedEmployeeId(id)}
+            placeholder="Select or add an employee..."
+            showAddNew={true}
+            disabled={assignedEmployeeId === userId}
+          />
         </CardContent>
       </Card>
 

@@ -252,9 +252,8 @@ export function useUpdateLogisticsUser() {
     mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<CreateLogisticsUserInput> }) => {
       const apiData: LogisticsUserUpdateRequest = {
         name: updates.name,
+        email: updates.email,
         phone: updates.phone,
-        vehicle_number: updates.vehicle_number,
-        vehicle_type: updates.vehicle_type,
       };
       const response = await logisticsApi.updateUser(userId, apiData);
       if (!response.success) throw parseApiError(response) || new Error('Failed to update logistics user');
