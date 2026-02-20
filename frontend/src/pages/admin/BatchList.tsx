@@ -214,7 +214,7 @@ export function BatchList() {
         <StatBox label="Draft" value={stats.draft} icon={<Clock className="w-4 h-4" />} onClick={() => handleStatClick('draft')} active={statusFilter === 'draft'} />
         <StatBox label="Pending" value={stats.pendingApproval} icon={<AlertTriangle className="w-4 h-4" />} highlight={stats.pendingApproval > 0} onClick={() => handleStatClick('pending_approval')} active={statusFilter === 'pending_approval'} />
         <StatBox label="Active" value={stats.active} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('approved,pickup_in_progress')} active={statusFilter === 'approved,pickup_in_progress'} />
-        <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />
+        {isOrgAdmin && <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />}
       </motion.div>
 
       {/* Search & Filters */}
@@ -311,10 +311,12 @@ export function BatchList() {
                         <span>
                           Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
                         </span>
-                        {/* Value inline on mobile */}
-                        <span className="sm:hidden font-brand font-bold text-ecotribe-primary">
-                          ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
-                        </span>
+                        {/* Value inline on mobile — Org Admin only */}
+                        {isOrgAdmin && (
+                          <span className="sm:hidden font-brand font-bold text-ecotribe-primary">
+                            ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
+                          </span>
+                        )}
                       </div>
                       {batch.progress && batch.progress.total > 0 && (
                         <div className="mt-2">
@@ -323,13 +325,15 @@ export function BatchList() {
                       )}
                     </div>
 
-                    {/* Value - desktop only */}
-                    <div className="hidden sm:block text-right flex-shrink-0">
-                      <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-                        ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
-                      </p>
-                      <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
-                    </div>
+                    {/* Value - desktop only, Org Admin only */}
+                    {isOrgAdmin && (
+                      <div className="hidden sm:block text-right flex-shrink-0">
+                        <p className="font-brand font-bold text-2xl text-ecotribe-primary">
+                          ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
+                        </p>
+                        <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
+                      </div>
+                    )}
 
                     {/* Arrow - desktop */}
                     <ArrowRight className="hidden sm:block w-5 h-5 text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0" />

@@ -149,6 +149,7 @@ class BranchStatus(str, enum.Enum):
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+    NEEDS_ADMIN = "needs_admin"
 
 
 class Branch(BaseModel):

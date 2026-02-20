@@ -293,7 +293,6 @@ function AppRoutes() {
         <Route path="pickups/:requestId" element={<PickupRequestDetail />} />
         <Route path="disputes" element={<DisputeList />} />
         <Route path="disputes/:disputeId" element={<DisputeDetail />} />
-        <Route path="payouts" element={<PayoutView />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

@@ -6,206 +6,130 @@
 - **Access token**: `ecotribe_access_token` (localStorage)
 - **Refresh token**: `ecotribe_refresh_token` (localStorage)
 - **Auth state**: `ecotribe-auth-api` (Zustand persist key, localStorage)
-- **[SECURITY ISSUE]**: localStorage vulnerable to XSS — tokens readable by any injected script
+- **[SECURITY ISSUE]**: localStorage vulnerable to XSS
 
 ### Token Refresh Flow (client.ts:94-133)
-- **Mutex protection**: `refreshPromise` prevents concurrent refresh races (GOOD)
-- **Automatic retry**: 401 triggers refresh → retries original request (GOOD)
-- **Rotation support**: Backend can rotate refresh token, client accepts new one (line 126)
-- **[ISSUE]**: No max retry limit — infinite loop possible if refresh endpoint returns 401
+- Mutex protection, automatic retry, rotation support
+- **[ISSUE]**: No max retry limit — infinite loop if refresh 401s
 
-### Logout Flow (authStoreApi.ts:318-330)
-- **Fire-and-forget**: Backend logout called but errors ignored (line 320)
-- **Local cleanup**: clearTokens() removes both tokens + Zustand persist state (GOOD)
-- **[ISSUE]**: No token blacklist confirmation — if backend call fails, token remains valid server-side
-- **Navigation**: Sets isInitialized=false, forcing re-auth on next action (GOOD)
-
-### Page Unload Guard (client.ts:25-31, 58-68)
-- **Purpose**: Prevents token clearing during hard refresh / navigation
-- **Implementation**: beforeunload sets flag, forceLogout checks flag before clearing
-- **[GOOD]**: Prevents UX bug where refresh loses session
-
-### Auth Initialization (authStoreApi.ts:96-179)
-- **Guard**: Prevents concurrent initialization (line 98)
-- **Token check**: If no token, immediately sets isInitialized=true (no API call)
-- **User fetch**: Calls `/auth/me` to validate token
-- **Enterprise fetch**: Auto-fetches enterprise data if user.enterpriseId exists
-- **[SECURITY ISSUE]**: Transient errors (NETWORK_ERROR, PAGE_UNLOADING) keep tokens — potential expired token persistence (lines 150-158)
-- **[GOOD]**: onRehydrateStorage forces isInitialized=false, isAuthenticated=false (lines 414-421)
-
-### Role Mapping (authStoreApi.ts:50-63)
-- **Backward compat**: main_admin → ops_admin, technician → ops_admin, sub_user → employee
-- **Fallback**: Unknown roles default to 'employee' (line 63)
-- **[ISSUE]**: Silent role downgrade could grant unintended access
-
-### Route Protection (ProtectedRoute.tsx:11-66)
-- **Loading state**: Shows spinner while !isInitialized (GOOD)
-- **Auth check**: Redirects to /login if !isAuthenticated || !user (GOOD)
-- **Role check**: Redirects to role's default portal if access denied (GOOD)
-- **[ISSUE]**: No session timeout — relies only on backend token expiry
-
-### Login Flow (LoginPage.tsx:49-77)
-- **Validation**: Client-side email regex + min password length (6 chars)
-- **[SECURITY ISSUE]**: Password min 6 chars is WEAK (industry standard 8-12)
-- **Navigation**: Role-based redirect after successful login (GOOD)
-- **[ISSUE]**: No rate limiting on frontend (relies on backend)
-
-### API Client Security
-- **No CSRF protection**: No CSRF tokens in requests (JWT-only auth)
-- **No XSS protection**: No dangerouslySetInnerHTML found (GOOD)
-- **[ISSUE]**: No Content-Security-Policy headers in index.html
-- **[ISSUE]**: No X-Frame-Options, X-Content-Type-Options headers
-- **CORS**: Backend handles CORS (main.py:162-164), frontend sends credentials via Authorization header
-
-### Environment Configuration
-- **Production**: VITE_API_URL=https://api-wrapper.ecotribe.co/api/v1 (.env.production)
-- **Development**: Auto-detect from window.location (localhost:8000)
-- **[GOOD]**: No hardcoded secrets in frontend code
-- **[GOOD]**: API wrapper hides backend internal IP
-
-### OTP Flow (authStoreApi.ts:240-312)
-- **Employee login**: requestOTP → email sent → verifyOTP → tokens issued
-- **[ISSUE]**: No rate limiting visible on frontend
-- **[ISSUE]**: No OTP expiry shown to user (relies on backend)
-
-### Session Management
-- **No explicit timeout**: No inactivity logout, no session expiry warning
-- **No concurrent session limit**: Frontend doesn't enforce (backend has max 5 sessions per user)
-- **No remember me**: Tokens stored indefinitely in localStorage
-
-### React Query Integration (App.tsx:11-27)
-- **Global invalidation**: ALL queries invalidated after ANY mutation (line 23)
-- **[PERFORMANCE ISSUE]**: Over-invalidation could cause excessive refetches
-- **staleTime**: 5s (short), refetchOnWindowFocus: true (GOOD for security)
-- **No query persistence**: React Query cache is memory-only (GOOD)
-
-### Zustand Persistence (authStoreApi.ts:403-423)
-- **Persist key**: 'ecotribe-auth-api'
-- **Partialize**: Only persists user, enterprise, isAuthenticated (NOT isInitialized)
-- **[GOOD]**: onRehydrateStorage forces re-validation on app load
-- **[ISSUE]**: Persisted state in localStorage readable by XSS
-
-### Missing Security Features
-1. **No HttpOnly cookies**: Tokens in localStorage, not secure HttpOnly cookies
-2. **No SameSite cookies**: No cookie-based auth at all
-3. **No CSP headers**: index.html missing Content-Security-Policy
-4. **No token expiry UI**: No warning before token expires
-5. **No session timeout UI**: No inactivity logout
-6. **No device fingerprinting**: No device/browser tracking
-7. **No 2FA support**: No two-factor auth flow visible
-
-### Production Readiness Score: 6/10
-**Strengths**:
-- Mutex-protected token refresh
-- Proper role-based routing
-- Clean auth state management
-- No XSS injection vectors found
-
-**Critical Gaps**:
-- localStorage token storage (XSS vulnerability)
-- No CSP/security headers
-- Weak password validation (6 chars)
-- No session timeout
-- No explicit token blacklist confirmation
-
-### Scan Strategy Effectiveness: 5/5
-- Reading auth store → context → API client → login page → protected route in sequence was complete
-- Grepping for dangerouslySetInnerHTML, eval, cookie patterns caught all security vectors
-- Checking both .env files revealed production config
-- Following token lifecycle from storage → refresh → logout → initialization covered all flows
+### Auth Key Facts
+- Role mapping: main_admin→ops_admin, technician→ops_admin, sub_user→employee
+- onRehydrateStorage forces isInitialized=false on app load (GOOD)
+- Production: VITE_API_URL=https://api-wrapper.ecotribe.co/api/v1
 
 ---
 
-## EcoTribe Frontend UX Audit (2026-02-12)
+## EcoTribe Branch Bulk Upload Deep Audit (2026-02-19)
 
-### Audit Scope
-Scanned: `frontend/src/pages/`, `frontend/src/components/ui/`
-Focus: Forms, modals, mutations, empty states, error feedback
-Files analyzed: 90+ page components, 4 modal components
+### Feature Scope
+Org Admin portal only. Entry: `/org-admin/branches` → "Bulk Upload" button → `/org-admin/branches/upload`
 
-### Critical UX Issues Found: 23 total
-- **Critical (user-blocking)**: 3 issues
-- **High (causes frustration)**: 7 issues
-- **Medium (annoying)**: 8 issues
-- **Low (polish)**: 5 issues
+### Files Map (by edit sequence)
+1. `backend/app/models/enterprise.py:147-214` — Branch model + BranchStatus enum
+2. `backend/app/schemas/branch.py` — BranchCreate, BranchUpdate, BranchBulkCreate, BranchBulkCreateItem
+3. `backend/app/repositories/branch_repository.py` — DB ops, get_by_code
+4. `backend/app/services/branch_service.py` — Business logic, bulk_create_branches
+5. `backend/app/api/v1/branches.py` — Endpoints (GET/POST/PUT/DELETE)
+6. `frontend/src/lib/api/branches.ts` — API client, types
+7. `frontend/src/hooks/useBranches.ts` — React Query hooks + mutations
+8. `frontend/src/pages/org-admin/BulkBranchUpload.tsx` — Upload page (3-step wizard)
+9. `frontend/src/pages/org-admin/BranchManagement.tsx` — Branch list page, single-branch form
+10. `frontend/src/lib/validation.ts:229-252` — validateBranchCode(), branchCodeSchema
 
-### Top 5 Critical/High Issues
-1. **RemoteReview.tsx:78-87** — Silent validation failure (no error toast)
-2. **SignupPage.tsx:105-157** — Multi-step form data loss on error (no localStorage persistence)
-3. **AssetList.tsx:298-322** — Bulk operations missing progress feedback (loops with no UI update)
-4. **EmployeeInvite.tsx:166-192** — Partial failure handling broken (shows success even if some fail)
-5. **BatchDetail.tsx:354-384** — Double-submit risk on pickup creation (button disabled but no spinner)
+### Backend Endpoints
+- `GET /branches` — list with scoping
+- `POST /branches` — single create
+- `GET /branches/summary` — aggregated stats
+- `POST /branches/bulk?enterprise_id=X` — bulk create (accepts BranchBulkCreate)
+- `GET /branches/{branch_id}` — single get
+- `PUT /branches/{branch_id}` — update
+- `DELETE /branches/{branch_id}` — delete
+- **[MISSING]** `GET /branches/check-code` — endpoint called by frontend, NOT IMPLEMENTED in backend
 
-### Patterns That Work Well
-- **Error handling**: 145 instances of `showSuccess/showError/addToast` across 36 files
-- **Keyboard support**: Modal.tsx and ConfirmationModal.tsx handle Escape key
-- **Form validation**: Real-time inline errors with field-specific messages
-- **Confirmation modals**: Destructive actions protected by ConfirmationModal
-- **Loading states**: Most buttons use `disabled={isLoading}` pattern
+### [LANDMINE] Missing `check-code` Endpoint
+Frontend calls `GET /branches/check-code?enterprise_id=X&code=Y` in two places:
+- `BulkBranchUpload.tsx:380-386` — called during CSV validation loop
+- `BranchManagement.tsx:772-781` — called on branch code input change
+Backend `branches.py` has NO such endpoint → returns 404/422.
+Frontend silently ignores check errors (catch{} swallows) — duplicate codes not caught until upload fails.
 
-### Missing Patterns (Should Exist)
-- ❌ No global loading overlay for long operations
-- ❌ No optimistic updates
-- ❌ No mutation retry mechanism
-- ❌ No session timeout warning (JWT expires silently)
-- ❌ No unsaved changes warning on navigation
-- ❌ No form auto-save to localStorage
+### [LANDMINE] `needs_admin` Status Discrepancy
+- **DB** (dbschema.txt:25): `DEFAULT 'needs_admin'` with CHECK constraint `('active','inactive','needs_admin')`
+- **Backend BranchStatus enum** (enterprise.py:147-152): ONLY `ACTIVE='active'`, `INACTIVE='inactive'`
+- **Backend service**: creates ALL branches with `BranchStatus.ACTIVE.value` regardless of it_admin_id
+- **Frontend**: displays/handles `needs_admin` status, filters by it in BranchManagement.tsx:118
+- **Conflict**: Frontend expects `needs_admin`, backend always creates `active`, DB supports all 3
+- **Impact**: Bulk upload shows warning "will have needs_admin status" — but backend sets active
 
-### Scan Strategy Used
-1. Read key pages: LoginPage, SignupPage, BatchCreate, BatchDetail, AssetList, EmployeeInvite, DeviceSubmit
-2. Read modal components: Modal, ConfirmationModal, DeleteBatchModal
-3. Grep for patterns:
-   - `disabled={isPending}` (button loading states)
-   - `onClick.*delete` (destructive actions)
-   - `length === 0` (empty states)
-   - `catch|handleError` (error handling coverage)
-   - `toast|addToast|showSuccess` (feedback mechanisms)
-4. Check high-traffic flows: login → batch creation → asset add → submission → review
+### [LANDMINE] `it_admin_name` Field — Frontend/Backend Mismatch
+- CSV template has `it_admin_name` column (template instructions, validation display)
+- Frontend ParsedRow interface includes `it_admin_name` (BulkBranchUpload.tsx:42)
+- Frontend sends `it_admin_name` in upload payload (BulkBranchUpload.tsx:454)
+- **Backend BranchBulkCreateItem** (branch.py:114-133): NO `it_admin_name` field
+- Backend bulk create only uses `it_admin_email` to look up existing user — if not found, ERRORS OUT
+- **Frontend PROMISE vs REALITY**: Template says "creates new account if needed" — backend does NOT create IT Admins, just looks them up
+- IT Admin creation only happens in single-branch form (BranchManagement.tsx:292-300) via separate `createITAdmin` call
 
-### Effectiveness Score: 4/5
-- Reading full page components caught context-dependent issues (e.g., multi-step form state)
-- Grep patterns effective for counting patterns (145 error handlers found)
-- **Missed**: Would have benefited from checking Toast/ErrorBoundary implementation for completeness
-- **Future improvement**: Grep for `useForm` + `reset()` to find form reset issues faster
+### [LANDMINE] Bulk Upload IT Admin Auto-Create NOT Implemented
+Backend `bulk_create_branches` service (branch_service.py:283-303):
+- If `it_admin_email` not found → adds to `errors` array, SKIPS the branch entirely
+- Does NOT create a new IT Admin account
+- Frontend template/instructions say it will create one → false promise
+- The `generated_password` field in UploadResult interface is always undefined/empty
+- `newAdminsCount` stat in results page always 0
 
-### Key Findings by Category
+### Database Schema Key Facts
+- `branches` table unique constraint: `(enterprise_id, branch_code)` — migration 018
+- FK `enterprise_id → enterprises.id` (CASCADE)
+- FK `it_admin_id → users.id` (SET NULL)
+- Default status in DB: `needs_admin` — but backend overrides to `active`
 
-**Loading States (7 issues)**
-- RemoteReview, BatchDetail, AssetList bulk ops, EmployeeInvite all missing visual spinners
-- Buttons disabled but no progress indicator
+### Single-Branch Form vs Bulk Upload Field Comparison
+Single form has these fields ABSENT from bulk CSV:
+- `pickup_point_description` (textarea)
+- `special_instructions` (textarea)
+- `opening_day` / `closing_day` (day dropdowns, Mon-Sat)
+- `opening_hours` / `closing_hours` (time dropdowns, 30-min intervals)
+  - Combined into `operating_hours` string: "Mon-Sat 09:00 - 18:00"
+- IT Admin inline creation (full form: name, email, phone, password)
 
-**Form Reset (5 issues)**
-- BatchCreate, EmployeeInvite, DeviceSubmit don't clear form after success
-- SignupPage multi-step loses data on error
+Bulk CSV uses a free-text `operating_hours` field (no day/time structure).
 
-**Empty States (4 issues)**
-- BatchList, AssetList infinite scroll, RemoteReview queue
-- Most show blank space instead of helpful "No items" message
+### State/City Fields — No Dropdown
+- Both single form and bulk CSV use free-text `state` and `city` inputs
+- Indian states list exists in `CreateEnterprise.tsx:38-45` and `EnterpriseRegister.tsx:79`
+- Neither branch form nor bulk upload uses this list — plain text input only
+- Bulk CSV validation only checks letters-only regex, no state name validation
 
-**Validation Feedback (3 issues)**
-- RemoteReview returns silently on validation error
-- BatchCreate submit button not disabled when form invalid
-- DeviceSubmit photo upload has no size/format validation
+### Scoping & Authorization
+- `can_access_enterprise()` in `scoping.py` controls bulk create access
+- Org Admin has `enterprise_id` on their user record — auto-scoped
+- IT Admin has `BRANCH_CREATE` but NOT `BRANCH_UPDATE`/`BRANCH_DELETE` — cannot bulk upload (no BRANCH_UPDATE needed for bulk, but bulk endpoint uses BRANCH_CREATE permission — OK)
+- `BulkBranchUpload.tsx` only rendered for `canManageBranches` which is `isOrgAdmin` only (line 171)
 
-**Destructive Actions (GOOD)**
-- All delete operations use confirmation modals
-- DeleteBatchModal, ConfirmationModal have proper disabled states during operations
+### Transactional Behavior
+- Bulk create: loop with per-item error collection
+- Uses `self.db.flush()` per branch (not add+commit per item)
+- Single `db.commit()` at end if any successes (line 331-332)
+- Partial success possible: some created, some errored
+- `db.refresh()` NOT called after commit — `_enrich_branches_batch` called on unfresh objects
+- No rollback on partial failure — successfully flushed branches remain
 
-### Recommendations Priority Order
-1. Fix RemoteReview silent validation (CRITICAL)
-2. Add progress to bulk operations (HIGH)
-3. Persist SignupPage to localStorage (HIGH)
-4. Add spinners to all mutation buttons (HIGH)
-5. Fix EmployeeInvite partial failure (HIGH)
-6. Add "End of list" to infinite scroll (MEDIUM)
-7. Reset forms on success (MEDIUM)
-8. Add empty state components (MEDIUM)
-9. Add unsaved changes warning (LOW)
-10. Cap EmployeeInvite max invites (LOW)
+### Frontend Validation (BulkBranchUpload.tsx:344-430)
+Row-level checks:
+1. Required fields presence
+2. `validateBranchCode()` — format only (1-10 alphanumeric uppercase)
+3. Duplicate check within file (Set-based)
+4. `branchesApi.checkCodeExists()` — calls missing endpoint, silently ignored
+5. PIN code: `/^\d{6}$/`
+6. IT admin email format regex
+7. IT admin email existence check via `usersApi.list()` (warns "will be created" if not found)
 
-### Files Requiring Immediate Attention
-1. `frontend/src/pages/review/RemoteReview.tsx`
-2. `frontend/src/pages/auth/SignupPage.tsx`
-3. `frontend/src/pages/admin/BatchDetail.tsx`
-4. `frontend/src/pages/admin/AssetList.tsx`
-5. `frontend/src/pages/admin/EmployeeInvite.tsx`
+### No Tests
+- No test files found for branch feature in backend or frontend
+- `backend/tests/` has test_auth.py but no test_branches.py
+
+### Scan Effectiveness: 5/5
+- Grepping for check.code first revealed the missing endpoint immediately
+- Following BranchStatus enum in model caught needs_admin discrepancy
+- Comparing template columns to BranchBulkCreateItem schema caught it_admin_name gap

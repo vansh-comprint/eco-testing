@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   ClipboardCheck,
   CheckCircle,
   XCircle,
@@ -17,7 +16,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAsset } from '@/hooks';
 import { assetKeys } from '@/hooks/useAssets';
 import { reviewsApi } from '@/lib/api/reviews';
-import { useToast } from '@/components/ui';
+import { useToast, BackButton } from '@/components/ui';
 import { facilityQCTemplate, type FacilityQCChecklist, type FacilityQCDecision } from '@/types/review';
 import type { AssetGrade } from '@/types/asset';
 
@@ -161,7 +160,7 @@ export function FacilityQC() {
         functional_tests: checklist as unknown as Record<string, unknown>,
       });
 
-      navigate(-1); // Go back to QC queue (works for both /review/qc and /ops/qc)
+      navigate(qcQueuePath);
     } catch (error) {
       console.error('Failed to submit facility QC:', error);
       addToast({ type: 'error', title: 'QC Failed', message: 'Failed to submit QC. Please try again.' });
@@ -177,12 +176,7 @@ export function FacilityQC() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="interactive w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-900 dark:text-white" />
-        </button>
+        <BackButton to={qcQueuePath} label="Back to Queue" />
         <div className="flex-1">
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">
             Facility QC

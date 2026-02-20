@@ -5,10 +5,9 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft,
   Users,
   Info,
   Upload,
@@ -25,7 +24,8 @@ import {
   Building2,
   Key,
 } from 'lucide-react';
-import { useAuth, useBranches, useAllUsers, useBulkCreateITAdmins, useUpdateBranch, useApiError } from '@/hooks';
+import { useAuth, useBranches, useAllUsers, useBulkCreateITAdmins, useUpdateBranch, useApiError, usePortalBasePath } from '@/hooks';
+import { BackButton } from '@/components/ui';
 import { generatePassword } from '@/lib/validation';
 
 interface ParsedRow {
@@ -67,9 +67,16 @@ interface BulkITAdminUploadProps {
 
 export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdminUploadProps = {}) {
   const navigate = useNavigate();
+  const portalBase = usePortalBasePath();
+  const { id: routeEnterpriseId } = useParams<{ id: string }>();
   // V3.2: Use React Query hook for auth
   const { enterprise } = useAuth();
   const enterpriseId = propEnterpriseId || enterprise?.id || '';
+  // Multi-context back: from org-admin → it-admins list, from super/ops → enterprise detail
+  const backTo = propEnterpriseId
+    ? `${portalBase}/enterprises/${routeEnterpriseId || propEnterpriseId}`
+    : `${portalBase}/it-admins`;
+  const backLabel = propEnterpriseId ? 'Back to Enterprise' : 'Back to IT Admins';
 
   const { data: branches = [] } = useBranches(enterpriseId);
   // Fetch ALL users for this enterprise (not just IT admins) for duplicate detection
@@ -671,7 +678,8 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
                 Upload More
               </button>
               <button
-                onClick={() => navigate(-1)}
+                type="button"
+                onClick={() => navigate(backTo)}
                 className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
               >
                 View IT Admins
@@ -692,13 +700,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <button
-            onClick={() => navigate(-1)}
-            className="interactive flex items-center gap-2 text-slate-500 dark:text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton to={backTo} label={backLabel} className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -873,11 +875,11 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
                 Try Again
               </button>
               <button
-                onClick={() => navigate(-1)}
+                type="button"
+                onClick={() => navigate(backTo)}
                 className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Go Back
+                {backLabel}
               </button>
             </div>
           </div>
@@ -1105,7 +1107,8 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
-              onClick={() => navigate(-1)}
+              type="button"
+              onClick={() => navigate(backTo)}
               disabled={uploadStatus === 'uploading'}
               className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
             >

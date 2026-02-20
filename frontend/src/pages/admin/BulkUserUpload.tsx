@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Users, Info } from 'lucide-react';
+import { Users, Info } from 'lucide-react';
 import { CSVUserUpload } from '@/components/users';
-import { useAuth, useCreateSubUsers } from '@/hooks';
+import { BackButton } from '@/components/ui';
+import { useAuth, useCreateSubUsers, usePortalBasePath } from '@/hooks';
 import type { CreateSubUserInput } from '@/types';
 
 interface BulkUserUploadProps {
@@ -11,6 +12,7 @@ interface BulkUserUploadProps {
 
 export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploadProps = {}) {
   const navigate = useNavigate();
+  const portalBase = usePortalBasePath();
 
   // V3: Use React Query hooks
   const { enterprise } = useAuth();
@@ -38,13 +40,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <button
-            onClick={() => navigate(-1)}
-            className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton to={`${portalBase}/employees`} label="Back to Employees" className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -97,7 +93,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         <CSVUserUpload
           enterpriseId={resolvedEnterpriseId}
           onUpload={handleUpload}
-          onCancel={() => navigate(-1)}
+          onCancel={() => navigate(`${portalBase}/employees`)}
         />
       </motion.div>
     </div>

@@ -151,6 +151,12 @@ export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'
     queryKey: assetKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
       const res = await assetsApi.list({ ...params, skip: pageParam as number, limit: pageSize });
+      // Throw on API errors so React Query retries instead of caching empty data.
+      // Without this, a transient 401 during auth rehydration gets cached as "0 items"
+      // and the page appears empty until staleTime expires.
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Failed to fetch assets');
+      }
       return res;
     },
     initialPageParam: 0,
@@ -161,6 +167,8 @@ export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'
       return undefined;
     },
     staleTime: 30000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

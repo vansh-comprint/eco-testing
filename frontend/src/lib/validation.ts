@@ -226,6 +226,20 @@ export const amountSchema = z
   .positive('Amount must be greater than 0')
   .max(10000000, 'Amount cannot exceed ₹1 Crore');
 
+// ── Indian States ─────────────────────────────────────────────────────────
+
+/** Complete list of Indian states and union territories. */
+export const indianStates = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Delhi', 'Chandigarh', 'Puducherry',
+] as const;
+
+export type IndianState = typeof indianStates[number];
+
 // ── Branch Code ──────────────────────────────────────────────────────────
 
 /** Branch code — 1-10 uppercase alphanumeric characters. */
@@ -347,9 +361,13 @@ export const bulkBranchRowSchema = z.object({
   pin_code: pinCodeSchema,
   site_contact_person: z.string().optional().default(''),
   site_contact_phone: z.string().optional().default(''),
-  operating_hours: z.string().optional().default(''),
+  opening_day: z.string().optional().default(''),
+  closing_day: z.string().optional().default(''),
+  opening_time: z.string().optional().default(''),
+  closing_time: z.string().optional().default(''),
+  pickup_point_description: z.string().optional().default(''),
+  special_instructions: z.string().optional().default(''),
   it_admin_email: optionalEmailSchema,
-  it_admin_name: z.string().optional().default(''),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

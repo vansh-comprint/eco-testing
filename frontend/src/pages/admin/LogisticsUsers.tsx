@@ -53,6 +53,7 @@ export function ITAdminLogisticsUsers() {
         title="Logistics Users"
         subtitle="Add and manage logistics team members"
         backLink={`${basePath}/logistics`}
+        backLabel="Back to Logistics"
       />
 
       {/* Add User Form */}

@@ -117,7 +117,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
     defaultValues: {
       name: user.name,
       email: user.email,
-      phone: user.phone || '',
+      phone: (user.phone || '').replace(/^\+91[-]?/, ''),
       role: user.role,
       status: user.status,
       enterprise_id: user.enterprise_id || '',

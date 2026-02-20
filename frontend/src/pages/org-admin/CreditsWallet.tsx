@@ -78,17 +78,25 @@ export function CreditsWallet() {
     queryKey: walletKeys.detail(enterpriseId),
     queryFn: async () => {
       const response = await walletApi.get(enterpriseId);
-      if (!response.success || !response.data) return null;
-      return response.data;
+      if (!response.success) {
+        // 404 means wallet doesn't exist yet — return null (not an error)
+        if (response.error?.code === '404') return null;
+        throw new Error(response.error?.message || 'Failed to fetch wallet');
+      }
+      return response.data ?? null;
     },
     enabled: !!enterpriseId,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: transactionKeys.list(enterpriseId),
     queryFn: async () => {
       const response = await walletApi.getTransactions(enterpriseId, { limit: 100 });
-      if (!response.success) return [];
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch transactions');
+      }
       const data = response.data;
       if (!Array.isArray(data)) return [];
       return data.map(t => ({
@@ -104,6 +112,8 @@ export function CreditsWallet() {
       })) as CreditTransaction[];
     },
     enabled: !!enterpriseId,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   // Compute wallet summary from transactions + raw wallet balance

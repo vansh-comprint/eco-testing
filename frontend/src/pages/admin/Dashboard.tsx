@@ -420,10 +420,9 @@ export function ITAdminDashboard() {
               onClick: () => navigate(`${basePath}/batches`),
             },
             {
-              label: 'Expected Value',
-              value: `₹${((stats.batch_total_value ?? 0) / 100000).toFixed(1)}L`,
+              label: 'Active Branches',
+              value: myBranches.filter((b: { status: string }) => b.status === 'active').length,
               accent: 'brand' as StatAccent,
-              onClick: () => navigate(`${basePath}/batches`),
             },
             {
               label: 'Completed',

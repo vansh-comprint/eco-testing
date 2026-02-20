@@ -1,8 +1,9 @@
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Upload, Info, AlertTriangle } from 'lucide-react';
+import { Upload, Info, AlertTriangle } from 'lucide-react';
 import { CSVUpload, type BulkUploadMetadata, type BulkUploadResult } from '@/components/assets';
-import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { BackButton } from '@/components/ui';
+import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin, usePortalBasePath } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useContext } from 'react';
@@ -37,6 +38,7 @@ export function UploadAssets() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const portalBase = usePortalBasePath();
   const batchId = searchParams.get('batchId') || undefined;
 
   // V3: Use React Query hook for auth
@@ -217,13 +219,7 @@ export function UploadAssets() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <button
-            onClick={() => navigate(-1)}
-            className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton to={`${portalBase}/assets`} label="Back to Assets" className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">

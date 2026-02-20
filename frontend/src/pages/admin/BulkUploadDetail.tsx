@@ -1,7 +1,6 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   FileSpreadsheet,
   Laptop,
   Users,
@@ -11,7 +10,8 @@ import {
   Eye
 } from 'lucide-react';
 import { useBulkUploadStore } from '@/stores';
-import { useAllAssets, useAllSubUsers, useAuth } from '@/hooks';
+import { useAllAssets, useAllSubUsers, useAuth, usePortalBasePath } from '@/hooks';
+import { BackButton } from '@/components/ui';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui';
 import type { AssetStatus } from '@/types';
@@ -20,6 +20,7 @@ export function BulkUploadDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { uploadId } = useParams<{ uploadId: string }>();
+  const portalBase = usePortalBasePath();
 
   // V3: Use React Query hooks for auth
   const { user } = useAuth();
@@ -93,13 +94,7 @@ export function BulkUploadDetail() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <button
-            onClick={() => navigate(-1)}
-            className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton to={`${portalBase}/assets`} label="Back to Assets" className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-center">

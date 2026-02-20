@@ -44,6 +44,9 @@ export function BatchDetail() {
 
   // Determine base path for navigation
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
+  const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
+  const isSuperAdmin = user?.role === 'super_admin' || location.pathname.startsWith('/super');
+  const canSeeFinancials = isOrgAdmin || isOpsAdmin || isSuperAdmin;
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
   // V3.2: React Query hooks - use different hooks based on role
@@ -149,12 +152,12 @@ export function BatchDetail() {
   // V3: Use snake_case field names
   const batchAssets = assets.filter(a => a.batch_id === batchId);
 
-  // Available assets: not already in THIS batch, in the same branch, and in an eligible status
+  // Available assets: not assigned to ANY batch, in the same branch, and in an eligible status
   const availableAssets = useMemo(() => {
     return assets.filter(a =>
-      a.batch_id !== batchId &&
+      !a.batch_id &&
       (!batch?.branch_id || a.branch_id === batch.branch_id) &&
-      ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'].includes(a.status)
+      ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review', 'conditionally_accepted'].includes(a.status)
     );
   }, [assets, batch?.branch_id, batchId]);
 
@@ -584,7 +587,7 @@ export function BatchDetail() {
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Device</th>
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Serial</th>
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Status</th>
-                    <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Quote</th>
+                    {canSeeFinancials && <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Quote</th>}
                     <th className="text-right py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
@@ -620,6 +623,7 @@ export function BatchDetail() {
                           {assetStatusConfig.label}
                         </span>
                       </td>
+                      {canSeeFinancials && (
                       <td className="py-4 px-5">
                         {asset.final_price ? (
                           <span className="font-mono font-bold text-sm text-ecotribe-primary">
@@ -633,6 +637,7 @@ export function BatchDetail() {
                           <span className="font-mono text-xs text-zinc-700">—</span>
                         )}
                       </td>
+                      )}
                       <td className="py-4 px-5 text-right">
                         <button
                           onClick={(e) => {

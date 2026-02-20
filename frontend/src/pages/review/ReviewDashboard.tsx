@@ -40,13 +40,13 @@ export function ReviewDashboard() {
   const statCards = [
     {
       label: 'Pending Review',
-      value: stats.pending_review ?? 0,
+      value: remoteReviewCount,
       icon: Eye,
       color: 'blue',
     },
     {
       label: 'Pending QC',
-      value: stats.pending_qc ?? 0,
+      value: facilityQCCount,
       icon: ClipboardCheck,
       color: 'emerald',
     },

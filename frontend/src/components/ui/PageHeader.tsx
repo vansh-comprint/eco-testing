@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { headerVariants, createSectionTransition } from '@/lib/animations';
+import { BackButton } from './BackButton';
 
 export interface PageHeaderProps {
   /** Small uppercase label above the title (e.g., "Dashboard", "Assets") */
@@ -15,6 +16,8 @@ export interface PageHeaderProps {
   action?: React.ReactNode; // Alias for actions
   /** Link to navigate back */
   backLink?: string;
+  /** Label for the back button (e.g., "Back to Branches") */
+  backLabel?: string;
   /** Whether to show bottom border */
   bordered?: boolean;
   /** Additional CSS classes */
@@ -34,6 +37,7 @@ export function PageHeader({
   actions,
   action,
   backLink,
+  backLabel = 'Back',
   bordered = true,
   className,
   delay = 0,
@@ -52,6 +56,7 @@ export function PageHeader({
       )}
     >
       <div>
+        {backLink && <BackButton to={backLink} label={backLabel} />}
         {label && (
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             {label}

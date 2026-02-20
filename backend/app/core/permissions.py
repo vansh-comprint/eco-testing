@@ -237,8 +237,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.SUBMISSION_UPDATE,
         Permission.PICKUP_VIEW,
         Permission.PICKUP_CREATE,
-        # Payout, Dispute permissions
-        Permission.PAYOUT_VIEW,
+        # Dispute permissions (financials restricted to Org Admin+)
         Permission.DISPUTE_VIEW,
         Permission.DISPUTE_CREATE,
     },

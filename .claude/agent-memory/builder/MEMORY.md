@@ -65,6 +65,18 @@
 - `frontend/src/hooks/usePickups.ts` — 8 pickup mutations updated (skipped location mutations)
 - `frontend/src/hooks/usePayouts.ts` — 3 mutations updated
 
+## Bulk Branch Upload Overhaul (2026-02-19)
+- `indianStates` const array added to `frontend/src/lib/validation.ts` — single source of truth
+- `bulkBranchRowSchema` updated: removed `it_admin_name`, added `pickup_point_description` and `special_instructions`
+- `useBulkCreateBranches` cache invalidation changed from specific keys to `branchKeys.all` (covers byITAdmin)
+- Excel template state dropdown: use ExcelJS `cell.dataValidation` with `type: 'list'` and `formulae: ['"state1,state2,..."']`
+- Excel column count in parser: use `headers.length` (not hardcoded 12) to support variable column counts
+- `it_admin_name` entirely removed from frontend — backend never auto-creates IT Admins
+- `generated_password` and `it_admin_created` UI removed from results page
+- State validation in `validateRows`: check against `indianStates` Set, emit warning (not error) for unknown states
+- Check-code API errors: now emit warning instead of silent swallow
+- IT Admin email not found: changed from "will be created" to "branch will have needs_admin status"
+
 ## useDashboardStats Migration Pattern (2026-02-18)
 - Hook: `useDashboardStats(opts?: { enterpriseId?: string | null })` from `@/hooks`
 - Returns `{ stats: DashboardStats, isLoading }` — stats fields are all optional, always use `?? fallback`

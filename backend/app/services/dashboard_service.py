@@ -555,9 +555,8 @@ async def get_dashboard_stats(
         )
 
         # -- Pickup stats for IT Admin --
-        pickup_filters = [PickupRequest.enterprise_id == eid]
-        if effective_branch_ids:
-            pickup_filters.append(PickupRequest.branch_id.in_(effective_branch_ids))
+        # PickupRequest has no branch_id column — scope by enterprise only
+        pickup_filters = [PickupRequest.enterprise_id == eid] if eid else []
         pc = await _status_counts(db, PickupRequest, PickupRequest.status, *pickup_filters)
         stats["pickup_pending"] = pc.get(PickupStatus.PENDING.value, 0)
         stats["pickup_scheduled"] = sum(

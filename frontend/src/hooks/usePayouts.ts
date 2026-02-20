@@ -75,10 +75,10 @@ export function usePayout(payoutId: string) {
 export interface CreatePayoutInput {
   enterprise_id: string;
   batch_id?: string;
-  asset_ids: string[];
   amount: number;
-  items?: Array<{ asset_id: string; amount: number; description?: string }>;
   reference_id?: string;
+  // asset_ids and items are intentionally excluded — backend does not accept them.
+  // The payout API only accepts enterprise_id, batch_id, amount, method, and notes.
 }
 
 /**

@@ -22,6 +22,15 @@
 - AssetUpdate now includes `branch_id: Optional[str] = None` for branch transfers
 - AssetCreate and AssetBulkCreate have branch_id as Optional but service enforces it
 
+## Branch Service Patterns
+- BranchStatus enum has 3 values: ACTIVE, INACTIVE, NEEDS_ADMIN ("needs_admin")
+- DB CHECK constraint already supports "needs_admin" — no migration needed for this enum addition
+- `create_branch()`: status = ACTIVE if it_admin_id else NEEDS_ADMIN
+- `bulk_create_branches()`: same rule per branch; absent it_admin_email → NEEDS_ADMIN, not an error
+- After bulk commit: must `await db.refresh(branch)` for each created branch before calling `_enrich_branches_batch`
+- `GET /branches/check-code` MUST be registered before `GET /{branch_id}` (wildcard routing)
+- `it_admin_name` sent by frontend is silently stripped by Pydantic — correct, no auto-creation
+
 ## Dual Codebase Requirement
 - ALWAYS copy changed files to `D:\Cursor codes\ecotribe-v2\ecotribe-unified\` after editing
 - Use: `cp "D:/Cursor codes/ecotribe-unified/path" "D:/Cursor codes/ecotribe-v2/ecotribe-unified/path"`

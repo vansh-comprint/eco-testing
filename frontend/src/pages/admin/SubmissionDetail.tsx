@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   Laptop,
   CheckCircle,
   XCircle,
@@ -45,7 +44,7 @@ import {
   PHOTO_SLOTS,
 } from '@/types/submission';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Badge, StatusBadge, Modal, ModalFooter, StatusTimeline } from '@/components/ui';
+import { Badge, StatusBadge, Modal, ModalFooter, StatusTimeline, BackButton } from '@/components/ui';
 
 // Grade options for OPS review
 const GRADE_OPTIONS = [
@@ -134,6 +133,8 @@ export function SubmissionDetail() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const isEmployee = user?.role === 'employee' || location.pathname.startsWith('/check-in');
   const basePath = isEmployee ? '/check-in' : isSuperAdmin ? '/super' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
+  const backTo = isEmployee ? '/check-in/submissions' : `${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`;
+  const backLabel = isEmployee ? 'Back to Submissions' : (isOpsAdmin || isSuperAdmin) ? 'Back to Reviews' : 'Back to Dashboard';
 
   const queryClient = useQueryClient();
   const { data: assets = [] } = useAllAssets();
@@ -252,10 +253,11 @@ export function SubmissionDetail() {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Asset Not Found</h2>
             <p className="text-slate-500 dark:text-white/50 mb-6">This asset doesn't exist.</p>
             <button
-              onClick={() => navigate(-1)}
+              type="button"
+              onClick={() => navigate(backTo)}
               className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
             >
-              Go Back
+              {backLabel}
             </button>
           </>
         )}
@@ -270,10 +272,11 @@ export function SubmissionDetail() {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Submission Not Found</h2>
         <p className="text-slate-500 dark:text-white/50 mb-6">This device hasn't been submitted yet.</p>
         <button
-          onClick={() => navigate(-1)}
+          type="button"
+          onClick={() => navigate(backTo)}
           className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
         >
-          Go Back
+          {backLabel}
         </button>
       </div>
     );
@@ -369,14 +372,7 @@ export function SubmissionDetail() {
     <div className="max-w-5xl mx-auto space-y-6 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">{isEmployee ? 'Back to Dashboard' : 'Back to Queue'}</span>
-        </button>
-
+        <BackButton to={backTo} label={backLabel} />
       </div>
 
       {/* Device Header Card */}
@@ -515,7 +511,7 @@ export function SubmissionDetail() {
                 </span>
               </div>
             )}
-            {asset.base_price != null && (
+            {(isOpsAdmin || isSuperAdmin || isOrgAdmin) && asset.base_price != null && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 dark:text-white/40 uppercase tracking-wider">Base Price</span>
                 <span className="text-sm text-slate-900 dark:text-white font-mono">
@@ -523,7 +519,7 @@ export function SubmissionDetail() {
                 </span>
               </div>
             )}
-            {asset.estimated_value != null && (
+            {(isOpsAdmin || isSuperAdmin || isOrgAdmin) && asset.estimated_value != null && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 dark:text-white/40 uppercase tracking-wider">Est. Value</span>
                 <span className="text-sm text-ecotribe-primary font-mono font-bold">

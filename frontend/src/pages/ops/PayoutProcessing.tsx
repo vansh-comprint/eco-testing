@@ -161,13 +161,7 @@ export function PayoutProcessing() {
         // Step 2: Create payout record (this credits the enterprise wallet instantly)
         await createPayoutMutation.mutateAsync({
           enterprise_id: enterpriseId,
-          asset_ids: enterpriseAssets.map(a => a.id),
           amount: totalAmount,
-          items: enterpriseAssets.map(a => ({
-            asset_id: a.id,
-            amount: calculatePayout(a).finalAmount,
-            description: `${a.brand} ${a.model} (${a.serial_number || 'N/A'})`,
-          })),
         });
 
         // Step 3: Transition all assets to completed with final price

@@ -31,7 +31,7 @@ import {
 import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists, useCreateITAdmin } from '@/hooks';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
-import { validateBranchCode, validatePassword } from '@/lib/validation';
+import { validateBranchCode, validatePassword, indianStates } from '@/lib/validation';
 import type { BranchResponse, BranchSummary } from '@/lib/api/branches';
 
 // Use API response type directly — the hooks return BranchResponse
@@ -1182,19 +1182,22 @@ function BranchFormModal({
               )}
             </div>
             <div>
-              <input
-                type="text"
+              <select
                 name="state"
                 value={formData.state}
                 onChange={handleChange}
                 required
-                placeholder="State *"
                 className={`w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border text-sm focus:outline-none ${
                   validationErrors.state
                     ? 'border-red-500 focus:border-red-500'
                     : 'border-slate-200 dark:border-zinc-800 focus:border-lime-500/50'
                 }`}
-              />
+              >
+                <option value="">Select State *</option>
+                {indianStates.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
               {validationErrors.state && (
                 <p className="text-xs text-red-500 mt-1">{validationErrors.state}</p>
               )}

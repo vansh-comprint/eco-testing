@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/hooks';
 import { useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { enterprisesApi } from '@/lib/api/enterprises';
 import { useAuthStoreApi } from '@/stores';
 import { PasswordChange } from '@/components/settings';
 
@@ -36,7 +37,7 @@ export function OrgAdminSettings() {
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || '',
+    phone: (user?.phone || '').replace(/^\+91[-]?/, ''),
   });
 
   // Enterprise form
@@ -48,7 +49,7 @@ export function OrgAdminSettings() {
     state: enterprise?.address?.state || '',
     pincode: enterprise?.address?.pincode || '',
     contactEmail: enterprise?.contactEmail || '',
-    contactPhone: enterprise?.contactPhone || '',
+    contactPhone: (enterprise?.contactPhone || '').replace(/^\+91[-]?/, ''),
   });
 
   // Notification preferences
@@ -93,6 +94,26 @@ export function OrgAdminSettings() {
         // Refresh auth store so sidebar/header reflects new name
         await useAuthStoreApi.getState().refreshUser();
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
+      } else if (activeTab === 'enterprise') {
+        if (!enterprise?.id) {
+          throw new Error('Enterprise ID not found');
+        }
+        const response = await enterprisesApi.update(enterprise.id, {
+          name: enterpriseForm.name,
+          gst_number: enterpriseForm.gstin || undefined,
+          contact_email: enterpriseForm.contactEmail || undefined,
+          contact_phone: enterpriseForm.contactPhone || undefined,
+          address: {
+            line1: enterpriseForm.address,
+            city: enterpriseForm.city,
+            state: enterpriseForm.state,
+            pincode: enterpriseForm.pincode,
+          },
+        });
+        if (!response.success) {
+          throw new Error(response.error?.message || 'Failed to save enterprise details');
+        }
+        addToast({ type: 'success', title: 'Enterprise Saved', message: 'Enterprise details have been updated.' });
       } else if (activeTab === 'bank') {
         localStorage.setItem('ecotribe-org-bank-details', JSON.stringify(bankForm));
         addToast({ type: 'success', title: 'Bank Details Saved', message: 'Bank details saved locally. Backend persistence coming soon.' });

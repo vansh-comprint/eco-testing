@@ -172,7 +172,11 @@ class BranchService:
             operating_hours=branch_data.operating_hours,
             special_instructions=branch_data.special_instructions,
             it_admin_id=branch_data.it_admin_id,
-            status=BranchStatus.ACTIVE.value,
+            status=(
+                BranchStatus.ACTIVE.value
+                if branch_data.it_admin_id
+                else BranchStatus.NEEDS_ADMIN.value
+            ),
             created_by=created_by,
             updated_by=created_by,
         )
@@ -280,7 +284,9 @@ class BranchService:
                     )
                     continue
 
-                # Resolve IT admin by email if provided
+                # Resolve IT admin by email if provided.
+                # If no email is given, the branch is created with needs_admin status.
+                # If an email is given but no matching user is found, that is an error.
                 it_admin_id = None
                 if item.it_admin_email:
                     result = await self.db.execute(
@@ -296,10 +302,15 @@ class BranchService:
                         errors.append(
                             {
                                 "index": idx,
-                                "error": f"IT admin with email '{item.it_admin_email}' not found",
+                                "error": f"IT admin with email '{item.it_admin_email}' not found in this enterprise",
                             }
                         )
                         continue
+
+                # Set status based on whether an IT admin is assigned
+                branch_status = (
+                    BranchStatus.ACTIVE.value if it_admin_id else BranchStatus.NEEDS_ADMIN.value
+                )
 
                 branch = Branch(
                     id=str(uuid4()),
@@ -317,7 +328,7 @@ class BranchService:
                     operating_hours=item.operating_hours,
                     special_instructions=item.special_instructions,
                     it_admin_id=it_admin_id,
-                    status=BranchStatus.ACTIVE.value,
+                    status=branch_status,
                     created_by=created_by,
                     updated_by=created_by,
                 )
@@ -330,6 +341,10 @@ class BranchService:
 
         if created_branches:
             await self.db.commit()
+            # Refresh each branch after commit so ORM attributes are not expired
+            # when _enrich_branches_batch accesses them (prevents greenlet_spawn crash).
+            for branch in created_branches:
+                await self.db.refresh(branch)
 
         # Use batch enrichment to avoid N+1 queries
         enriched = await self._enrich_branches_batch(created_branches)

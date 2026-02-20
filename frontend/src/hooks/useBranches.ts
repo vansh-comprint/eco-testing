@@ -365,8 +365,8 @@ export function useBulkCreateBranches() {
     },
     onSuccess: (_, variables) => {
       if (variables.length > 0) {
-        queryClient.invalidateQueries({ queryKey: branchKeys.list(variables[0].enterprise_id) });
-        queryClient.invalidateQueries({ queryKey: branchKeys.summary(variables[0].enterprise_id) });
+        // Invalidate all branch queries including byITAdmin views
+        queryClient.invalidateQueries({ queryKey: branchKeys.all });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.list(variables[0].enterprise_id) });
         queryClient.invalidateQueries({ queryKey: itAdminKeys.branches(variables[0].enterprise_id) });
       }

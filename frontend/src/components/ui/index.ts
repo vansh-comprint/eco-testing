@@ -45,6 +45,9 @@ export { StatsCard, StatsGrid } from './StatsCard';
 export { DashboardStatGrid, StatBox, CompactStatBox, HighlightStatBox, ConnectedSection } from './DashboardStatBox';
 export type { StatAccent, StatBoxItem, ConnectedSectionProps } from './DashboardStatBox';
 
+// BackButton
+export { BackButton } from './BackButton';
+
 // PageHeader
 export { PageHeader, SectionHeader, CardSectionHeader } from './PageHeader';
 

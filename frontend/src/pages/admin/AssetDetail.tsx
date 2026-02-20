@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Input, Dropdown, useToast } from '@/components/ui';
 import { useAuditStore, useSubmissionStore, useReviewStore, useNotificationStore } from '@/stores';
-import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute, useCreateBatch } from '@/hooks';
+import { useAuth, useAsset, useAssets, useAssetsByITAdmin, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useSubUsers, usePickupRequests, useUpdateAsset, useUpdateAssetStatus, useAssignAssetToSubUser, useUnassignAsset, useCreateSubUser, useCreateDispute, useCreateBatch, usePortalBasePath } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { AssetStatus, QCImage } from '@/types';
 import { getAssetStatusDisplay } from '@/lib/status-display';
@@ -105,8 +105,9 @@ export function AssetDetail() {
 
   // Determine navigation based on user role and current path
   const isLogisticsAdmin = user?.role === 'logistics_admin';
+  const portalBase = usePortalBasePath();
   const basePath = isSuperAdmin ? '/super' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
-  const assetsListPath = isSuperAdmin ? '/super/enterprise-assets' : `${basePath}/assets`;
+  const assetsListPath = isSuperAdmin ? '/super/enterprise-assets' : isLogisticsAdmin ? `${portalBase}` : `${basePath}/assets`;
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showBatchSelectModal, setShowBatchSelectModal] = useState(false);
@@ -297,11 +298,11 @@ export function AssetDetail() {
         <p className="font-display font-bold text-zinc-500 uppercase tracking-wide mb-1">Asset not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The asset you're looking for doesn't exist</p>
         <button
-          onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(assetsListPath)}
+          onClick={() => navigate(assetsListPath)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          {isLogisticsAdmin ? 'Back' : 'Back to Assets'}
+          {isLogisticsAdmin ? 'Back to Dashboard' : 'Back to Assets'}
         </button>
       </div>
     );
@@ -549,11 +550,11 @@ export function AssetDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => isLogisticsAdmin ? navigate(-1) : navigate(assetsListPath)}
+            onClick={() => navigate(assetsListPath)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isLogisticsAdmin ? 'Back' : 'Back to Assets'}
+            {isLogisticsAdmin ? 'Back to Dashboard' : 'Back to Assets'}
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
@@ -820,8 +821,8 @@ export function AssetDetail() {
             </div>
           </motion.div>
 
-          {/* Valuation */}
-          {(asset.base_price || asset.final_price) && (
+          {/* Valuation — only visible to Org Admin, OPS Admin, Super Admin */}
+          {(isOpsAdmin || isSuperAdmin || isOrgAdmin) && (asset.base_price || asset.final_price) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

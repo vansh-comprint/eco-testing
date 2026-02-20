@@ -161,6 +161,27 @@ async def bulk_create_branches(
     )
 
 
+@router.get("/check-code", response_model=dict)
+async def check_branch_code(
+    enterprise_id: str = Query(..., description="Enterprise ID to check the code within"),
+    code: str = Query(..., description="Branch code to check for uniqueness"),
+    current_user: User = Depends(require_permission(Permission.BRANCH_READ)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check whether a branch code already exists within an enterprise.
+
+    Returns {"exists": true} if the code is already taken, {"exists": false} if available.
+
+    **Permissions:** BRANCH_READ
+    """
+    from app.repositories.branch_repository import BranchRepository
+
+    repo = BranchRepository(db)
+    existing = await repo.get_by_code(enterprise_id, code)
+    return success_response(data={"exists": existing is not None})
+
+
 @router.get("/{branch_id}", response_model=dict)
 async def get_branch(
     branch_id: str,
