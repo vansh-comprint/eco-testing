@@ -49,6 +49,7 @@ export interface AssetListParams {
   skip?: number;
   limit?: number;
   status?: string;
+  statuses?: string;
   batch_id?: string;
   branch_id?: string;
   enterprise_id?: string;
@@ -110,6 +111,7 @@ export const assetsApi = {
     if (params.branch_id) query.set('branch_id', params.branch_id);
     if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
     if (params.search) query.set('search', params.search);
+    if (params.statuses) query.set('statuses', params.statuses);
     return fetchWithAuth<AssetResponse[]>(`/assets?${query.toString()}`);
   },
 

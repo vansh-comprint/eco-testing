@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 from typing import Optional, List, Tuple
-from sqlalchemy import select, func, and_, update
+from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PickupRequest, PickupStatus, PickupLocation
@@ -31,18 +31,21 @@ class PickupRepository(BaseRepository[PickupRequest]):
         logistics_user_id: Optional[str] = None,
         status: Optional[str] = None,
         statuses: Optional[List[str]] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[PickupRequest], int]:
         """List pickup requests with filters"""
         from app.models.batch import Batch
 
-        if branch_ids:
-            base_query = select(PickupRequest).join(
-                Batch, PickupRequest.batch_id == Batch.id
-            )
-        else:
-            base_query = select(PickupRequest)
+        needs_batch_join = bool(branch_ids) or bool(search)
+
+        base_query = select(PickupRequest)
+        if needs_batch_join:
+            base_query = base_query.outerjoin(Batch, PickupRequest.batch_id == Batch.id)
+        if search:
+            base_query = base_query.outerjoin(Branch, Batch.branch_id == Branch.id)
+
         conditions = []
 
         if enterprise_id:
@@ -57,6 +60,14 @@ class PickupRepository(BaseRepository[PickupRequest]):
             conditions.append(PickupRequest.status == status)
         if statuses:
             conditions.append(PickupRequest.status.in_(statuses))
+        if search:
+            pattern = f"%{search}%"
+            conditions.append(or_(
+                PickupRequest.id.ilike(pattern),
+                Branch.branch_name.ilike(pattern),
+                Branch.branch_code.ilike(pattern),
+                Branch.city.ilike(pattern),
+            ))
 
         if conditions:
             base_query = base_query.where(and_(*conditions))

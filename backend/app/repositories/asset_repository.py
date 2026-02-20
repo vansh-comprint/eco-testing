@@ -1,7 +1,7 @@
 """Asset repository for database operations"""
 
 from typing import Optional, List, Tuple, Dict
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -40,37 +40,49 @@ class AssetRepository:
         branch_ids: Optional[List[str]] = None,
         batch_id: Optional[str] = None,
         status: Optional[AssetStatus] = None,
+        statuses: Optional[List[str]] = None,
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
-    ) -> Tuple[List[Asset], int]:
-        """Get all assets with filters and pagination"""
+    ) -> Tuple[List[Asset], int, float]:
+        """Get all assets with filters and pagination. Returns (assets, total_count, total_value)."""
         query = select(Asset)
         count_query = select(func.count(Asset.id))
+        value_query = select(func.coalesce(func.sum(func.coalesce(Asset.final_price, Asset.base_price)), 0))
 
-        # Apply filters
+        # Apply filters to all queries
         if enterprise_id:
             query = query.where(Asset.enterprise_id == enterprise_id)
             count_query = count_query.where(Asset.enterprise_id == enterprise_id)
+            value_query = value_query.where(Asset.enterprise_id == enterprise_id)
 
         # branch_ids (plural) takes precedence — multi-branch IT Admin scoping
         if branch_ids:
             query = query.where(Asset.branch_id.in_(branch_ids))
             count_query = count_query.where(Asset.branch_id.in_(branch_ids))
+            value_query = value_query.where(Asset.branch_id.in_(branch_ids))
         elif branch_id:
             query = query.where(Asset.branch_id == branch_id)
             count_query = count_query.where(Asset.branch_id == branch_id)
+            value_query = value_query.where(Asset.branch_id == branch_id)
 
         if batch_id:
             query = query.where(Asset.batch_id == batch_id)
             count_query = count_query.where(Asset.batch_id == batch_id)
+            value_query = value_query.where(Asset.batch_id == batch_id)
 
-        if status:
+        if statuses:
+            query = query.where(Asset.status.in_(statuses))
+            count_query = count_query.where(Asset.status.in_(statuses))
+            value_query = value_query.where(Asset.status.in_(statuses))
+        elif status:
             query = query.where(Asset.status == status.value)
             count_query = count_query.where(Asset.status == status.value)
+            value_query = value_query.where(Asset.status == status.value)
 
         if assigned_to_user_id:
             query = query.where(Asset.assigned_to_user_id == assigned_to_user_id)
             count_query = count_query.where(Asset.assigned_to_user_id == assigned_to_user_id)
+            value_query = value_query.where(Asset.assigned_to_user_id == assigned_to_user_id)
 
         if search:
             search_filter = or_(
@@ -81,10 +93,14 @@ class AssetRepository:
             )
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
+            value_query = value_query.where(search_filter)
 
-        # Get total count
+        # Get total count and total value
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
+
+        value_result = await self.db.execute(value_query)
+        total_value = float(value_result.scalar() or 0)
 
         # Apply pagination and ordering
         query = query.order_by(Asset.created_at.desc()).offset(skip).limit(limit)
@@ -95,7 +111,7 @@ class AssetRepository:
         result = await self.db.execute(query)
         assets = list(result.scalars().all())
 
-        return assets, total
+        return assets, total, total_value
 
     async def create(self, asset: Asset) -> Asset:
         """Create a new asset"""

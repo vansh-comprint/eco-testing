@@ -181,6 +181,7 @@ class DisputeService:
         user: User,
         status: Optional[str] = None,
         dispute_type: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[Dispute], int]:
@@ -209,6 +210,7 @@ class DisputeService:
             assigned_to_user_id=assigned_to_user_id,
             status=status,
             dispute_type=dispute_type,
+            search=search,
             skip=skip,
             limit=limit,
         )

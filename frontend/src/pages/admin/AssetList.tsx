@@ -22,7 +22,7 @@ import {
   Info
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch, useDashboardStats } from '@/hooks';
+import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch, useDashboardStats, useDebounce } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import type { AssetStatus } from '@/types';
 import { ASSET_STATUS_FILTER_OPTIONS, ASSET_STATUS_GROUPS, getAssetStatusDisplay } from '@/lib/status-display';
@@ -62,27 +62,6 @@ export function AssetList() {
   const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
   const isOrgAllBranches = isOrgAdmin && (orgBranchCtx?.isAllBranches ?? true);
 
-  // V4: Infinite scroll for assets — server-side pagination + filtering
-  const infiniteApiParams = useMemo(() => {
-    const params: Record<string, string> = {};
-    if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
-    // IT admins: backend auto-scopes, no explicit enterprise_id needed
-    if (activeBranchFilter) params.branch_id = activeBranchFilter;
-    return params;
-  }, [isOrgAdmin, enterpriseId, activeBranchFilter]);
-
-  const {
-    data: infiniteData,
-    isLoading: assetsLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useInfiniteAssets(infiniteApiParams);
-
-  // Flatten infinite pages into a single array
-  const assets = useMemo(() => infiniteData?.pages.flatMap(p => p.data || []) ?? [], [infiniteData]);
-  const totalAssetCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
-
   const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
   const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
   const { data: subUsers = [] } = useSubUsers(enterpriseId); // Sub-users remain enterprise-wide
@@ -98,11 +77,10 @@ export function AssetList() {
   const deleteAssetMutation = useDeleteAsset();
   const createBatchMutation = useCreateBatch();
 
-  const isLoading = assetsLoading || batchesLoading;
-
   const { stats: dashboardStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [batchFilter, setBatchFilter] = useState(searchParams.get('batch') || '');
   const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || '');
@@ -124,6 +102,41 @@ export function AssetList() {
   const [batchMode, setBatchMode] = useState<'existing' | 'new'>('existing');
   const [newBatchName, setNewBatchName] = useState('');
 
+  // V4: Infinite scroll for assets — server-side pagination + filtering
+  const infiniteApiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
+    // IT admins: backend auto-scopes, no explicit enterprise_id needed
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    // Status filter — single status or group
+    if (statusFilter) {
+      const statusGroup = STATUS_GROUPS[statusFilter];
+      if (statusGroup) {
+        params.statuses = statusGroup.join(',');
+      } else {
+        params.status = statusFilter;
+      }
+    }
+    if (batchFilter) params.batch_id = batchFilter;
+    if (branchFilter) params.branch_id = branchFilter;
+    return params;
+  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter, batchFilter, branchFilter]);
+
+  const {
+    data: infiniteData,
+    isLoading: assetsLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteAssets(infiniteApiParams);
+
+  // Flatten infinite pages into a single array
+  const assets = useMemo(() => infiniteData?.pages.flatMap(p => p.data || []) ?? [], [infiniteData]);
+  const totalAssetCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
+
+  const isLoading = assetsLoading || batchesLoading;
+
   // V3: Data is already filtered by enterpriseId from the hooks
   const enterpriseSubUsers = subUsers;
   const enterpriseBatches = batches;
@@ -141,36 +154,9 @@ export function AssetList() {
     ...branches.map((b: { id: string; branch_name: string }) => ({ label: b.branch_name, value: b.id })),
   ];
 
+  // Filters (search, status, batch, branch) are now server-side; client-side sort only
   const filteredAssets = useMemo(() => {
-    let result = [...enterpriseAssets];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        a =>
-          a.serial_number?.toLowerCase().includes(query) ||
-          a.brand?.toLowerCase().includes(query) ||
-          a.model?.toLowerCase().includes(query)
-      );
-    }
-
-    if (statusFilter) {
-      // Check if it's a status group filter
-      const statusGroup = STATUS_GROUPS[statusFilter];
-      if (statusGroup) {
-        result = result.filter(a => statusGroup.includes(a.status as any));
-      } else {
-        result = result.filter(a => a.status === statusFilter);
-      }
-    }
-
-    if (batchFilter) {
-      result = result.filter(a => a.batch_id === batchFilter);
-    }
-
-    if (branchFilter) {
-      result = result.filter(a => a.branch_id === branchFilter);
-    }
+    const result = [...enterpriseAssets];
 
     result.sort((a, b) => {
       switch (sortBy) {
@@ -187,7 +173,7 @@ export function AssetList() {
     });
 
     return result;
-  }, [enterpriseAssets, searchQuery, statusFilter, batchFilter, branchFilter, sortBy]);
+  }, [enterpriseAssets, sortBy]);
 
   const stats = {
     total: dashboardStats.asset_total ?? totalAssetCount,

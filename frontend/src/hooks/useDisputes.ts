@@ -3,7 +3,7 @@
  * Handles dispute CRUD operations via REST API
  */
 
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { dashboardStatsKeys } from './useDashboardStats';
 import { disputesApi, type DisputeResponse, type DisputeListParams } from '@/lib/api/disputes';
 import { assetKeys } from './useAssets';
@@ -105,11 +105,11 @@ function mapDisputeResponse(d: DisputeResponse): Dispute {
 }
 
 // Infinite scroll hook - loads disputes page by page
-export function useInfiniteDisputes(params: Omit<DisputeListParams, 'page' | 'page_size'> = {}) {
+export function useInfiniteDisputes(params: Omit<DisputeListParams, 'page' | 'page_size'> = {}, pageSize = 25) {
   return useInfiniteQuery({
-    queryKey: disputeKeys.infinite(params as Record<string, unknown>),
+    queryKey: disputeKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 1 }) => {
-      const res = await disputesApi.list({ ...params, page: pageParam as number, page_size: 5 });
+      const res = await disputesApi.list({ ...params, page: pageParam as number, page_size: pageSize });
       if (!res.success) throw new Error(res.error?.message || 'Failed to fetch disputes');
       return { data: (res.data || []).map(mapDisputeResponse), pagination: res.pagination };
     },
@@ -120,7 +120,10 @@ export function useInfiniteDisputes(params: Omit<DisputeListParams, 'page' | 'pa
       if (totalFetched < total) return (lastPage.pagination?.page ?? 0) + 1;
       return undefined;
     },
+    placeholderData: keepPreviousData,
     staleTime: 30000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

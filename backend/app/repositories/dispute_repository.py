@@ -1,7 +1,7 @@
 """Repository for Dispute database operations"""
 
 from typing import Optional, List, Tuple
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Dispute, DisputeStatus
@@ -22,14 +22,16 @@ class DisputeRepository(BaseRepository[Dispute]):
         assigned_to_user_id: Optional[str] = None,
         status: Optional[str] = None,
         dispute_type: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[Dispute], int]:
         """List disputes with filters"""
         from app.models import Asset
 
-        # Join with Asset for enterprise/branch filtering if needed
-        if enterprise_id or branch_ids:
+        # Join with Asset for enterprise/branch filtering or search
+        needs_asset_join = enterprise_id or branch_ids or search
+        if needs_asset_join:
             base_query = select(Dispute).join(Asset, Dispute.asset_id == Asset.id)
         else:
             base_query = select(Dispute)
@@ -47,6 +49,15 @@ class DisputeRepository(BaseRepository[Dispute]):
             conditions.append(Dispute.status == status)
         if dispute_type:
             conditions.append(Dispute.dispute_type == dispute_type)
+        if search:
+            pattern = f"%{search}%"
+            conditions.append(or_(
+                Asset.serial_number.ilike(pattern),
+                Asset.brand.ilike(pattern),
+                Asset.model.ilike(pattern),
+                Dispute.description.ilike(pattern),
+                Dispute.dispute_type.ilike(pattern),
+            ))
 
         if conditions:
             base_query = base_query.where(and_(*conditions))

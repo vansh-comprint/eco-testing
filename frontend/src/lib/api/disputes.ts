@@ -31,6 +31,7 @@ export interface DisputeListParams {
   page_size?: number;
   status?: string;
   dispute_type?: string;
+  search?: string;
 }
 
 export interface DisputeCreateRequest {
@@ -51,6 +52,7 @@ export const disputesApi = {
     query.set('page_size', (params.page_size ?? 100).toString());
     if (params.status) query.set('status', params.status);
     if (params.dispute_type) query.set('dispute_type', params.dispute_type);
+    if (params.search) query.set('search', params.search);
     return fetchWithAuth<DisputeResponse[]>(`/disputes?${query.toString()}`);
   },
 

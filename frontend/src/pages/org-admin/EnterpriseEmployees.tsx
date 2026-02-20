@@ -19,7 +19,7 @@ import {
   Download,
   Filter,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -32,18 +32,28 @@ export function EnterpriseEmployees() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: employeePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers({ enterprise_id: enterpriseId });
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+
+  // Server-side search/filter params
+  const apiParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { enterprise_id: enterpriseId };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (branchFilter !== 'all') params.branch_id = branchFilter;
+    return params;
+  }, [enterpriseId, debouncedSearch, statusFilter, branchFilter]);
+
+  const { data: employeePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers(apiParams);
   const employees = useMemo(() => employeePages?.pages.flatMap(p => p.data || []) ?? [], [employeePages]);
   const totalEmployees = employeePages?.pages[0]?.pagination?.total;
 
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { stats: dashStats } = useDashboardStats();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Branch lookup (API returns branch_name, fallback to name for safety)
   const branchMap = useMemo(() => {
@@ -78,30 +88,10 @@ export function EnterpriseEmployees() {
     return { total, active, pending, inactive, totalAssigned };
   }, [employees, employeeAssetCounts, dashStats]);
 
-  // Filtered employees
+  // Filtered employees (search/status/branch are now server-side, only sort remains client-side)
   const filteredEmployees = useMemo(() => {
-    let result = [...employees];
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(e =>
-        e.name?.toLowerCase().includes(q) ||
-        e.email?.toLowerCase().includes(q) ||
-        e.department?.toLowerCase().includes(q)
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      result = result.filter(e => e.status === statusFilter);
-    }
-
-    if (branchFilter !== 'all') {
-      result = result.filter(e => e.branch_id === branchFilter);
-    }
-
-    result.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
-    return result;
-  }, [employees, searchQuery, statusFilter, branchFilter]);
+    return [...employees].sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
+  }, [employees]);
 
   // Group by branch
   const employeesByBranch = useMemo(() => {

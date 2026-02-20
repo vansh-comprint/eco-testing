@@ -383,6 +383,7 @@ class PickupService:
         user: User,
         enterprise_id: Optional[str] = None,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[PickupRequest], int]:
@@ -410,6 +411,7 @@ class PickupService:
             logistics_admin_id=logistics_admin_id,
             logistics_user_id=logistics_user_id,
             status=status,
+            search=search,
             skip=skip,
             limit=limit,
         )

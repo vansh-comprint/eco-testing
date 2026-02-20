@@ -43,7 +43,8 @@ async def list_assets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
     batch_id: Optional[str] = Query(None, description="Filter by batch"),
-    status: Optional[AssetStatus] = Query(None, description="Filter by status"),
+    status: Optional[AssetStatus] = Query(None, description="Filter by single status"),
+    statuses: Optional[str] = Query(None, description="Filter by multiple statuses (comma-separated)"),
     search: Optional[str] = Query(None, description="Search by serial number, brand, model"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
@@ -108,11 +109,15 @@ async def list_assets(
         effective_enterprise_id = scoped_filters.get("enterprise_id")
         effective_branch_id = scoped_filters.get("branch_id")
 
-    assets, total = await service.list_assets(
+    # Parse comma-separated statuses into a list
+    parsed_statuses = [s.strip() for s in statuses.split(",") if s.strip()] if statuses else None
+
+    assets, total, total_value = await service.list_assets(
         skip=skip,
         limit=limit,
         batch_id=batch_id,
         status=status,
+        statuses=parsed_statuses,
         search=search,
         enterprise_id=effective_enterprise_id,
         branch_id=effective_branch_id,
@@ -120,12 +125,14 @@ async def list_assets(
         assigned_to_user_id=assigned_to_user_id,
     )
 
-    return paginated_response(
+    response = paginated_response(
         data=[asset.model_dump() for asset in assets],
         total=total,
         page=(skip // limit) + 1,
         page_size=limit,
     )
+    response["aggregates"] = {"total_value": total_value}
+    return response
 
 
 @router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)

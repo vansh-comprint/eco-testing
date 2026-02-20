@@ -92,6 +92,7 @@ export interface PickupListParams {
   limit?: number;
   status?: string;
   enterprise_id?: string;
+  search?: string;
 }
 
 export interface PickupCreateRequest {
@@ -182,6 +183,7 @@ export const pickupsApi = {
     query.set('page_size', (params.limit ?? params.pageSize ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
     if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
+    if (params.search) query.set('search', params.search);
     return fetchWithAuth<PickupResponse[]>(`/pickups?${query.toString()}`);
   },
 

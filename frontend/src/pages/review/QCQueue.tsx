@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Laptop, Clock, Search, Package, CheckCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useInfiniteAssets, useUpdateAsset } from '@/hooks';
+import { useInfiniteAssets, useUpdateAsset, useDebounce } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { useToast } from '@/components/ui';
 
@@ -11,6 +11,7 @@ export function QCQueue() {
   const location = useLocation();
   const updateAssetMutation = useUpdateAsset();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const { addToast } = useToast();
 
@@ -20,20 +21,32 @@ export function QCQueue() {
   const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
   const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId) ? selectedEnterpriseId : undefined;
 
-  // Server-side filtered queries — no more 100-asset limit
+  // Server-side filtered queries with search
+  const inTransitParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { status: 'in_transit', enterprise_id: enterpriseFilter };
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [enterpriseFilter, debouncedSearch]);
+
+  const facilityQCParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { status: 'facility_qc', enterprise_id: enterpriseFilter };
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [enterpriseFilter, debouncedSearch]);
+
   const {
     data: inTransitData,
     hasNextPage: hasMoreInTransit,
     fetchNextPage: fetchMoreInTransit,
     isFetchingNextPage: fetchingMoreInTransit,
-  } = useInfiniteAssets({ status: 'in_transit', enterprise_id: enterpriseFilter });
+  } = useInfiniteAssets(inTransitParams);
 
   const {
     data: facilityQCData,
     hasNextPage: hasMoreFacilityQC,
     fetchNextPage: fetchMoreFacilityQC,
     isFetchingNextPage: fetchingMoreFacilityQC,
-  } = useInfiniteAssets({ status: 'facility_qc', enterprise_id: enterpriseFilter });
+  } = useInfiniteAssets(facilityQCParams);
 
   // Flatten paginated results
   const inTransitAssets = useMemo(
@@ -67,18 +80,15 @@ export function QCQueue() {
     }
   };
 
-  // Filter and sort
-  const filteredAssets = pendingAssets
-    .filter(a =>
-      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
+  // Sort only (search is now server-side)
+  const filteredAssets = useMemo(() =>
+    [...pendingAssets].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-    });
+    }),
+    [pendingAssets, sortBy]
+  );
 
   // Load more when both have more pages
   const hasMore = hasMoreInTransit || hasMoreFacilityQC;

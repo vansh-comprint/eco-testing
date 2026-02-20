@@ -21,7 +21,7 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useInfiniteAssets, useBranches, useDashboardStats } from '@/hooks';
+import { useAuth, useInfiniteAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -34,16 +34,38 @@ export function EnterpriseAssets() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: assetPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets({ enterprise_id: enterpriseId });
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+
+  // Map status filter groups to actual status values for server-side filtering
+  const STATUS_GROUP_MAP: Record<string, string> = {
+    pending: 'pending_assignment,assigned,check_in_started',
+    in_review: 'submitted,remote_review,facility_review',
+    accepted: 'conditionally_accepted,final_accepted,ready_for_pickup',
+    completed: 'completed',
+    rejected: 'remote_rejected,final_rejected',
+  };
+
+  // Server-side search + enterprise + status + branch filter
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (enterpriseId) params.enterprise_id = enterpriseId;
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (statusFilter !== 'all' && STATUS_GROUP_MAP[statusFilter]) {
+      params.statuses = STATUS_GROUP_MAP[statusFilter];
+    }
+    if (branchFilter !== 'all') params.branch_id = branchFilter;
+    return params;
+  }, [enterpriseId, debouncedSearch, statusFilter, branchFilter]);
+
+  const { data: assetPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
   const assets = useMemo(() => assetPages?.pages.flatMap(p => p.data || []) ?? [], [assetPages]);
   const totalAssets = assetPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
   const { stats: dashboardStats } = useDashboardStats();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [branchFilter, setBranchFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   // Branch lookup
   const branchMap = useMemo(() => {
@@ -62,37 +84,9 @@ export function EnterpriseAssets() {
     rejected: dashboardStats.asset_rejected ?? 0,
   };
 
-  // Filtered & sorted assets
+  // Filters are now server-side; client-side sort only
   const filteredAssets = useMemo(() => {
-    let result = [...assets];
-
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(a =>
-        a.serial_number?.toLowerCase().includes(q) ||
-        a.brand?.toLowerCase().includes(q) ||
-        a.model?.toLowerCase().includes(q)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      const statusGroups: Record<string, string[]> = {
-        pending: ['pending_assignment', 'assigned', 'check_in_started'],
-        in_review: ['submitted', 'remote_review', 'facility_review'],
-        accepted: ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'],
-        completed: ['completed'],
-        rejected: ['remote_rejected', 'final_rejected'],
-      };
-      const statuses = statusGroups[statusFilter] || [statusFilter];
-      result = result.filter(a => statuses.includes(a.status));
-    }
-
-    // Branch filter
-    if (branchFilter !== 'all') {
-      result = result.filter(a => a.branch_id === branchFilter);
-    }
+    const result = [...assets];
 
     // Sort
     result.sort((a, b) => {
@@ -106,7 +100,7 @@ export function EnterpriseAssets() {
     });
 
     return result;
-  }, [assets, searchQuery, statusFilter, branchFilter, sortBy]);
+  }, [assets, sortBy]);
 
   // Export CSV
   const handleExport = () => {

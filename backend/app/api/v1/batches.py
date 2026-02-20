@@ -44,7 +44,8 @@ async def _check_batch_access(db, batch_data, current_user: User):
 async def list_batches(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
-    status: Optional[BatchStatus] = Query(None, description="Filter by status"),
+    status: Optional[BatchStatus] = Query(None, description="Filter by single status"),
+    statuses: Optional[str] = Query(None, description="Filter by multiple statuses (comma-separated)"),
     search: Optional[str] = Query(None, description="Search by name or description"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
@@ -96,10 +97,14 @@ async def list_batches(
         effective_enterprise_id = scoped_filters.get("enterprise_id")
         effective_branch_id = scoped_filters.get("branch_id")
 
+    # Parse comma-separated statuses into a list
+    parsed_statuses = [s.strip() for s in statuses.split(",") if s.strip()] if statuses else None
+
     batches, total = await service.list_batches(
         skip=skip,
         limit=limit,
         status=status,
+        statuses=parsed_statuses,
         search=search,
         enterprise_id=effective_enterprise_id,
         branch_id=effective_branch_id,

@@ -112,6 +112,7 @@ export interface ApiResponse<T> {
   message?: string;
   error?: ApiError;
   pagination?: PaginationMeta;
+  aggregates?: Record<string, number>;
 }
 
 // Pagination metadata from backend
@@ -197,6 +198,7 @@ export async function fetchPublic<T>(
       data: data.data,
       message: data.message,
       pagination: data.pagination,
+      aggregates: data.aggregates,
     } as ApiResponse<T> & { pagination?: PaginationMeta };
   } catch (error) {
     return {
@@ -262,12 +264,13 @@ export async function fetchWithAuth<T>(
       };
     }
 
-    // Backend returns: { code, data, message, pagination? }
+    // Backend returns: { code, data, message, pagination?, aggregates? }
     return {
       success: true,
       data: data.data,
       message: data.message,
       pagination: data.pagination,
+      aggregates: data.aggregates,
     } as ApiResponse<T> & { pagination?: PaginationMeta };
   } catch (error) {
     return {

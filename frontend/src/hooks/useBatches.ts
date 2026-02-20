@@ -3,7 +3,7 @@
  * All batch data fetching and mutations
  */
 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { dashboardStatsKeys } from './useDashboardStats';
 import {
   batchesApi,
@@ -145,13 +145,17 @@ export function usePendingApprovalBatches() {
 }
 
 /**
- * Infinite scroll hook - loads batches 5 at a time via REST API
+ * Infinite scroll hook - loads batches via REST API
+ * Server-side filtering via params (status, statuses, search, branch_id, etc.)
  */
-export function useInfiniteBatches(params: Omit<BatchListParams, 'skip' | 'limit'> = {}) {
+export function useInfiniteBatches(params: Omit<BatchListParams, 'skip' | 'limit'> = {}, pageSize = 25) {
   return useInfiniteQuery({
-    queryKey: batchKeys.infinite(params as Record<string, unknown>),
+    queryKey: batchKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await batchesApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      const res = await batchesApi.list({ ...params, skip: pageParam as number, limit: pageSize });
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Failed to fetch batches');
+      }
       return res;
     },
     initialPageParam: 0,
@@ -161,7 +165,10 @@ export function useInfiniteBatches(params: Omit<BatchListParams, 'skip' | 'limit
       if (totalFetched < total) return totalFetched;
       return undefined;
     },
+    placeholderData: keepPreviousData,
     staleTime: 30000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

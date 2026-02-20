@@ -241,6 +241,7 @@ async def list_pickups(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: str = Query(None),
+    search: str = Query(None, description="Search by branch name, code, city, or request ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.PICKUP_VIEW)),
 ):
@@ -252,6 +253,7 @@ async def list_pickups(
         pickups, total = await service.list_pickups(
             user=current_user,
             status=status,
+            search=search,
             skip=skip,
             limit=page_size,
         )

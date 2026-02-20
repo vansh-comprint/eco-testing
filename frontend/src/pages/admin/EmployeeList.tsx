@@ -17,7 +17,7 @@ import {
   UserX,
   UserCheck,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { subUserKeys } from '@/hooks/useEmployees';
@@ -58,8 +58,21 @@ export function EmployeeList() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
-  // V3.2: React Query hooks - use different hooks based on role
-  const { data: subUserPages, isLoading: subUsersLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers({ enterprise_id: enterpriseId });
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+
+  // V3.2: React Query hooks - server-side search/filter
+  const apiParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { enterprise_id: enterpriseId };
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (statusFilter) params.status = statusFilter;
+    return params;
+  }, [enterpriseId, activeBranchFilter, debouncedSearch, statusFilter]);
+
+  const { data: subUserPages, isLoading: subUsersLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers(apiParams);
   const subUsers = useMemo(() => subUserPages?.pages.flatMap(p => p.data || []) ?? [], [subUserPages]);
   const totalSubUsers = subUserPages?.pages[0]?.pagination?.total;
 
@@ -68,10 +81,6 @@ export function EmployeeList() {
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('');
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [pendingToggle, setPendingToggle] = useState<{ userId: string; currentStatus: SubUserStatus; userName: string } | null>(null);
@@ -153,34 +162,16 @@ export function EmployeeList() {
     });
   }, [subUsers, assets]);
 
-  // Filter sub-users
+  // Filter sub-users (search/status/branch are now server-side, only department remains client-side)
   const filteredUsers = useMemo(() => {
     let result = [...enterpriseSubUsers];
-
-    if (activeBranchFilter) {
-      result = result.filter(e => e.branch_id === activeBranchFilter);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        u =>
-          u.name.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query) ||
-          u.department.toLowerCase().includes(query)
-      );
-    }
-
-    if (statusFilter) {
-      result = result.filter(u => u.status === statusFilter);
-    }
 
     if (departmentFilter) {
       result = result.filter(u => u.department === departmentFilter);
     }
 
     return result;
-  }, [enterpriseSubUsers, activeBranchFilter, searchQuery, statusFilter, departmentFilter]);
+  }, [enterpriseSubUsers, departmentFilter]);
 
   // Stats - use branch-scoped data
   const scopedUsers = useMemo(() => {

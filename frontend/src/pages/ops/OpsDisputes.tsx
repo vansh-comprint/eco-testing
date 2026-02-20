@@ -14,7 +14,7 @@ import {
   Send,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAllAssets, useInfiniteDisputes, useResolveDispute, useApiError, useDashboardStats } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes, useResolveDispute, useApiError, useDebounce, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 
@@ -35,14 +35,16 @@ export function OpsDisputes() {
   const [selectedDispute, setSelectedDispute] = useState<string | null>(null);
   const [resolution, setResolution] = useState<'overturned' | 'upheld' | null>(null);
   const [resolverNotes, setResolverNotes] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Infinite scroll disputes — pass status filter to server when applicable
+  // Infinite scroll disputes — pass status + search to server
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (statusFilter === 'pending') params.status = 'open';
     // 'resolved' and 'all' are handled client-side since there's no single "resolved" status value
+    if (debouncedSearch) params.search = debouncedSearch;
     return params;
-  }, [statusFilter]);
+  }, [statusFilter, debouncedSearch]);
 
   const {
     data: disputeData,
@@ -69,7 +71,7 @@ export function OpsDisputes() {
     createdAt: d.created_at,
   }));
 
-  // Filter disputes (respects global enterprise filter)
+  // Filter disputes — search is server-side, enterprise + resolved status remain client-side
   const filteredDisputes = disputes
     .filter(d => {
       // Apply global enterprise filter via associated asset
@@ -81,17 +83,6 @@ export function OpsDisputes() {
       // 'pending' is handled server-side, but double-check client-side
       if (statusFilter === 'pending') return !d.resolution;
       return true;
-    })
-    .filter(d => {
-      if (!searchQuery) return true;
-      const asset = assets.find(a => a.id === d.assetId);
-      if (!asset) return d.itAdminNotes.toLowerCase().includes(searchQuery.toLowerCase());
-      return (
-        (asset.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (asset.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (asset.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.itAdminNotes.toLowerCase().includes(searchQuery.toLowerCase())
-      );
     });
 
   const getAsset = (assetId: string) => assets.find(a => a.id === assetId);

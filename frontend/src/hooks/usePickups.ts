@@ -3,7 +3,7 @@
  * Handles pickup requests and logistics coordination
  */
 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { dashboardStatsKeys } from './useDashboardStats';
 import {
   pickupsApi,
@@ -40,16 +40,18 @@ export const pickupKeys = {
 /**
  * Fetch pickup requests with infinite scroll (server-side pagination)
  */
-export function useInfinitePickups(params: Record<string, string | undefined> = {}) {
+export function useInfinitePickups(params: Record<string, string | undefined> = {}, pageSize = 25) {
   return useInfiniteQuery({
-    queryKey: pickupKeys.infinite(params as Record<string, unknown>),
+    queryKey: pickupKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 1 }) => {
       const res = await pickupsApi.list({
         ...(params.status ? { status: params.status } : {}),
         ...(params.enterprise_id ? { enterprise_id: params.enterprise_id } : {}),
+        ...(params.search ? { search: params.search } : {}),
         page: pageParam as number,
-        pageSize: 5,
+        pageSize,
       });
+      if (!res.success) throw new Error(res.error?.message || 'Failed to fetch pickups');
       return res;
     },
     initialPageParam: 1,
@@ -59,7 +61,10 @@ export function useInfinitePickups(params: Record<string, string | undefined> = 
       if (totalFetched < total) return (lastPage.pagination?.page ?? allPages.length) + 1;
       return undefined;
     },
-    staleTime: 10000,
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

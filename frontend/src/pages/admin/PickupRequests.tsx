@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfinitePickups, useDashboardStats } from '@/hooks';
+import { useAuth, useInfinitePickups, useDebounce, useDashboardStats } from '@/hooks';
 // PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
 
@@ -61,14 +61,16 @@ export function PickupRequests() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Build server-side params
+  // Build server-side params (search + status + enterprise)
   const apiParams = useMemo(() => {
     const params: Record<string, string | undefined> = {};
     if (statusFilter) params.status = statusFilter;
     if (enterpriseId) params.enterprise_id = enterpriseId;
+    if (debouncedSearch) params.search = debouncedSearch;
     return params;
-  }, [statusFilter, enterpriseId]);
+  }, [statusFilter, enterpriseId, debouncedSearch]);
 
   const { stats: dashStats } = useDashboardStats();
 
@@ -88,29 +90,13 @@ export function PickupRequests() {
 
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // Client-side search (pickups API doesn't support search param)
+  // All filtering is now server-side (search + status + enterprise via useInfinitePickups)
+  // Just sort client-side by date descending
   const filteredRequests = useMemo(() => {
-    let result = [...allPickups];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(r => {
-        // V3.2: Search by branch info (joined from query)
-        const branch = r.branches;
-        return (
-          r.id.toLowerCase().includes(query) ||
-          branch?.branch_name?.toLowerCase().includes(query) ||
-          branch?.branch_code?.toLowerCase().includes(query) ||
-          branch?.city?.toLowerCase().includes(query)
-        );
-      });
-    }
-
-    // Sort by date descending (use snake_case from database)
+    const result = [...allPickups];
     result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
     return result;
-  }, [allPickups, searchQuery]);
+  }, [allPickups]);
 
   // Calculate stats — use backend stats for most, keep exceptions client-side
   const stats = useMemo(() => {

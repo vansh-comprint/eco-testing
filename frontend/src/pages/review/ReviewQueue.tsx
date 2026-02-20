@@ -2,30 +2,35 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, Laptop, Clock, ArrowRight, Filter, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useInfiniteAssets } from '@/hooks';
+import { useInfiniteAssets, useDebounce } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 
 export function ReviewQueue() {
   const navigate = useNavigate();
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets({ status: 'submitted' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+
+  // Server-side search + status filter
+  const apiParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { status: 'submitted' };
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [debouncedSearch]);
+
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
   const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total;
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
-
-  // Client-side search + sort (server already filtered to status=submitted)
-  const filteredAssets = allAssets
-    .filter(a =>
-      (a.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.serial_number || '').toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
+  // Only sort remains client-side (search is now server-side)
+  const filteredAssets = useMemo(() =>
+    [...allAssets].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-    });
+    }),
+    [allAssets, sortBy]
+  );
 
   return (
     <div className="space-y-6">

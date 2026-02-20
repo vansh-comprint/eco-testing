@@ -3,7 +3,7 @@
  * All asset data fetching and mutations
  */
 
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { dashboardStatsKeys } from './useDashboardStats';
 import {
   fetchAssets,
@@ -146,7 +146,7 @@ export function usePendingSelfEvaluations(userId: string) {
  * Infinite scroll hook - loads assets 5 at a time via REST API
  * Server-side filtering via params (status, search, branch_id, etc.)
  */
-export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'> = {}, pageSize = 5) {
+export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'> = {}, pageSize = 25) {
   return useInfiniteQuery({
     queryKey: assetKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
@@ -166,6 +166,7 @@ export function useInfiniteAssets(params: Omit<AssetListParams, 'skip' | 'limit'
       if (totalFetched < total) return totalFetched;
       return undefined;
     },
+    placeholderData: keepPreviousData,
     staleTime: 30000,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),

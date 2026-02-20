@@ -12,7 +12,7 @@ import {
   Laptop,
   ArrowRight
 } from 'lucide-react';
-import { useAuth, useAllAssets, useInfiniteDisputes, useDashboardStats } from '@/hooks';
+import { useAuth, useAllAssets, useInfiniteDisputes, useDebounce, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -41,15 +41,24 @@ export function DisputeList() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Infinite scroll disputes
+  // Build server-side params (search + status)
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (statusFilter) params.status = statusFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [statusFilter, debouncedSearch]);
+
+  // Infinite scroll disputes — search + status are server-side
   const {
     data: disputeData,
     isLoading,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useInfiniteDisputes(statusFilter ? { status: statusFilter } : {});
+  } = useInfiniteDisputes(apiParams);
 
   const disputes = useMemo(
     () => disputeData?.pages.flatMap(p => p.data || []) ?? [],
@@ -82,23 +91,8 @@ export function DisputeList() {
     ['remote_rejected', 'final_rejected'].includes(a.status)
   );
 
-  // Filter disputes (client-side search only — status is server-side via useInfiniteDisputes)
-  const filteredDisputes = useMemo(() => {
-    let result = [...enrichedDisputes];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        d =>
-          d.assets?.serial_number?.toLowerCase().includes(query) ||
-          d.assets?.brand?.toLowerCase().includes(query) ||
-          d.assets?.model?.toLowerCase().includes(query) ||
-          d.reason?.toLowerCase().includes(query)
-      );
-    }
-
-    return result;
-  }, [enrichedDisputes, searchQuery]);
+  // All filtering is now server-side (search + status via useInfiniteDisputes)
+  const filteredDisputes = enrichedDisputes;
 
   // Stats — use backend stats where available, keep canDispute client-side
   const stats = {

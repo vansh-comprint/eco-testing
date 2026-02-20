@@ -22,7 +22,7 @@ import {
   ArrowRight,
   User,
 } from 'lucide-react';
-import { useAuth, useAssets, useInfiniteBatches, useBranches, useITAdmins, useDashboardStats } from '@/hooks';
+import { useAuth, useAssets, useInfiniteBatches, useBranches, useITAdmins, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -36,17 +36,40 @@ export function EnterpriseBatches() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: batchPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteBatches({ enterprise_id: enterpriseId });
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [statusFilter, setStatusFilter] = useState<StatusGroup>('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+
+  // Map status filter groups to actual status values for server-side filtering
+  const STATUS_GROUP_MAP: Record<string, string> = {
+    draft: 'draft',
+    pending_approval: 'pending_approval',
+    approved: 'approved',
+    pickup: 'pickup_in_progress',
+    completed: 'completed',
+    rejected: 'rejected',
+  };
+
+  // Build API params for server-side filtering
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (enterpriseId) params.enterprise_id = enterpriseId;
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (statusFilter !== 'all' && STATUS_GROUP_MAP[statusFilter]) {
+      params.statuses = STATUS_GROUP_MAP[statusFilter];
+    }
+    if (branchFilter !== 'all') params.branch_id = branchFilter;
+    return params;
+  }, [enterpriseId, debouncedSearch, statusFilter, branchFilter]);
+
+  const { data: batchPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteBatches(apiParams);
   const batches = useMemo(() => batchPages?.pages.flatMap(p => p.data || []) ?? [], [batchPages]);
   const totalBatches = batchPages?.pages[0]?.pagination?.total;
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { data: itAdmins = [] } = useITAdmins(enterpriseId);
   const { stats: dashboardStats } = useDashboardStats();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusGroup>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
 
   // Lookups
   const branchMap = useMemo(() => {
@@ -81,35 +104,12 @@ export function EnterpriseBatches() {
     totalValue: dashboardStats.batch_total_value ?? 0,
   };
 
-  // Filtered batches
+  // Filters are now server-side; client-side sort only
   const filteredBatches = useMemo(() => {
-    let result = [...batches];
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(b => b.name.toLowerCase().includes(q));
-    }
-
-    if (statusFilter !== 'all') {
-      const groupMap: Record<string, string[]> = {
-        draft: ['draft'],
-        pending_approval: ['pending_approval'],
-        approved: ['approved'],
-        pickup: ['pickup_in_progress'],
-        completed: ['completed'],
-        rejected: ['rejected'],
-      };
-      const statuses = groupMap[statusFilter] || [];
-      result = result.filter(b => statuses.includes(b.status));
-    }
-
-    if (branchFilter !== 'all') {
-      result = result.filter(b => b.branch_id === branchFilter);
-    }
-
+    const result = [...batches];
     result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return result;
-  }, [batches, searchQuery, statusFilter, branchFilter]);
+  }, [batches]);
 
   const handleExport = () => {
     const csv = Papa.unparse(filteredBatches.map(b => ({

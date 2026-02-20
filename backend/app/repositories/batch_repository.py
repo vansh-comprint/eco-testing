@@ -26,6 +26,7 @@ class BatchRepository:
         branch_id: Optional[str] = None,
         branch_ids: Optional[List[str]] = None,
         status: Optional[BatchStatus] = None,
+        statuses: Optional[List[str]] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[Batch], int]:
@@ -46,7 +47,10 @@ class BatchRepository:
             query = query.where(Batch.branch_id == branch_id)
             count_query = count_query.where(Batch.branch_id == branch_id)
 
-        if status:
+        if statuses:
+            query = query.where(Batch.status.in_(statuses))
+            count_query = count_query.where(Batch.status.in_(statuses))
+        elif status:
             query = query.where(Batch.status == status.value)
             count_query = count_query.where(Batch.status == status.value)
 

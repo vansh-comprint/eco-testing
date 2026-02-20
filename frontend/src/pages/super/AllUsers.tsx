@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Users, Search, Download, Edit2, ArrowLeft, Mail, Phone, UserPlus } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { EditUserModal, AddUserModal } from '@/pages/super';
-import { useInfiniteUsers, useDashboardStats } from '@/hooks';
+import { useInfiniteUsers, useDebounce, useDashboardStats } from '@/hooks';
 import { usersApi } from '@/lib/api/users';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
@@ -29,11 +29,18 @@ export function AllUsers() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { stats: dashStats } = useDashboardStats();
+  const debouncedSearch = useDebounce(searchTerm, 350);
 
-  // Infinite scroll query for users
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteUsers(
-    roleFilter !== 'all' ? { role: roleFilter } : {}
-  );
+  // Build server-side params (role + search)
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (roleFilter !== 'all') params.role = roleFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [roleFilter, debouncedSearch]);
+
+  // Infinite scroll query for users — search + role are server-side
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteUsers(apiParams);
 
   const total = data?.pages[0]?.pagination?.total ?? 0;
 
@@ -78,17 +85,8 @@ export function AllUsers() {
     return roleLabels[role] || role;
   };
 
-  const filteredUsers = users.filter(user => {
-    // Employees are managed from Enterprise Detail, not All Users
-    if (user.role === 'employee') return false;
-
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.enterprise_name?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesSearch;
-  });
+  // Search + role are now server-side. Only exclude employees client-side.
+  const filteredUsers = users.filter(user => user.role !== 'employee');
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {

@@ -47,11 +47,12 @@ class AssetService:
         branch_ids: Optional[List[str]] = None,
         batch_id: Optional[str] = None,
         status: Optional[AssetStatus] = None,
+        statuses: Optional[List[str]] = None,
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
-    ) -> Tuple[List[AssetResponse], int]:
-        """List assets with filters and pagination"""
-        assets, total = await self.repository.get_all(
+    ) -> Tuple[List[AssetResponse], int, float]:
+        """List assets with filters and pagination. Returns (assets, total_count, total_value)."""
+        assets, total, total_value = await self.repository.get_all(
             skip=skip,
             limit=limit,
             enterprise_id=enterprise_id,
@@ -59,10 +60,11 @@ class AssetService:
             branch_ids=branch_ids,
             batch_id=batch_id,
             status=status,
+            statuses=statuses,
             assigned_to_user_id=assigned_to_user_id,
             search=search,
         )
-        return [self._asset_to_response(a) for a in assets], total
+        return [self._asset_to_response(a) for a in assets], total, total_value
 
     async def create_asset(self, asset_data: AssetCreate, created_by: str) -> AssetResponse:
         """Create a new asset"""

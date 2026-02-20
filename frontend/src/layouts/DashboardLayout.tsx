@@ -275,7 +275,8 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
 
               // Regular nav item (no children)
               // More precise active check - dashboard should only match exact path
-              const isActive = item.path.endsWith('/admin') || item.path.endsWith('/ops') || item.path.endsWith('/review') || item.path.endsWith('/org-admin') || item.path.endsWith('/super')
+              const isDashboardRoot = item.path.endsWith('/admin') || item.path.endsWith('/ops') || item.path.endsWith('/review') || item.path.endsWith('/org-admin') || item.path.endsWith('/super') || item.path.endsWith('/check-in') || item.path.endsWith('/logistics-admin') || item.path.endsWith('/logistics');
+              const isActive = isDashboardRoot
                 ? location.pathname === item.path
                 : location.pathname === item.path || location.pathname.startsWith(item.path + '/');
               return (

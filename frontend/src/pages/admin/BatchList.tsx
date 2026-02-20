@@ -17,7 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch, useDashboardStats } from '@/hooks';
+import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch, useDashboardStats, useDebounce } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -76,18 +76,26 @@ export function BatchList() {
   const activeBranchFilter = urlBranchId || itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
   // Build server-side params for infinite query
-  // Only pass single status values to API; comma-separated (multi-status) stays client-side
-  const apiStatus = statusFilter && !statusFilter.includes(',') ? statusFilter : undefined;
-  const infiniteParams = {
-    ...(isOrgAdmin && enterpriseId ? { enterprise_id: enterpriseId } : {}),
-    ...(activeBranchFilter ? { branch_id: activeBranchFilter } : {}),
-    ...(apiStatus ? { status: apiStatus } : {}),
-    ...(searchQuery ? { search: searchQuery } : {}),
-  };
+  const infiniteParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    // Status filter — single status or comma-separated group
+    if (statusFilter) {
+      if (statusFilter.includes(',')) {
+        params.statuses = statusFilter;
+      } else {
+        params.status = statusFilter;
+      }
+    }
+    return params;
+  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter]);
 
   const {
     data,
@@ -101,16 +109,9 @@ export function BatchList() {
   const allBatches = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // Client-side filtering for multi-status filters (e.g. "approved,pickup_in_progress")
-  // and sorting (API doesn't support sort param)
+  // Status/search filtering is now server-side; client-side sort only
   const filteredBatches = useMemo(() => {
-    let result = [...allBatches];
-
-    // Multi-status client filter (single status already handled by API)
-    if (statusFilter && statusFilter.includes(',')) {
-      const statuses = statusFilter.split(',');
-      result = result.filter(b => statuses.includes(b.status));
-    }
+    const result = [...allBatches];
 
     result.sort((a, b) => {
       switch (sortBy) {

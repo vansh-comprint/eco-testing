@@ -3,7 +3,7 @@
  * Handles all user CRUD operations and cache management
  */
 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   usersApi,
   type UserResponse,
@@ -62,11 +62,12 @@ export function useAllUsers(params: UserListParams = {}) {
 /**
  * Infinite scroll hook - loads users page by page
  */
-export function useInfiniteUsers(params: Omit<UserListParams, 'skip' | 'limit'> = {}) {
+export function useInfiniteUsers(params: Omit<UserListParams, 'skip' | 'limit'> = {}, pageSize = 25) {
   return useInfiniteQuery({
-    queryKey: userKeys.infinite(params as Record<string, unknown>),
+    queryKey: userKeys.infinite({ ...params, pageSize } as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await usersApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      const res = await usersApi.list({ ...params, skip: pageParam as number, limit: pageSize });
+      if (!res.success) throw new Error(res.error?.message || 'Failed to fetch users');
       return res;
     },
     initialPageParam: 0,
@@ -76,7 +77,10 @@ export function useInfiniteUsers(params: Omit<UserListParams, 'skip' | 'limit'> 
       if (totalFetched < total) return totalFetched;
       return undefined;
     },
+    placeholderData: keepPreviousData,
     staleTime: 30000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

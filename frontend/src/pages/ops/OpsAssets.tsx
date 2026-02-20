@@ -7,7 +7,7 @@ import {
   Eye,
   Building2,
 } from 'lucide-react';
-import { useInfiniteAssets } from '@/hooks';
+import { useInfiniteAssets, useDebounce } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { assetStatusLabels, type AssetStatus } from '@/types/asset';
@@ -30,16 +30,41 @@ export function OpsAssets() {
 
   const initialStatus = searchParams.get('status') || 'all';
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'value'>('newest');
+
+  // Map status filter groups to actual status values for server-side filtering
+  const STATUS_GROUP_MAP: Record<string, string> = {
+    review: 'submitted,remote_review',
+    qc: 'in_transit,facility_qc,conditionally_accepted',
+    payout: 'payout_pending',
+    completed: 'final_accepted,completed',
+    rejected: 'remote_rejected,final_rejected',
+  };
 
   // Build API params for server-side filtering
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
-    if (searchQuery) params.search = searchQuery;
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (!isAllEnterprises && selectedEnterpriseId) params.enterprise_id = selectedEnterpriseId;
+    if (statusFilter !== 'all' && STATUS_GROUP_MAP[statusFilter]) {
+      params.statuses = STATUS_GROUP_MAP[statusFilter];
+    }
+    return params;
+  }, [debouncedSearch, isAllEnterprises, selectedEnterpriseId, statusFilter]);
+
+  // Stable params for unfiltered total count (not affected by search)
+  const statsParams = useMemo(() => {
+    const params: Record<string, string> = {};
     if (!isAllEnterprises && selectedEnterpriseId) params.enterprise_id = selectedEnterpriseId;
     return params;
-  }, [searchQuery, isAllEnterprises, selectedEnterpriseId]);
+  }, [isAllEnterprises, selectedEnterpriseId]);
+
+  // Separate query for stable stats (unaffected by search/filters)
+  const { data: statsData } = useInfiniteAssets(statsParams, 1);
+  const stableTotalCount = statsData?.pages[0]?.pagination?.total ?? 0;
+  const stableTotalValue = statsData?.pages[0]?.aggregates?.total_value ?? 0;
 
   // V4: Infinite scroll hook — loads 5 assets at a time via REST API
   const {
@@ -54,31 +79,10 @@ export function OpsAssets() {
   const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // Client-side status group filtering on loaded assets
+  // Status filtering is now server-side via statuses param; client-side sort only
   const filteredAssets = useMemo(() => {
-    let filtered = allAssets;
-
-    // Filter by status group
-    switch (statusFilter) {
-      case 'review':
-        filtered = filtered.filter(a => ['submitted', 'remote_review'].includes(a.status));
-        break;
-      case 'qc':
-        filtered = filtered.filter(a => ['in_transit', 'facility_qc', 'conditionally_accepted'].includes(a.status));
-        break;
-      case 'payout':
-        filtered = filtered.filter(a => a.status === 'payout_pending');
-        break;
-      case 'completed':
-        filtered = filtered.filter(a => ['final_accepted', 'completed'].includes(a.status));
-        break;
-      case 'rejected':
-        filtered = filtered.filter(a => ['remote_rejected', 'final_rejected'].includes(a.status));
-        break;
-    }
-
     // Sort
-    return [...filtered].sort((a, b) => {
+    return [...allAssets].sort((a, b) => {
       if (sortBy === 'value') {
         return (Number(b.final_price) || Number(b.base_price) || 0) - (Number(a.final_price) || Number(a.base_price) || 0);
       }
@@ -86,7 +90,7 @@ export function OpsAssets() {
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
-  }, [allAssets, statusFilter, sortBy]);
+  }, [allAssets, sortBy]);
 
   const getStatusColor = (status: AssetStatus) => {
     const colorMap: Record<string, string> = {
@@ -142,7 +146,7 @@ export function OpsAssets() {
             All Assets
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
-            {totalCount} assets {isAllEnterprises ? 'across all enterprises' : `for ${selectedEnterprise?.name || 'selected enterprise'}`}
+            {stableTotalCount} assets {isAllEnterprises ? 'across all enterprises' : `for ${selectedEnterprise?.name || 'selected enterprise'}`}
           </p>
         </motion.div>
       </div>
@@ -159,7 +163,7 @@ export function OpsAssets() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Assets</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            {totalCount}
+            {stableTotalCount}
           </p>
         </div>
         <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
@@ -168,7 +172,7 @@ export function OpsAssets() {
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>
           </div>
           <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-            ₹{(allAssets.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0) / 1000).toFixed(0)}K
+            ₹{(stableTotalValue / 1000).toFixed(0)}K
           </p>
         </div>
       </motion.div>
@@ -400,6 +404,11 @@ export function OpsAssets() {
 
       {/* Infinite Scroll Controls */}
       <InfiniteScrollInfo loadedCount={allAssets.length} totalCount={totalCount} />
+      {debouncedSearch && totalCount !== stableTotalCount && (
+        <p className="text-center font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+          Showing {totalCount} result{totalCount !== 1 ? 's' : ''} for &quot;{debouncedSearch}&quot;
+        </p>
+      )}
       <InfiniteScrollTrigger
         hasNextPage={!!hasNextPage}
         isFetchingNextPage={isFetchingNextPage}

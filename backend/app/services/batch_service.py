@@ -110,6 +110,7 @@ class BatchService:
         branch_id: Optional[str] = None,
         branch_ids: Optional[List[str]] = None,
         status: Optional[BatchStatus] = None,
+        statuses: Optional[List[str]] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[BatchResponse], int]:
@@ -121,6 +122,7 @@ class BatchService:
             branch_id=branch_id,
             branch_ids=branch_ids,
             status=status,
+            statuses=statuses,
             created_by=created_by,
             search=search,
         )

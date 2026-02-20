@@ -71,6 +71,7 @@ async def list_disputes(
     page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     status: str = Query(None, description="Filter by status: open, in_progress, resolved, escalated, closed"),
     dispute_type: str = Query(None, description="Filter by type: grading, valuation, damage, missing_item, other"),
+    search: str = Query(None, description="Search by serial number, brand, model, or description"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(Permission.DISPUTE_VIEW)),
 ):
@@ -78,7 +79,7 @@ async def list_disputes(
     List disputes with role-based scoping.
 
     Super/OPS Admins see all disputes. Org/IT Admins see disputes for their enterprise.
-    Employees see only their own disputes. Supports filtering by status and dispute type.
+    Employees see only their own disputes. Supports filtering by status, dispute type, and search.
 
     **Required permission:** DISPUTE_VIEW
     """
@@ -90,6 +91,7 @@ async def list_disputes(
             user=current_user,
             status=status,
             dispute_type=dispute_type,
+            search=search,
             skip=skip,
             limit=page_size,
         )
