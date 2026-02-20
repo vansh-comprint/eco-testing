@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Phone, Mail, Eye, EyeOff, Search, Users, UserCheck, UserX, Edit2, X, Shield, Loader2 } from 'lucide-react';
-import { useAuth, useLogisticsUsers, useCreateLogisticsUser, useUpdateLogisticsUser } from '@/hooks';
+import { Plus, Phone, Mail, Eye, EyeOff, Search, Users, UserCheck, UserX, Edit2, Power, ChevronRight, X, Shield, Loader2 } from 'lucide-react';
+import { useAuth, useLogisticsUsers, useCreateLogisticsUser, useUpdateLogisticsUser, useUpdateLogisticsUserStatus } from '@/hooks';
 import { useToast, Modal, PageHeader, Button } from '@/components/ui';
 import { usersApi } from '@/lib/api';
 import { text } from '@/lib/design-tokens';
@@ -12,6 +12,7 @@ export function LogisticsUserManagement() {
   const { data: logisticsUsers = [], isLoading } = useLogisticsUsers(user?.id);
   const createUserMutation = useCreateLogisticsUser();
   const updateUserMutation = useUpdateLogisticsUser();
+  const updateStatusMutation = useUpdateLogisticsUserStatus();
   const { addToast } = useToast();
 
   // Modal state
@@ -23,6 +24,9 @@ export function LogisticsUserManagement() {
   // Add user form
   const [addForm, setAddForm] = useState({ name: '', phone: '', email: '', password: '' });
   const [showAddPassword, setShowAddPassword] = useState(false);
+
+  // Track which user's status toggle is in progress (per-user loading)
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
   // Edit user form
   const [editForm, setEditForm] = useState({ name: '', phone: '', email: '' });
@@ -166,6 +170,24 @@ export function LogisticsUserManagement() {
     }
   };
 
+  // ─── Toggle status (per-user loading) ────────────────────────────────────
+  const handleToggleStatus = async (u: LogisticsUserResponse) => {
+    const newStatus = u.status === 'active' ? 'inactive' : 'active';
+    setTogglingUserId(u.id);
+    try {
+      await updateStatusMutation.mutateAsync({ userId: u.id, status: newStatus });
+      addToast({
+        type: 'success',
+        title: newStatus === 'active' ? 'User Activated' : 'User Deactivated',
+        message: `${u.name} is now ${newStatus}`,
+      });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Status Change Failed', message: error instanceof Error ? error.message : 'Unknown error' });
+    } finally {
+      setTogglingUserId(null);
+    }
+  };
+
   const inputCls = 'w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none';
   const labelCls = `block font-mono text-xs uppercase tracking-widest ${text.muted} mb-2`;
 
@@ -293,6 +315,22 @@ export function LogisticsUserManagement() {
                   className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-ecotribe-primary hover:bg-ecotribe-primary/10 dark:text-white/40 dark:hover:text-ecotribe-primary transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
+                </button>
+                {/* Activate / Deactivate — per-user loading */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleToggleStatus(u); }}
+                  disabled={togglingUserId === u.id}
+                  title={u.status === 'active' ? 'Deactivate user' : 'Activate user'}
+                  className={`w-8 h-8 flex items-center justify-center transition-colors disabled:opacity-40 ${
+                    u.status === 'active'
+                      ? 'text-emerald-500 hover:text-red-500 hover:bg-red-500/10'
+                      : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 dark:text-white/40'
+                  }`}
+                >
+                  {togglingUserId === u.id
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Power className="w-4 h-4" />
+                  }
                 </button>
               </div>
             </motion.div>

@@ -164,6 +164,12 @@ export const logisticsApi = {
       body: JSON.stringify(data),
     }),
 
+  updateUserStatus: (id: string, status: 'active' | 'inactive') =>
+    fetchWithAuth<LogisticsUserResponse>(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
   deleteUser: (id: string) =>
     fetchWithAuth<void>(`/users/${id}`, { method: 'DELETE' }),
 

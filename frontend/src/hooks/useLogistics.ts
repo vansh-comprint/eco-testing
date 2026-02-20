@@ -294,7 +294,7 @@ export function useUpdateLogisticsUserStatus() {
 
   return useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: 'active' | 'inactive' }) => {
-      const response = await logisticsApi.updateUser(userId, { status });
+      const response = await logisticsApi.updateUserStatus(userId, status);
       if (!response.success) throw parseApiError(response) || new Error('Failed to update logistics user status');
       return response.data;
     },

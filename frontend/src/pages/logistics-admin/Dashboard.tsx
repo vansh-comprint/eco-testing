@@ -63,7 +63,13 @@ export function LogisticsAdminDashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative isolate">
+      {/* Subtle background accent — absolute so it's scoped to this page only */}
+      <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-lime-500/[0.04] dark:bg-lime-500/[0.06] blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-ecotribe-primary/[0.04] dark:bg-ecotribe-primary/[0.05] blur-3xl" />
+      </div>
+
       {/* Header */}
       <PageHeader
         label="Logistics Admin"

@@ -12,7 +12,7 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreat
 from app.services.user_service import UserService
 from app.utils.response import success_response, paginated_response
 
-# Exceptions are handled by middleware - no need to import here
+from app.utils.exceptions import ValidationError
 from app.utils.scoping import (
     get_scoped_filters,
     auto_fill_context,
@@ -350,6 +350,22 @@ async def create_users_bulk(
         message=f"{len(users)} users created successfully"
         + (f", {len(errors)} errors" if errors else ""),
     )
+
+
+@router.patch("/{user_id}/status")
+async def update_user_status(
+    user_id: str,
+    status: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.USER_UPDATE)),
+):
+    """Update a single user's status (active/inactive)."""
+    if status not in ("active", "inactive"):
+        raise ValidationError("Status must be 'active' or 'inactive'")
+    service = UserService(db)
+    from app.schemas.user import UserUpdate
+    result = await service.update_user(user_id, UserUpdate(status=status), current_user)
+    return success_response(data=result, message=f"User status updated to {status}")
 
 
 @router.post("/{user_id}/toggle-company-status")
