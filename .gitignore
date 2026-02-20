@@ -1,6 +1,12 @@
-# Claude Code - memory is local, agents/hooks/skills/checklists can be committed
+# Claude Code
 .claude/memory/
 .claude/settings.local.json
+.claude/agent-memory/
+.claude/plans/
+.claude/tasks/
+
+# Serena
+.serena/
 
 # Environment
 .env
@@ -31,6 +37,7 @@ __pycache__/
 *.pyc
 *.pyo
 .ruff_cache/
+.mypy_cache/
 
 # Node
 node_modules/
@@ -39,11 +46,17 @@ node_modules/
 dist/
 build/
 
-# Playwright MCP
+# Playwright
 .playwright-mcp/
+playwright-report/
+test-results/
 
-# Test artifacts (agent-generated reports)
+# Ruff / linting
+.ruff_cache/
+
+# Test artifacts
 *_TEST_REPORT.md
+*BUG-REPORT*.md
 test_*.py
 !backend/tests/test_*.py
 
@@ -52,8 +65,22 @@ tmpclaude-*/
 tsc_output.txt
 *.tmp
 
-# Credential/token files (should never be committed)
+# Screenshots & misc (never commit)
+*.png
+*.xlsx
+*.psd
+
+# Credential/token files
 *_login.json
 *_token.txt
 *_test.json
 spec_doc
+
+# Postman exports
+*Postman*.json
+
+# Uploaded files (local storage)
+backend/storage/documents/
+
+# Frontend sub-project claude config
+frontend/.claude/
