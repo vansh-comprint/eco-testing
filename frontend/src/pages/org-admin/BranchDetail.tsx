@@ -50,7 +50,7 @@ export function BranchDetail() {
 
   const { data: branch, isLoading, error } = useBranch(branchId || '');
   const { data: summaries = [] } = useBranchSummary(enterpriseId);
-  const { data: itAdmins = [] } = useActiveITAdmins(enterpriseId); // Only show active admins in dropdown
+  const { data: itAdmins = [] } = useActiveITAdmins(isOrgAdmin ? enterpriseId : ''); // Only Org Admin can list IT admins
   const updateBranch = useUpdateBranch();
 
   const [isEditAdminModalOpen, setIsEditAdminModalOpen] = useState(false);

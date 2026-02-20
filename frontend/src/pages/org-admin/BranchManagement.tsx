@@ -69,7 +69,7 @@ export function BranchManagement() {
   const isLoading = isOrgAdmin ? orgLoading : itLoading;
   
   const { data: allBranchSummaries = [] } = useBranchSummary(enterpriseId);
-  const { data: itAdmins = [] } = useActiveITAdmins(enterpriseId); // Only show active admins in dropdown
+  const { data: itAdmins = [] } = useActiveITAdmins(isOrgAdmin ? enterpriseId : ''); // Only Org Admin can list IT admins
 
   // V3.2: Scope branch summaries to IT Admin's branches
   const myBranchIds = new Set(branches.map((b: Branch) => b.id));
