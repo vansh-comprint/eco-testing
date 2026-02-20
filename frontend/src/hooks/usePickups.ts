@@ -71,7 +71,8 @@ export function useAllPickupRequests() {
     queryKey: pickupKeys.all,
     queryFn: async () => {
       const response = await pickupsApi.list({ pageSize: 100 });
-      return response.data;
+      if (!response.success) throw new Error(response.error?.message || 'Failed to fetch pickups');
+      return response.data ?? [];
     },
     staleTime: 10000, // Refresh frequently for ops
   });
@@ -85,8 +86,9 @@ export function usePickupRequests(enterpriseId: string) {
     queryKey: pickupKeys.list(enterpriseId),
     queryFn: async () => {
       const response = await pickupsApi.list({ pageSize: 100 });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to fetch pickups');
       // Filter by enterprise if needed (API handles role-based scoping)
-      return response.data;
+      return response.data ?? [];
     },
     enabled: !!enterpriseId,
     staleTime: 30000,
@@ -189,7 +191,7 @@ export function useCreatePickupRequest() {
       if (!response.success) throw new Error(response.error?.message || 'Failed to create pickup request');
       return response.data;
     },
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       // Force refetch to ensure asset status updates are reflected immediately
       await Promise.all([
         queryClient.refetchQueries({ queryKey: pickupKeys.all }),

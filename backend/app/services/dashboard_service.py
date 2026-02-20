@@ -441,6 +441,11 @@ async def get_dashboard_stats(
                 AssetStatus.CHECK_IN_STARTED.value,
                 AssetStatus.SUBMITTED.value,
                 AssetStatus.REMOTE_REVIEW.value,
+                AssetStatus.PICKUP_REQUESTED.value,
+                AssetStatus.PICKUP_SCHEDULED.value,
+                AssetStatus.PICKED_UP.value,
+                AssetStatus.IN_TRANSIT.value,
+                AssetStatus.FACILITY_QC.value,
             ]
         )
         stats["asset_accepted"] = sum(

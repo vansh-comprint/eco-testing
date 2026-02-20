@@ -20,14 +20,15 @@ import {
   Mail,
   Phone,
   Building2,
-  Hash,
   Check,
   UserPlus,
 } from 'lucide-react';
-import { useSubUsers, useCreateSubUser, type CreateSubUserInput } from '@/hooks/useEmployees';
-import { Modal, ModalFooter } from './Modal';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSubUsers, useCreateSubUser, type CreateSubUserInput, subUserKeys } from '@/hooks/useEmployees';
+import { Modal } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
+import { Dropdown } from './Dropdown';
 import { cn } from '@/lib/utils';
 
 interface Employee {
@@ -52,6 +53,8 @@ interface EmployeeSelectorProps {
   disabled?: boolean;
   className?: string;
   showAddNew?: boolean;
+  selfUserId?: string;
+  selfUserName?: string;
 }
 
 export function EmployeeSelector({
@@ -66,6 +69,8 @@ export function EmployeeSelector({
   disabled = false,
   className,
   showAddNew = true,
+  selfUserId,
+  selfUserName = 'Myself (IT Admin)',
 }: EmployeeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,9 +93,10 @@ export function EmployeeSelector({
     }
   }, []);
 
+  const queryClient = useQueryClient();
+
   // Fetch employees
   const { data: employees = [], isLoading, refetch } = useSubUsers(enterpriseId);
-  const createMutation = useCreateSubUser();
 
   // Filter employees based on search
   const filteredEmployees = useMemo(() => {
@@ -161,11 +167,37 @@ export function EmployeeSelector({
   };
 
   const handleEmployeeCreated = async (newEmployee: Employee) => {
-    // Refetch employees list
-    await refetch();
-    // Auto-select the new employee
-    onChange(newEmployee.id, newEmployee);
     setShowAddModal(false);
+
+    if (newEmployee?.id) {
+      // Happy path: backend returned the created employee
+      onChange(newEmployee.id, newEmployee);
+      queryClient.setQueryData(
+        subUserKeys.list(enterpriseId),
+        (old: Employee[] = []) => [newEmployee, ...old.filter(e => e.id !== newEmployee.id)]
+      );
+      refetch();
+      return;
+    }
+
+    // Fallback: backend didn't return employee data, but employee was created.
+    // Refetch the list and find by email.
+    if (newEmployee?.email) {
+      const email = newEmployee.email.toLowerCase();
+      const result = await refetch();
+      const allEmployees = Array.isArray(result.data) ? (result.data as Employee[]) : [];
+      const found = allEmployees.find((e: Employee) => e.email?.toLowerCase() === email);
+      if (found?.id) {
+        onChange(found.id, found);
+        queryClient.setQueryData(
+          subUserKeys.list(enterpriseId),
+          (old: Employee[] = []) => [found, ...old.filter(e => e.id !== found.id)]
+        );
+      }
+      return;
+    }
+
+    refetch();
   };
 
   return (
@@ -205,9 +237,14 @@ export function EmployeeSelector({
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <User className={cn(
               'w-4 h-4 flex-shrink-0',
-              selectedEmployee ? 'text-ecotribe-primary' : 'text-zinc-500'
+              (selectedEmployee || (selfUserId && value === selfUserId)) ? 'text-ecotribe-primary' : 'text-zinc-500'
             )} />
-            {selectedEmployee ? (
+            {selfUserId && value === selfUserId ? (
+              <div className="flex-1 min-w-0">
+                <p className="text-slate-900 dark:text-white truncate">{selfUserName}</p>
+                <p className="text-[10px] text-zinc-500">Self-assigned</p>
+              </div>
+            ) : selectedEmployee ? (
               <div className="flex-1 min-w-0">
                 <p className="text-slate-900 dark:text-white truncate">{selectedEmployee.name}</p>
                 <p className="text-[10px] text-zinc-500 truncate">
@@ -220,7 +257,7 @@ export function EmployeeSelector({
             )}
           </div>
           <div className="flex items-center gap-1">
-            {selectedEmployee && !disabled && (
+            {(selectedEmployee || (selfUserId && value === selfUserId)) && !disabled && (
               <button
                 type="button"
                 onClick={handleClear}
@@ -269,6 +306,30 @@ export function EmployeeSelector({
                 />
               </div>
             </div>
+
+            {/* Self-Assign Option */}
+            {selfUserId && (
+              <div className="border-b border-slate-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => { onChange(selfUserId); setIsOpen(false); setSearchQuery(''); }}
+                  className={cn(
+                    'w-full px-4 py-3 flex items-center gap-3 text-left transition-colors',
+                    'hover:bg-ecotribe-primary/10',
+                    value === selfUserId && 'bg-ecotribe-primary/10'
+                  )}
+                >
+                  <div className="w-8 h-8 rounded-full bg-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-ecotribe-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ecotribe-primary font-medium">{selfUserName}</p>
+                    <p className="text-[10px] text-zinc-500">Assign asset to yourself</p>
+                  </div>
+                  {value === selfUserId && <Check className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />}
+                </button>
+              </div>
+            )}
 
             {/* Employee List */}
             <div className="max-h-48 overflow-y-auto">
@@ -368,6 +429,17 @@ export function EmployeeSelector({
 // Add Employee Modal (Inline Creation)
 // ============================================
 
+const DEPARTMENTS = [
+  { label: 'Engineering', value: 'Engineering' },
+  { label: 'Marketing', value: 'Marketing' },
+  { label: 'HR', value: 'HR' },
+  { label: 'Finance', value: 'Finance' },
+  { label: 'Operations', value: 'Operations' },
+  { label: 'Sales', value: 'Sales' },
+  { label: 'IT', value: 'IT' },
+  { label: 'Other', value: 'Other' },
+];
+
 interface AddEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -380,7 +452,7 @@ function AddEmployeeModal({
   isOpen,
   onClose,
   enterpriseId,
-  branchId,
+  branchId: _branchId,
   onCreated,
 }: AddEmployeeModalProps) {
   const createMutation = useCreateSubUser();
@@ -388,9 +460,8 @@ function AddEmployeeModal({
     name: '',
     email: '',
     phone: '',
-    employee_id: '',
     department: '',
-    designation: '',
+    customDepartment: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -401,14 +472,41 @@ function AddEmployeeModal({
     }
   };
 
+  // Only allow letters and spaces in name field
+  const handleNameChange = (value: string) => {
+    const filtered = value.replace(/[^a-zA-Z\s]/g, '');
+    handleChange('name', filtered);
+  };
+
+  // Only allow digits in phone field
+  const handlePhoneChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 10);
+    handleChange('phone', digits);
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required';
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.name.trim())) {
+      newErrors.name = 'Name must contain letters only';
+    }
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Enter a valid email address';
     }
+
+    if (formData.phone && formData.phone.length !== 10) {
+      newErrors.phone = 'Phone number must be exactly 10 digits';
+    }
+
+    if (formData.department === 'Other' && !formData.customDepartment.trim()) {
+      newErrors.customDepartment = 'Please specify your department';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -417,30 +515,36 @@ function AddEmployeeModal({
     e.preventDefault();
     if (!validate()) return;
 
+    const department =
+      formData.department === 'Other'
+        ? formData.customDepartment.trim() || undefined
+        : formData.department || undefined;
+
+    // Save before async so we can use them in the fallback path
+    const savedEmail = formData.email.trim().toLowerCase();
+    const savedName = formData.name.trim();
+
     try {
       const input: CreateSubUserInput = {
         enterprise_id: enterpriseId,
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim() || undefined,
-        employee_id: formData.employee_id.trim() || undefined,
-        department: formData.department.trim() || undefined,
-        designation: formData.designation.trim() || undefined,
+        name: savedName,
+        email: savedEmail,
+        phone: formData.phone || undefined,
+        department,
       };
 
       const newEmployee = await createMutation.mutateAsync(input);
 
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        employee_id: '',
-        department: '',
-        designation: '',
-      });
+      // Reset form regardless of whether the API returned employee data
+      setFormData({ name: '', email: '', phone: '', department: '', customDepartment: '' });
 
-      onCreated(newEmployee as Employee);
+      if (newEmployee?.id) {
+        onCreated(newEmployee as Employee);
+      } else {
+        // Employee was created but API didn't return the record.
+        // Pass email so the parent can refetch and find by email to auto-select.
+        onCreated({ id: '', name: savedName, email: savedEmail } as unknown as Employee);
+      }
     } catch (error) {
       console.error('Failed to create employee:', error);
       setErrors({ submit: 'Failed to create employee. Please try again.' });
@@ -448,26 +552,15 @@ function AddEmployeeModal({
   };
 
   const handleClose = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      employee_id: '',
-      department: '',
-      designation: '',
-    });
+    setFormData({ name: '', email: '', phone: '', department: '', customDepartment: '' });
     setErrors({});
     onClose();
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Add New Employee"
-    >
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Employee">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Quick Info */}
+        {/* Info banner */}
         <div className="flex items-center gap-3 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300">
           <UserPlus className="w-4 h-4 flex-shrink-0" />
           <p className="font-mono text-xs">
@@ -475,81 +568,86 @@ function AddEmployeeModal({
           </p>
         </div>
 
-        {/* Name & Email (Required) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Full Name"
-            placeholder="John Doe"
-            value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-            error={errors.name}
-            required
-            icon={<User className="w-4 h-4" />}
-          />
-          <Input
-            label="Email"
-            type="email"
-            placeholder="john@company.com"
-            value={formData.email}
-            onChange={(e) => handleChange('email', e.target.value)}
-            error={errors.email}
-            required
-            icon={<Mail className="w-4 h-4" />}
-          />
-        </div>
+        {/* Full Name */}
+        <Input
+          label="Full Name"
+          placeholder="John Doe"
+          value={formData.name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          error={errors.name}
+          required
+          icon={<User className="w-4 h-4" />}
+        />
 
-        {/* Phone & Employee ID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Phone Number"
-            placeholder="+91 98765 43210"
-            value={formData.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
-            icon={<Phone className="w-4 h-4" />}
-          />
-          <Input
-            label="Employee ID"
-            placeholder="EMP001"
-            value={formData.employee_id}
-            onChange={(e) => handleChange('employee_id', e.target.value)}
-            icon={<Hash className="w-4 h-4" />}
-          />
-        </div>
+        {/* Email */}
+        <Input
+          label="Email"
+          type="email"
+          placeholder="john@company.com"
+          value={formData.email}
+          onChange={(e) => handleChange('email', e.target.value)}
+          error={errors.email}
+          required
+          icon={<Mail className="w-4 h-4" />}
+        />
 
-        {/* Department & Designation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Department"
-            placeholder="Engineering"
+        {/* Phone */}
+        <Input
+          label="Phone Number"
+          placeholder="10-digit mobile number"
+          value={formData.phone}
+          onChange={(e) => handlePhoneChange(e.target.value)}
+          error={errors.phone}
+          icon={<Phone className="w-4 h-4" />}
+          hint="Digits only, exactly 10 numbers"
+        />
+
+        {/* Department */}
+        <div className="space-y-2">
+          <label className="block font-mono text-xs uppercase tracking-wider text-slate-600 dark:text-zinc-400">
+            Department
+          </label>
+          <Dropdown
+            options={DEPARTMENTS}
             value={formData.department}
-            onChange={(e) => handleChange('department', e.target.value)}
+            onChange={(value) => {
+              handleChange('department', value);
+              if (value !== 'Other') handleChange('customDepartment', '');
+            }}
+            placeholder="Select department"
+            error={errors.department}
+          />
+        </div>
+
+        {/* Custom department when "Other" is selected */}
+        {formData.department === 'Other' && (
+          <Input
+            label="Specify Department"
+            placeholder="Enter department name"
+            value={formData.customDepartment}
+            onChange={(e) => handleChange('customDepartment', e.target.value)}
+            error={errors.customDepartment}
             icon={<Building2 className="w-4 h-4" />}
           />
-          <Input
-            label="Designation"
-            placeholder="Software Engineer"
-            value={formData.designation}
-            onChange={(e) => handleChange('designation', e.target.value)}
-          />
-        </div>
+        )}
 
-        {/* Error */}
+        {/* Submit error */}
         {errors.submit && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
             {errors.submit}
           </div>
         )}
 
         {/* Actions */}
-        <ModalFooter>
+        <div className="flex items-center justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <Button type="submit" loading={createMutation.isPending}>
             <Plus className="w-4 h-4 mr-2" />
-            Create Employee
+            Create & Assign Employee
           </Button>
-        </ModalFooter>
+        </div>
       </form>
     </Modal>
   );

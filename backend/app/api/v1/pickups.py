@@ -66,7 +66,6 @@ def _to_response(
         "started_at": pickup.started_at,
         "assigned_by_id": pickup.assigned_by_id,
         "status": pickup.status,
-        "priority": getattr(pickup, "priority", "normal"),
         "special_instructions": pickup.special_instructions,
         "logistics_notes": pickup.logistics_notes,
         "completed_at": pickup.completed_at,
@@ -150,6 +149,26 @@ async def _enrich_pickups(
         for loc in result.scalars().all():
             locations_map[loc.id] = loc
 
+    # Batch-fetch branches matched by (enterprise_id, branch_name == location.name)
+    branches_map: Dict[tuple, Branch] = {}
+    if locations_map:
+        lookup_pairs = set()
+        for p in pickups:
+            loc = locations_map.get(p.location_id)
+            if loc and p.enterprise_id:
+                lookup_pairs.add((p.enterprise_id, loc.name))
+        if lookup_pairs:
+            enterprise_ids = {pair[0] for pair in lookup_pairs}
+            location_names = {pair[1] for pair in lookup_pairs}
+            result = await db.execute(
+                select(Branch).where(
+                    Branch.enterprise_id.in_(enterprise_ids),
+                    Branch.branch_name.in_(location_names),
+                )
+            )
+            for br in result.scalars().all():
+                branches_map[(br.enterprise_id, br.branch_name)] = br
+
     # Batch-fetch full asset details for all pickups
     all_asset_ids: set = set()
     for p in pickups:
@@ -180,6 +199,8 @@ async def _enrich_pickups(
 
     enriched = []
     for p in pickups:
+        loc = locations_map.get(p.location_id)
+        branch = branches_map.get((p.enterprise_id, loc.name)) if loc and p.enterprise_id else None
         per_pickup_details = [
             all_asset_details_map[aid]
             for aid in (p.asset_ids or [])
@@ -188,7 +209,8 @@ async def _enrich_pickups(
         enriched.append(
             _to_response(
                 p,
-                location=locations_map.get(p.location_id),
+                location=loc,
+                branch=branch,
                 asset_status_map=asset_status_map,
                 asset_details=per_pickup_details,
             )
@@ -403,7 +425,7 @@ async def list_pickup_locations(
 async def create_pickup_location(
     data: PickupLocationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_CREATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Create a pickup location"""
     service = PickupLocationService(db)
@@ -441,7 +463,7 @@ async def update_pickup_location(
     location_id: str,
     data: PickupLocationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Update a pickup location"""
     service = PickupLocationService(db)
@@ -464,7 +486,7 @@ async def update_pickup_location(
 async def delete_pickup_location(
     location_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Delete a pickup location (soft delete)"""
     service = PickupLocationService(db)
@@ -484,7 +506,7 @@ async def delete_pickup_location(
 async def set_default_pickup_location(
     location_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Set a pickup location as the default for its enterprise"""
     service = PickupLocationService(db)

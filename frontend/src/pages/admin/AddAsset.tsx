@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Laptop, CheckCircle, Info, Plus, ArrowRight, Building2, AlertCircle } from 'lucide-react';
 import { AssetForm } from '@/components/assets';
+import { Dropdown } from '@/components/ui';
 import { useAuth, useCreateAsset, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useApiError } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import type { CreateAssetInput } from '@/hooks';
@@ -199,28 +200,18 @@ export function AddAsset() {
             needsBranchSelection ? 'border-amber-500/50' : 'border-black/10 dark:border-white/10'
           }`}
         >
-          <label className="block font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
-            Branch <span className="text-red-400">*</span>
+          <label className="block font-mono text-xs uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
+            Branch <span className="text-lime-600 dark:text-lime-400 ml-1">*</span>
           </label>
-          <div className="relative">
-            <Building2 className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${
-              needsBranchSelection ? 'text-amber-500' : 'text-zinc-500'
-            }`} />
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              className={`w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors appearance-none select-themed cursor-pointer ${
-                needsBranchSelection ? 'border-amber-500/50' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
-              }`}
-            >
-              <option value="" className="bg-white dark:bg-zinc-900">Select a branch...</option>
-              {activeBranches.map((branch: { id: string; branch_name: string; branch_code: string }) => (
-                <option key={branch.id} value={branch.id} className="bg-white dark:bg-zinc-900">
-                  {branch.branch_name} ({branch.branch_code})
-                </option>
-              ))}
-            </select>
-          </div>
+          <Dropdown
+            options={activeBranches.map((branch: { id: string; branch_name: string; branch_code: string }) => ({
+              label: `${branch.branch_name} (${branch.branch_code})`,
+              value: branch.id,
+            }))}
+            value={selectedBranchId}
+            onChange={(value) => setSelectedBranchId(value)}
+            placeholder="Select a branch..."
+          />
           {needsBranchSelection && (
             <p className="mt-2 font-mono text-xs text-amber-500">
               Please select a branch before adding assets

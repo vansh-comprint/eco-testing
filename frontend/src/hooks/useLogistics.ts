@@ -252,9 +252,8 @@ export function useUpdateLogisticsUser() {
     mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<CreateLogisticsUserInput> }) => {
       const apiData: LogisticsUserUpdateRequest = {
         name: updates.name,
+        email: updates.email,
         phone: updates.phone,
-        vehicle_number: updates.vehicle_number,
-        vehicle_type: updates.vehicle_type,
       };
       const response = await logisticsApi.updateUser(userId, apiData);
       if (!response.success) throw parseApiError(response) || new Error('Failed to update logistics user');
@@ -295,7 +294,7 @@ export function useUpdateLogisticsUserStatus() {
 
   return useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: 'active' | 'inactive' }) => {
-      const response = await logisticsApi.updateUser(userId, { status });
+      const response = await logisticsApi.updateUserStatus(userId, status);
       if (!response.success) throw parseApiError(response) || new Error('Failed to update logistics user status');
       return response.data;
     },

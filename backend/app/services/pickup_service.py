@@ -217,8 +217,14 @@ class PickupService:
             if pickup.logistics_admin_id != user.id:
                 raise ValueError("Can only assign pickups assigned to you")
 
-        if pickup.status != PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value:
-            raise ValueError("Pickup must be assigned to logistics admin first")
+        # Allow initial assignment (assigned_to_logistics_admin) and reassignment (assigned_to_logistics_user, scheduled)
+        assignable_statuses = {
+            PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value,
+            PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            PickupStatus.SCHEDULED.value,
+        }
+        if pickup.status not in assignable_statuses:
+            raise ValueError("Pickup must be assigned to a logistics admin before assigning to a field user")
 
         # Verify the logistics user exists and belongs to this logistics admin
         from app.repositories.user_repository import UserRepository

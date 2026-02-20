@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Upload, Info, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Upload, Info } from 'lucide-react';
 import { CSVUpload, type BulkUploadMetadata, type BulkUploadResult } from '@/components/assets';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -71,8 +71,6 @@ export function UploadAssets() {
     ? (itBranchCtx?.selectedBranchId || user?.branchId || undefined)
     : undefined;
   const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || undefined;
-  const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
-
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata): Promise<BulkUploadResult | void> => {
     if (!enterprise || !user) return;
 
@@ -147,9 +145,10 @@ export function UploadAssets() {
     newSubUsers.forEach(u => emailToSubUserId.set(u.email.toLowerCase(), u.id));
 
     // Step 4: Map assets with assigned_user_id OR assigned_sub_user_id
-    // V3.2: Include branch_id and it_admin_id for proper branch association
+    // V3.2: branch_id comes from per-row CSV selection, falling back to effectiveBranchId
     const assetsWithAssignments = assets.map(asset => {
       const email = asset.assigned_email?.toLowerCase();
+      const resolvedBranchId = asset.branch_id || effectiveBranchId;
 
       // First check if it's an IT Admin/Org Admin
       const adminData = email ? emailToUserId.get(email) : undefined;
@@ -158,8 +157,8 @@ export function UploadAssets() {
         return {
           enterprise_id: asset.enterprise_id,
           batch_id: asset.batch_id,
-          branch_id: effectiveBranchId,  // V3.2: Branch assignment
-          it_admin_id: user.id,           // V3.2: IT Admin who uploaded
+          branch_id: resolvedBranchId,
+          it_admin_id: user.id,
           serial_number: asset.serial_number,
           brand: asset.brand,
           model: asset.model,
@@ -174,8 +173,8 @@ export function UploadAssets() {
       return {
         enterprise_id: asset.enterprise_id,
         batch_id: asset.batch_id,
-        branch_id: effectiveBranchId,  // V3.2: Branch assignment
-        it_admin_id: user.id,           // V3.2: IT Admin who uploaded
+        branch_id: resolvedBranchId,
+        it_admin_id: user.id,
         serial_number: asset.serial_number,
         brand: asset.brand,
         model: asset.model,
@@ -266,38 +265,16 @@ export function UploadAssets() {
         </div>
       </motion.div>
 
-      {/* Branch Warning */}
-      {needsBranchSelection && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="border border-amber-400/20 bg-amber-400/5 p-5"
-        >
-          <div className="flex gap-4">
-            <div className="w-10 h-10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">Branch Selection Required</p>
-              <p className="font-mono text-xs text-zinc-400">
-                Please select a specific branch before uploading assets. Go back and choose a branch from the branch filter, or select a batch that is associated with a branch.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
       {/* CSV Upload Component */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={needsBranchSelection ? 'opacity-50 pointer-events-none' : ''}
       >
         <CSVUpload
           enterpriseId={enterprise.id}
           batchId={batchId}
+          branches={activeBranches}
           onUpload={handleUpload}
           onCancel={() => navigate(isOrgAdmin ? '/org-admin/assets' : '/admin/assets')}
         />

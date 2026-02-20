@@ -215,6 +215,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.MANAGE_ENTERPRISE_SETTINGS,
         Permission.MANAGE_PICKUP_LOCATIONS,
         Permission.SUBMIT_PICKUP_FOR_APPROVAL,
+        Permission.USER_UPDATE,
         Permission.EMPLOYEE_READ,
         Permission.EMPLOYEE_CREATE,
         Permission.EMPLOYEE_UPDATE,
@@ -318,6 +319,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.VIEW_PICKUP_REQUESTS,
         Permission.ASSIGN_PICKUPS,
         Permission.MANAGE_LOGISTICS_USERS,
+        Permission.USER_UPDATE,  # Can update/reset-password for their own logistics users
         Permission.VIEW_PICKUP_ANALYTICS,
         Permission.LOGISTICS_MANAGE,
         # Pickup permissions

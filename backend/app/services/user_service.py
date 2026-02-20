@@ -11,7 +11,7 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.enterprise import Branch
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
-from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
+from app.utils.exceptions import NotFoundError, ValidationError, ConflictError, AuthorizationError
 from app.utils.security import validate_user_modification
 from app.core.security import get_password_hash
 
@@ -241,6 +241,16 @@ class UserService:
         if created_users:
             created_users = await self.repository.create_bulk(created_users)
 
+            # Sync Branch.it_admin_id for IT Admin users that have a branch assigned
+            if role == UserRole.IT_ADMIN:
+                for user in created_users:
+                    if user.branch_id:
+                        result = await self.db.execute(select(Branch).where(Branch.id == user.branch_id))
+                        branch = result.scalar_one_or_none()
+                        if branch:
+                            branch.it_admin_id = user.id
+                await self.db.commit()
+
         return [UserResponse.model_validate(u) for u in created_users], errors
 
     async def update_user(
@@ -258,6 +268,11 @@ class UserService:
         user = await self.repository.get_by_id(user_id)
         if not user:
             raise NotFoundError("User", user_id)
+
+        # Logistics Admin can only update their own logistics users
+        if actor and actor.role == UserRole.LOGISTICS_ADMIN.value:
+            if user.parent_user_id != actor.id:
+                raise AuthorizationError("You can only update logistics users that belong to you")
 
         # IDOR Protection: Validate actor can modify this user
         if actor:
@@ -405,6 +420,11 @@ class UserService:
         # Employees don't have passwords (they use OTP)
         if user.role == UserRole.EMPLOYEE.value:
             raise ValidationError("Cannot reset password for employees (they use OTP-based auth)")
+
+        # Logistics Admin can only reset passwords for their own logistics users
+        if actor and actor.role == UserRole.LOGISTICS_ADMIN.value:
+            if user.parent_user_id != actor.id:
+                raise AuthorizationError("You can only reset passwords for logistics users that belong to you")
 
         # IDOR Protection: Validate actor can modify this user
         if actor:

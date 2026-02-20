@@ -396,7 +396,7 @@ export function ITAdminDashboard() {
             />
             <QuickAction
               icon={<Upload className={iconSize.md} />}
-              label="Bulk Upload CSV"
+              label="Bulk Upload Asset"
               onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/assets/upload`)}
             />
             <QuickAction

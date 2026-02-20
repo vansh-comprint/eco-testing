@@ -124,13 +124,16 @@ export function AssetDetail() {
   const [isDisputing, setIsDisputing] = useState(false);
   const [assignMode, setAssignMode] = useState<'self' | 'select' | 'create'>('self');
   const [newUserForm, setNewUserForm] = useState({ name: '', email: '', phone: '', department: '' });
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferBranchId, setTransferBranchId] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
+    serialNumber: '',
     brand: '',
     model: '',
+    purchaseDate: '',
     processor: '',
     ram: '',
     storage: '',
@@ -314,6 +317,7 @@ export function AssetDetail() {
   const handleAssign = async () => {
     if (!asset || !enterprise) return;
 
+    setEmailError(null);
     setIsAssigning(true);
     try {
       // Handle self-assignment
@@ -355,21 +359,36 @@ export function AssetDetail() {
 
       // If in create mode, create the new user first
       if (assignMode === 'create') {
-        if (!newUserForm.email.trim() || !newUserForm.name.trim()) {
-          console.error('Name and email are required');
+        let newUser: any;
+        try {
+          newUser = await createSubUserMutation.mutateAsync({
+            enterprise_id: enterprise.id,
+            name: newUserForm.name.trim(),
+            email: newUserForm.email.trim(),
+            phone: newUserForm.phone || undefined,
+            department: newUserForm.department.trim() || undefined,
+          });
+        } catch (createError: any) {
+          // Check for email conflict (409)
+          if (createError?.code === 409 || createError?.name === 'ConflictError') {
+            setEmailError('This email is already in use');
+          } else {
+            addToast({
+              type: 'error',
+              title: 'Failed to Create User',
+              message: createError?.message || 'Could not create the user. Please try again.',
+            });
+          }
           setIsAssigning(false);
           return;
         }
 
-        const newUser = await createSubUserMutation.mutateAsync({
-          enterprise_id: enterprise.id,
-          name: newUserForm.name.trim(),
-          email: newUserForm.email.trim(),
-          phone: newUserForm.phone.trim() || undefined,
-          department: newUserForm.department.trim() || undefined,
-        });
-
         userIdToAssign = newUser?.id || '';
+        if (!userIdToAssign) {
+          addToast({ type: 'error', title: 'Error', message: 'User was created but ID is missing.' });
+          setIsAssigning(false);
+          return;
+        }
       }
 
       // Assign the asset to the user (existing or newly created)
@@ -397,12 +416,12 @@ export function AssetDetail() {
       setSelectedSubUserId('');
       setNewUserForm({ name: '', email: '', phone: '', department: '' });
       setAssignMode('self');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to assign asset:', error);
       addToast({
         type: 'error',
         title: 'Assignment Failed',
-        message: 'Could not assign the asset. Please try again.',
+        message: error?.message || 'Could not assign the asset. Please try again.',
       });
     } finally {
       setIsAssigning(false);
@@ -485,8 +504,10 @@ export function AssetDetail() {
     if (!asset) return;
     const specs = asset.specs as Record<string, string> | undefined;
     setEditForm({
+      serialNumber: asset.serial_number || '',
       brand: asset.brand || '',
       model: asset.model || '',
+      purchaseDate: asset.purchase_date ? asset.purchase_date.split('T')[0] : '',
       processor: specs?.processor || '',
       ram: specs?.ram || '',
       storage: specs?.storage || '',
@@ -504,8 +525,10 @@ export function AssetDetail() {
       await updateAssetMutation.mutateAsync({
         assetId: asset.id,
         updates: {
+          serial_number: editForm.serialNumber.trim().toUpperCase() || undefined,
           brand: editForm.brand,
           model: editForm.model,
+          purchase_date: editForm.purchaseDate || undefined,
           specs: {
             processor: editForm.processor || undefined,
             ram: editForm.ram || undefined,
@@ -621,7 +644,7 @@ export function AssetDetail() {
                   {asset.batch_id ? 'Change Batch' : 'Add to Batch'}
                 </button>
               )}
-              {!isEditing && ['pending_assignment', 'assigned'].includes(asset.status) && availableBranches.length > 1 && (
+              {!isEditing && ['available', 'pending_assignment', 'assigned'].includes(asset.status) && availableBranches.length > 1 && (
                 <button
                   onClick={() => { setTransferBranchId(''); setShowTransferModal(true); }}
                   className="interactive px-5 py-2.5 bg-purple-500/10 border border-purple-500/30 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-500/20 transition-all flex items-center gap-2"
@@ -679,6 +702,15 @@ export function AssetDetail() {
               {isEditing ? (
                 <>
                   <div>
+                    <label className="font-mono font-bold text-[10px] text-slate-600 dark:text-white/50 uppercase tracking-widest mb-2 block">Serial Number</label>
+                    <input
+                      type="text"
+                      value={editForm.serialNumber}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, serialNumber: e.target.value.toUpperCase() }))}
+                      className="w-full px-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 uppercase"
+                    />
+                  </div>
+                  <div>
                     <label className="font-mono font-bold text-[10px] text-slate-600 dark:text-white/50 uppercase tracking-widest mb-2 block">Brand</label>
                     <input
                       type="text"
@@ -696,18 +728,28 @@ export function AssetDetail() {
                       className="w-full px-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50"
                     />
                   </div>
+                  <div>
+                    <label className="font-mono font-bold text-[10px] text-slate-600 dark:text-white/50 uppercase tracking-widest mb-2 block">Purchase Date</label>
+                    <input
+                      type="date"
+                      value={editForm.purchaseDate}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, purchaseDate: e.target.value }))}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50"
+                    />
+                  </div>
                 </>
               ) : (
                 <>
+                  <InfoRow label="Serial Number" value={asset.serial_number || ''} mono />
                   <InfoRow label="Brand" value={asset.brand || ''} />
                   <InfoRow label="Model" value={asset.model || ''} />
+                  <InfoRow
+                    label="Purchase Date"
+                    value={asset.purchase_date ? format(new Date(asset.purchase_date), 'MMM d, yyyy') : '—'}
+                  />
                 </>
               )}
-              <InfoRow label="Serial Number" value={asset.serial_number || ''} mono />
-              <InfoRow
-                label="Purchase Date"
-                value={asset.purchase_date ? format(new Date(asset.purchase_date), 'MMM d, yyyy') : '—'}
-              />
             </div>
           </motion.div>
 
@@ -1136,34 +1178,27 @@ export function AssetDetail() {
                 const eligibleBatches = batches.filter((b: any) =>
                   b.status === 'draft' && b.branch_id === asset.branch_id
                 );
+                const batchOptions = eligibleBatches.map((b: any) => ({
+                  value: b.id,
+                  label: b.name,
+                  description: `${b.asset_count || 0} assets`,
+                  icon: <Package className="w-4 h-4" />,
+                }));
 
                 return (
                   <div className="space-y-3">
-                    {eligibleBatches.length > 0 && (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                        {eligibleBatches.map((b: any) => (
-                          <button
-                            key={b.id}
-                            onClick={() => { setSelectedBatchId(b.id); setShowNewBatchForm(false); }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 border transition-all text-left ${
-                              selectedBatchId === b.id && !showNewBatchForm
-                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                            }`}
-                          >
-                            <Package className={`w-5 h-5 ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-zinc-400'}`} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-display font-bold text-sm truncate ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
-                                {b.name}
-                              </p>
-                              <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
-                                {b.asset_count || 0} assets
-                              </p>
-                            </div>
-                            {selectedBatchId === b.id && !showNewBatchForm && <CheckCircle className="w-4 h-4 text-ecotribe-primary" />}
-                          </button>
-                        ))}
-                      </div>
+                    {eligibleBatches.length > 0 ? (
+                      <Dropdown
+                        options={batchOptions}
+                        value={showNewBatchForm ? '' : selectedBatchId}
+                        onChange={(v) => { setSelectedBatchId(v); setShowNewBatchForm(false); }}
+                        placeholder="Select a batch..."
+                        size="lg"
+                      />
+                    ) : (
+                      <p className="font-mono text-xs text-zinc-500 text-center py-2">
+                        No draft batches available for this branch
+                      </p>
                     )}
 
                     <div className="border-t border-slate-200 dark:border-white/10 pt-3">
@@ -1281,6 +1316,7 @@ export function AssetDetail() {
                   setShowAssignModal(false);
                   setAssignMode('self');
                   setNewUserForm({ name: '', email: '', phone: '', department: '' });
+                  setEmailError(null);
                 }}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
@@ -1402,23 +1438,30 @@ export function AssetDetail() {
                     <input
                       type="email"
                       value={newUserForm.email}
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => { setNewUserForm(prev => ({ ...prev, email: e.target.value })); setEmailError(null); }}
                       placeholder="email@company.com"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none placeholder:text-slate-400 dark:placeholder:text-white/30 ${emailError ? 'border-red-500 dark:border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'}`}
                     />
+                    {emailError && (
+                      <p className="mt-1 font-mono text-[11px] text-red-500 uppercase tracking-wide">{emailError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
-                      Phone
+                      Phone <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="tel"
                       inputMode="numeric"
                       value={newUserForm.phone}
-                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setNewUserForm(prev => ({ ...prev, phone: v })); }}
+                      maxLength={10}
+                      onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10); setNewUserForm(prev => ({ ...prev, phone: v })); }}
                       placeholder="9876543210"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none placeholder:text-slate-400 dark:placeholder:text-white/30 ${newUserForm.phone.length > 0 && newUserForm.phone.length < 10 ? 'border-red-500 dark:border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'}`}
                     />
+                    {newUserForm.phone.length > 0 && newUserForm.phone.length < 10 && (
+                      <p className="mt-1 font-mono text-[11px] text-red-500 uppercase tracking-wide">Phone must be exactly 10 digits</p>
+                    )}
                   </div>
                   <div>
                     <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
@@ -1450,6 +1493,7 @@ export function AssetDetail() {
                   setShowAssignModal(false);
                   setAssignMode('self');
                   setNewUserForm({ name: '', email: '', phone: '', department: '' });
+                  setEmailError(null);
                 }}
                 className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
               >
@@ -1460,7 +1504,12 @@ export function AssetDetail() {
                 disabled={
                   isAssigning ||
                   (assignMode === 'select' && !selectedSubUserId) ||
-                  (assignMode === 'create' && (!newUserForm.name.trim() || !newUserForm.email.trim() || !newUserForm.department))
+                  (assignMode === 'create' && (
+                    !newUserForm.name.trim() ||
+                    !newUserForm.email.trim() ||
+                    !newUserForm.department ||
+                    newUserForm.phone.length !== 10
+                  ))
                 }
                 className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >

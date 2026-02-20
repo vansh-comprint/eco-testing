@@ -243,7 +243,8 @@ export function useDeleteBatch() {
       deleteAssets?: boolean;
       deleteSubUsers?: boolean;
     }) => {
-      await batchesApi.delete(batchId, { deleteAssets, deleteSubUsers });
+      const response = await batchesApi.delete(batchId, { deleteAssets, deleteSubUsers });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to delete batch');
     },
     onSuccess: (_, { batchId }) => {
       queryClient.removeQueries({ queryKey: batchKeys.detail(batchId) });

@@ -53,6 +53,7 @@ class PickupLocationService:
 
         await self.repo.create(location)
         await self.session.flush()
+        await self.session.refresh(location)
         return location
 
     async def get_location(self, location_id: str) -> Optional[PickupLocation]:
@@ -82,6 +83,7 @@ class PickupLocationService:
                 setattr(location, key, value)
 
         await self.session.flush()
+        await self.session.refresh(location)
         return location
 
     async def delete_location(self, location_id: str, user: User) -> bool:

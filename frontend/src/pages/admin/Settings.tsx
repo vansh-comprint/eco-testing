@@ -10,7 +10,6 @@ import {
   Building,
   User,
   Bell,
-  CreditCard,
   Mail,
   Phone,
   Save,
@@ -22,7 +21,8 @@ import {
   Star,
   Clock,
   Shield,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import {
   useAuth,
@@ -38,21 +38,28 @@ import { useAuthStoreApi } from '@/stores';
 import { PermissionGate, Permission } from '@/permissions';
 import { PasswordChange } from '@/components/settings';
 
-// Operating hours options for dropdown
-const OPERATING_HOURS_OPTIONS = [
-  { value: 'Mon-Fri, 9 AM - 5 PM', label: 'Monday - Friday, 9 AM - 5 PM' },
-  { value: 'Mon-Fri, 9 AM - 6 PM', label: 'Monday - Friday, 9 AM - 6 PM' },
-  { value: 'Mon-Fri, 10 AM - 6 PM', label: 'Monday - Friday, 10 AM - 6 PM' },
-  { value: 'Mon-Fri, 10 AM - 7 PM', label: 'Monday - Friday, 10 AM - 7 PM' },
-  { value: 'Mon-Sat, 9 AM - 5 PM', label: 'Monday - Saturday, 9 AM - 5 PM' },
-  { value: 'Mon-Sat, 9 AM - 6 PM', label: 'Monday - Saturday, 9 AM - 6 PM' },
-  { value: 'Mon-Sat, 10 AM - 6 PM', label: 'Monday - Saturday, 10 AM - 6 PM' },
-  { value: 'Mon-Sat, 10 AM - 7 PM', label: 'Monday - Saturday, 10 AM - 7 PM' },
-  { value: '24/7', label: '24 Hours, 7 Days a Week' },
-  { value: 'custom', label: 'Custom Hours' },
-];
+// Operating hours selectors (matches branch creation)
+const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TIME_OPTIONS = (() => {
+  const options: { value: string; label: string }[] = [];
+  for (let hour = 6; hour <= 23; hour++) {
+    for (const minute of [0, 30]) {
+      if (hour === 23 && minute === 30) continue;
+      const h24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      options.push({ value: h24, label: `${h12}:${minute.toString().padStart(2, '0')} ${period}` });
+    }
+  }
+  return options;
+})();
 
-type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'bank' | 'locations' | 'security';
+const DAY_SHORT: Record<string, string> = {
+  Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu',
+  Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun',
+};
+
+type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'locations' | 'security';
 
 // V3: Pickup location type with snake_case
 interface PickupLocationData {
@@ -89,6 +96,8 @@ export function Settings() {
   // Pickup locations modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<PickupLocationData | null>(null);
+  const [showDeleteLocationModal, setShowDeleteLocationModal] = useState(false);
+  const [locationToDelete, setLocationToDelete] = useState<PickupLocationData | null>(null);
   // V3: Form state with snake_case
   const [locationForm, setLocationForm] = useState({
     name: '',
@@ -97,11 +106,12 @@ export function Settings() {
     pin_code: '',
     contact_person: '',
     contact_phone: '',
-    operating_hours: 'Mon-Fri, 9 AM - 6 PM',
+    opening_day: 'Monday',
+    closing_day: 'Saturday',
+    opening_hours_time: '',
+    closing_hours_time: '',
     special_instructions: '',
   });
-  const [customHours, setCustomHours] = useState('');
-  const [useCustomHours, setUseCustomHours] = useState(false);
 
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -110,6 +120,8 @@ export function Settings() {
     phone: user?.phone || '',
     department: user?.department || '',
   });
+  const [profilePhoneError, setProfilePhoneError] = useState<string | null>(null);
+  const [profileEmailError, setProfileEmailError] = useState<string | null>(null);
 
   // Enterprise form
   const [enterpriseForm, setEnterpriseForm] = useState({
@@ -123,53 +135,50 @@ export function Settings() {
     contactPhone: enterprise?.contactPhone || '',
   });
 
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
-    emailAssetUpdates: true,
-    emailBatchUpdates: true,
-    emailPayoutUpdates: true,
-    emailWeeklyReport: false,
-    smsAssetUpdates: false,
-    smsBatchUpdates: true,
-    smsPayoutUpdates: true,
-  });
-
-  // Bank form — load from localStorage if available
-  const [bankForm, setBankForm] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ecotribe-bank-details');
-      if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return {
-      accountName: enterprise?.name || '',
-      accountNumber: '',
-      confirmAccountNumber: '',
-      ifscCode: '',
-      bankName: 'HDFC Bank',
-      branch: '',
+  // Notification preferences — persisted in localStorage
+  const NOTIF_KEY = `ecotribe_notif_prefs_${user?.id || 'default'}`;
+  const [notifications, setNotifications] = useState(() => {
+    const defaults = {
+      emailAssetUpdates: true,
+      emailBatchUpdates: true,
+      emailPayoutUpdates: true,
+      emailWeeklyReport: false,
+      smsAssetUpdates: false,
+      smsBatchUpdates: true,
+      smsPayoutUpdates: true,
     };
+    try {
+      const stored = localStorage.getItem(`ecotribe_notif_prefs_${user?.id || 'default'}`);
+      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
+    } catch {
+      return defaults;
+    }
   });
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       if (activeTab === 'profile') {
+        setProfileEmailError(null);
         const response = await usersApi.updateMe({
           name: profileForm.name,
+          email: profileForm.email,
           phone: profileForm.phone,
         });
         if (!response.success) {
+          const status = (response.error as any)?.status ?? (response.error as any)?.code;
+          if (status === 409) {
+            setProfileEmailError('This email is already in use');
+            return;
+          }
           throw new Error(response.error?.message || 'Failed to save profile');
         }
         // Refresh auth store so sidebar/header reflects new name
         await useAuthStoreApi.getState().refreshUser();
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
-      } else if (activeTab === 'bank') {
-        // Bank details: persist to localStorage until backend endpoint is available
-        localStorage.setItem('ecotribe-bank-details', JSON.stringify(bankForm));
-        addToast({ type: 'success', title: 'Bank Details Saved', message: 'Bank details saved locally. Backend persistence coming soon.' });
+      } else if (activeTab === 'notifications') {
+        localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications));
       } else {
-        // Enterprise and Notifications: save locally for now
         addToast({ type: 'success', title: 'Settings Saved', message: 'Changes saved successfully.' });
       }
       setSaved(true);
@@ -191,7 +200,6 @@ export function Settings() {
     { id: 'enterprise' as const, label: 'Enterprise', icon: <Building className="w-4 h-4" /> },
     { id: 'locations' as const, label: 'Pickup Locations', icon: <MapPin className="w-4 h-4" /> },
     { id: 'notifications' as const, label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-    { id: 'bank' as const, label: 'Bank Details', icon: <CreditCard className="w-4 h-4" /> },
   ];
 
   // V3: Location modal handlers with snake_case
@@ -204,32 +212,33 @@ export function Settings() {
       pin_code: '',
       contact_person: '',
       contact_phone: '',
-      operating_hours: 'Mon-Fri, 9 AM - 6 PM',
+      opening_day: 'Monday',
+      closing_day: 'Saturday',
+      opening_hours_time: '',
+      closing_hours_time: '',
       special_instructions: '',
     });
-    setCustomHours('');
-    setUseCustomHours(false);
     setShowLocationModal(true);
   };
 
   const openEditLocation = (location: PickupLocationData) => {
     setEditingLocation(location);
-    // Check if existing hours match a preset option
-    const isPreset = OPERATING_HOURS_OPTIONS.some(
-      opt => opt.value === location.operating_hours && opt.value !== 'custom'
-    );
+    // Parse operating_hours string (e.g., "Mon-Sat 09:00 - 18:00") into day/time parts
+    const dayMap: Record<string, string> = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+    const dayMatch = location.operating_hours?.match(/^(\w+)-(\w+)\s+(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+    const parsedDay = dayMatch
+      ? { opening_day: dayMap[dayMatch[1]] || dayMatch[1], closing_day: dayMap[dayMatch[2]] || dayMatch[2], opening_hours_time: dayMatch[3], closing_hours_time: dayMatch[4] }
+      : { opening_day: 'Monday', closing_day: 'Saturday', opening_hours_time: '', closing_hours_time: '' };
     setLocationForm({
       name: location.name,
       address: location.address,
       city: location.city,
-      pin_code: location.pin_code,
+      pin_code: (location.pin_code || '').replace(/[^0-9]/g, ''),
       contact_person: location.contact_person,
-      contact_phone: location.contact_phone,
-      operating_hours: isPreset ? location.operating_hours : 'custom',
+      contact_phone: (location.contact_phone || '').replace(/[^0-9]/g, '').slice(0, 10),
+      ...parsedDay,
       special_instructions: location.special_instructions || '',
     });
-    setCustomHours(isPreset ? '' : location.operating_hours);
-    setUseCustomHours(!isPreset);
     setShowLocationModal(true);
   };
 
@@ -237,9 +246,12 @@ export function Settings() {
     if (!enterpriseId) return;
     setIsSaving(true);
     try {
-      // Use custom hours if selected, otherwise use the dropdown value
-      const finalOperatingHours = useCustomHours ? customHours : locationForm.operating_hours;
-      const formData = { ...locationForm, operating_hours: finalOperatingHours };
+      // Combine day/time selectors into operating_hours string
+      const finalOperatingHours = locationForm.opening_hours_time && locationForm.closing_hours_time
+        ? `${DAY_SHORT[locationForm.opening_day]}-${DAY_SHORT[locationForm.closing_day]} ${locationForm.opening_hours_time} - ${locationForm.closing_hours_time}`
+        : '';
+      const { opening_day, closing_day, opening_hours_time, closing_hours_time, ...rest } = locationForm;
+      const formData = { ...rest, operating_hours: finalOperatingHours };
 
       if (editingLocation) {
         await updateLocationMutation.mutateAsync({
@@ -272,13 +284,27 @@ export function Settings() {
     }
   };
 
-  const handleDeleteLocation = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this pickup location?')) return;
+  const handleDeleteLocation = (location: PickupLocationData) => {
+    setLocationToDelete(location);
+    setShowDeleteLocationModal(true);
+  };
+
+  const confirmDeleteLocation = async () => {
+    if (!locationToDelete) return;
     setIsSaving(true);
+    setShowDeleteLocationModal(false);
     try {
-      await deleteLocationMutation.mutateAsync({ locationId: id, enterpriseId });
+      await deleteLocationMutation.mutateAsync({ locationId: locationToDelete.id, enterpriseId });
+      // If deleting the default, promote the next available location
+      if (locationToDelete.is_default) {
+        const next = pickupLocations.find(l => l.id !== locationToDelete.id);
+        if (next) {
+          await setDefaultMutation.mutateAsync({ locationId: next.id, enterpriseId });
+        }
+      }
     } finally {
       setIsSaving(false);
+      setLocationToDelete(null);
     }
   };
 
@@ -366,21 +392,28 @@ export function Settings() {
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      onChange={(e) => { setProfileForm({ ...profileForm, email: e.target.value }); setProfileEmailError(null); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors ${profileEmailError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'}`}
                     />
+                    {profileEmailError && (
+                      <p className="mt-1 font-mono text-[11px] text-red-500 uppercase tracking-wide">{profileEmailError}</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Phone Number</label>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Phone Number <span className="text-red-400">*</span></label>
                     <input
                       type="tel"
                       inputMode="numeric"
+                      maxLength={10}
                       value={profileForm.phone}
-                      onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setProfileForm({ ...profileForm, phone: v }); }}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10); setProfileForm({ ...profileForm, phone: v }); setProfilePhoneError(null); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm focus:outline-none transition-colors ${profileForm.phone.length > 0 && profileForm.phone.length < 10 ? 'border-red-500 dark:border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'}`}
                     />
+                    {profileForm.phone.length > 0 && profileForm.phone.length < 10 && (
+                      <p className="mt-1 font-mono text-[11px] text-red-500 uppercase tracking-wide">Phone must be exactly 10 digits</p>
+                    )}
                   </div>
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Department</label>
@@ -410,12 +443,15 @@ export function Settings() {
             </div>
           )}
 
-          {/* Enterprise Tab */}
+          {/* Enterprise Tab — read-only, managed by Org Admin */}
           {activeTab === 'enterprise' && (
             <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
               <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
                 <Building className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
                 <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Enterprise Details</h2>
+              </div>
+              <div className="p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">Enterprise details are managed by your Org Admin and cannot be edited here.</p>
               </div>
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,18 +460,17 @@ export function Settings() {
                     <input
                       type="text"
                       value={enterpriseForm.name}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, name: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">GSTIN</label>
                     <input
                       type="text"
-                      placeholder="22AAAAA0000A1Z5"
                       value={enterpriseForm.gstin}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, gstin: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -444,9 +479,9 @@ export function Settings() {
                   <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Address</label>
                   <textarea
                     value={enterpriseForm.address}
-                    onChange={(e) => setEnterpriseForm({ ...enterpriseForm, address: e.target.value })}
+                    readOnly
                     rows={2}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors resize-none"
+                    className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed resize-none"
                   />
                 </div>
 
@@ -456,8 +491,8 @@ export function Settings() {
                     <input
                       type="text"
                       value={enterpriseForm.city}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, city: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -465,8 +500,8 @@ export function Settings() {
                     <input
                       type="text"
                       value={enterpriseForm.state}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, state: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -474,8 +509,8 @@ export function Settings() {
                     <input
                       type="text"
                       value={enterpriseForm.pincode}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -486,8 +521,8 @@ export function Settings() {
                     <input
                       type="email"
                       value={enterpriseForm.contactEmail}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactEmail: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -495,8 +530,8 @@ export function Settings() {
                     <input
                       type="tel"
                       value={enterpriseForm.contactPhone}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactPhone: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      readOnly
+                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -584,7 +619,7 @@ export function Settings() {
                               <Edit2 className="w-4 h-4 text-slate-500 dark:text-zinc-500 hover:text-ecotribe-primary" />
                             </button>
                             <button
-                              onClick={() => handleDeleteLocation(location.id)}
+                              onClick={() => handleDeleteLocation(location as any)}
                               className="interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
                             >
                               <Trash2 className="w-4 h-4 text-slate-500 dark:text-zinc-500 hover:text-red-400" />
@@ -695,92 +730,8 @@ export function Settings() {
             </div>
           )}
 
-          {/* Bank Tab */}
-          {activeTab === 'bank' && (
-            <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
-              <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
-                <CreditCard className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
-                <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Bank Account Details</h2>
-              </div>
-              <div className="p-5 space-y-5">
-                <div className="p-4 border border-amber-500/20 bg-amber-500/5">
-                  <p className="font-mono text-xs text-amber-400">
-                    Please ensure your bank details are correct. Payouts will be sent to this account.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Account Holder Name</label>
-                  <input
-                    type="text"
-                    placeholder="As per bank records"
-                    value={bankForm.accountName}
-                    onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Account Number</label>
-                    <input
-                      type="password"
-                      placeholder="Enter account number"
-                      value={bankForm.accountNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Confirm Account Number</label>
-                    <input
-                      type="text"
-                      placeholder="Re-enter account number"
-                      value={bankForm.confirmAccountNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, confirmAccountNumber: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">IFSC Code</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., HDFC0001234"
-                      value={bankForm.ifscCode}
-                      onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors uppercase"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Bank Name</label>
-                    <input
-                      type="text"
-                      value={bankForm.bankName}
-                      disabled
-                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Branch</label>
-                  <input
-                    type="text"
-                    placeholder="Branch name will auto-fill from IFSC"
-                    value={bankForm.branch}
-                    disabled
-                    className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Save Button - only show for non-locations tabs */}
-          {activeTab !== 'locations' && (
+          {/* Save Button - only show for profile, enterprise, notifications tabs */}
+          {(activeTab === 'profile' || activeTab === 'enterprise' || activeTab === 'notifications') && (
             <div className="mt-6 flex items-center justify-end gap-4">
               {saved && (
                 <motion.div
@@ -875,9 +826,11 @@ export function Settings() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     placeholder="e.g., 560001"
                     value={locationForm.pin_code || ''}
-                    onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value })}
+                    onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value.replace(/[^0-9]/g, '').slice(0, 6) })}
+                    maxLength={6}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>
@@ -904,10 +857,14 @@ export function Settings() {
                     type="tel"
                     inputMode="numeric"
                     placeholder="9876543210"
+                    maxLength={10}
                     value={locationForm.contact_phone || ''}
-                    onChange={(e) => { const v = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); setLocationForm({ ...locationForm, contact_phone: v }); }}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                    onChange={(e) => setLocationForm({ ...locationForm, contact_phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })}
+                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${locationForm.contact_phone.length > 0 && locationForm.contact_phone.length < 10 ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'}`}
                   />
+                  {locationForm.contact_phone.length > 0 && locationForm.contact_phone.length < 10 && (
+                    <p className="mt-1 font-mono text-[11px] text-red-500 uppercase tracking-wide">Phone must be exactly 10 digits</p>
+                  )}
                 </div>
               </div>
 
@@ -915,35 +872,60 @@ export function Settings() {
                 <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
                   Operating Hours <span className="text-red-400">*</span>
                 </label>
-                <select
-                  value={useCustomHours ? 'custom' : (locationForm.operating_hours || '')}
-                  onChange={(e) => {
-                    if (e.target.value === 'custom') {
-                      setUseCustomHours(true);
-                      setLocationForm({ ...locationForm, operating_hours: 'custom' });
-                    } else {
-                      setUseCustomHours(false);
-                      setCustomHours('');
-                      setLocationForm({ ...locationForm, operating_hours: e.target.value });
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
-                >
-                  {OPERATING_HOURS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                {useCustomHours && (
-                  <input
-                    type="text"
-                    placeholder="e.g., Mon-Wed 9 AM - 5 PM, Thu-Sat 10 AM - 8 PM"
-                    value={customHours}
-                    onChange={(e) => setCustomHours(e.target.value)}
-                    className="w-full mt-2 px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                  />
-                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-mono text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-1.5">Start Day</label>
+                    <select
+                      value={locationForm.opening_day}
+                      onChange={(e) => setLocationForm({ ...locationForm, opening_day: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      {DAY_OPTIONS.map((day) => (
+                        <option key={day} value={day} className="bg-white dark:bg-[#0a0a0a]">{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-mono text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-1.5">End Day</label>
+                    <select
+                      value={locationForm.closing_day}
+                      onChange={(e) => setLocationForm({ ...locationForm, closing_day: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      {DAY_OPTIONS.map((day) => (
+                        <option key={day} value={day} className="bg-white dark:bg-[#0a0a0a]">{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block font-mono text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-1.5">Opening Time</label>
+                    <select
+                      value={locationForm.opening_hours_time}
+                      onChange={(e) => setLocationForm({ ...locationForm, opening_hours_time: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select time</option>
+                      {TIME_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-mono text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-1.5">Closing Time</label>
+                    <select
+                      value={locationForm.closing_hours_time}
+                      onChange={(e) => setLocationForm({ ...locationForm, closing_hours_time: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      <option value="" className="bg-white dark:bg-[#0a0a0a]">Select time</option>
+                      {TIME_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -969,7 +951,7 @@ export function Settings() {
               </button>
               <button
                 onClick={handleSaveLocation}
-                disabled={isSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : !locationForm.operating_hours)}
+                disabled={isSaving || !locationForm.name || !locationForm.address || !locationForm.city || locationForm.pin_code.length !== 6 || !locationForm.contact_person || locationForm.contact_phone.length !== 10 || !locationForm.opening_hours_time || !locationForm.closing_hours_time}
                 className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSaving ? (
@@ -983,6 +965,56 @@ export function Settings() {
                     {editingLocation ? 'Update Location' : 'Add Location'}
                   </>
                 )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Location Confirmation Modal */}
+      {showDeleteLocationModal && locationToDelete && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md border border-red-500/30 bg-white dark:bg-[#0a0a0a]"
+          >
+            <div className="p-6 border-b border-red-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 border border-red-500/30 bg-red-500/10 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Delete Location</h3>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="font-display text-sm text-slate-500 dark:text-white/50 mb-2">
+                Are you sure you want to delete <span className="text-slate-900 dark:text-white font-bold">{locationToDelete.name}</span>?
+              </p>
+              <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+                This action cannot be undone.
+              </p>
+              {locationToDelete.is_default && pickupLocations.length > 1 && (
+                <div className="mt-4 p-3 border border-amber-500/20 bg-amber-500/5">
+                  <p className="font-mono text-xs text-amber-400">
+                    This is your default location. The next available location will be set as default automatically.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteLocationModal(false); setLocationToDelete(null); }}
+                className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteLocation}
+                className="px-5 py-2.5 bg-red-500 text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-400 transition-all flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
               </button>
             </div>
           </motion.div>

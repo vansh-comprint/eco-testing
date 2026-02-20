@@ -241,14 +241,14 @@ async def update_user(
 @router.delete("/{user_id}", response_model=dict, status_code=status.HTTP_200_OK)
 async def delete_user(
     user_id: str,
-    current_user: User = Depends(require_permission(Permission.USER_DELETE)),
+    current_user: User = Depends(require_permission(Permission.EMPLOYEE_DELETE)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Delete user by ID.
 
-    **Permissions:** USER_DELETE
-    **Roles:** Super Admin
+    **Permissions:** EMPLOYEE_DELETE
+    **Roles:** IT Admin, Org Admin, OPS Admin, Super Admin
 
     Note: Users cannot delete users at or above their role hierarchy level.
     """
@@ -328,6 +328,50 @@ async def create_users_bulk(
         message=f"{len(users)} users created successfully"
         + (f", {len(errors)} errors" if errors else ""),
     )
+
+
+@router.patch("/{user_id}/status", response_model=dict)
+async def update_logistics_user_status(
+    user_id: str,
+    status: str = Body(..., embed=True),
+    current_user: User = Depends(require_permission(Permission.MANAGE_LOGISTICS_USERS)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update a logistics user's active/inactive status.
+
+    Logistics admins can activate or deactivate their own field users.
+
+    **Permissions:** MANAGE_LOGISTICS_USERS
+    **Roles:** Logistics Admin, OPS Admin, Super Admin
+    """
+    from app.models.user import UserStatus as UserStatusEnum
+
+    service = UserService(db)
+
+    # Validate target user
+    target = await service.get_user(user_id)
+
+    if target.role != UserRole.LOGISTICS_USER.value:
+        from app.utils.exceptions import ValidationError
+        raise ValidationError("Can only update the status of logistics users via this endpoint")
+
+    # Logistics admin can only update their own users
+    if current_user.role == UserRole.LOGISTICS_ADMIN.value:
+        if target.parent_user_id != current_user.id:
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("This logistics user does not belong to you")
+
+    # Validate status value
+    try:
+        new_status = UserStatusEnum(status)
+    except ValueError:
+        from app.utils.exceptions import ValidationError
+        raise ValidationError(f"Invalid status '{status}'. Must be 'active' or 'inactive'")
+
+    user_data = UserUpdate(status=new_status)
+    user = await service.update_user(user_id, user_data, current_user.id)
+    return success_response(data=user.model_dump(), message=f"User status updated to {status}")
 
 
 @router.post("/{user_id}/toggle-company-status")

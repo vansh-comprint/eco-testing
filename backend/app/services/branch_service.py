@@ -393,13 +393,33 @@ class BranchService:
         asset_result = await self.db.execute(asset_counts_query)
         asset_counts = {row.branch_id: row for row in asset_result}
 
+        # Get batch counts per branch
+        batch_counts_query = (
+            select(
+                Batch.branch_id,
+                func.count(Batch.id).label("total"),
+                func.count(Batch.id)
+                .filter(
+                    Batch.status.notin_(["completed", "cancelled", "rejected"])
+                )
+                .label("active"),
+            )
+            .where(Batch.enterprise_id == enterprise_id)
+            .where(Batch.branch_id.isnot(None))
+            .group_by(Batch.branch_id)
+        )
+        batch_result = await self.db.execute(batch_counts_query)
+        batch_counts = {row.branch_id: row for row in batch_result}
+
         # Build response
         data = []
         for branch in branches:
             ac = asset_counts.get(branch.id)
+            bc = batch_counts.get(branch.id)
             data.append(
                 {
                     "id": branch.id,
+                    "branch_id": branch.id,  # alias for frontend compatibility
                     "enterprise_id": branch.enterprise_id,
                     "branch_name": branch.branch_name,
                     "branch_code": branch.branch_code,
@@ -410,6 +430,9 @@ class BranchService:
                     "asset_count": ac.total if ac else 0,
                     "pending_assets": ac.pending if ac else 0,
                     "completed_assets": ac.completed if ac else 0,
+                    "completed_asset_count": ac.completed if ac else 0,
+                    "total_batch_count": bc.total if bc else 0,
+                    "active_batch_count": bc.active if bc else 0,
                 }
             )
 

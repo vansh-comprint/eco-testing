@@ -1,22 +1,19 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Package,
   Laptop,
   Plus,
-  Upload,
   XCircle,
   Send,
-  Eye,
   AlertTriangle,
   Truck,
   X,
   Trash2,
   Loader2,
   Search,
-  FileSpreadsheet
 } from 'lucide-react';
 import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useSubmitBatchForApproval, useDeleteBatch, useUpdateBatch, useBranches, useBranchesByITAdmin, useCreatePickupRequest, useCreateAsset, useApiError } from '@/hooks';
 import { assetsApi } from '@/lib/api/assets';
@@ -97,7 +94,7 @@ export function BatchDetail() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
-  const [addAssetTab, setAddAssetTab] = useState<'existing' | 'new' | 'csv'>('existing');
+  const [addAssetTab, setAddAssetTab] = useState<'existing' | 'new'>('existing');
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [isAddingAssets, setIsAddingAssets] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState('');
@@ -131,6 +128,9 @@ export function BatchDetail() {
 
   const batch = batches.find(b => b.id === batchId);
 
+  // Prevent re-opening the add asset modal if already auto-opened
+  const hasAutoOpenedAddAsset = useRef(false);
+
   // Auto-open submit modal when navigated with ?action=submit from batch list
   // Only open if there are verified assets to submit
   useEffect(() => {
@@ -146,17 +146,29 @@ export function BatchDetail() {
     }
   }, [location.search, batch?.status, assets, batchId]);
 
+  // Auto-open add asset modal when arriving from batch create ("Add Manually" button)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('openAddAsset') === 'true' && batch?.status === 'draft' && !hasAutoOpenedAddAsset.current) {
+      hasAutoOpenedAddAsset.current = true;
+      setAddAssetTab('existing');
+      setSelectedAssetIds([]);
+      setAssetSearchQuery('');
+      setInlineCreateError(null);
+      setShowAddAssetModal(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, batch?.status]);
+
   // V3: Use snake_case field names
   const batchAssets = assets.filter(a => a.batch_id === batchId);
 
-  // Available assets: not already in THIS batch, in the same branch, and in an eligible status
+  // Available assets: not assigned to any batch at all
+  // Backend already scopes by role (IT admin sees only their branch assets, org admin sees all enterprise assets)
+  // No branch filter needed here — backend handles it
   const availableAssets = useMemo(() => {
-    return assets.filter(a =>
-      a.batch_id !== batchId &&
-      (!batch?.branch_id || a.branch_id === batch.branch_id) &&
-      ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'].includes(a.status)
-    );
-  }, [assets, batch?.branch_id, batchId]);
+    return assets.filter(a => !a.batch_id);
+  }, [assets]);
 
   const queryClient = useQueryClient();
 
@@ -215,7 +227,7 @@ export function BatchDetail() {
   };
 
   // Open unified add asset modal
-  const openAddAssetModal = (tab: 'existing' | 'new' | 'csv' = 'existing') => {
+  const openAddAssetModal = (tab: 'existing' | 'new' = 'existing') => {
     setAddAssetTab(tab);
     setSelectedAssetIds([]);
     setAssetSearchQuery('');
@@ -328,6 +340,10 @@ export function BatchDetail() {
   const verifiedAssets = batchAssets.filter(a =>
     a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
   );
+
+  // All assets must be verified before submission is allowed
+  const allVerified = batchAssets.length > 0 && verifiedAssets.length === batchAssets.length;
+  const unverifiedCount = batchAssets.length - verifiedAssets.length;
 
   // Pickupable assets: only those explicitly approved/ready for pickup (not just verified)
   const pickupableAssets = batchAssets.filter(a =>
@@ -446,19 +462,25 @@ export function BatchDetail() {
               )}
               {batch.status === 'draft' && batchAssets.length > 0 && (
                 <button
-                  onClick={() => verifiedAssets.length > 0 && setShowSubmitModal(true)}
-                  disabled={verifiedAssets.length === 0}
-                  title={verifiedAssets.length === 0 ? 'No verified assets yet. Assets must be reviewed and accepted before submitting.' : `Submit ${verifiedAssets.length} verified asset(s) for approval`}
+                  onClick={() => allVerified && setShowSubmitModal(true)}
+                  disabled={!allVerified}
+                  title={
+                    batchAssets.length === 0
+                      ? 'Add assets to this batch before submitting'
+                      : unverifiedCount > 0
+                        ? `${unverifiedCount} asset${unverifiedCount !== 1 ? 's' : ''} still need to be verified — all assets must be verified before submitting`
+                        : `Submit ${verifiedAssets.length} verified asset(s) for approval`
+                  }
                   className={`interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
-                    verifiedAssets.length > 0
+                    allVerified
                       ? 'bg-amber-500 text-black hover:bg-amber-400'
                       : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 cursor-not-allowed'
                   }`}
                 >
                   <Send className="w-4 h-4" />
-                  {verifiedAssets.length > 0
+                  {allVerified
                     ? `Submit for Approval (${verifiedAssets.length})`
-                    : 'Submit for Approval (0 verified)'}
+                    : `Submit for Approval (${verifiedAssets.length}/${batchAssets.length} verified)`}
                 </button>
               )}
               {batch.status === 'approved' && pickupableAssets.length > 0 && (
@@ -584,8 +606,6 @@ export function BatchDetail() {
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Device</th>
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Serial</th>
                     <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Status</th>
-                    <th className="text-left py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Quote</th>
-                    <th className="text-right py-3 px-5 font-mono font-bold text-[10px] text-slate-700 dark:text-zinc-500 uppercase tracking-widest">Actions</th>
                   </tr>
                 </thead>
               <tbody>
@@ -620,30 +640,6 @@ export function BatchDetail() {
                           {assetStatusConfig.label}
                         </span>
                       </td>
-                      <td className="py-4 px-5">
-                        {asset.final_price ? (
-                          <span className="font-mono font-bold text-sm text-ecotribe-primary">
-                            ₹{Number(asset.final_price).toLocaleString()}
-                          </span>
-                        ) : asset.base_price ? (
-                          <span className="font-mono text-sm text-zinc-400">
-                            ₹{Number(asset.base_price).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="font-mono text-xs text-zinc-700">—</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-5 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`${basePath}/assets/${asset.id}`);
-                          }}
-                          className="interactive p-2 hover:bg-white/5 transition-colors"
-                        >
-                          <Eye className="w-4 h-4 text-zinc-600 hover:text-ecotribe-primary transition-colors" />
-                        </button>
-                      </td>
                     </motion.tr>
                   );
                 })}
@@ -656,16 +652,9 @@ export function BatchDetail() {
               <Laptop className="w-8 h-8 text-zinc-600" />
             </div>
             <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">No assets yet</p>
-            <p className="font-mono text-xs text-zinc-600 mb-6">
-              Add assets to this batch to get started
+            <p className="font-mono text-xs text-zinc-600">
+              No assets have been added to this batch yet
             </p>
-            <button
-              onClick={() => openAddAssetModal('existing')}
-              className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Asset
-            </button>
           </div>
         )}
       </motion.div>
@@ -1009,7 +998,7 @@ export function BatchDetail() {
               </button>
               <button
                 onClick={handleSubmitForApproval}
-                disabled={!submitForm.preferredDate || isSubmitting || verifiedAssets.length === 0}
+                disabled={!submitForm.preferredDate || isSubmitting || !allVerified}
                 className="px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSubmitting ? 'Submitting...' : `Submit for Approval (${verifiedAssets.length} verified)`}
@@ -1082,17 +1071,6 @@ export function BatchDetail() {
               >
                 <Plus className="w-4 h-4" />
                 Add New
-              </button>
-              <button
-                onClick={() => setAddAssetTab('csv')}
-                className={`flex items-center gap-2 px-5 py-3 font-mono text-xs uppercase tracking-widest transition-colors border-b-2 ${
-                  addAssetTab === 'csv'
-                    ? 'border-ecotribe-primary text-ecotribe-primary'
-                    : 'border-transparent text-slate-500 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-white'
-                }`}
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Upload CSV
               </button>
             </div>
 
@@ -1244,35 +1222,11 @@ export function BatchDetail() {
                     onSubmit={handleCreateAssetInline}
                     onCancel={() => setShowAddAssetModal(false)}
                     isLoading={isCreatingAsset}
-                    showSelfAssign={false}
+                    showSelfAssign={true}
                   />
                 </div>
               )}
 
-              {/* === Upload CSV Tab === */}
-              {addAssetTab === 'csv' && (
-                <div className="p-8 text-center">
-                  <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-8 h-8 text-slate-400 dark:text-zinc-500" />
-                  </div>
-                  <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-2">
-                    Bulk Upload via CSV
-                  </h3>
-                  <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 mb-6 max-w-sm mx-auto">
-                    Upload a CSV file with multiple assets at once. Supports drag & drop, column mapping, and preview before import.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setShowAddAssetModal(false);
-                      navigate(`${basePath}/assets/upload?batchId=${batch.id}`);
-                    }}
-                    className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2 mx-auto"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Go to CSV Upload
-                  </button>
-                </div>
-              )}
             </div>
           </motion.div>
         </div>

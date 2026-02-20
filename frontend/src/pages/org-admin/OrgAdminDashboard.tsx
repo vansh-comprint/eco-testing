@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Clock,
   CheckCircle,
-  XCircle,
   FileText,
   BarChart3,
   UserPlus,
@@ -26,7 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAssets, useBatches, useBranches, useDashboardStats } from '@/hooks';
 import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { itAdminKeys } from '@/hooks/useBranches';
-import { PageHeader, DashboardStatGrid, Badge } from '@/components/ui';
+import { PageHeader, DashboardStatGrid } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { glass, text, hover as hoverStyles, iconSize } from '@/lib/design-tokens';
 import { AddITAdminModal } from '@/pages/org-admin';
@@ -42,10 +41,6 @@ export function OrgAdminDashboard() {
   const { data: batches = [] } = useBatches(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { stats } = useDashboardStats();
-
-  // Batch lists for "Recent Decisions" section (needs full objects)
-  const approvedBatches = batches.filter(b => ['approved', 'pickup_in_progress', 'completed'].includes(b.status));
-  const rejectedBatches = batches.filter(b => b.status === 'rejected');
 
   // Branch performance (needs asset/batch objects for per-branch breakdown)
   const branchPerformance = useMemo(() => {
@@ -101,8 +96,8 @@ export function OrgAdminDashboard() {
     },
     {
       label: 'IT Admins',
-      value: stats.it_admin_active ?? 0,
-      subLabel: `${stats.it_admin_total ?? 0} total`,
+      value: stats.it_admin_total ?? 0,
+      subLabel: `${stats.it_admin_active ?? 0} active`,
       icon: <Users className={`${iconSize.lg} text-purple-500`} />,
       accent: 'neutral' as StatAccent,
       onClick: () => navigate('/org-admin/it-admins'),
@@ -385,87 +380,36 @@ export function OrgAdminDashboard() {
         </motion.div>
       </div>
 
-      {/* Recent Decisions + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Decisions */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className={`lg:col-span-2 ${glass.subtle}`}
-        >
-          <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800">
-            <h2 className={`font-display font-bold text-sm uppercase tracking-wide ${text.primary}`}>
-              Recent Decisions
-            </h2>
-          </div>
-          <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
-            {[...approvedBatches, ...rejectedBatches]
-              .sort((a, b) => new Date(b.approved_at || b.rejected_at || b.created_at).getTime() - new Date(a.approved_at || a.rejected_at || a.created_at).getTime())
-              .slice(0, 5).map((batch) => (
-              <div key={batch.id} className={`p-4 flex items-center gap-4 ${hoverStyles.row}`}>
-                <div className={`w-10 h-10 border flex items-center justify-center ${
-                  batch.status === 'rejected'
-                    ? 'border-red-500/30 bg-red-50/80 dark:bg-red-500/10'
-                    : 'border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10'
-                }`}>
-                  {batch.status === 'rejected' ? (
-                    <XCircle className={`${iconSize.lg} text-red-500`} />
-                  ) : (
-                    <CheckCircle className={`${iconSize.lg} text-emerald-500`} />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-display font-bold text-sm truncate ${text.primary}`}>{batch.name}</p>
-                  <p className={`font-mono text-xs ${text.muted}`}>
-                    {batch.asset_count || 0} assets • ₹{(batch.estimated_value || 0).toLocaleString()}
-                  </p>
-                </div>
-                <Badge variant={batch.status === 'rejected' ? 'error' : 'success'} size="sm">
-                  {batch.status === 'rejected' ? 'Rejected' : 'Approved'}
-                </Badge>
-              </div>
-            ))}
-            {approvedBatches.length === 0 && rejectedBatches.length === 0 && (
-              <div className="p-8 text-center">
-                <p className={`font-display ${text.muted}`}>No recent decisions</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="space-y-3"
-        >
-          {[
-            { label: 'Batch Approvals', desc: 'Review pending batches', icon: <FileCheck className="w-6 h-6 text-amber-500" />, path: '/org-admin/approvals', hoverColor: 'hover:border-amber-500/30' },
-            { label: 'All Assets', desc: 'Enterprise-wide overview', icon: <Monitor className="w-6 h-6 text-blue-500" />, path: '/org-admin/enterprise-assets', hoverColor: 'hover:border-blue-500/30' },
-            { label: 'All Batches', desc: 'Batch pipeline view', icon: <Package className="w-6 h-6 text-purple-500" />, path: '/org-admin/enterprise-batches', hoverColor: 'hover:border-purple-500/30' },
-            { label: 'Financial Reports', desc: 'Analytics & exports', icon: <BarChart3 className="w-6 h-6 text-emerald-500" />, path: '/org-admin/reports', hoverColor: 'hover:border-emerald-500/30' },
-            { label: 'EPR Certificates', desc: 'Compliance docs', icon: <FileText className="w-6 h-6 text-purple-500" />, path: '/org-admin/epr', hoverColor: 'hover:border-purple-500/30' },
-            { label: 'Settings', desc: 'Enterprise preferences', icon: <Settings className="w-6 h-6 text-slate-500" />, path: '/org-admin/settings', hoverColor: 'hover:border-slate-400/30' },
-          ].map((action) => (
-            <button
-              key={action.path}
-              onClick={() => navigate(action.path)}
-              className={`${glass.subtle} w-full p-4 text-left ${action.hoverColor} group transition-all flex items-center gap-4`}
-            >
-              {action.icon}
-              <div>
-                <h3 className={`font-display font-bold text-sm uppercase group-hover:text-ecotribe-primary transition-colors ${text.primary}`}>
-                  {action.label}
-                </h3>
-                <p className={`font-mono text-[11px] ${text.muted}`}>{action.desc}</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          ))}
-        </motion.div>
-      </div>
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
+      >
+        {[
+          { label: 'Batch Approvals', desc: 'Review pending batches', icon: <FileCheck className="w-6 h-6 text-amber-500" />, path: '/org-admin/approvals', hoverColor: 'hover:border-amber-500/30' },
+          { label: 'All Assets', desc: 'Enterprise-wide overview', icon: <Monitor className="w-6 h-6 text-blue-500" />, path: '/org-admin/enterprise-assets', hoverColor: 'hover:border-blue-500/30' },
+          { label: 'All Batches', desc: 'Batch pipeline view', icon: <Package className="w-6 h-6 text-purple-500" />, path: '/org-admin/enterprise-batches', hoverColor: 'hover:border-purple-500/30' },
+          { label: 'Financial Reports', desc: 'Analytics & exports', icon: <BarChart3 className="w-6 h-6 text-emerald-500" />, path: '/org-admin/reports', hoverColor: 'hover:border-emerald-500/30' },
+          { label: 'EPR Certificates', desc: 'Compliance docs', icon: <FileText className="w-6 h-6 text-purple-500" />, path: '/org-admin/epr', hoverColor: 'hover:border-purple-500/30' },
+          { label: 'Settings', desc: 'Enterprise preferences', icon: <Settings className="w-6 h-6 text-slate-500" />, path: '/org-admin/settings', hoverColor: 'hover:border-slate-400/30' },
+        ].map((action) => (
+          <button
+            key={action.path}
+            onClick={() => navigate(action.path)}
+            className={`${glass.subtle} p-4 text-left ${action.hoverColor} group transition-all flex flex-col items-start gap-2`}
+          >
+            {action.icon}
+            <div>
+              <h3 className={`font-display font-bold text-sm uppercase group-hover:text-ecotribe-primary transition-colors ${text.primary}`}>
+                {action.label}
+              </h3>
+              <p className={`font-mono text-[11px] ${text.muted}`}>{action.desc}</p>
+            </div>
+          </button>
+        ))}
+      </motion.div>
 
       {/* Add IT Admin Modal */}
       <AddITAdminModal

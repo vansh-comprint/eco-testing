@@ -19,8 +19,8 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useUnassignAsset, useSendSubUserInvitation, useApiError } from '@/hooks';
-import { format, formatDistanceToNow } from 'date-fns';
+import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { format } from 'date-fns';
 
 const DEPARTMENT_OPTIONS = [
   'Engineering',
@@ -54,7 +54,6 @@ export function EmployeeDetail() {
   const { data: assets = [], isLoading: assetsLoading } = useAssets(enterpriseId);
   const updateSubUserMutation = useUpdateSubUser();
   const deleteSubUserMutation = useDeleteSubUser();
-  const unassignAssetMutation = useUnassignAsset();
   const sendInvitationMutation = useSendSubUserInvitation();
   const { showSuccess, handleError } = useApiError();
 
@@ -68,7 +67,6 @@ export function EmployeeDetail() {
     phone: '',
     department: '',
     customDepartment: '',
-    status: 'active' as 'active' | 'pending_invite' | 'inactive',
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
@@ -85,7 +83,6 @@ export function EmployeeDetail() {
         phone: subUser.phone || '',
         department: isCustomDept ? 'Other' : (subUser.department || ''),
         customDepartment: isCustomDept ? subUser.department || '' : '',
-        status: (subUser.status as 'active' | 'pending_invite' | 'inactive') || 'active',
       });
       setEditErrors({});
     }
@@ -183,13 +180,13 @@ export function EmployeeDetail() {
           email: editForm.email.trim().toLowerCase(),
           phone: editForm.phone.replace(/\D/g, ''),
           department: finalDepartment || undefined,
-          status: editForm.status,
         },
       });
       setIsEditing(false);
       setEditErrors({});
+      showSuccess('Employee Updated', 'Employee details have been saved.');
     } catch (error) {
-      console.error('Failed to update sub-user:', error);
+      handleError(error, 'Updating employee');
     }
   };
 
@@ -207,20 +204,15 @@ export function EmployeeDetail() {
     }
   };
 
-  // Handle delete with cascade unassign
+  // Handle delete — assigned assets are auto-unassigned by DB cascade (ondelete=SET NULL)
   const handleDelete = async () => {
     if (!subUser) return;
     setIsDeleting(true);
     try {
-      // First unassign all assets from this sub-user
-      for (const asset of userAssets) {
-        await unassignAssetMutation.mutateAsync(asset.id);
-      }
-      // Then delete the sub-user
       await deleteSubUserMutation.mutateAsync(subUser.id);
       navigate(`${basePath}/employees`);
     } catch (error) {
-      console.error('Failed to delete sub-user:', error);
+      handleError(error, 'Deleting employee');
       setIsDeleting(false);
     }
   };
@@ -454,18 +446,6 @@ export function EmployeeDetail() {
                         {editErrors.customDepartment && <p className="mt-1 font-mono text-xs text-red-400">{editErrors.customDepartment}</p>}
                       </div>
                     )}
-                    <div>
-                      <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">Status</label>
-                      <select
-                        value={editForm.status}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value as 'active' | 'pending_invite' | 'inactive' }))}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-display text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
-                      >
-                        <option value="active" className="bg-white dark:bg-[#0a0a0a]">Active</option>
-                        <option value="pending_invite" className="bg-white dark:bg-[#0a0a0a]">Pending Invite</option>
-                        <option value="inactive" className="bg-white dark:bg-[#0a0a0a]">Inactive</option>
-                      </select>
-                    </div>
                   </div>
                 </>
               ) : (

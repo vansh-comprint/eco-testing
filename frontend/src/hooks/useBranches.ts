@@ -87,7 +87,8 @@ export function useBranchSummary(enterpriseId: string) {
       return response.data || [];
     },
     enabled: !!enterpriseId,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

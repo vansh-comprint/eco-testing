@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, Plus, ChevronDown, ChevronUp, Loader2, Check } from 'lucide-react';
+import { UserPlus, Plus, ChevronUp, Loader2, Check } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, useToast } from '@/components/ui';
 import { useAuth, useCreateITAdmin, useBranches, useCreateBranch } from '@/hooks';
 import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
@@ -11,7 +11,7 @@ import { passwordSchema, PASSWORD_HINT } from '@/lib/validation';
 const addITAdminSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').or(z.literal('')).optional(),
+  phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be exactly 10 digits').or(z.literal('')).optional(),
   password: passwordSchema,
   branch_id: z.string().optional(),
 });
@@ -63,6 +63,7 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
     if (!newBranch.city.trim()) errs.city = 'Required';
     if (!newBranch.state.trim()) errs.state = 'Required';
     if (!newBranch.pin_code.trim()) errs.pin_code = 'Required';
+    else if (!/^\d{6}$/.test(newBranch.pin_code)) errs.pin_code = 'PIN code must be exactly 6 digits';
     setBranchErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -198,8 +199,9 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
           <Input
             label="Phone Number"
             {...register('phone')}
-            onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''); }}
+            onInput={(e: React.FormEvent<HTMLInputElement>) => { const input = e.currentTarget; input.value = input.value.replace(/[^0-9]/g, '').slice(0, 10); }}
             inputMode="numeric"
+            maxLength={10}
             error={errors.phone?.message}
             placeholder="9876543210"
           />
@@ -294,8 +296,14 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
                     <input
                       type="text"
                       value={newBranch.pin_code}
-                      onChange={(e) => { setNewBranch(p => ({ ...p, pin_code: e.target.value })); setBranchErrors(p => ({ ...p, pin_code: '' })); }}
-                      placeholder="PIN *"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setNewBranch(p => ({ ...p, pin_code: val }));
+                        setBranchErrors(p => ({ ...p, pin_code: '' }));
+                      }}
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="PIN (6 digits) *"
                       className={`w-full px-2.5 py-2 bg-white dark:bg-zinc-900 border rounded text-sm text-slate-900 dark:text-white focus:outline-none focus:border-lime-500 ${branchErrors.pin_code ? 'border-red-400' : 'border-slate-200 dark:border-zinc-700'}`}
                     />
                     {branchErrors.pin_code && <p className="text-[10px] text-red-500 mt-0.5">{branchErrors.pin_code}</p>}
@@ -317,9 +325,6 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
           <div className="pt-2">
             <p className="font-mono text-xs text-slate-600 dark:text-zinc-400">
               Role: <span className="font-bold text-slate-800 dark:text-zinc-200">IT Admin</span>
-            </p>
-            <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 mt-1">
-              Branch assignment is optional. IT Admin will have access to asset and batch management once a branch is assigned.
             </p>
           </div>
         </div>

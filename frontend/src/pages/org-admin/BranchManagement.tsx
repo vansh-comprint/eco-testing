@@ -83,9 +83,9 @@ export function BranchManagement() {
   const deleteBranch = useDeleteBranch();
   const createITAdmin = useCreateITAdmin();
   
-  // Org Admin can fully manage branches; IT Admin can only create new ones
+  // Org Admin can fully manage branches; IT Admin is view-only
   const canManageBranches = isOrgAdmin;
-  const canCreateBranches = true; // Both Org Admin and IT Admin can create branches
+  const canCreateBranches = isOrgAdmin;
 
   // Handle edit redirect from BranchDetail page
   useEffect(() => {
@@ -267,6 +267,8 @@ export function BranchManagement() {
                       updateBranchStatus.mutate({ branchId: branch.id, status: newStatus });
                     } : undefined}
                     onClick={() => navigate(`${basePath}/branches/${branch.id}`)}
+                    onViewAssets={() => navigate(`${basePath}/assets?branch=${branch.id}`)}
+                    onViewBatches={() => navigate(`${basePath}/batches?branch=${branch.id}`)}
                     canManage={canManageBranches}
                     currentUserId={user?.id}
                   />
@@ -363,6 +365,8 @@ function BranchCard({
   onDelete,
   onToggleStatus,
   onClick,
+  onViewAssets,
+  onViewBatches,
   canManage = true,
   currentUserId,
 }: {
@@ -372,6 +376,8 @@ function BranchCard({
   onDelete?: () => void;
   onToggleStatus?: () => void;
   onClick: () => void;
+  onViewAssets?: () => void;
+  onViewBatches?: () => void;
   canManage?: boolean;
   currentUserId?: string;
 }) {
@@ -440,16 +446,26 @@ function BranchCard({
             )}
           </div>
 
-          {/* Stats */}
+          {/* Stats — clickable to navigate */}
           <div className="hidden sm:flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onViewAssets?.(); }}
+              title="View Assets"
+              className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 hover:bg-lime-50 dark:hover:bg-lime-500/10 transition-colors"
+            >
               <Laptop className="w-3 h-3 text-lime-600 dark:text-lime-400" />
               <span className={`text-xs font-bold ${text.primary}`}>{summary?.asset_count || 0}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-zinc-800">
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onViewBatches?.(); }}
+              title="View Batches"
+              className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-zinc-800 hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+            >
               <Package className="w-3 h-3 text-blue-500" />
               <span className={`text-xs font-bold ${text.primary}`}>{summary?.active_batch_count || 0}</span>
-            </div>
+            </button>
           </div>
         </div>
 

@@ -515,6 +515,10 @@ class BatchService:
     ) -> bool:
         """Delete a batch, optionally cascading to assets and employee users.
 
+        Uses bulk SQL DELETEs throughout to avoid async SQLAlchemy lazy-load
+        issues that arise when ORM cascade relationships (payout, epr_certificate)
+        are not pre-loaded in the session.
+
         Args:
             batch_id: ID of batch to delete
             delete_assets: If True, delete all assets in this batch
@@ -523,32 +527,29 @@ class BatchService:
         from sqlalchemy import select, delete as sql_delete
         from app.models.asset import Asset
         from app.models.user import User
+        from app.models.financial import Payout
+        from app.models.epr import EPRCertificate
 
         batch = await self.repository.get_by_id(batch_id)
         if not batch:
             raise NotFoundError("Batch", batch_id)
 
-        # Get assets in this batch (needed for sub-user deletion and asset deletion)
-        assets = []
-        if delete_assets or delete_sub_users:
+        # Delete employee users assigned to assets in this batch
+        if delete_sub_users:
             result = await self.db.execute(
                 select(Asset).where(Asset.batch_id == batch_id)
             )
-            assets = list(result.scalars().all())
-
-        # Delete employee users assigned to these assets
-        if delete_sub_users and assets:
+            assets_for_users = list(result.scalars().all())
             employee_ids = {
-                a.assigned_to_user_id for a in assets
+                a.assigned_to_user_id for a in assets_for_users
                 if a.assigned_to_user_id
             }
             if employee_ids:
-                # Unassign assets first to avoid FK issues
-                for asset in assets:
+                # Unassign assets first to avoid FK constraint on users delete
+                for asset in assets_for_users:
                     asset.assigned_to_user_id = None
                 await self.db.flush()
 
-                # Delete employee users
                 await self.db.execute(
                     sql_delete(User).where(
                         User.id.in_(employee_ids),
@@ -556,20 +557,41 @@ class BatchService:
                     )
                 )
 
-        # Delete assets in this batch
-        if delete_assets and assets:
-            for asset in assets:
-                await self.db.delete(asset)
+        # Delete assets via bulk SQL — DB CASCADE handles Submission, RemoteReview,
+        # FacilityQC, Dispute, and OnSiteQC records (all have ondelete="CASCADE" on asset_id)
+        if delete_assets:
+            await self.db.execute(
+                sql_delete(Asset).where(Asset.batch_id == batch_id)
+            )
 
-        # Delete any pickup requests tied to this batch
-        result = await self.db.execute(
-            select(PickupRequest).where(PickupRequest.batch_id == batch_id)
+        # Delete pickup requests via bulk SQL — DB CASCADE handles OnSiteQC records
+        await self.db.execute(
+            sql_delete(PickupRequest).where(PickupRequest.batch_id == batch_id)
         )
-        for pickup in result.scalars().all():
-            await self.db.delete(pickup)
 
-        # Delete the batch itself
-        await self.db.delete(batch)
+        # Explicitly delete payout and EPR certificate via bulk SQL to avoid
+        # ORM cascade lazy-load errors (Batch.payout / Batch.epr_certificate both
+        # have cascade="all, delete-orphan" but are never pre-loaded here).
+        # DB ondelete="SET NULL" on Payout.batch_id / EPRCertificate.batch_id is
+        # bypassed — we DELETE the rows outright instead.
+        await self.db.execute(
+            sql_delete(Payout).where(Payout.batch_id == batch_id)
+        )
+        await self.db.execute(
+            sql_delete(EPRCertificate).where(EPRCertificate.batch_id == batch_id)
+        )
+
+        # Flush pending sub-user / asset changes before removing batch from session
+        await self.db.flush()
+
+        # Expunge the batch ORM object so SQLAlchemy won't try to cascade-load
+        # payout/epr_certificate when the batch row is deleted below
+        self.db.expunge(batch)
+
+        # Delete the batch row via bulk SQL
+        await self.db.execute(
+            sql_delete(Batch).where(Batch.id == batch_id)
+        )
         await self.db.commit()
         return True
 

@@ -2,27 +2,26 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Laptop,
-  ArrowRight,
-  FileText,
   MessageCircle,
   CheckCircle,
   Clock,
   Package,
-  ChevronRight,
   AlertCircle,
   Truck,
   ClipboardCheck,
   RefreshCw,
 } from 'lucide-react';
 import { useAuth, useAllAssets, useDashboardStats } from '@/hooks';
+import { useToast } from '@/components/ui';
 import { assetStatusLabels } from '@/types/asset';
 import type { AssetStatus } from '@/types/asset';
-import { glass, text, iconSize } from '@/lib/design-tokens';
+import { text, iconSize } from '@/lib/design-tokens';
 import { contentVariants, createSectionTransition } from '@/lib/animations';
 
 export function SubUserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { addToast } = useToast();
   const { data: assets = [] } = useAllAssets();
   const { stats } = useDashboardStats();
 
@@ -104,44 +103,41 @@ export function SubUserDashboard() {
         )}
       </div>
 
-      {/* Pending Devices - Action Required */}
+
+      {/* Pending Devices - Awaiting Check-in */}
       {pendingAssets.length > 0 && (
         <motion.div
           variants={contentVariants}
           initial="initial"
           animate="animate"
-          transition={createSectionTransition(0.15)}
+          transition={createSectionTransition(0.2)}
           className="px-4 md:px-0"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 bg-amber-400 animate-pulse" />
-            <h2 className={`font-brand font-bold text-sm uppercase tracking-wide ${text.primary}`}>
-              Action Required
-            </h2>
-          </div>
+          <h2 className={`font-brand font-bold text-sm uppercase tracking-wide mb-4 ${text.primary}`}>
+            Devices to Submit
+          </h2>
           <div className="space-y-3">
             {pendingAssets.map((asset) => (
-              <motion.div
+              <div
                 key={asset.id}
                 onClick={() => navigate(`/check-in/submit/${asset.id}`)}
-                className="bg-lime-50 dark:bg-lime-500/[0.08] border border-lime-500/30 dark:border-lime-400/20 border-l-4 border-l-lime-500 p-4 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-all hover:border-lime-500/40 dark:hover:border-lime-400/30 shadow-sm shadow-lime-500/5"
-                whileTap={{ scale: 0.98 }}
+                className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-amber-500/30 dark:border-amber-400/20 overflow-hidden shadow-sm shadow-amber-500/5 cursor-pointer active:scale-[0.99] transition-all hover:border-amber-500/50"
               >
-                <div className="w-14 h-14 bg-lime-100 dark:bg-lime-500/20 flex items-center justify-center flex-shrink-0 border border-lime-500/25">
-                  <Laptop className="w-7 h-7 text-lime-600 dark:text-lime-400" />
+                <div className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                    <Laptop className={`${iconSize.xl} text-amber-500`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-bold truncate text-sm ${text.primary}`}>
+                      {asset.brand} {asset.model}
+                    </h3>
+                    <p className={`text-xs font-mono truncate ${text.muted}`}>S/N: {asset.serial_number}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-black text-[10px] font-mono font-bold uppercase tracking-widest">
+                    Start Check-in
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-bold truncate ${text.primary}`}>
-                    {asset.brand} {asset.model}
-                  </h3>
-                  <p className={`text-xs font-mono truncate ${text.muted}`}>S/N: {asset.serial_number}</p>
-                  <span className="inline-flex items-center gap-1 text-xs text-lime-600 dark:text-lime-400 font-bold uppercase tracking-wider mt-1">
-                    {asset.status === 'check_in_started' ? 'Continue Check-in' : 'Start Check-in'}
-                    <ArrowRight className={iconSize.xs} />
-                  </span>
-                </div>
-                <ChevronRight className={`${iconSize.lg} text-lime-500 flex-shrink-0`} />
-              </motion.div>
+              </div>
             ))}
           </div>
         </motion.div>
@@ -235,7 +231,7 @@ export function SubUserDashboard() {
       )}
 
       {/* No Assets */}
-      {myAssets.length === 0 && (
+      {pendingAssets.length === 0 && submittedAssets.length === 0 && (
         <motion.div
           variants={contentVariants}
           initial="initial"
@@ -268,24 +264,38 @@ export function SubUserDashboard() {
         <h2 className={`font-brand font-bold text-sm uppercase tracking-wide mb-4 ${text.primary}`}>
           Need Help?
         </h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div
-            onClick={() => navigate('/check-in/help')}
-            className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-4 cursor-pointer active:scale-[0.98] transition-all hover:border-lime-500/30 dark:hover:border-lime-400/20 shadow-sm shadow-slate-900/[0.02]"
-          >
+        <div
+          onClick={() => addToast({ type: 'info', title: 'Coming Soon', message: 'This feature is coming soon.' })}
+          className="grid grid-cols-2 gap-3 cursor-pointer"
+        >
+          {/* Guide card — coming soon
+          <div className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-4 cursor-pointer active:scale-[0.98] transition-all hover:border-lime-500/30 dark:hover:border-lime-400/20 shadow-sm shadow-slate-900/[0.02]">
             <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 border border-blue-500/25 flex items-center justify-center mb-3">
               <FileText className={`${iconSize.lg} text-blue-500 dark:text-blue-400`} />
             </div>
             <h3 className={`font-bold text-sm mb-1 ${text.primary}`}>Guide</h3>
             <p className={`text-[11px] ${text.muted}`}>How to prepare your device</p>
           </div>
+          */}
 
+          {/* Support card — coming soon
           <div className="bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-4 cursor-pointer active:scale-[0.98] transition-all hover:border-lime-500/30 dark:hover:border-lime-400/20 shadow-sm shadow-slate-900/[0.02]">
             <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 border border-purple-500/25 flex items-center justify-center mb-3">
               <MessageCircle className={`${iconSize.lg} text-purple-500 dark:text-purple-400`} />
             </div>
             <h3 className={`font-bold text-sm mb-1 ${text.primary}`}>Support</h3>
             <p className={`text-[11px] ${text.muted}`}>Chat with our team</p>
+          </div>
+          */}
+
+          <div className="col-span-2 bg-white dark:bg-zinc-900/85 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-4 flex items-center gap-3 active:scale-[0.99] transition-all hover:border-lime-500/30 dark:hover:border-lime-400/20 shadow-sm shadow-slate-900/[0.02]">
+            <div className="w-10 h-10 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center flex-shrink-0">
+              <MessageCircle className={`${iconSize.lg} ${text.muted}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold text-sm mb-0.5 ${text.primary}`}>Guide & Support</h3>
+              <p className={`text-[11px] ${text.muted}`}>Coming soon</p>
+            </div>
           </div>
         </div>
       </motion.div>

@@ -190,10 +190,7 @@ export function AssetList() {
   const stats = {
     total: totalAssetCount,
     pending: enterpriseAssets.filter(a => a.status === 'pending_assignment').length,
-    // V3.2: Ready for pickup includes both ready_for_pickup and conditionally_accepted
-    readyForPickup: enterpriseAssets.filter(a =>
-      a.status === 'ready_for_pickup' || a.status === 'conditionally_accepted'
-    ).length,
+    readyForPickup: enterpriseAssets.filter(a => a.status === 'ready_for_pickup').length,
     // V3.2: Processing excludes conditionally_accepted (those are ready for pickup)
     inProgress: enterpriseAssets.filter(a =>
       ['assigned', 'check_in_started', 'submitted', 'remote_review', 'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit', 'facility_qc'].includes(a.status)
@@ -519,32 +516,34 @@ export function AssetList() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-xl px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-[calc(100%-2rem)] sm:w-auto max-w-2xl"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-xl w-[calc(100%-2rem)] sm:w-auto sm:min-w-[360px] sm:max-w-2xl"
           >
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
-                  <Check className="w-4 h-4 text-ecotribe-primary" />
-                </div>
-                <span className="font-mono font-bold text-sm text-black dark:text-white">
-                  {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
-                </span>
+            {/* Close button - top right corner */}
+            <button
+              onClick={clearSelection}
+              className="absolute top-2 right-2 interactive p-1.5 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
+            >
+              <X className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-500 hover:text-red-400" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-black/5 dark:border-white/5 pr-10">
+              <div className="w-7 h-7 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center flex-shrink-0">
+                <Check className="w-3.5 h-3.5 text-ecotribe-primary" />
               </div>
-              <button
-                onClick={clearSelection}
-                className="sm:hidden interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
-              >
-                <X className="w-4 h-4 text-slate-500 dark:text-zinc-500" />
-              </button>
+              <span className="font-mono font-bold text-sm text-black dark:text-white">
+                {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
+              </span>
             </div>
-            <div className="hidden sm:block h-6 w-px bg-black/10 dark:bg-white/10" />
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
               {selectedAssignable.length > 0 && (
                 <button
                   onClick={() => setShowBulkAssignModal(true)}
                   className="interactive px-4 py-2 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white dark:hover:bg-white transition-all flex items-center gap-2 btn-chamfer"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-3.5 h-3.5" />
                   Assign ({selectedAssignable.length})
                 </button>
               )}
@@ -553,22 +552,16 @@ export function AssetList() {
                   onClick={() => setShowBulkBatchModal(true)}
                   className="interactive px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2"
                 >
-                  <Package className="w-4 h-4" />
-                  Add to Batch ({selectedBatchable.length})
+                  <Package className="w-3.5 h-3.5" />
+                  Batch ({selectedBatchable.length})
                 </button>
               )}
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
                 className="interactive px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 Delete
-              </button>
-              <button
-                onClick={clearSelection}
-                className="hidden sm:flex interactive p-2 border border-slate-200 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
-              >
-                <X className="w-4 h-4 text-slate-500 dark:text-zinc-500 hover:text-red-400" />
               </button>
             </div>
           </motion.div>
@@ -586,7 +579,7 @@ export function AssetList() {
           <>
           {/* Mobile Card Layout */}
           <div className="md:hidden divide-y divide-slate-200 dark:divide-white/5">
-            {filteredAssets.map((asset, index) => {
+            {filteredAssets.map((asset) => {
               const statusConfig = getStatusConfig(asset.status as any);
               const batch = batches.find(b => b.id === asset.batch_id);
               const isSelectable = asset.status === 'pending_assignment' || asset.status === 'ready_for_pickup' || asset.status === 'conditionally_accepted' || asset.status === 'assigned' || asset.status === 'check_in_started' || asset.status === 'submitted' || asset.status === 'remote_review';

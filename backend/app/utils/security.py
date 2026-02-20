@@ -96,6 +96,10 @@ def can_modify_user(actor: User, target_user_id: str, target_role: str,
         # Additional branch check would be done in service layer
         return True
 
+    # Logistics Admin - can modify their own logistics users (parent_user_id check done in service)
+    if actor.role == UserRole.LOGISTICS_ADMIN.value:
+        return True
+
     return False
 
 

@@ -86,6 +86,7 @@ export interface LogisticsUserCreateRequest {
 
 export interface LogisticsUserUpdateRequest {
   name?: string;
+  email?: string;
   phone?: string;
   vehicle_number?: string;
   vehicle_type?: string;
@@ -161,6 +162,12 @@ export const logisticsApi = {
     fetchWithAuth<LogisticsUserResponse>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+
+  updateUserStatus: (id: string, status: 'active' | 'inactive') =>
+    fetchWithAuth<LogisticsUserResponse>(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
     }),
 
   deleteUser: (id: string) =>

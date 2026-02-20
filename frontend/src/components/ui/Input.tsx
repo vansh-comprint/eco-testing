@@ -59,6 +59,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'border border-slate-200/80 dark:border-zinc-700',
               // Text colors - high contrast
               text.primary,
+              'text-left',
               'placeholder:text-slate-400 dark:placeholder:text-zinc-500',
               // Focus state with brand color
               'focus:outline-none',

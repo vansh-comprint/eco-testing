@@ -15,11 +15,12 @@ from app.utils.response import success_response, paginated_response
 from app.utils.scoping import get_scoped_filters, auto_fill_context, can_access_enterprise, can_access_branch, is_platform_admin
 from app.utils.state_machine import get_allowed_asset_transitions, get_workflow_path
 from app.utils.exceptions import AuthorizationError
+from app.utils.scoping import can_access_branch_scoped
 
 router = APIRouter()
 
 
-def _check_asset_access(asset_data, current_user: User):
+async def _check_asset_access(asset_data, current_user: User, db=None):
     """Verify user has access to this asset's enterprise/branch (prevents cross-tenant IDOR)."""
     # Employees can always access assets assigned to them
     assigned_to = getattr(asset_data, 'assigned_to_user_id', None)
@@ -30,8 +31,14 @@ def _check_asset_access(asset_data, current_user: User):
     branch_id = getattr(asset_data, 'branch_id', None)
     if enterprise_id and not can_access_enterprise(current_user, enterprise_id):
         raise AuthorizationError("You do not have access to this asset")
-    if branch_id and not can_access_branch(current_user, branch_id, enterprise_id):
-        raise AuthorizationError("You do not have access to this asset")
+    if branch_id:
+        # Use scoped check to support multi-branch IT admins (V3.2)
+        if db is not None:
+            accessible = await can_access_branch_scoped(db, current_user, branch_id)
+        else:
+            accessible = can_access_branch(current_user, branch_id, enterprise_id)
+        if not accessible:
+            raise AuthorizationError("You do not have access to this asset")
 
 
 @router.get("", response_model=dict)
@@ -195,7 +202,7 @@ async def get_asset(
     """
     service = AssetService(db)
     asset = await service.get_asset(asset_id)
-    _check_asset_access(asset, current_user)
+    await _check_asset_access(asset, current_user, db)
     return success_response(data=asset.model_dump())
 
 
@@ -214,7 +221,7 @@ async def update_asset(
     service = AssetService(db)
     # Verify ownership before update
     existing = await service.get_asset(asset_id)
-    _check_asset_access(existing, current_user)
+    await _check_asset_access(existing, current_user, db)
     asset = await service.update_asset(asset_id, asset_data, current_user.id)
     return success_response(data=asset.model_dump(), message="Asset updated successfully")
 
@@ -233,7 +240,7 @@ async def delete_asset(
     service = AssetService(db)
     # Verify ownership before delete
     existing = await service.get_asset(asset_id)
-    _check_asset_access(existing, current_user)
+    await _check_asset_access(existing, current_user, db)
     await service.delete_asset(asset_id)
     return success_response(message="Asset deleted successfully")
 
@@ -255,7 +262,7 @@ async def assign_asset(
     """
     service = AssetService(db)
     existing = await service.get_asset(asset_id)
-    _check_asset_access(existing, current_user)
+    await _check_asset_access(existing, current_user, db)
     asset = await service.assign_asset(asset_id, assigned_to_user_id, current_user.id)
     return success_response(data=asset.model_dump(), message="Asset assigned successfully")
 
@@ -276,7 +283,7 @@ async def unassign_asset(
     """
     service = AssetService(db)
     existing = await service.get_asset(asset_id)
-    _check_asset_access(existing, current_user)
+    await _check_asset_access(existing, current_user, db)
     asset = await service.unassign_asset(asset_id, current_user.id)
     return success_response(data=asset.model_dump(), message="Asset unassigned successfully")
 
@@ -298,7 +305,7 @@ async def transition_asset_status(
     """
     service = AssetService(db)
     existing = await service.get_asset(asset_id)
-    _check_asset_access(existing, current_user)
+    await _check_asset_access(existing, current_user, db)
     asset_data = AssetUpdate(status=new_status)
     asset = await service.update_asset(asset_id, asset_data, current_user.id)
     return success_response(data=asset.model_dump(), message=f"Asset status changed to {new_status.value}")
@@ -320,7 +327,7 @@ async def get_asset_allowed_transitions(
     """
     service = AssetService(db)
     asset = await service.get_asset(asset_id)
-    _check_asset_access(asset, current_user)
+    await _check_asset_access(asset, current_user, db)
     current_status = asset.status
 
     allowed = list(get_allowed_asset_transitions(current_status))

@@ -8,7 +8,6 @@ import { ThemeToggleCompact, NotificationDropdown, NotificationDropdownMobile } 
 import { OrgBranchProvider, ITAdminBranchProvider } from '@/contexts';
 import { OpsEnterpriseProvider } from '@/contexts/OpsEnterpriseContext';
 import { BranchSelector } from '@/components/org-admin';
-import { ITAdminBranchSelector } from '@/components/admin/ITAdminBranchSelector';
 import { EnterpriseSelector } from '@/components/ops/EnterpriseSelector';
 import { usePermission, type PermissionValue } from '@/permissions';
 import type { UserRole } from '@/types';
@@ -191,16 +190,6 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
                 </p>
                 <p className="font-brand font-bold text-sm uppercase tracking-wide truncate text-ecotribe-primary">{title}</p>
               </div>
-            </div>
-          )}
-
-          {/* IT Admin Branch Selector - Above nav since it scopes all data */}
-          {role === 'it_admin' && sidebarOpen && (
-            <div className="px-3 pb-1">
-              <p className="px-2.5 pb-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/30 dark:text-zinc-600">
-                Branch
-              </p>
-              <ITAdminBranchSelector />
             </div>
           )}
 

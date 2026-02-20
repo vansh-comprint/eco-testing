@@ -1,7 +1,7 @@
 """User repository for database operations - Unified User Model"""
 
 from typing import Optional, List, Tuple
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
@@ -80,8 +80,10 @@ class UserRepository:
         if not user:
             raise NotFoundError("User", user_id)
 
-        await self.db.delete(user)
-        await self.db.flush()
+        # Use SQL-level DELETE to bypass ORM lazy-loading cascade (MissingGreenlet error
+        # in async context). DB FK constraints handle child rows: CASCADE for submissions/
+        # notifications, SET NULL for assets/audit_logs/disputes.
+        await self.db.execute(sql_delete(User).where(User.id == user_id))
         return True
 
     async def create_bulk(self, users: List[User]) -> List[User]:

@@ -40,7 +40,7 @@ from app.models.financial import EnterpriseWallet
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DEMO_PASSWORD = "Demo@123456"
+DEMO_PASSWORD = "123456789"
 DEMO_ENTERPRISE_GST = "27DEMO0000D1Z0"
 DEMO_ENTERPRISE_NAME = "EcoTribe Demo Corp"
 
@@ -144,16 +144,16 @@ async def seed():
             demo_users_spec = [
                 # Platform roles (no enterprise)
                 {
-                    "email": "demo.superadmin@ecotribe.com",
-                    "name": "Demo Super Admin",
+                    "email": "super@eco.com",
+                    "name": "super admin ",
                     "role": UserRole.SUPER_ADMIN.value,
                     "phone": "+91-9999100001",
                     "enterprise_id": None,
                     "branch_id": None,
                 },
                 {
-                    "email": "demo.opsadmin@ecotribe.com",
-                    "name": "Demo OPS Admin",
+                    "email": "admin@eco.com",
+                    "name": "ops admin",
                     "role": UserRole.OPS_ADMIN.value,
                     "phone": "+91-9999100002",
                     "enterprise_id": None,

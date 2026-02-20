@@ -42,12 +42,15 @@ export function ITAdminBranchProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedBranchId]);
 
-  // Restore selected branch from sessionStorage, or auto-select if only one branch
+  // Restore selected branch from sessionStorage, or auto-select when only one branch
   useEffect(() => {
     const stored = sessionStorage.getItem('it_admin_selected_branch');
     if (stored && branches.some((b: Branch) => b.id === stored)) {
       setSelectedBranchId(stored);
     } else if (branches.length === 1) {
+      // Only auto-select when there is exactly one branch.
+      // For multiple branches, default to null (all branches) so batches from
+      // any managed branch are visible without the user needing to switch.
       setSelectedBranchId(branches[0].id);
     }
   }, [branches]);

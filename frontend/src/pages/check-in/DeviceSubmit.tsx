@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
   Send,
 } from 'lucide-react';
 import { useAuth, useAsset, useApiError } from '@/hooks';
+import { assetKeys } from '@/hooks/useAssets';
 import { useSubmissionStore } from '@/stores';
 import {
   PHOTO_SLOTS,
@@ -65,6 +67,7 @@ export function DeviceSubmit() {
     getSubmissionByAssetId,
   } = useSubmissionStore();
   const { handleError, showSuccess, showError } = useApiError();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPhotoKey, setCurrentPhotoKey] = useState<string | null>(null);
@@ -135,7 +138,7 @@ export function DeviceSubmit() {
 
     setIsSubmitting(true);
     try {
-      const submission = await submitDevice({
+      await submitDevice({
         assetId,
         photos: currentDraft.photos as any,
         functionalChecks: currentDraft.functionalChecks,
@@ -147,8 +150,14 @@ export function DeviceSubmit() {
         },
       });
 
-      // Wait a bit to ensure persistence
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Invalidate React Query cache so MyEvaluations reflects the new status immediately
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: assetKeys.selfAssigned(user.id) });
+        queryClient.invalidateQueries({ queryKey: assetKeys.pendingEvaluations(user.id) });
+      }
+      if (assetId) {
+        queryClient.invalidateQueries({ queryKey: assetKeys.detail(assetId) });
+      }
 
       showSuccess('Device Submitted', 'Your device evaluation has been submitted successfully');
       const successPath = basePath === '/check-in' ? `${basePath}/success` : `${basePath}/my-evaluations`;

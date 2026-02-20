@@ -213,7 +213,7 @@ class AssetService:
                     "Cannot transfer asset to a branch in a different enterprise"
                 )
 
-            # Verify asset is not in an active batch
+            # Verify asset is not in an active batch; auto-remove from draft batch on branch change
             if asset.batch_id:
                 from app.models.batch import Batch
                 from sqlalchemy import select
@@ -226,6 +226,8 @@ class AssetService:
                         "Cannot transfer asset that is in an active batch. "
                         "Remove the asset from the batch first or wait until the batch is completed."
                     )
+                # Auto-remove from batch on branch transfer (batch is branch-scoped)
+                update_data["batch_id"] = None
 
             branch_transferred = True
 

@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { useSubUsers } from '@/hooks/useEmployees';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -89,6 +90,13 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch existing employees to check for duplicate emails
+  const { data: existingEmployees = [] } = useSubUsers(enterpriseId);
+  const existingEmails = useMemo(
+    () => new Set(existingEmployees.map((e: { email: string }) => e.email.toLowerCase())),
+    [existingEmployees]
+  );
+
   const validRows = parsedData.filter(row => row.errors.length === 0);
   const invalidRows = parsedData.filter(row => row.errors.length > 0);
   const warningRows = parsedData.filter(row => row.warnings.length > 0);
@@ -105,10 +113,8 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
 
   const isValidPhone = (phone: string): boolean => {
     if (!phone) return true; // Optional field
-    // Remove spaces, dashes, and common prefixes for validation
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '').replace(/^\+91/, '');
-    // Indian mobile: 10 digits starting with 6-9
-    return /^[6-9]\d{9}$/.test(cleaned);
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '').replace(/^91/, '');
+    return /^\d{10}$/.test(cleaned);
   };
 
   const parseCSV = useCallback((content: string): void => {
@@ -171,13 +177,15 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
         row.errors.push('Invalid email format');
       } else if (seenEmails.has(row.email.toLowerCase())) {
         row.errors.push('Duplicate email in file');
+      } else if (existingEmails.has(row.email.toLowerCase())) {
+        row.errors.push('Email already registered — this employee already exists in the system');
       } else {
         seenEmails.add(row.email.toLowerCase());
       }
 
       // Validate phone if provided
       if (row.phone && !isValidPhone(row.phone)) {
-        row.errors.push('Invalid phone number (expected 10-digit Indian mobile starting with 6-9)');
+        row.errors.push('Phone number must be exactly 10 digits (e.g. 9876543210)');
       }
 
       // Warnings for optional fields
@@ -196,7 +204,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
 
     setParsedData(rows);
     setUploadStatus('ready');
-  }, []);
+  }, [existingEmails]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -389,11 +397,28 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       fgColor: { argb: 'FF10B981' },
     };
 
-    // Add example rows
-    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '+91 98765 11111', department: 'Engineering' });
-    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '+91 98765 22222', department: 'Marketing' });
+    // Add example rows (10-digit phone numbers, no country code)
+    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', department: 'Engineering' });
+    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', department: 'Marketing' });
     worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance' });
-    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '+91 98765 44444', department: 'HR' });
+    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR' });
+
+    // Apply phone validation for rows 2-100 (exactly 10 digits)
+    for (let row = 2; row <= 100; row++) {
+      worksheet.getCell(`C${row}`).dataValidation = {
+        type: 'textLength',
+        operator: 'equal',
+        allowBlank: true,
+        formulae: [10],
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Invalid Phone Number',
+        error: 'Phone number must be exactly 10 digits. Enter digits only (e.g. 9876543210).',
+        showInputMessage: true,
+        promptTitle: 'Phone Number',
+        prompt: 'Enter exactly 10 digits without spaces or country code (e.g. 9876543210)',
+      };
+    }
 
     // Apply department dropdown for rows 2-100
     const departmentList = DEPARTMENTS.join(',');
@@ -440,7 +465,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     const columnInstructions = [
       ['name', 'No', 'Full name of the employee. If blank, email will be used as display name.', 'Vikram Singh, Priya Sharma'],
       ['email', 'YES', 'Valid work email address. Must be unique. Used for device check-in.', 'vikram@company.com'],
-      ['phone', 'No', 'Contact phone number with country code', '+91 98765 11111'],
+      ['phone', 'No', 'Exactly 10 digits, no spaces or country code. Sheet will show error if not 10 digits.', '9876543210'],
       ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR']
     ];
 
@@ -632,39 +657,6 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
                 </div>
               </div>
 
-              {/* Column Info */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border border-red-500/10 bg-red-500/5">
-                  <p className="font-mono font-bold text-[10px] text-red-400 uppercase tracking-widest mb-2">Required Column</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-1 border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-mono">
-                      email
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4 border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
-                  <p className="font-mono font-bold text-[10px] text-zinc-500 uppercase tracking-widest mb-2">Optional Columns</p>
-                  <div className="flex flex-wrap gap-2">
-                    {OPTIONAL_COLUMNS.map(col => (
-                      <span key={col} className="px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-500 text-xs font-mono">
-                        {col}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Supported Departments */}
-              <div className="mt-4 p-4 border border-blue-500/10 bg-blue-500/5">
-                <p className="font-mono font-bold text-[10px] text-blue-400 uppercase tracking-widest mb-2">Supported Departments</p>
-                <div className="flex flex-wrap gap-2">
-                  {DEPARTMENTS.map(dept => (
-                    <span key={dept} className="px-2 py-1 border border-blue-500/20 bg-blue-500/10 text-blue-400 text-xs font-mono">
-                      {dept}
-                    </span>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </motion.div>

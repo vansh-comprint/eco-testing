@@ -47,7 +47,7 @@ export function BatchCreate() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [createdBatch, setCreatedBatch] = useState<{ id: string; name: string } | null>(null);
+  const [createdBatch, setCreatedBatch] = useState<{ id: string; name: string; branchId?: string } | null>(null);
   const [submitError, setSubmitError] = useState<string>('');
 
   const validateForm = (): boolean => {
@@ -116,6 +116,7 @@ export function BatchCreate() {
       setCreatedBatch({
         id: batch?.id || '',
         name: batch?.name || '',
+        branchId: batch?.branch_id || undefined,
       });
       showSuccess('Batch Created', `Batch "${batch?.name}" created successfully`);
     } catch (error: unknown) {
@@ -162,7 +163,7 @@ export function BatchCreate() {
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/assets/new?batchId=${createdBatch.id}`)}
+                onClick={() => navigate(`${isOrgAdmin ? '/org-admin' : '/admin'}/batches/${createdBatch.id}?openAddAsset=true`)}
                 className="interactive px-6 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -178,7 +179,11 @@ export function BatchCreate() {
             </div>
 
             <button
-              onClick={() => navigate(isOrgAdmin ? '/org-admin/batches' : '/admin/batches')}
+              onClick={() => {
+                const base = isOrgAdmin ? '/org-admin/batches' : '/admin/batches';
+                const branchParam = createdBatch?.branchId ? `?branch=${createdBatch.branchId}` : '';
+                navigate(`${base}${branchParam}`);
+              }}
               className="interactive mt-6 font-mono text-xs text-zinc-600 hover:text-ecotribe-primary uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto"
             >
               View All Batches

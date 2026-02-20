@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Plus, AlertCircle, AlertTriangle, Package } from 'lucide-react';
+import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Plus, AlertCircle, AlertTriangle, Package, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
 import { useToast } from '@/components/ui';
@@ -25,6 +25,20 @@ export function LogisticsAssignmentQueue() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [userSearch, setUserSearch] = useState('');
 
+  // Dropdown open state + ref for click-outside
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Add new user state
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -33,10 +47,13 @@ export function LogisticsAssignmentQueue() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const isCreatingUser = createUserMutation.isPending;
 
-  // Get users that belong to this logistics admin
+  // Get users that belong to this logistics admin (API already filters by admin, just filter active)
   const myLogisticsUsers = useMemo(() => {
-    return logisticsUsers.filter(u => u.parent_user_id === currentLogisticsAdminId && u.status === 'active');
-  }, [logisticsUsers, currentLogisticsAdminId]);
+    return logisticsUsers.filter(u => u.status === 'active');
+  }, [logisticsUsers]);
+
+  // Resolved object for the currently-selected user (used to display in dropdown trigger)
+  const selectedUserObj = useMemo(() => myLogisticsUsers.find(u => u.id === selectedUser) || null, [myLogisticsUsers, selectedUser]);
 
   // Stats (computed from all pickups, not filtered)
   const stats = useMemo(() => {
@@ -80,6 +97,7 @@ export function LogisticsAssignmentQueue() {
     setScheduledDate(pickup.scheduled_date ? new Date(pickup.scheduled_date).toISOString().slice(0, 16) : '');
     setUserSearch('');
     setShowAddUser(false);
+    setIsDropdownOpen(false);
     setShowAssignModal(true);
   };
 
@@ -91,7 +109,12 @@ export function LogisticsAssignmentQueue() {
         logisticsUserId: selectedUser,
         scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
       });
-      // Status is automatically set to 'scheduled' by the mutation
+      const isReassign = !!selectedPickup.logistics_user_id;
+      addToast({
+        type: 'success',
+        title: isReassign ? 'Pickup Reassigned' : 'Pickup Assigned',
+        message: isReassign ? 'Pickup has been reassigned to the selected field user.' : 'Pickup has been assigned to the selected field user.',
+      });
       setShowAssignModal(false);
       setSelectedPickup(null);
       setSelectedUser('');
@@ -350,22 +373,24 @@ export function LogisticsAssignmentQueue() {
                       <span className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-widest border ${getStatusColor(r.status)}`}>
                         {getStatusLabel(r.status)}
                       </span>
-                      {needsUserAssignment ? (
-                        <button
-                          disabled={isLoading}
-                          onClick={() => openAssignModal(r)}
-                          className="px-4 py-2 bg-amber-400 text-black font-mono text-xs font-bold uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors"
-                        >
-                          Assign User
-                        </button>
-                      ) : (
-                        <button
-                          disabled={isLoading}
-                          onClick={() => openAssignModal(r)}
-                          className="px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs font-bold uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors"
-                        >
-                          Reassign
-                        </button>
+                      {!['completed', 'cancelled', 'failed'].includes(r.status) && (
+                        needsUserAssignment ? (
+                          <button
+                            disabled={isLoading}
+                            onClick={() => openAssignModal(r)}
+                            className="px-4 py-2 bg-amber-400 text-black font-mono text-xs font-bold uppercase tracking-widest border border-amber-400/40 hover:bg-amber-300 transition-colors"
+                          >
+                            Assign User
+                          </button>
+                        ) : (
+                          <button
+                            disabled={isLoading}
+                            onClick={() => openAssignModal(r)}
+                            className="px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-xs font-bold uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-colors"
+                          >
+                            Reassign
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
@@ -411,169 +436,135 @@ export function LogisticsAssignmentQueue() {
 
               {/* Modal Content */}
               <div className="p-6 space-y-6">
-                {/* User Search & Add New */}
+                {/* User Selection: search + Add New button + dropdown list */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                      Search Field User
-                    </label>
-                    {!showAddUser && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAddUser(true)}
-                        className="interactive flex items-center gap-1 px-2 py-1 border border-ecotribe-primary/50 text-ecotribe-primary font-mono text-xs uppercase hover:bg-ecotribe-primary/10 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Add New
-                      </button>
-                    )}
-                  </div>
+                  <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3 block">
+                    Select Field User <span className="text-red-400">*</span>
+                  </label>
 
                   {showAddUser ? (
-                    /* Add New User Form */
-                    <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
-                          Add Field User
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddUser(false)}
-                          className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                        >
+                    /* Add New User inline form */
+                    <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">Add Field User</p>
+                        <button type="button" onClick={() => setShowAddUser(false)} className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-
-                      <div className="space-y-3">
-                        <input
-                          type="text"
-                          placeholder="Name *"
-                          value={newUserName}
-                          onChange={(e) => setNewUserName(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="email"
-                          placeholder="Email *"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Password * (min 8 chars)"
-                          value={newUserPassword}
-                          onChange={(e) => setNewUserPassword(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="tel"
-                          placeholder="Phone"
-                          value={newUserPhone}
-                          onChange={(e) => setNewUserPhone(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                      </div>
-
+                      <input type="text" placeholder="Name *" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="email" placeholder="Email *" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="password" placeholder="Password * (min 8 chars)" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="tel" placeholder="Phone (optional)" value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
                       <button
                         type="button"
                         onClick={handleCreateUser}
                         disabled={!newUserName || !newUserEmail || !newUserPassword || newUserPassword.length < 8 || isCreatingUser}
                         className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                           newUserName && newUserEmail && newUserPassword && newUserPassword.length >= 8
-                            ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'
+                            ? 'bg-ecotribe-primary text-black hover:bg-ecotribe-primary/80'
                             : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
                         }`}
                       >
-                        {isCreatingUser ? (
-                          <Clock className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            Create User
-                          </>
-                        )}
+                        {isCreatingUser ? <Clock className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Create &amp; Select User</>}
                       </button>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
-                      <input
-                        type="text"
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                        placeholder="Search by name, email, or phone..."
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
-                      />
+                    /* Custom collapsing dropdown */
+                    <div ref={userDropdownRef} className="relative">
+                      {/* Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="w-full px-4 py-3 flex items-center justify-between border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-ecotribe-primary/50 transition-colors"
+                      >
+                        {selectedUserObj ? (
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{selectedUserObj.name}</span>
+                            <span className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">{selectedUserObj.phone || selectedUserObj.email}</span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-sm text-slate-400 dark:text-white/30">Select field user...</span>
+                        )}
+                        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Dropdown panel */}
+                      <AnimatePresence>
+                        {isDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute top-full left-0 right-0 z-20 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl"
+                          >
+                            {/* Search + Add New */}
+                            <div className="flex gap-2 p-2 border-b border-slate-200 dark:border-white/10">
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
+                                <input
+                                  type="text"
+                                  value={userSearch}
+                                  onChange={(e) => setUserSearch(e.target.value)}
+                                  placeholder="Search by name, email, or phone..."
+                                  autoFocus
+                                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setIsDropdownOpen(false); setShowAddUser(true); }}
+                                className="interactive flex items-center gap-1.5 px-3 py-2 border border-ecotribe-primary/50 bg-ecotribe-primary/10 text-ecotribe-primary font-mono text-xs uppercase font-bold hover:bg-ecotribe-primary/20 transition-colors flex-shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Add New
+                              </button>
+                            </div>
+
+                            {/* User list */}
+                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04]">
+                              {filteredUsers.length > 0 ? filteredUsers.map(user => (
+                                <button
+                                  key={user.id}
+                                  type="button"
+                                  onClick={() => { setSelectedUser(user.id); setIsDropdownOpen(false); setUserSearch(''); }}
+                                  className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
+                                    selectedUser === user.id
+                                      ? 'bg-ecotribe-primary/10 border-l-2 border-ecotribe-primary'
+                                      : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-display font-bold text-sm truncate ${selectedUser === user.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
+                                      {user.name || 'Unknown'}
+                                    </p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">
+                                      {user.phone || user.email}
+                                    </p>
+                                  </div>
+                                  {selectedUser === user.id && <CheckCircle className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />}
+                                </button>
+                              )) : (
+                                <div className="p-5 text-center">
+                                  <AlertCircle className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                                  <p className="font-mono text-sm text-slate-500 dark:text-white/50 mb-3">
+                                    {userSearch ? `No users found matching "${userSearch}"` : 'No field users yet'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setIsDropdownOpen(false); setShowAddUser(true); }}
+                                    className="interactive inline-flex items-center gap-1 px-3 py-1.5 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
+                                  >
+                                    <Plus className="w-3 h-3" /> Add First User
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
-
-                {/* User List */}
-                {!showAddUser && (
-                  <div>
-                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3 block">
-                      Select User <span className="text-red-400">*</span>
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-                      {filteredUsers.map(user => (
-                        <motion.div
-                          key={user.id}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setSelectedUser(user.id)}
-                          className={`p-4 border-2 cursor-pointer transition-all ${
-                            selectedUser === user.id
-                              ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-ecotribe-primary/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 border flex items-center justify-center ${
-                              selectedUser === user.id
-                                ? 'border-ecotribe-primary bg-ecotribe-primary/20'
-                                : 'border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5'
-                            }`}>
-                              <User className={`w-5 h-5 ${
-                                selectedUser === user.id ? 'text-ecotribe-primary' : 'text-slate-500 dark:text-white/50'
-                              }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-display font-bold text-sm uppercase truncate ${
-                                selectedUser === user.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'
-                              }`}>
-                                {user.name || 'Unknown'}
-                              </p>
-                              <p className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">
-                                {user.phone || user.email}
-                              </p>
-                            </div>
-                            {selectedUser === user.id && (
-                              <CheckCircle className="w-5 h-5 text-ecotribe-primary flex-shrink-0" />
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    {filteredUsers.length === 0 && (
-                      <div className="p-6 border border-amber-400/30 bg-amber-400/10 text-center">
-                        <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                        <p className="font-mono text-sm text-amber-400 mb-2">
-                          {userSearch ? `No users found matching "${userSearch}"` : 'No field users added yet'}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddUser(true)}
-                          className="interactive inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add First User
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Scheduled Date */}
                 {!showAddUser && (
@@ -606,11 +597,11 @@ export function LogisticsAssignmentQueue() {
                   </button>
                   <button
                     onClick={handleAssign}
-                    disabled={!selectedUser || isLoading}
+                    disabled={!selectedUser || assignMutation.isPending}
                     className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <UserPlus className="w-4 h-4" />
-                    {isLoading
+                    {assignMutation.isPending
                       ? (selectedPickup?.logistics_user_id ? 'Reassigning...' : 'Assigning...')
                       : (selectedPickup?.logistics_user_id ? 'Reassign Pickup' : 'Assign Pickup')
                     }

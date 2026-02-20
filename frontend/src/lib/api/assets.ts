@@ -73,6 +73,7 @@ export interface AssetUpdateRequest {
   brand?: string;
   model?: string;
   status?: string;
+  branch_id?: string;
   batch_id?: string;
   assigned_to_user_id?: string;
   condition_grade?: string;

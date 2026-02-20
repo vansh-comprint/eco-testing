@@ -1,8 +1,9 @@
-import { useState, useMemo, useContext } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Package,
+  PackageCheck,
   Plus,
   Search,
   Clock,
@@ -10,17 +11,13 @@ import {
   XCircle,
   AlertTriangle,
   ArrowRight,
-  IndianRupee,
   Laptop,
   Send,
   Bell,
   Loader2
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch } from '@/hooks';
-import { safeNumber } from '@/utils/formatters';
-import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
-import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
+import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useBranches, useBranchesByITAdmin, useBatches, useBatchesByITAdmin } from '@/hooks';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BatchStatus } from '@/types';
 import { getBatchStatusDisplay } from '@/lib/status-display';
@@ -40,8 +37,6 @@ const STATUS_OPTIONS = [
 const SORT_OPTIONS = [
   { label: 'Newest First', value: 'newest' },
   { label: 'Oldest First', value: 'oldest' },
-  { label: 'Highest Value', value: 'value_desc' },
-  { label: 'Most Assets', value: 'assets_desc' },
 ];
 
 export function BatchList() {
@@ -65,27 +60,35 @@ export function BatchList() {
   const { data: itAssets = [] } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
   const assets = isOrgAdmin ? orgAssets : itAssets;
 
-  const updateBatchMutation = useUpdateBatch();
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
-  // Branch filtering: URL query param (from "View Batches" button) or IT Admin branch selector
+  // Branch filtering: URL query param (from "View Batches" button)
   const urlBranchId = new URLSearchParams(location.search).get('branch');
-  const itBranchCtx = useContext(ITAdminBranchContext);
-  const orgBranchCtx = useOrgBranchSafe();
-  const activeBranchFilter = urlBranchId || itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [branchFilter, setBranchFilter] = useState(urlBranchId || '');
 
-  // Build server-side params for infinite query
-  // Only pass single status values to API; comma-separated (multi-status) stays client-side
-  const apiStatus = statusFilter && !statusFilter.includes(',') ? statusFilter : undefined;
+  const activeBranchFilter = branchFilter || null;
+
+  // Branches for filter dropdown
+  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBranches = [] } = useBranchesByITAdmin(isOrgAdmin ? '' : userId);
+  const branches = isOrgAdmin ? orgBranches : itBranches;
+
+  // Non-paginated batches for accurate stats (always unfiltered)
+  const { data: orgBatchesAll = [] } = useBatches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBatchesAll = [] } = useBatchesByITAdmin(isOrgAdmin ? '' : userId, undefined);
+  const allBatchesForStats = useMemo(() => {
+    const raw = isOrgAdmin ? orgBatchesAll : itBatchesAll;
+    return raw as any[];
+  }, [isOrgAdmin, orgBatchesAll, itBatchesAll]);
+
+  // Only pass static params to the API — all filtering is done client-side
+  // to avoid triggering a full re-fetch (and list refresh) on every filter change
   const infiniteParams = {
     ...(isOrgAdmin && enterpriseId ? { enterprise_id: enterpriseId } : {}),
-    ...(activeBranchFilter ? { branch_id: activeBranchFilter } : {}),
-    ...(apiStatus ? { status: apiStatus } : {}),
-    ...(searchQuery ? { search: searchQuery } : {}),
   };
 
   const {
@@ -105,20 +108,27 @@ export function BatchList() {
   const filteredBatches = useMemo(() => {
     let result = [...allBatches];
 
-    // Multi-status client filter (single status already handled by API)
-    if (statusFilter && statusFilter.includes(',')) {
+    // Client-side text search by batch name
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(b => b.name?.toLowerCase().includes(query));
+    }
+
+    // Client-side status filter (all statuses, single or multi)
+    if (statusFilter) {
       const statuses = statusFilter.split(',');
       result = result.filter(b => statuses.includes(b.status));
+    }
+
+    // Client-side branch filter
+    if (activeBranchFilter) {
+      result = result.filter(b => b.branch_id === activeBranchFilter);
     }
 
     result.sort((a, b) => {
       switch (sortBy) {
         case 'oldest':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'value_desc':
-          return safeNumber(b.estimated_value) - safeNumber(a.estimated_value);
-        case 'assets_desc':
-          return (b.asset_count || 0) - (a.asset_count || 0);
         case 'newest':
         default:
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -126,16 +136,25 @@ export function BatchList() {
     });
 
     return result;
-  }, [allBatches, statusFilter, sortBy]);
+  }, [allBatches, searchQuery, statusFilter, activeBranchFilter, sortBy]);
 
-  // Stats from total count (server-side) and loaded batches
+  // Stats from non-paginated data (accurate counts across all batches)
   const stats = {
     total: totalCount,
-    draft: allBatches.filter(b => b.status === 'draft').length,
-    pendingApproval: allBatches.filter(b => b.status === 'pending_approval').length,
-    active: allBatches.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
-    totalValue: allBatches.reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
+    draft: allBatchesForStats.filter(b => b.status === 'draft').length,
+    pendingApproval: allBatchesForStats.filter(b => b.status === 'pending_approval').length,
+    active: allBatchesForStats.filter(b => ['approved', 'pickup_in_progress'].includes(b.status)).length,
+    completed: allBatchesForStats.filter(b => b.status === 'completed').length,
   };
+
+  // Branch filter options for dropdown
+  const branchOptions = useMemo(() => [
+    { label: 'All Branches', value: '' },
+    ...branches.map((b: any) => ({
+      label: `${b.branch_name} (${b.branch_code})`,
+      value: b.id,
+    })),
+  ], [branches]);
 
   // V3: Use centralized status display helper
   const getStatusConfig = (status: BatchStatus) => getBatchStatusDisplay(status);
@@ -147,7 +166,7 @@ export function BatchList() {
   };
 
   // Send reminder notification (placeholder - would create notification in production)
-  const handleNudgeOrgAdmin = async (batchId: string, e: React.MouseEvent) => {
+  const handleNudgeOrgAdmin = async (_batchId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     addToast({
       type: 'info',
@@ -213,7 +232,7 @@ export function BatchList() {
         <StatBox label="Draft" value={stats.draft} icon={<Clock className="w-4 h-4" />} onClick={() => handleStatClick('draft')} active={statusFilter === 'draft'} />
         <StatBox label="Pending" value={stats.pendingApproval} icon={<AlertTriangle className="w-4 h-4" />} highlight={stats.pendingApproval > 0} onClick={() => handleStatClick('pending_approval')} active={statusFilter === 'pending_approval'} />
         <StatBox label="Active" value={stats.active} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('approved,pickup_in_progress')} active={statusFilter === 'approved,pickup_in_progress'} />
-        <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />
+        <StatBox label="Completed" value={stats.completed} icon={<PackageCheck className="w-4 h-4" />} onClick={() => handleStatClick('completed')} active={statusFilter === 'completed'} />
       </motion.div>
 
       {/* Search & Filters */}
@@ -237,8 +256,18 @@ export function BatchList() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-            <div className="w-full sm:w-40">
+          <div className="flex flex-row flex-wrap gap-3 items-stretch">
+            {branches.length > 1 && (
+              <div className="w-full sm:w-44 shrink-0">
+                <Dropdown
+                  options={branchOptions}
+                  value={branchFilter}
+                  onChange={setBranchFilter}
+                  placeholder="All Branches"
+                />
+              </div>
+            )}
+            <div className="w-full sm:w-40 shrink-0">
               <Dropdown
                 options={STATUS_OPTIONS}
                 value={statusFilter}
@@ -246,7 +275,7 @@ export function BatchList() {
                 placeholder="Status"
               />
             </div>
-            <div className="w-full sm:w-36">
+            <div className="w-full sm:w-36 shrink-0">
               <Dropdown
                 options={SORT_OPTIONS}
                 value={sortBy}
@@ -271,6 +300,8 @@ export function BatchList() {
             // V3: Use snake_case from database
             const batchAssets = assets.filter(a => a.batch_id === batch.id);
             const verifiedAssets = batchAssets.filter(a => a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup');
+            const allVerified = batchAssets.length > 0 && verifiedAssets.length === batchAssets.length;
+            const unverifiedCount = batchAssets.length - verifiedAssets.length;
             return (
               <motion.div
                 key={batch.id}
@@ -310,10 +341,6 @@ export function BatchList() {
                         <span>
                           Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
                         </span>
-                        {/* Value inline on mobile */}
-                        <span className="sm:hidden font-brand font-bold text-ecotribe-primary">
-                          ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
-                        </span>
                       </div>
                       {batch.progress && batch.progress.total > 0 && (
                         <div className="mt-2">
@@ -322,45 +349,41 @@ export function BatchList() {
                       )}
                     </div>
 
-                    {/* Value - desktop only */}
-                    <div className="hidden sm:block text-right flex-shrink-0">
-                      <p className="font-brand font-bold text-2xl text-ecotribe-primary">
-                        ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
-                      </p>
-                      <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Expected Value</p>
-                    </div>
-
-                    {/* Arrow - desktop */}
-                    <ArrowRight className="hidden sm:block w-5 h-5 text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0" />
-                  </div>
-
-                  {/* Actions - full width row on mobile */}
-                  {(batch.status === 'draft' || batch.status === 'pending_approval') && (
-                    <div className="flex items-center gap-3 mt-3 sm:mt-0 sm:pl-[4.5rem]">
-                      {batch.status === 'draft' && (
+                    {/* Right-side action or arrow */}
+                    <div className="flex-shrink-0 flex items-center">
+                      {batch.status === 'draft' ? (
                         <button
                           onClick={(e) => handleSubmitForApproval(batch.id, e)}
-                          disabled={verifiedAssets.length === 0}
-                          title={verifiedAssets.length === 0 ? (batchAssets.length === 0 ? 'Add assets to this batch before submitting' : 'No verified assets yet — assets must be reviewed and accepted first') : `Submit ${verifiedAssets.length} verified asset(s) for approval`}
-                          className={`interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs border uppercase tracking-widest transition-all flex items-center gap-2 ${verifiedAssets.length === 0 ? 'text-zinc-400 border-zinc-300 dark:text-zinc-600 dark:border-zinc-700 cursor-not-allowed opacity-50' : 'text-ecotribe-primary border-ecotribe-primary/30 hover:bg-ecotribe-primary hover:text-black'}`}
+                          disabled={!allVerified}
+                          title={
+                            batchAssets.length === 0
+                              ? 'Add assets to this batch before submitting'
+                              : unverifiedCount > 0
+                                ? `${unverifiedCount} asset${unverifiedCount !== 1 ? 's' : ''} still need to be verified — all assets must be verified before submitting`
+                                : `Submit ${verifiedAssets.length} verified asset(s) for approval`
+                          }
+                          className={`interactive px-4 py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            !allVerified
+                              ? 'text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-700 cursor-not-allowed opacity-50'
+                              : 'bg-amber-500 text-black hover:bg-amber-400'
+                          }`}
                         >
-                          <Send className="w-3 h-3" />
-                          <span className="hidden sm:inline">Submit for Approval</span>
-                          <span className="sm:hidden">Submit</span>
+                          <Send className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Submit{allVerified ? ` (${verifiedAssets.length})` : ` (${verifiedAssets.length}/${batchAssets.length})`}</span>
                         </button>
-                      )}
-                      {batch.status === 'pending_approval' && (
+                      ) : batch.status === 'pending_approval' ? (
                         <button
                           onClick={(e) => handleNudgeOrgAdmin(batch.id, e)}
-                          className="interactive px-3 sm:px-4 py-2 font-mono font-bold text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400 hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
+                          className="interactive px-4 py-2 font-mono font-bold text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400 hover:text-black uppercase tracking-widest transition-all flex items-center gap-2"
                         >
-                          <Bell className="w-3 h-3" />
-                          <span className="hidden sm:inline">Send Reminder</span>
-                          <span className="sm:hidden">Remind</span>
+                          <Bell className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Remind</span>
                         </button>
+                      ) : (
+                        <ArrowRight className="w-5 h-5 text-zinc-400 group-hover:text-ecotribe-primary transition-colors" />
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Approval Info - V3: Use snake_case from database */}
