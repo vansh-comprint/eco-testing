@@ -228,8 +228,8 @@ PICKUP_TRANSITIONS: Dict[str, Set[str]] = {
     # Assigned to driver - waiting for scheduling
     "assigned_to_logistics_user": {"scheduled", "assigned_to_logistics_admin"},
 
-    # Scheduled - ready for execution
-    "scheduled": {"in_progress", "cancelled", "rescheduled"},
+    # Scheduled - ready for execution (includes reassignment back to a different logistics user)
+    "scheduled": {"in_progress", "cancelled", "rescheduled", "assigned_to_logistics_user"},
 
     # Rescheduled
     "rescheduled": {"scheduled", "cancelled"},

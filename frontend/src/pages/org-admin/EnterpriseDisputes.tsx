@@ -33,16 +33,18 @@ export function EnterpriseDisputes() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: disputePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteDisputes();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+
+  const { data: disputePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteDisputes({
+    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+  });
   const disputes = useMemo(() => disputePages?.pages.flatMap(p => p.data || []) ?? [], [disputePages]);
   const totalDisputes = disputePages?.pages[0]?.pagination?.total;
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { stats: dashStats } = useDashboardStats();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -96,7 +98,6 @@ export function EnterpriseDisputes() {
       });
     }
 
-    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return result;
   }, [disputes, searchQuery, statusFilter, branchFilter, assetMap]);
 
@@ -146,9 +147,9 @@ export function EnterpriseDisputes() {
 
   const statItems = [
     { label: 'Total Disputes', value: stats.total, icon: <AlertTriangle className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
-    { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter('pending') },
-    { label: 'Upheld', value: stats.upheld, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter('upheld') },
-    { label: 'Overturned', value: stats.overturned, icon: <Scale className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('overturned') },
+    { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending') },
+    { label: 'Upheld', value: stats.upheld, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'upheld' ? 'all' : 'upheld') },
+    { label: 'Overturned', value: stats.overturned, icon: <Scale className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'overturned' ? 'all' : 'overturned') },
   ];
 
   if (isLoading) {

@@ -47,6 +47,7 @@ async def list_batches(
     status: Optional[BatchStatus] = Query(None, description="Filter by single status"),
     statuses: Optional[str] = Query(None, description="Filter by multiple statuses (comma-separated)"),
     search: Optional[str] = Query(None, description="Search by name or description"),
+    sort_by: Optional[str] = Query(None, description="Sort order: newest (default), oldest, value_desc, assets_desc"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.BATCH_READ)),
@@ -109,6 +110,7 @@ async def list_batches(
         enterprise_id=effective_enterprise_id,
         branch_id=effective_branch_id,
         branch_ids=branch_ids,
+        sort_by=sort_by,
     )
 
     return paginated_response(

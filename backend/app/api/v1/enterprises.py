@@ -183,6 +183,70 @@ async def list_enterprise_applications(
     )
 
 
+@router.get("/applications/check-gst", response_model=dict)
+async def check_gst_exists(
+    gst_number: str = Query(..., description="GST number to check"),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_public_upload),
+):
+    """
+    Check if a GST number already exists in enterprises or pending applications.
+    Public endpoint - no authentication required. Rate-limited.
+    """
+    gst_upper = gst_number.strip().upper()
+    if not gst_upper:
+        return success_response(data={"exists": False})
+
+    app_service = EnterpriseApplicationService(db)
+
+    # Check existing enterprises
+    existing_enterprise = await app_service.enterprise_repo.get_by_gst(gst_upper)
+    if existing_enterprise:
+        return success_response(data={"exists": True, "reason": "GST number is already registered"})
+
+    # Check pending/active applications
+    pending_app = await app_service.repository.get_by_gst(gst_upper)
+    if pending_app and pending_app.status in [
+        EnterpriseApplicationStatus.PENDING.value,
+        EnterpriseApplicationStatus.MORE_INFO_REQUESTED.value,
+    ]:
+        return success_response(data={"exists": True, "reason": "A pending application with this GST already exists"})
+
+    return success_response(data={"exists": False})
+
+
+@router.get("/applications/check-email", response_model=dict)
+async def check_email_exists(
+    email: str = Query(..., description="Email to check"),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_public_upload),
+):
+    """
+    Check if an email already exists in users or pending applications.
+    Public endpoint - no authentication required. Rate-limited.
+    """
+    email_lower = email.strip().lower()
+    if not email_lower:
+        return success_response(data={"exists": False})
+
+    app_service = EnterpriseApplicationService(db)
+
+    # Check existing users
+    existing_user = await app_service.user_repo.get_by_email(email_lower)
+    if existing_user:
+        return success_response(data={"exists": True, "reason": "This email is already registered"})
+
+    # Check pending/active applications
+    pending_app = await app_service.repository.get_by_email(email_lower)
+    if pending_app and pending_app.status in [
+        EnterpriseApplicationStatus.PENDING.value,
+        EnterpriseApplicationStatus.MORE_INFO_REQUESTED.value,
+    ]:
+        return success_response(data={"exists": True, "reason": "A pending application with this email already exists"})
+
+    return success_response(data={"exists": False})
+
+
 @router.post("/applications/upload-document", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def upload_application_document(
     file: UploadFile = File(..., description="Document file (PDF, JPG, PNG)"),

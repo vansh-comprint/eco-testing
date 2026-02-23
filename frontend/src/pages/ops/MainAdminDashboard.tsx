@@ -13,7 +13,6 @@ import {
   Package,
   FileText,
   X,
-  ClipboardCheck
 } from 'lucide-react';
 import { useAuth, useAllAssets, useEnterprises, useAllBatches, useDashboardStats } from '@/hooks';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
@@ -77,7 +76,7 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Total Payouts',
-          value: `₹${((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K`,
+          value: `₹${((Number(stats.total_payout_value) || 0) / 1000).toFixed(0)}K`,
           subLabel: 'Completed',
           icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
@@ -111,7 +110,7 @@ export function MainAdminDashboard() {
         },
         {
           label: 'Credits Earned',
-          value: `₹${((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K`,
+          value: `₹${((Number(stats.total_payout_value) || 0) / 1000).toFixed(0)}K`,
           subLabel: 'Total value',
           icon: <IndianRupee className={`${iconSize.lg} text-lime-500`} />,
           accent: 'brand' as StatAccent,
@@ -240,21 +239,7 @@ export function MainAdminDashboard() {
                   <ArrowRight className={`${iconSize.lg} ${text.muted} group-hover:text-emerald-500 transition-colors`} />
                 </button>
 
-                <button
-                  onClick={() => navigate('/review')}
-                  className={`w-full p-4 flex items-center gap-4 ${hoverStyles.row} group`}
-                >
-                  <div className="w-12 h-12 border border-cyan-500/30 bg-cyan-50/80 dark:bg-cyan-500/10 flex items-center justify-center">
-                    <ClipboardCheck className={`${iconSize.xl} text-cyan-500`} />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className={`font-display font-bold group-hover:text-cyan-500 transition-colors ${text.primary}`}>
-                      Review & QC Portal
-                    </p>
-                    <p className={`font-mono text-xs ${text.muted}`}>Remote review and facility QC</p>
-                  </div>
-                  <ArrowRight className={`${iconSize.lg} ${text.muted} group-hover:text-cyan-500 transition-colors`} />
-                </button>
+                {/* Review & QC Portal — disabled for now, will be added under a different role later */}
               </div>
             </motion.div>
 
@@ -314,7 +299,7 @@ export function MainAdminDashboard() {
                     <span className="font-mono text-xs uppercase text-lime-600 dark:text-lime-400">This Month</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-lime-700 dark:text-lime-400">
-                    ₹{((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K
+                    ₹{((Number(stats.total_payout_value) || 0) / 1000).toFixed(0)}K
                   </p>
                 </div>
               </div>
@@ -627,7 +612,8 @@ export function MainAdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
-              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-emerald-500/20 dark:border-emerald-400/15 border-l-4 border-l-emerald-500"
+              onClick={() => navigate('/ops/assets?status=accepted')}
+              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-emerald-500/20 dark:border-emerald-400/15 border-l-4 border-l-emerald-500 cursor-pointer hover:border-emerald-500/40 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className={`${iconSize.md} text-emerald-500`} />
@@ -642,7 +628,8 @@ export function MainAdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-red-500/20 dark:border-red-400/15 border-l-4 border-l-red-500"
+              onClick={() => navigate('/ops/assets?status=rejected')}
+              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-red-500/20 dark:border-red-400/15 border-l-4 border-l-red-500 cursor-pointer hover:border-red-500/40 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
                 <XCircle className={`${iconSize.md} text-red-500`} />
@@ -657,7 +644,8 @@ export function MainAdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45 }}
-              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-amber-500/20 dark:border-amber-400/15 border-l-4 border-l-amber-500"
+              onClick={() => navigate('/ops/assets?status=in_progress')}
+              className="p-5 bg-white/75 dark:bg-zinc-900/85 backdrop-blur-md border border-amber-500/20 dark:border-amber-400/15 border-l-4 border-l-amber-500 cursor-pointer hover:border-amber-500/40 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
                 <Clock className={`${iconSize.md} text-amber-500`} />
@@ -672,14 +660,15 @@ export function MainAdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="p-5 bg-lime-50/80 dark:bg-lime-500/[0.08] backdrop-blur-md border border-lime-500/25 dark:border-lime-400/20 border-l-4 border-l-lime-500"
+              onClick={() => navigate('/ops/payouts')}
+              className="p-5 bg-lime-50/80 dark:bg-lime-500/[0.08] backdrop-blur-md border border-lime-500/25 dark:border-lime-400/20 border-l-4 border-l-lime-500 cursor-pointer hover:border-lime-500/40 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className={`${iconSize.md} text-lime-500`} />
                 <span className="font-mono text-xs uppercase text-lime-600 dark:text-lime-400">Total Value</span>
               </div>
               <p className="font-brand font-bold text-2xl text-lime-700 dark:text-lime-400">
-                ₹{((stats.total_payout_value ?? 0) / 1000).toFixed(0)}K
+                ₹{((Number(stats.total_payout_value) || 0) / 1000).toFixed(0)}K
               </p>
             </motion.div>
           </div>

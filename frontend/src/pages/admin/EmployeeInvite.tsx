@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth, useCreateSubUsers, useApiError } from '@/hooks';
+import { BranchSelector } from '@/components/ui';
 
 interface InviteFormData {
   name: string;
@@ -20,6 +21,7 @@ interface InviteFormData {
   phone: string;
   department: string;
   customDepartment: string;  // For "Other" department option
+  branch_id: string;
 }
 
 const DEPARTMENTS = [
@@ -39,6 +41,7 @@ const initialFormData: InviteFormData = {
   phone: '',
   department: '',
   customDepartment: '',
+  branch_id: '',
 };
 
 export function EmployeeInvite() {
@@ -52,6 +55,10 @@ export function EmployeeInvite() {
   // V3.2: Detect if we're in Org Admin context
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+
+  // Branch linking: IT Admin uses their user ID, Org Admin uses enterprise ID
+  const branchSelectorUserId = !isOrgAdmin ? (user?.id || '') : undefined;
+  const enterpriseId = enterprise?.id || '';
 
   const [invites, setInvites] = useState<InviteFormData[]>([{ ...initialFormData }]);
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +124,12 @@ export function EmployeeInvite() {
         isValid = false;
       }
 
+      // Branch validation — required for Org Admin (they have no default branch)
+      if (isOrgAdmin && !invite.branch_id) {
+        fieldErrors.branch_id = 'Branch is required';
+        isValid = false;
+      }
+
       if (Object.keys(fieldErrors).length > 0) {
         newErrors[index] = fieldErrors;
       }
@@ -179,6 +192,7 @@ export function EmployeeInvite() {
           phone: invite.phone.replace(/\D/g, ''),  // Store only digits
           department: invite.department === 'Other' ? invite.customDepartment.trim() : invite.department,
           enterprise_id: enterprise.id,
+          branch_id: invite.branch_id || undefined,
         }))
       );
 
@@ -258,11 +272,11 @@ export function EmployeeInvite() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/employees`)}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Employees
+            Back
           </button>
 
           <div className="flex items-start gap-5">
@@ -425,6 +439,22 @@ export function EmployeeInvite() {
                     <p className="mt-2 font-mono text-xs text-red-400">{errors[index].customDepartment}</p>
                   )}
                 </div>
+              )}
+
+              {/* Branch Selection */}
+              {enterpriseId && (
+                <BranchSelector
+                  enterpriseId={enterpriseId}
+                  userId={branchSelectorUserId}
+                  value={invite.branch_id || null}
+                  onChange={(branchId) => handleChange(index, 'branch_id', branchId || '')}
+                  label="Branch"
+                  placeholder={isOrgAdmin ? "Select branch..." : "Select branch (optional)..."}
+                  required={isOrgAdmin}
+                  error={errors[index]?.branch_id}
+                  showAddNew={false}
+                  filterActive={true}
+                />
               )}
             </div>
           </motion.div>

@@ -157,6 +157,10 @@ export const ASSET_STATUS_GROUPS: Record<string, AssetStatus[]> = {
   verified: ['conditionally_accepted'],
   // V3.2: In progress excludes conditionally_accepted (those are ready for pickup)
   in_progress: ['assigned', 'check_in_started', 'submitted', 'remote_review', 'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit', 'facility_qc'],
+  // Matches backend asset_in_review stat: assigned + check_in_started + submitted + remote_review
+  processing: ['assigned', 'check_in_started', 'submitted', 'remote_review'],
+  // Matches backend _ASSET_ACCEPTED: conditionally_accepted + final_accepted + ready_for_pickup
+  ready: ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'],
 };
 
 // Helper function to get display config

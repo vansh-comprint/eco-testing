@@ -185,18 +185,30 @@ export function PickupRequestDetail() {
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Request Not Found</h2>
           <p className="text-slate-500 dark:text-white/50 mb-6">This pickup request may have been deleted.</p>
           <button
-            onClick={() => navigate(pickupsListPath)}
+            onClick={() => navigate(-1)}
             className="px-6 py-3 bg-ecotribe-primary text-black font-bold text-sm"
           >
-            Back to {isLogisticsAdminRole ? 'Dashboard' : 'Pickup Requests'}
+            Back
           </button>
         </div>
       </div>
     );
   }
 
-  // V3.2: Use branches instead of pickup_locations
-  const branch = request.branches;
+  // Use pickup_locations from REST API (was 'branches' in Supabase era)
+  const pickupLocation = request.pickup_locations;
+  const branch = request.branches || (pickupLocation ? {
+    branch_name: pickupLocation.name,
+    branch_code: undefined,
+    address_line1: pickupLocation.address,
+    address_line2: undefined,
+    city: pickupLocation.city,
+    state: pickupLocation.state,
+    pin_code: pickupLocation.pin_code,
+    site_contact_person: pickupLocation.contact_person,
+    site_contact_phone: pickupLocation.contact_phone,
+    operating_hours: pickupLocation.operating_hours,
+  } : null);
   const statusConfig = getStatusConfig(request.status);
   const requestAssets = (request.asset_ids || []).map(id => assets.find(a => a.id === id)).filter(Boolean);
 
@@ -295,11 +307,11 @@ export function PickupRequestDetail() {
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-white/10 pb-6">
         <button
-          onClick={() => navigate(pickupsListPath)}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="font-mono text-xs uppercase tracking-widest">Back to {isLogisticsAdminRole ? 'Dashboard' : 'Pickup Requests'}</span>
+          <span className="font-mono text-xs uppercase tracking-widest">Back</span>
         </button>
 
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -310,7 +322,7 @@ export function PickupRequestDetail() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="font-brand font-bold text-2xl md:text-3xl text-slate-900 dark:text-white uppercase tracking-tight">
-                  {branch?.branch_name || 'Unknown Branch'}
+                  {branch?.branch_name || 'Unknown Location'}
                 </h1>
                 {branch?.branch_code && (
                   <span className="font-mono text-sm text-ecotribe-primary bg-ecotribe-primary/10 px-3 py-1">
@@ -543,14 +555,14 @@ export function PickupRequestDetail() {
             </div>
           </motion.div>
 
-          {/* Branch Details - V3.2: Replaced Location with Branch */}
+          {/* Pickup Location Details */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
             className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5"
           >
-            <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Branch Details</h3>
+            <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide mb-4">Pickup Location</h3>
             {branch ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
@@ -590,7 +602,7 @@ export function PickupRequestDetail() {
                 )}
               </div>
             ) : (
-              <p className="font-mono text-sm text-slate-500 dark:text-white/50">Branch details not available</p>
+              <p className="font-mono text-sm text-slate-500 dark:text-white/50">Location details not available</p>
             )}
           </motion.div>
 

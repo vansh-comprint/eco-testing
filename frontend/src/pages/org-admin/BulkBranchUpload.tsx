@@ -1,6 +1,6 @@
 /**
  * Bulk Branch Upload Page - Org Admin Portal
- * V3.3: Upload CSV/Excel to create multiple branches. IT Admins must already exist.
+ * V3.4: Upload CSV/Excel to create multiple branches. New IT Admins auto-created with temp password.
  */
 
 import { useState, useCallback } from 'react';
@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Loader2,
+  Info,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useAuth, useBulkCreateBranches } from '@/hooks';
@@ -46,6 +47,7 @@ interface ValidationResult {
   data: ParsedRow;
   errors: string[];
   warnings: string[];
+  infos: string[];
 }
 
 interface UploadResult {
@@ -66,6 +68,7 @@ export function BulkBranchUpload() {
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [newITAdminEmails, setNewITAdminEmails] = useState<Set<string>>(new Set());
 
   const bulkCreate = useBulkCreateBranches();
 
@@ -183,8 +186,24 @@ export function BulkBranchUpload() {
     const timeRange = `_States!$C$1:$C$${uniqueTimes.length}`;
 
     // Apply validation to rows 2-1000 (header is row 1)
-    // Columns: F=state, J=opening_day, K=closing_day, L=opening_time, M=closing_time
+    // Columns: F=state, I=phone, J=opening_day, K=closing_day, L=opening_time, M=closing_time
     for (let row = 2; row <= 1000; row++) {
+      // Force text format on time columns (L, M) to prevent Excel converting "09:00" to a time serial
+      worksheet.getCell(`L${row}`).numFmt = '@';
+      worksheet.getCell(`M${row}`).numFmt = '@';
+
+      // Phone validation (column I) - numbers only, 7-15 digits (landline or mobile)
+      worksheet.getCell(`I${row}`).numFmt = '@'; // Text format to prevent scientific notation
+      worksheet.getCell(`I${row}`).dataValidation = {
+        type: 'custom',
+        allowBlank: true,
+        formulae: [`AND(LEN(I${row})>=7,LEN(I${row})<=15,ISNUMBER(VALUE(I${row})))`],
+        showErrorMessage: true,
+        errorStyle: 'warning',
+        errorTitle: 'Invalid Phone Number',
+        error: 'Phone number should be 7-15 digits (numbers only).',
+      };
+
       worksheet.getCell(`F${row}`).dataValidation = {
         type: 'list',
         allowBlank: false,
@@ -270,14 +289,14 @@ export function BulkBranchUpload() {
       ['state', 'YES', 'State name — select from dropdown', 'Maharashtra, Karnataka, Delhi'],
       ['pin_code', 'YES', 'Indian postal code (6 digits)', '400001, 560001, 110001'],
       ['site_contact_person', 'No', 'Name of local contact at branch', 'John Doe, Priya Sharma'],
-      ['site_contact_phone', 'No', 'Phone number (10 digits)', '9876543210'],
+      ['site_contact_phone', 'No', 'Contact phone number (7-15 digits, numbers only)', '9876543210, 02212345678'],
       ['opening_day', 'No', 'Day the branch opens — select from dropdown', 'Monday'],
       ['closing_day', 'No', 'Last working day — select from dropdown', 'Saturday'],
       ['opening_time', 'No', 'Opening time in HH:MM format — select from dropdown', '09:00'],
       ['closing_time', 'No', 'Closing time in HH:MM format — select from dropdown', '18:00'],
       ['pickup_point_description', 'No', 'Where to go for pickup at this branch', 'Main lobby, ground floor'],
       ['special_instructions', 'No', 'Any special notes for pickup teams', 'Call before arriving'],
-      ['it_admin_email', 'No', 'Must be an existing IT Admin email in the system. Leave blank if IT Admin not yet assigned.', 'it.admin@company.com'],
+      ['it_admin_email', 'No', 'IT Admin email. If the email is not in the system, a new IT Admin account will be auto-created with a temporary password. Leave blank if not yet assigned.', 'it.admin@company.com'],
     ];
 
     columnInstructions.forEach((row, index) => {
@@ -310,7 +329,7 @@ export function BulkBranchUpload() {
       '1. Delete the example rows (rows 2-3) before uploading your data',
       '2. Branch codes must be unique within your organization',
       '3. PIN codes must be exactly 6 digits',
-      '4. IT Admin email must belong to an existing IT Admin in the system',
+      '4. If IT Admin email is new, the system will auto-create the IT Admin account with a temporary password (Password@123)',
       '5. Branches without an IT Admin assigned will have "needs_admin" status',
       '6. You can assign IT Admins later via the IT Admin management page',
       '7. Use the state column dropdown to select a valid Indian state',
@@ -384,8 +403,29 @@ export function BulkBranchUpload() {
           const cellValue = cell.value;
           if (cellValue === null || cellValue === undefined) return '';
           if (typeof cellValue === 'string') return cellValue;
-          if (typeof cellValue === 'number') return cellValue.toString();
+          if (typeof cellValue === 'number') {
+            // Excel stores times as fractional days (e.g., 0.375 = 09:00)
+            // Detect time-range numbers and convert to HH:MM
+            if (cellValue >= 0 && cellValue < 1) {
+              const totalMinutes = Math.round(cellValue * 24 * 60);
+              const hours = Math.floor(totalMinutes / 60);
+              const minutes = totalMinutes % 60;
+              return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            }
+            return cellValue.toString();
+          }
           if (typeof cellValue === 'boolean') return cellValue.toString();
+          // Handle Date objects (Excel auto-converts "09:00" dropdown selections to Date)
+          if (cellValue instanceof Date) {
+            const hours = cellValue.getHours();
+            const minutes = cellValue.getMinutes();
+            // If date part is epoch (1899-12-30 or 1970-01-01), it's a time-only value
+            if (cellValue.getFullYear() <= 1970) {
+              return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            }
+            // Otherwise return as ISO string
+            return cellValue.toISOString();
+          }
           if (cellValue.richText && Array.isArray(cellValue.richText)) {
             return cellValue.richText.map((r: any) => r.text || '').join('');
           }
@@ -452,11 +492,13 @@ export function BulkBranchUpload() {
     const results: ValidationResult[] = [];
     const seenCodes = new Set<string>();
     const validStates = new Set(indianStates as unknown as string[]);
+    const newAdminEmails = new Set<string>();
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const errors: string[] = [];
       const warnings: string[] = [];
+      const infos: string[] = [];
 
       // Required fields
       if (!row.branch_name?.trim()) errors.push('Branch name is required');
@@ -498,6 +540,14 @@ export function BulkBranchUpload() {
         errors.push('PIN code must be 6 digits');
       }
 
+      // Phone validation (basic - just digits, 7-15 length for landline/mobile)
+      if (row.site_contact_phone?.trim()) {
+        const digitsOnly = row.site_contact_phone.trim().replace(/\D/g, '');
+        if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+          errors.push('Phone number must be 7-15 digits');
+        }
+      }
+
       // State validation against known Indian states
       if (row.state?.trim() && !validStates.has(row.state.trim())) {
         warnings.push(`"${row.state.trim()}" may not be a recognized Indian state`);
@@ -520,7 +570,8 @@ export function BulkBranchUpload() {
             const users = response.data || [];
             const exactMatch = Array.isArray(users) && users.some(u => u.email.toLowerCase() === email);
             if (!exactMatch) {
-              warnings.push('IT Admin email not found — branch will be created with "needs_admin" status');
+              newAdminEmails.add(email);
+              infos.push('New IT Admin — will be auto-created with temporary password');
             }
           } catch {
             warnings.push('Could not verify IT Admin email');
@@ -535,9 +586,11 @@ export function BulkBranchUpload() {
         data: row,
         errors,
         warnings,
+        infos,
       });
     }
 
+    setNewITAdminEmails(newAdminEmails);
     return results;
   };
 
@@ -550,6 +603,35 @@ export function BulkBranchUpload() {
       return;
     }
 
+    // Step 1: Auto-create new IT admins before branch creation
+    if (newITAdminEmails.size > 0) {
+      const { usersApi } = await import('@/lib/api/users');
+      const failedAdmins: string[] = [];
+
+      for (const email of newITAdminEmails) {
+        try {
+          // Derive a display name from the email (part before @, cleaned up)
+          const namePart = email.split('@')[0].replace(/[._-]/g, ' ');
+          const displayName = namePart.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+          await usersApi.create({
+            email,
+            name: displayName,
+            role: 'it_admin',
+            password: 'Password@123',
+            enterprise_id: enterpriseId,
+          });
+        } catch (err) {
+          failedAdmins.push(email);
+        }
+      }
+
+      if (failedAdmins.length > 0) {
+        alert(`Failed to create IT Admin accounts for: ${failedAdmins.join(', ')}. Branches for these admins may fail.`);
+      }
+    }
+
+    // Step 2: Build branch input data
     const dayShort: Record<string, string> = {
       Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu',
       Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun',
@@ -576,7 +658,7 @@ export function BulkBranchUpload() {
         state: v.data.state.trim(),
         pin_code: v.data.pin_code.trim(),
         site_contact_person: v.data.site_contact_person?.trim() || '',
-        site_contact_phone: v.data.site_contact_phone?.trim() || '',
+        site_contact_phone: v.data.site_contact_phone?.trim() ? v.data.site_contact_phone.trim().replace(/\D/g, '').slice(-10) : '',
         operating_hours,
         pickup_point_description: v.data.pickup_point_description?.trim() || '',
         special_instructions: v.data.special_instructions?.trim() || '',
@@ -584,6 +666,7 @@ export function BulkBranchUpload() {
       };
     });
 
+    // Step 3: Create branches
     try {
       const result = await bulkCreate.mutateAsync(inputs);
 
@@ -745,7 +828,7 @@ export function BulkBranchUpload() {
       '• address_line2, site_contact_person, site_contact_phone',
       '• opening_day, closing_day, opening_time, closing_time (use dropdowns in template)',
       '• pickup_point_description, special_instructions',
-      '• it_admin_email (must be an existing IT Admin in the system)',
+      '• it_admin_email (new emails will be auto-created as IT Admin)',
     ];
 
     instructions.forEach((textLine, index) => {
@@ -776,8 +859,7 @@ export function BulkBranchUpload() {
         label="Organization"
         title="Bulk Branch Upload"
         subtitle="Upload CSV or Excel file to create multiple branches at once"
-        backLink="/org-admin/branches"
-        backLabel="Back to Branches"
+        backLink
       />
 
       {/* Step: Upload */}
@@ -921,6 +1003,8 @@ export function BulkBranchUpload() {
                       ? 'bg-red-50 dark:bg-red-500/5'
                       : result.warnings.length > 0
                       ? 'bg-amber-50 dark:bg-amber-500/5'
+                      : result.infos.length > 0
+                      ? 'bg-blue-50 dark:bg-blue-500/5'
                       : ''
                   }`}
                 >
@@ -932,6 +1016,8 @@ export function BulkBranchUpload() {
                       <Badge variant="error" size="sm">Errors</Badge>
                     ) : result.warnings.length > 0 ? (
                       <Badge variant="warning" size="sm">Warnings</Badge>
+                    ) : result.infos.length > 0 ? (
+                      <Badge variant="info" size="sm">New Admin</Badge>
                     ) : (
                       <Badge variant="success" size="sm">Valid</Badge>
                     )}
@@ -954,10 +1040,43 @@ export function BulkBranchUpload() {
                       ))}
                     </div>
                   )}
+                  {result.infos.length > 0 && result.errors.length === 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {result.infos.map((info, i) => (
+                        <span key={i} className="text-xs text-blue-600 dark:text-blue-400">
+                          {info}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* New IT Admin Info Banner */}
+          {newITAdminEmails.size > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className={`font-medium text-blue-700 dark:text-blue-400 text-sm`}>
+                    {newITAdminEmails.size} new IT Admin{newITAdminEmails.size > 1 ? 's' : ''} will be auto-created
+                  </p>
+                  <p className={`text-xs text-blue-600/70 dark:text-blue-400/70 mt-1`}>
+                    The following email{newITAdminEmails.size > 1 ? 's are' : ' is'} not in the system and will be registered as IT Admin with temporary password <strong>Password@123</strong>:
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {[...newITAdminEmails].map(email => (
+                      <span key={email} className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs font-mono">
+                        {email}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Helper */}
           {errorCount > 0 && (
@@ -1076,11 +1195,11 @@ export function BulkBranchUpload() {
           <div className="flex items-center justify-between">
             <button
               type="button"
-              onClick={() => navigate('/org-admin/branches')}
+              onClick={() => navigate(-1)}
               className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors"
             >
               <ArrowLeft className={iconSize.md} />
-              <span className="text-xs font-mono font-bold uppercase tracking-widest">Back to Branches</span>
+              <span className="text-xs font-mono font-bold uppercase tracking-widest">Back</span>
             </button>
             <div className="flex items-center gap-3">
               <button

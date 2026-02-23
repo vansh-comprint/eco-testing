@@ -577,7 +577,7 @@ export function EnterpriseApplications() {
                                       {docUrl ? (
                                         <button
                                           type="button"
-                                          onClick={() => window.open(docUrl, '_blank')}
+                                          onClick={() => addToast({ type: 'info', title: 'Feature coming soon' })}
                                           className="flex items-center gap-1.5 px-2.5 py-1 border border-ecotribe-primary/30 text-ecotribe-primary hover:bg-ecotribe-primary/10 transition-colors"
                                         >
                                           <Eye className="w-3.5 h-3.5" />

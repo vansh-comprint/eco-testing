@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useSendSubUserInvitation, useApiError } from '@/hooks';
+import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useSendSubUserInvitation, useApiError, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { BranchSelector } from '@/components/ui';
 import { format } from 'date-fns';
 
 const DEPARTMENT_OPTIONS = [
@@ -67,8 +68,14 @@ export function EmployeeDetail() {
     phone: '',
     department: '',
     customDepartment: '',
+    branch_id: '',
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // Fetch branches for display and reassignment
+  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
+  const { data: itBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? (user?.id || '') : '');
+  const branches = isOrgAdmin ? orgBranches : itBranches;
 
   // V3: Find sub user from list
   const subUser = subUsers.find(s => s.id === subUserId);
@@ -83,6 +90,7 @@ export function EmployeeDetail() {
         phone: subUser.phone || '',
         department: isCustomDept ? 'Other' : (subUser.department || ''),
         customDepartment: isCustomDept ? subUser.department || '' : '',
+        branch_id: subUser.branch_id || '',
       });
       setEditErrors({});
     }
@@ -180,6 +188,7 @@ export function EmployeeDetail() {
           email: editForm.email.trim().toLowerCase(),
           phone: editForm.phone.replace(/\D/g, ''),
           department: finalDepartment || undefined,
+          branch_id: editForm.branch_id || undefined,
         },
       });
       setIsEditing(false);
@@ -236,11 +245,11 @@ export function EmployeeDetail() {
         <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">Employee not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The employee you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(`${basePath}/employees`)}
+          onClick={() => navigate(-1)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Employees
+          Back
         </button>
       </div>
     );
@@ -255,11 +264,11 @@ export function EmployeeDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/employees`)}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Employees
+            Back
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
@@ -447,6 +456,20 @@ export function EmployeeDetail() {
                       </div>
                     )}
                   </div>
+                  {/* Branch Reassignment */}
+                  {enterpriseId && (
+                    <BranchSelector
+                      enterpriseId={enterpriseId}
+                      userId={!isOrgAdmin ? (user?.id || '') : undefined}
+                      value={editForm.branch_id || null}
+                      onChange={(branchId) => setEditForm(prev => ({ ...prev, branch_id: branchId || '' }))}
+                      label="Branch"
+                      placeholder="Select branch (optional)..."
+                      required={false}
+                      showAddNew={false}
+                      filterActive={true}
+                    />
+                  )}
                 </>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -454,6 +477,15 @@ export function EmployeeDetail() {
                   <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={subUser.email} />
                   <InfoRow icon={<Phone className="w-4 h-4" />} label="Phone" value={subUser.phone || '—'} />
                   <InfoRow icon={<Building2 className="w-4 h-4" />} label="Department" value={subUser.department || 'Unassigned'} />
+                  <InfoRow
+                    icon={<Building2 className="w-4 h-4" />}
+                    label="Branch"
+                    value={
+                      subUser.branch_id
+                        ? (branches.find((b: { id: string; branch_name: string }) => b.id === subUser.branch_id)?.branch_name || subUser.branch_id)
+                        : 'Unassigned'
+                    }
+                  />
                 </div>
               )}
             </div>

@@ -3,25 +3,29 @@
  * Allows editing name and phone. Email is read-only.
  */
 import { useState } from 'react';
-import { User, Save, CheckCircle } from 'lucide-react';
+import { User, Save } from 'lucide-react';
 import { useAuth } from '@/hooks';
 import { useToast } from '@/components/ui';
 import { usersApi } from '@/lib/api/users';
+import { useAuthStoreApi } from '@/stores';
 import { roleLabels, type UserRole } from '@/types';
 
 export function ProfileSettings() {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({
     name: user?.name || '',
-    phone: user?.phone || '',
+    phone: (user?.phone || '').replace(/^\+91[\s-]?/, ''),
   });
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      if (form.phone && form.phone.length !== 10) {
+        addToast({ type: 'error', title: 'Invalid Phone', message: 'Phone number must be exactly 10 digits.' });
+        return;
+      }
       const response = await usersApi.updateMe({
         name: form.name,
         phone: form.phone,
@@ -29,9 +33,8 @@ export function ProfileSettings() {
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to save profile');
       }
+      await useAuthStoreApi.getState().refreshUser();
       addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
     } catch (error) {
       addToast({
         type: 'error',
@@ -79,8 +82,16 @@ export function ProfileSettings() {
               onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
               inputMode="numeric"
               maxLength={10}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+              placeholder="10-digit phone number"
+              className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                form.phone && form.phone.length > 0 && form.phone.length < 10
+                  ? 'border-red-400 dark:border-red-500/50 focus:border-red-500'
+                  : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+              }`}
             />
+            {form.phone && form.phone.length > 0 && form.phone.length < 10 && (
+              <p className="font-mono text-[10px] text-red-500 mt-1">Phone number must be exactly 10 digits</p>
+            )}
           </div>
           <div>
             <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Role</label>
@@ -90,13 +101,7 @@ export function ProfileSettings() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-4 pt-2">
-          {saved && (
-            <div className="flex items-center gap-2 text-emerald-400">
-              <CheckCircle className="w-4 h-4" />
-              <span className="font-mono text-xs uppercase tracking-widest">Saved</span>
-            </div>
-          )}
+        <div className="flex items-center justify-end pt-2">
           <button
             type="button"
             onClick={handleSave}

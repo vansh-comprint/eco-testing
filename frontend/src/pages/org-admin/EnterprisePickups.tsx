@@ -33,15 +33,34 @@ export function EnterprisePickups() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
-  const { data: pickupPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfinitePickups({ enterprise_id: enterpriseId });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [branchFilter, setBranchFilter] = useState('all');
+
+  // Map UI status groups to actual backend status values for server-side filtering
+  const backendStatusParam = useMemo(() => {
+    const statusGroups: Record<string, string[]> = {
+      pending: ['pending'],
+      assigned: ['assigned_to_logistics_admin', 'assigned_to_logistics_user'],
+      scheduled: ['scheduled'],
+      in_progress: ['in_progress'],
+      completed: ['completed'],
+      failed: ['failed', 'cancelled'],
+    };
+    if (statusFilter === 'all') return undefined;
+    // Backend supports single status param; for multi-value groups pass first value
+    // Client-side filter still applied after for full accuracy
+    return statusGroups[statusFilter]?.[0];
+  }, [statusFilter]);
+
+  const { data: pickupPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfinitePickups({
+    enterprise_id: enterpriseId,
+    ...(backendStatusParam ? { status: backendStatusParam } : {}),
+  });
   const pickups = useMemo(() => pickupPages?.pages.flatMap(p => p.data || []) ?? [], [pickupPages]);
   const totalPickups = pickupPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
   const { stats: dashStats } = useDashboardStats();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -88,7 +107,6 @@ export function EnterprisePickups() {
       result = result.filter(p => p.branch_id === branchFilter);
     }
 
-    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return result;
   }, [pickups, searchQuery, statusFilter, branchFilter, branchMap]);
 

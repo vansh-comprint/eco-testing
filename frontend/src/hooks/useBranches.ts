@@ -219,7 +219,10 @@ export function useCreateBranch() {
 
       // If IT admin specified, assign them to the branch
       if (branch.it_admin_id && response.data) {
-        await branchesApi.update(response.data.id, { it_admin_id: branch.it_admin_id });
+        const assignResponse = await branchesApi.update(response.data.id, { it_admin_id: branch.it_admin_id });
+        if (!assignResponse.success) {
+          throw new Error('Branch created but IT Admin assignment failed. Please assign the admin manually.');
+        }
       }
 
       return response.data;
@@ -264,7 +267,10 @@ export function useDeleteBranch() {
 
   return useMutation({
     mutationFn: async (branchId: string) => {
-      await branchesApi.delete(branchId);
+      const result = await branchesApi.delete(branchId);
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to delete branch');
+      }
     },
     onSuccess: (_, branchId) => {
       queryClient.removeQueries({ queryKey: branchKeys.detail(branchId) });
@@ -415,13 +421,13 @@ export function useCreateITAdmin() {
 }
 
 /**
- * Update IT Admin details (name, phone, branch)
+ * Update IT Admin details (name, email, phone, branch)
  */
 export function useUpdateITAdmin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { name?: string; phone?: string; branch_id?: string } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { name?: string; email?: string; phone?: string; branch_id?: string } }) => {
       const response = await usersApi.update(userId, data);
       if (!response.success) throw parseApiError(response) || new Error('Failed to update IT admin');
       return response.data;
@@ -430,6 +436,24 @@ export function useUpdateITAdmin() {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
       queryClient.invalidateQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+/**
+ * Reset IT Admin password (admin-initiated)
+ */
+export function useResetITAdminPassword() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const response = await usersApi.resetPassword(userId, { new_password: newPassword });
+      if (!response.success) throw parseApiError(response) || new Error('Failed to reset password');
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
     },
   });
 }

@@ -89,8 +89,7 @@ export function usePickupRequests(enterpriseId: string) {
   return useQuery({
     queryKey: pickupKeys.list(enterpriseId),
     queryFn: async () => {
-      const response = await pickupsApi.list({ pageSize: 100 });
-      // Filter by enterprise if needed (API handles role-based scoping)
+      const response = await pickupsApi.list({ pageSize: 100, enterprise_id: enterpriseId });
       return response.data;
     },
     enabled: !!enterpriseId,

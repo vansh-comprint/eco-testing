@@ -13,6 +13,7 @@ export function QCQueue() {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const [sectionFilter, setSectionFilter] = useState<'all' | 'in_transit' | 'facility_qc'>('all');
   const { addToast } = useToast();
 
   // Safe enterprise context (returns null outside OPS layout)
@@ -21,21 +22,25 @@ export function QCQueue() {
   const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
   const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId) ? selectedEnterpriseId : undefined;
 
-  // Server-side filtered queries with search
+  // Server-side filtered queries with search + sort
   const inTransitParams = useMemo(() => {
     const params: Record<string, string | undefined> = { status: 'in_transit', enterprise_id: enterpriseFilter };
     if (debouncedSearch) params.search = debouncedSearch;
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [enterpriseFilter, debouncedSearch]);
+  }, [enterpriseFilter, debouncedSearch, sortBy]);
 
   const facilityQCParams = useMemo(() => {
     const params: Record<string, string | undefined> = { status: 'facility_qc', enterprise_id: enterpriseFilter };
     if (debouncedSearch) params.search = debouncedSearch;
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [enterpriseFilter, debouncedSearch]);
+  }, [enterpriseFilter, debouncedSearch, sortBy]);
 
   const {
     data: inTransitData,
+    isFetching: isFetchingInTransit,
+    isLoading: isLoadingInTransit,
     hasNextPage: hasMoreInTransit,
     fetchNextPage: fetchMoreInTransit,
     isFetchingNextPage: fetchingMoreInTransit,
@@ -43,6 +48,8 @@ export function QCQueue() {
 
   const {
     data: facilityQCData,
+    isFetching: isFetchingFacilityQC,
+    isLoading: isLoadingFacilityQC,
     hasNextPage: hasMoreFacilityQC,
     fetchNextPage: fetchMoreFacilityQC,
     isFetchingNextPage: fetchingMoreFacilityQC,
@@ -66,6 +73,12 @@ export function QCQueue() {
   const inTransitTotal = inTransitData?.pages[0]?.pagination?.total ?? inTransitAssets.length;
   const facilityQCTotal = facilityQCData?.pages[0]?.pagination?.total ?? facilityQCAssets.length;
 
+  // Background refetch indicator (either query refetching due to sort/filter change)
+  const isRefetching = (
+    (isFetchingInTransit && !isLoadingInTransit && !fetchingMoreInTransit) ||
+    (isFetchingFacilityQC && !isLoadingFacilityQC && !fetchingMoreFacilityQC)
+  );
+
   // Mark asset as arrived at facility (in_transit → facility_qc)
   const markAsArrived = async (assetId: string) => {
     try {
@@ -80,15 +93,18 @@ export function QCQueue() {
     }
   };
 
-  // Sort only (search is now server-side)
-  const filteredAssets = useMemo(() =>
-    [...pendingAssets].sort((a, b) => {
+  // Merge-sort two server-sorted streams (each stream is already sorted by the server)
+  const filteredAssets = useMemo(() => {
+    const source =
+      sectionFilter === 'in_transit' ? inTransitAssets :
+      sectionFilter === 'facility_qc' ? facilityQCAssets :
+      pendingAssets;
+    return [...source].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-    }),
-    [pendingAssets, sortBy]
-  );
+    });
+  }, [pendingAssets, inTransitAssets, facilityQCAssets, sectionFilter, sortBy]);
 
   // Load more when both have more pages
   const hasMore = hasMoreInTransit || hasMoreFacilityQC;
@@ -124,13 +140,19 @@ export function QCQueue() {
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 gap-4"
       >
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+        <div
+          onClick={() => setSectionFilter(sectionFilter === 'in_transit' ? 'all' : 'in_transit')}
+          className={`border p-5 cursor-pointer transition-colors ${sectionFilter === 'in_transit' ? 'border-amber-400 bg-amber-400/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:bg-amber-400/5'}`}
+        >
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
           <p className="font-brand font-bold text-3xl text-amber-400">
             {inTransitTotal}
           </p>
         </div>
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
+        <div
+          onClick={() => setSectionFilter(sectionFilter === 'facility_qc' ? 'all' : 'facility_qc')}
+          className={`border p-5 cursor-pointer transition-colors ${sectionFilter === 'facility_qc' ? 'border-emerald-400 bg-emerald-400/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:bg-emerald-400/5'}`}
+        >
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
           <p className="font-brand font-bold text-3xl text-emerald-400">
             {facilityQCTotal}
@@ -182,10 +204,15 @@ export function QCQueue() {
       {filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+          transition={{ duration: 0.15 }}
+          className="relative border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
         >
+          {isRefetching && (
+            <div className="absolute top-3 right-3 z-10">
+              <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+            </div>
+          )}
           <div className="divide-y divide-slate-200 dark:divide-white/5">
             {filteredAssets.map((asset, idx) => (
               <motion.div

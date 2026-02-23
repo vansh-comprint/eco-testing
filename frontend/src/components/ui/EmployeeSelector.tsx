@@ -28,7 +28,6 @@ import { useSubUsers, useCreateSubUser, type CreateSubUserInput, subUserKeys } f
 import { Modal } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
-import { Dropdown } from './Dropdown';
 import { cn } from '@/lib/utils';
 
 interface Employee {
@@ -452,7 +451,7 @@ function AddEmployeeModal({
   isOpen,
   onClose,
   enterpriseId,
-  branchId: _branchId,
+  branchId,
   onCreated,
 }: AddEmployeeModalProps) {
   const createMutation = useCreateSubUser();
@@ -513,6 +512,7 @@ function AddEmployeeModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent bubbling through React portal to outer AssetForm
     if (!validate()) return;
 
     const department =
@@ -527,6 +527,7 @@ function AddEmployeeModal({
     try {
       const input: CreateSubUserInput = {
         enterprise_id: enterpriseId,
+        branch_id: branchId,
         name: savedName,
         email: savedEmail,
         phone: formData.phone || undefined,
@@ -603,20 +604,42 @@ function AddEmployeeModal({
         />
 
         {/* Department */}
-        <div className="space-y-2">
+        <div className="w-full space-y-2">
           <label className="block font-mono text-xs uppercase tracking-wider text-slate-600 dark:text-zinc-400">
             Department
           </label>
-          <Dropdown
-            options={DEPARTMENTS}
-            value={formData.department}
-            onChange={(value) => {
-              handleChange('department', value);
-              if (value !== 'Other') handleChange('customDepartment', '');
-            }}
-            placeholder="Select department"
-            error={errors.department}
-          />
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 group-focus-within:text-lime-600 dark:group-focus-within:text-lime-400 transition-colors duration-200">
+              <Building2 className="w-4 h-4" />
+            </div>
+            <select
+              value={formData.department}
+              onChange={(e) => {
+                handleChange('department', e.target.value);
+                if (e.target.value !== 'Other') handleChange('customDepartment', '');
+              }}
+              className={cn(
+                'w-full h-12 pl-12 pr-4',
+                'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm',
+                'border border-slate-200/80 dark:border-zinc-700',
+                'text-slate-900 dark:text-white font-mono text-sm',
+                'focus:outline-none focus:border-lime-500 dark:focus:border-lime-400',
+                'focus:ring-2 focus:ring-lime-500/20 dark:focus:ring-lime-400/20',
+                'focus:bg-white dark:focus:bg-zinc-900',
+                'transition-all duration-200 appearance-none cursor-pointer',
+                !formData.department && 'text-slate-400 dark:text-zinc-500',
+              )}
+            >
+              <option value="">Select department</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept.value} value={dept.value}>{dept.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
+          </div>
+          {errors.department && (
+            <p className="text-xs text-red-600 dark:text-red-400">{errors.department}</p>
+          )}
         </div>
 
         {/* Custom department when "Other" is selected */}

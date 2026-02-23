@@ -4,7 +4,7 @@
  * Pipeline overview with status-based filtering and drill-down
  */
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -33,13 +33,18 @@ type StatusGroup = 'all' | 'draft' | 'pending_approval' | 'approved' | 'pickup' 
 
 export function EnterpriseBatches() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
+  // Normalize URL status param — 'pickup_in_progress' maps to 'pickup' StatusGroup
+  const urlStatus = searchParams.get('status');
+  const normalizedStatus = urlStatus === 'pickup_in_progress' ? 'pickup' : urlStatus;
+
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
-  const [statusFilter, setStatusFilter] = useState<StatusGroup>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<StatusGroup>((normalizedStatus as StatusGroup) || 'all');
+  const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || 'all');
 
   // Map status filter groups to actual status values for server-side filtering
   const STATUS_GROUP_MAP: Record<string, string> = {
@@ -104,12 +109,8 @@ export function EnterpriseBatches() {
     totalValue: dashboardStats.batch_total_value ?? 0,
   };
 
-  // Filters are now server-side; client-side sort only
-  const filteredBatches = useMemo(() => {
-    const result = [...batches];
-    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return result;
-  }, [batches]);
+  // All filtering and sorting is server-side (server returns created_at DESC by default)
+  const filteredBatches = batches;
 
   const handleExport = () => {
     const csv = Papa.unparse(filteredBatches.map(b => ({
@@ -145,12 +146,12 @@ export function EnterpriseBatches() {
 
   // Pipeline stat items
   const pipelineItems = [
-    { label: 'Draft', value: stats.draft, icon: <Package className={`${iconSize.lg} text-slate-400`} />, accent: 'neutral' as StatAccent, onClick: () => setStatusFilter('draft') },
-    { label: 'Pending Approval', value: stats.pendingApproval, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pendingApproval > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter('pending_approval') },
-    { label: 'Approved', value: stats.approved, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter('approved') },
-    { label: 'Pickup', value: stats.pickup, icon: <Truck className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('pickup') },
-    { label: 'Completed', value: stats.completed, icon: <FileCheck className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter('completed') },
-    { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter('rejected') },
+    { label: 'Draft', value: stats.draft, icon: <Package className={`${iconSize.lg} text-slate-400`} />, accent: 'neutral' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'draft' ? 'all' : 'draft') },
+    { label: 'Pending Approval', value: stats.pendingApproval, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pendingApproval > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending_approval' ? 'all' : 'pending_approval') },
+    { label: 'Approved', value: stats.approved, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'approved' ? 'all' : 'approved') },
+    { label: 'Pickup', value: stats.pickup, icon: <Truck className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pickup' ? 'all' : 'pickup') },
+    { label: 'Completed', value: stats.completed, icon: <FileCheck className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed') },
+    { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected') },
   ];
 
   if (isLoading) {

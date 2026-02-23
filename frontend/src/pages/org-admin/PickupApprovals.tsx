@@ -250,7 +250,7 @@ export function PickupApprovals() {
               ? 'border-amber-400 bg-amber-400/10'
               : 'border-amber-400/30 bg-amber-400/5 hover:border-amber-400/50'
           }`}
-          onClick={() => setStatusFilter('pending')}
+          onClick={() => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending')}
         >
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-amber-400" />
@@ -270,7 +270,7 @@ export function PickupApprovals() {
               ? 'border-emerald-400 bg-emerald-400/10'
               : 'border-emerald-400/30 bg-emerald-400/5 hover:border-emerald-400/50'
           }`}
-          onClick={() => setStatusFilter('approved')}
+          onClick={() => setStatusFilter(prev => prev === 'approved' ? 'all' : 'approved')}
         >
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle className="w-4 h-4 text-emerald-400" />
@@ -287,7 +287,7 @@ export function PickupApprovals() {
               ? 'border-red-400 bg-red-400/10'
               : 'border-red-400/30 bg-red-400/5 hover:border-red-400/50'
           }`}
-          onClick={() => setStatusFilter('rejected')}
+          onClick={() => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected')}
         >
           <div className="flex items-center gap-2 mb-2">
             <XCircle className="w-4 h-4 text-red-400" />

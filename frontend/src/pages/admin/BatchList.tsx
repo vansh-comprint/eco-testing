@@ -1,5 +1,5 @@
 import { useState, useMemo, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Package,
@@ -47,6 +47,7 @@ const SORT_OPTIONS = [
 export function BatchList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   // V3: Use React Query hook for auth
   const { enterprise, user } = useAuth();
   const { addToast } = useToast();
@@ -77,10 +78,10 @@ export function BatchList() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [sortBy, setSortBy] = useState('newest');
 
-  // Build server-side params for infinite query
+  // Build server-side params for infinite query (including sort)
   const infiniteParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
@@ -94,12 +95,14 @@ export function BatchList() {
         params.status = statusFilter;
       }
     }
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter]);
+  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter, sortBy]);
 
   const {
     data,
     isLoading: batchesLoading,
+    isFetching,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
@@ -109,26 +112,20 @@ export function BatchList() {
   const allBatches = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // Status/search filtering is now server-side; client-side sort only
+  // Background refetch indicator
+  const isRefetching = isFetching && !batchesLoading && !isFetchingNextPage;
+
+  // Optimistic client-side sort for instant feedback while server re-fetches
   const filteredBatches = useMemo(() => {
-    const result = [...allBatches];
-
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'value_desc':
-          return safeNumber(b.estimated_value) - safeNumber(a.estimated_value);
-        case 'assets_desc':
-          return (b.asset_count || 0) - (a.asset_count || 0);
-        case 'newest':
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
+    if (!isRefetching) return allBatches;
+    return [...allBatches].sort((a, b) => {
+      if (sortBy === 'value_desc') return (Number(b.estimated_value) || 0) - (Number(a.estimated_value) || 0);
+      if (sortBy === 'assets_desc') return (Number(b.asset_count) || 0) - (Number(a.asset_count) || 0);
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
     });
-
-    return result;
-  }, [allBatches, statusFilter, sortBy]);
+  }, [allBatches, sortBy, isRefetching]);
 
   // Stats from backend dashboard endpoint
   const stats = {
@@ -263,10 +260,15 @@ export function BatchList() {
       {/* Batch List */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="space-y-3"
+        animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+        transition={{ duration: 0.15 }}
+        className="relative space-y-3"
       >
+        {isRefetching && (
+          <div className="absolute top-3 right-3 z-10">
+            <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+          </div>
+        )}
         {filteredBatches.length > 0 ? (
           filteredBatches.map((batch, index) => {
             const statusConfig = getStatusConfig(batch.status as BatchStatus);

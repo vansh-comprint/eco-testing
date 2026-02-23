@@ -99,7 +99,7 @@ export function PayoutProcessing() {
   };
 
   const calculatePayout = (asset: typeof assets[0]) => {
-    const basePrice = asset.base_price || 0;
+    const basePrice = Number(asset.base_price) || 0;
     const gradeModifier = asset.grade
       ? { A: 0, B: -500, C: -1500, D: -3000, F: -5000 }[asset.grade] || 0
       : 0;
@@ -107,10 +107,10 @@ export function PayoutProcessing() {
     return { basePrice, gradeModifier, logistics: LOGISTICS_CHARGE, finalAmount };
   };
 
-  // Helper to safely get payout value, ensuring non-negative
+  // Helper to safely get payout value, ensuring numeric and non-negative
   const getPayoutValue = (asset: typeof assets[0]) => {
-    const storedPrice = asset.final_price;
-    if (storedPrice != null && storedPrice > 0) return storedPrice;
+    const storedPrice = Number(asset.final_price);
+    if (!isNaN(storedPrice) && storedPrice > 0) return storedPrice;
     return calculatePayout(asset).finalAmount;
   };
 
@@ -288,7 +288,7 @@ export function PayoutProcessing() {
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
-        <div className="border border-amber-400/30 bg-amber-400/5 p-5">
+        <div className="border border-amber-400/30 bg-amber-400/5 p-5 cursor-pointer hover:bg-amber-400/10 transition-colors" onClick={() => setStatusFilter('pending')}>
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending</span>
@@ -303,7 +303,7 @@ export function PayoutProcessing() {
           </p>
         </div>
 
-        <div className="border border-emerald-400/30 bg-emerald-400/5 p-5">
+        <div className="border border-emerald-400/30 bg-emerald-400/5 p-5 cursor-pointer hover:bg-emerald-400/10 transition-colors" onClick={() => setStatusFilter('completed')}>
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle className="w-4 h-4 text-emerald-400" />
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Completed</span>
@@ -318,7 +318,7 @@ export function PayoutProcessing() {
           </p>
         </div>
 
-        <div className="border border-blue-400/30 bg-blue-400/5 p-5">
+        <div className="border border-blue-400/30 bg-blue-400/5 p-5 cursor-pointer hover:bg-blue-400/10 transition-colors" onClick={() => setStatusFilter('all')}>
           <div className="flex items-center gap-2 mb-2">
             <Building2 className="w-4 h-4 text-blue-400" />
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Enterprises</span>
@@ -328,7 +328,7 @@ export function PayoutProcessing() {
           </p>
         </div>
 
-        <div className="border border-ecotribe-primary/30 bg-ecotribe-primary/5 p-5">
+        <div className="border border-ecotribe-primary/30 bg-ecotribe-primary/5 p-5 cursor-pointer hover:bg-ecotribe-primary/10 transition-colors" onClick={() => setStatusFilter('all')}>
           <div className="flex items-center gap-2 mb-2">
             <IndianRupee className="w-4 h-4 text-ecotribe-primary" />
             <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total Value</span>

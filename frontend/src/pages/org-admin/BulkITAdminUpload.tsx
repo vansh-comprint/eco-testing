@@ -24,9 +24,10 @@ import {
   Building2,
   Key,
 } from 'lucide-react';
-import { useAuth, useBranches, useAllUsers, useBulkCreateITAdmins, useUpdateBranch, useApiError, usePortalBasePath } from '@/hooks';
+import { useAuth, useBranches, useBulkCreateITAdmins, useUpdateBranch, useApiError, usePortalBasePath } from '@/hooks';
 import { BackButton } from '@/components/ui';
 import { generatePassword } from '@/lib/validation';
+import { usersApi } from '@/lib/api';
 
 interface ParsedRow {
   name: string;
@@ -72,24 +73,12 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
   // V3.2: Use React Query hook for auth
   const { enterprise } = useAuth();
   const enterpriseId = propEnterpriseId || enterprise?.id || '';
-  // Multi-context back: from org-admin → it-admins list, from super/ops → enterprise detail
-  const backTo = propEnterpriseId
-    ? `${portalBase}/enterprises/${routeEnterpriseId || propEnterpriseId}`
-    : `${portalBase}/it-admins`;
-  const backLabel = propEnterpriseId ? 'Back to Enterprise' : 'Back to IT Admins';
+  const backLabel = 'Back';
 
   const { data: branches = [] } = useBranches(enterpriseId);
-  // Fetch ALL users for this enterprise (not just IT admins) for duplicate detection
-  // Server rejects emails that exist in ANY role, so client must check broadly
-  const { data: allEnterpriseUsers = [] } = useAllUsers({ enterprise_id: enterpriseId, limit: 500 });
   const bulkCreate = useBulkCreateITAdmins();
   const updateBranch = useUpdateBranch();
   const { handleError, showSuccess, showWarning } = useApiError();
-
-  // Build set of ALL existing emails in this enterprise for duplicate detection
-  const existingEmails = new Set(
-    (allEnterpriseUsers as any[]).map((a: any) => a.email?.toLowerCase()).filter(Boolean)
-  );
 
   // Filter to branches without IT admin (available for assignment)
   const availableBranches = (branches as any[]).filter(b => !b.it_admin_id);
@@ -131,7 +120,35 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const parseCSV = useCallback((content: string): void => {
+  const isValidPhone = (phone: string): boolean => {
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length === 10;
+  };
+
+  // Check which emails already exist in the system via API
+  const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
+    const existing = new Set<string>();
+    try {
+      // Fetch users matching these emails from the server
+      // Check in batches to avoid too many concurrent requests
+      for (const email of emails) {
+        const response = await usersApi.list({ search: email, limit: 5 });
+        if (response.data) {
+          for (const user of response.data) {
+            if (user.email?.toLowerCase() === email.toLowerCase()) {
+              existing.add(email.toLowerCase());
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // If validation fails, let server catch it during creation
+    }
+    return existing;
+  };
+
+  const parseCSV = useCallback(async (content: string): Promise<void> => {
     setUploadStatus('parsing');
 
     const lines = content.split(/\r?\n/).filter(line => line.trim());
@@ -160,6 +177,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
     // Parse data rows
     const rows: ParsedRow[] = [];
     const seenEmails = new Set<string>();
+    const emailsToCheck: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
@@ -186,10 +204,14 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
         row.errors.push('Invalid email format');
       } else if (seenEmails.has(row.email.toLowerCase())) {
         row.errors.push('Duplicate email in file');
-      } else if (existingEmails.has(row.email.toLowerCase())) {
-        row.errors.push('A user with this email already exists in this enterprise');
       } else {
         seenEmails.add(row.email.toLowerCase());
+        emailsToCheck.push(row.email);
+      }
+
+      // Validate phone if provided
+      if (row.phone && !isValidPhone(row.phone)) {
+        row.errors.push('Invalid phone number (must be 10 digits)');
       }
 
       // Warnings for optional fields
@@ -210,9 +232,19 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
       rows.push(row);
     }
 
+    // Server-side email validation — check which emails already exist
+    if (emailsToCheck.length > 0) {
+      const existingEmails = await validateEmailsOnServer(emailsToCheck);
+      for (const row of rows) {
+        if (row.email && existingEmails.has(row.email.toLowerCase()) && !row.errors.length) {
+          row.errors.push('Email already exists in the system');
+        }
+      }
+    }
+
     setParsedData(rows);
     setUploadStatus('ready');
-  }, [branches, existingEmails]);
+  }, [branches]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -375,7 +407,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
         enterprise_id: enterpriseId,
         email: row.email.toLowerCase(),
         name: row.name || row.email.split('@')[0],
-        phone: row.phone || undefined,
+        phone: row.phone ? row.phone.replace(/\D/g, '').slice(-10) : undefined,
         password: row.password, // Auto-generated
       }));
 
@@ -437,9 +469,30 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setUploadError(msg);
-      setUploadStatus('error');
-      handleError(err, 'Bulk IT Admin Upload');
+
+      // Parse server errors (e.g. "Row 1: User with email x@y.com already exists")
+      // and map them back to CSV rows so they show inline in the preview
+      const emailErrorPattern = /(?:User with email\s+)?(\S+@\S+)\s+already exists/gi;
+      const matches = [...msg.matchAll(emailErrorPattern)];
+
+      if (matches.length > 0) {
+        // Map server errors back to parsed rows
+        const errorEmails = new Set(matches.map(m => m[1].toLowerCase()));
+        const updatedData = parsedData.map(row => {
+          if (errorEmails.has(row.email.toLowerCase())) {
+            return { ...row, errors: [...row.errors, 'Email already exists in the system'] };
+          }
+          return row;
+        });
+        setParsedData(updatedData);
+        setUploadStatus('ready');
+        handleError(new Error(`${errorEmails.size} email(s) already exist in the system`), 'Bulk IT Admin Upload');
+      } else {
+        // Unrecoverable error → show error page
+        setUploadError(msg);
+        setUploadStatus('error');
+        handleError(err, 'Bulk IT Admin Upload');
+      }
     }
   };
 
@@ -483,9 +536,27 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
     };
 
     // Add example rows (delete these before uploading)
-    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '+91 98765 11111', branch_name: branch1 });
-    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '+91 98765 22222', branch_name: branch2 });
+    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', branch_name: branch1 });
+    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', branch_name: branch2 });
     worksheet.addRow({ name: 'Amit Patel (no branch)', email: 'amit@company.com', phone: '', branch_name: '' });
+
+    // Apply data validation (phone: exactly 10 digits, numbers only) to phone column for rows 2-50
+    for (let row = 2; row <= 50; row++) {
+      worksheet.getCell(`C${row}`).dataValidation = {
+        type: 'custom',
+        allowBlank: true,
+        formulae: [`AND(LEN(C${row})=10,ISNUMBER(VALUE(C${row})))`],
+        showInputMessage: true,
+        promptTitle: 'Phone Number',
+        prompt: 'Enter exactly 10 digits (numbers only, e.g. 9876543210)',
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Invalid Phone',
+        error: 'Phone number must be exactly 10 digits (numbers only)',
+      };
+      // Format phone column as text to prevent Excel from treating numbers as scientific notation
+      worksheet.getCell(`C${row}`).numFmt = '@';
+    }
 
     // Apply data validation (dropdown) to branch_name column for rows 2-50
     // Users can add more rows as needed
@@ -553,7 +624,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
     const columnInstructions = [
       ['name', 'No', 'Full name of the IT Admin. If blank, email prefix will be used.', 'Vikram Singh, Priya Sharma'],
       ['email', 'YES', 'Valid email address. Must be unique across the system.', 'vikram@company.com'],
-      ['phone', 'No', 'Contact phone number with country code', '+91 98765 11111'],
+      ['phone', 'No', 'Must be exactly 10 digits (no spaces, +91, or hyphens)', '9876511111'],
       ['branch_name', 'No', 'Branch to assign (use dropdown). Leave blank for no assignment.', 'Mumbai HQ, Bangalore Office']
     ];
 
@@ -679,7 +750,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
               </button>
               <button
                 type="button"
-                onClick={() => navigate(backTo)}
+                onClick={() => navigate(-1)}
                 className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
               >
                 View IT Admins
@@ -700,7 +771,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton to={backTo} label={backLabel} className="mb-6" />
+          <BackButton className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -735,7 +806,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
             <ul className="font-mono text-xs text-slate-500 dark:text-zinc-500 space-y-1">
               <li>- <strong>Download the Excel template</strong> - it has a branch dropdown!</li>
               <li>- Required column: email</li>
-              <li>- Optional: name, phone, branch_name</li>
+              <li>- Optional: name, phone (10 digits), branch_name</li>
               <li>- Select branch from dropdown (leave empty for no assignment)</li>
               <li>- IT Admins will be able to log in with their email</li>
               <li>- Supports both .xlsx and .csv files</li>
@@ -845,7 +916,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
       {uploadStatus === 'parsing' && (
         <div className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 py-16 text-center">
           <div className="w-12 h-12 border-2 border-ecotribe-primary border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="font-mono text-sm text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Parsing CSV file...</p>
+          <p className="font-mono text-sm text-slate-500 dark:text-zinc-500 uppercase tracking-widest">Validating data...</p>
         </div>
       )}
 
@@ -876,7 +947,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
               </button>
               <button
                 type="button"
-                onClick={() => navigate(backTo)}
+                onClick={() => navigate(-1)}
                 className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
               >
                 {backLabel}
@@ -1108,7 +1179,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => navigate(backTo)}
+              onClick={() => navigate(-1)}
               disabled={uploadStatus === 'uploading'}
               className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
             >

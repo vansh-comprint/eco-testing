@@ -266,11 +266,11 @@ export function ITAdminInvite() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate('/org-admin/it-admins')}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to IT Admins
+            Back
           </button>
 
           <div className="flex items-start gap-5">

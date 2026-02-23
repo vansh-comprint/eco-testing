@@ -4,7 +4,7 @@
  * Read-only overview with branch filtering and drill-down to AssetDetail
  */
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -31,25 +31,26 @@ type SortOption = 'newest' | 'oldest' | 'serial' | 'brand';
 
 export function EnterpriseAssets() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [branchFilter, setBranchFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
+  const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || 'all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   // Map status filter groups to actual status values for server-side filtering
   const STATUS_GROUP_MAP: Record<string, string> = {
     pending: 'pending_assignment,assigned,check_in_started',
-    in_review: 'submitted,remote_review,facility_review',
+    in_review: 'submitted,remote_review,facility_qc',
     accepted: 'conditionally_accepted,final_accepted,ready_for_pickup',
     completed: 'completed',
     rejected: 'remote_rejected,final_rejected',
   };
 
-  // Server-side search + enterprise + status + branch filter
+  // Server-side search + enterprise + status + branch filter + sort
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (enterpriseId) params.enterprise_id = enterpriseId;
@@ -58,10 +59,11 @@ export function EnterpriseAssets() {
       params.statuses = STATUS_GROUP_MAP[statusFilter];
     }
     if (branchFilter !== 'all') params.branch_id = branchFilter;
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [enterpriseId, debouncedSearch, statusFilter, branchFilter]);
+  }, [enterpriseId, debouncedSearch, statusFilter, branchFilter, sortBy]);
 
-  const { data: assetPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
+  const { data: assetPages, isLoading, isFetching, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
   const assets = useMemo(() => assetPages?.pages.flatMap(p => p.data || []) ?? [], [assetPages]);
   const totalAssets = assetPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
@@ -84,23 +86,20 @@ export function EnterpriseAssets() {
     rejected: dashboardStats.asset_rejected ?? 0,
   };
 
-  // Filters are now server-side; client-side sort only
+  // Background refetch indicator
+  const isRefetching = isFetching && !isLoading && !isFetchingNextPage;
+
+  // Optimistic client-side sort for instant feedback while server re-fetches
   const filteredAssets = useMemo(() => {
-    const result = [...assets];
-
-    // Sort
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'serial': return (a.serial_number || '').localeCompare(b.serial_number || '');
-        case 'brand': return (a.brand || '').localeCompare(b.brand || '');
-        default: return 0;
-      }
+    if (!isRefetching) return assets;
+    return [...assets].sort((a, b) => {
+      if (sortBy === 'serial') return (a.serial_number || '').localeCompare(b.serial_number || '');
+      if (sortBy === 'brand') return (a.brand || '').localeCompare(b.brand || '');
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
     });
-
-    return result;
-  }, [assets, sortBy]);
+  }, [assets, sortBy, isRefetching]);
 
   // Export CSV
   const handleExport = () => {
@@ -137,11 +136,11 @@ export function EnterpriseAssets() {
 
   const statItems = [
     { label: 'Total Assets', value: stats.total, icon: <Monitor className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
-    { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter('pending') },
-    { label: 'In Review', value: stats.inReview, icon: <AlertTriangle className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter('in_review') },
-    { label: 'Accepted', value: stats.accepted, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter('accepted') },
-    { label: 'Completed', value: stats.completed, icon: <Package className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter('completed') },
-    { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter('rejected') },
+    { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending') },
+    { label: 'In Review', value: stats.inReview, icon: <AlertTriangle className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review') },
+    { label: 'Accepted', value: stats.accepted, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'accepted' ? 'all' : 'accepted') },
+    { label: 'Completed', value: stats.completed, icon: <Package className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed') },
+    { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected') },
   ];
 
   if (isLoading) {
@@ -261,10 +260,15 @@ export function EnterpriseAssets() {
       {/* Asset Table */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto"
+        animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+        transition={{ duration: 0.15 }}
+        className="relative border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto"
       >
+        {isRefetching && (
+          <div className="absolute top-3 right-3 z-10">
+            <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+          </div>
+        )}
         <div className="min-w-[700px]">
         {/* Table Header */}
         <div className="grid grid-cols-[1fr_120px_1fr_140px_100px_60px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">

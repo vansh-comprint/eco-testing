@@ -51,6 +51,7 @@ export interface SubUserBulkItem {
   phone?: string;
   department?: string;
   employee_id?: string;
+  branch_id?: string;
 }
 
 export interface SubUserBulkCreateRequest {

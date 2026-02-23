@@ -85,15 +85,9 @@ export function Analytics() {
         label="Super Admin"
         title="Platform Analytics"
         subtitle="Real-time insights and platform-wide metrics"
+        backLink
         actions={
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
             <Button
               variant="primary"
               leftIcon={<Download className={iconSize.sm} />}

@@ -38,6 +38,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'Awaiting action',
       icon: <Clock className={`${iconSize.lg} ${(stats.pickup_pending_assignment ?? 0) > 0 ? 'text-amber-500' : 'text-slate-600 dark:text-zinc-400'}`} />,
       accent: ((stats.pickup_pending_assignment ?? 0) > 0 ? 'warning' : 'neutral') as StatAccent,
+      onClick: () => navigate('/logistics-admin/assignments'),
     },
     {
       label: 'Scheduled',
@@ -45,6 +46,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'In progress',
       icon: <Truck className={`${iconSize.lg} text-blue-500`} />,
       accent: 'info' as StatAccent,
+      onClick: () => navigate('/logistics-admin/assignments'),
     },
     {
       label: 'Completed',
@@ -52,6 +54,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'This month',
       icon: <ListChecks className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
+      onClick: () => navigate('/logistics-admin/assignments'),
     },
     {
       label: 'Field Users',
@@ -59,6 +62,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'Your team',
       icon: <Users className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
+      onClick: () => navigate('/logistics-admin/assignments'),
     },
   ];
 

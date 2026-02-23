@@ -44,7 +44,7 @@ import {
   PHOTO_SLOTS,
 } from '@/types/submission';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Badge, StatusBadge, Modal, ModalFooter, StatusTimeline, BackButton } from '@/components/ui';
+import { Badge, StatusBadge, Modal, ModalFooter, StatusTimeline, BackButton, useToast } from '@/components/ui';
 
 // Grade options for OPS review
 const GRADE_OPTIONS = [
@@ -133,10 +133,11 @@ export function SubmissionDetail() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const isEmployee = user?.role === 'employee' || location.pathname.startsWith('/check-in');
   const basePath = isEmployee ? '/check-in' : isSuperAdmin ? '/super' : isOpsAdmin ? '/ops' : isOrgAdmin ? '/org-admin' : '/admin';
-  const backTo = isEmployee ? '/check-in/submissions' : `${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`;
-  const backLabel = isEmployee ? 'Back to Submissions' : (isOpsAdmin || isSuperAdmin) ? 'Back to Reviews' : 'Back to Dashboard';
+  const backTo = undefined; // Use browser back
+  const backLabel = 'Back';
 
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const { data: assets = [] } = useAllAssets();
   // Employees don't have EMPLOYEE_READ permission — skip sub-users fetch for them
   const { data: subUsers = [] } = useAllSubUsers({ enabled: !isEmployee });
@@ -254,7 +255,7 @@ export function SubmissionDetail() {
             <p className="text-slate-500 dark:text-white/50 mb-6">This asset doesn't exist.</p>
             <button
               type="button"
-              onClick={() => navigate(backTo)}
+              onClick={() => navigate(-1)}
               className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
             >
               {backLabel}
@@ -273,7 +274,7 @@ export function SubmissionDetail() {
         <p className="text-slate-500 dark:text-white/50 mb-6">This device hasn't been submitted yet.</p>
         <button
           type="button"
-          onClick={() => navigate(backTo)}
+          onClick={() => navigate(-1)}
           className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
         >
           {backLabel}
@@ -294,16 +295,17 @@ export function SubmissionDetail() {
         ...(reviewNotes.trim() ? { notes: reviewNotes.trim() } : {}),
       });
       if (!result.success) {
-        alert(result.error?.message || 'Failed to approve submission');
+        addToast({ type: 'error', title: 'Approval Failed', message: result.error?.message || 'Failed to approve submission.' });
         return;
       }
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowApproveModal(false);
+      addToast({ type: 'success', title: 'Submission Accepted', message: 'The device has been conditionally accepted.' });
       navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);
     } catch (error) {
       console.error('Failed to approve:', error);
-      alert('Failed to approve submission');
+      addToast({ type: 'error', title: 'Approval Failed', message: error instanceof Error ? error.message : 'Failed to approve submission.' });
     } finally {
       setIsProcessing(false);
     }
@@ -319,16 +321,17 @@ export function SubmissionDetail() {
         rejection_reason: rejectionReason.trim(),
       });
       if (!result.success) {
-        alert(result.error?.message || 'Failed to reject submission');
+        addToast({ type: 'error', title: 'Rejection Failed', message: result.error?.message || 'Failed to reject submission.' });
         return;
       }
       // Invalidate asset queries so UI reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
       setShowRejectModal(false);
+      addToast({ type: 'success', title: 'Submission Rejected', message: 'The employee will be notified.' });
       navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);
     } catch (error) {
       console.error('Failed to reject:', error);
-      alert('Failed to reject submission');
+      addToast({ type: 'error', title: 'Rejection Failed', message: error instanceof Error ? error.message : 'Failed to reject submission.' });
     } finally {
       setIsProcessing(false);
     }
@@ -348,9 +351,10 @@ export function SubmissionDetail() {
       queryClient.invalidateQueries({ queryKey: disputeKeys.all });
       setShowDisputeModal(false);
       setDisputeDescription('');
+      addToast({ type: 'success', title: 'Dispute Submitted', message: 'Your dispute has been sent for re-evaluation.' });
     } catch (error) {
       console.error('Failed to create dispute:', error);
-      alert('Failed to submit dispute');
+      addToast({ type: 'error', title: 'Dispute Failed', message: error instanceof Error ? error.message : 'Failed to submit dispute. Please try again.' });
     } finally {
       setIsProcessing(false);
     }

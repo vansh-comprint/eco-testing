@@ -139,11 +139,11 @@ export const enterpriseApplicationsApi = {
       body: JSON.stringify(documents),
     }),
 
-  /** Check if GST number already exists */
+  /** Check if GST number already exists (public endpoint — no auth needed) */
   checkGSTExists: (gstNumber: string) =>
-    fetchWithAuth<{ exists: boolean }>(`/enterprises/applications/check-gst?gst_number=${encodeURIComponent(gstNumber)}`),
+    fetchPublic<{ exists: boolean }>(`/enterprises/applications/check-gst?gst_number=${encodeURIComponent(gstNumber)}`),
 
-  /** Check if email already exists */
+  /** Check if email already exists (public endpoint — no auth needed) */
   checkEmailExists: (email: string) =>
-    fetchWithAuth<{ exists: boolean }>(`/enterprises/applications/check-email?email=${encodeURIComponent(email)}`),
+    fetchPublic<{ exists: boolean }>(`/enterprises/applications/check-email?email=${encodeURIComponent(email)}`),
 };

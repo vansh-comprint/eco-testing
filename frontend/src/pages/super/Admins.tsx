@@ -24,6 +24,7 @@ export function Admins() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
@@ -75,8 +76,9 @@ export function Admins() {
       admin.email.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesRole = roleFilter === 'all' || admin.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
 
-    return matchesSearch && matchesRole;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
   const stats = {
@@ -93,15 +95,9 @@ export function Admins() {
         label="Super Admin"
         title="Admin Users"
         subtitle={`${filteredAdmins.length} admin users`}
+        backLink
         actions={
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
             <Button
               variant="primary"
               onClick={() => setIsOpsAdminModalOpen(true)}
@@ -120,19 +116,19 @@ export function Admins() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-slate-300 dark:hover:ring-zinc-600 transition-all" onClick={() => setRoleFilter('all')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total Admins</p>
           <p className={`font-brand text-2xl font-bold ${text.primary} mt-1`}>{stats.total}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-red-400 transition-all" onClick={() => setRoleFilter('super_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Super Admin</p>
           <p className={`font-brand text-2xl font-bold text-red-500 mt-1`}>{stats.superAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-amber-400 transition-all" onClick={() => setRoleFilter('ops_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>OPS Admin</p>
           <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.opsAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-emerald-400 transition-all" onClick={() => setStatusFilter('active')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Active</p>
           <p className={`font-brand text-2xl font-bold text-emerald-500 mt-1`}>{stats.active}</p>
         </Card>

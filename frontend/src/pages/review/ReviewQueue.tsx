@@ -11,26 +11,30 @@ export function ReviewQueue() {
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
 
-  // Server-side search + status filter
+  // Server-side search + status filter + sort
   const apiParams = useMemo(() => {
     const params: Record<string, string | undefined> = { status: 'submitted' };
     if (debouncedSearch) params.search = debouncedSearch;
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [debouncedSearch]);
+  }, [debouncedSearch, sortBy]);
 
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
+  const { data, isLoading, isFetching, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteAssets(apiParams);
   const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total;
 
-  // Only sort remains client-side (search is now server-side)
-  const filteredAssets = useMemo(() =>
-    [...allAssets].sort((a, b) => {
+  // Background refetch indicator
+  const isRefetching = isFetching && !isLoading && !isFetchingNextPage;
+
+  // Optimistic client-side sort for instant feedback while server re-fetches
+  const filteredAssets = useMemo(() => {
+    if (!isRefetching) return allAssets;
+    return [...allAssets].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
-      return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-    }),
-    [allAssets, sortBy]
-  );
+      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
+    });
+  }, [allAssets, sortBy, isRefetching]);
 
   return (
     <div className="space-y-6">
@@ -96,10 +100,15 @@ export function ReviewQueue() {
       {filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+          transition={{ duration: 0.15 }}
+          className="relative border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
         >
+          {isRefetching && (
+            <div className="absolute top-3 right-3 z-10">
+              <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+            </div>
+          )}
           <div className="divide-y divide-slate-200 dark:divide-white/5">
             {filteredAssets.map((asset, idx) => (
               <motion.div

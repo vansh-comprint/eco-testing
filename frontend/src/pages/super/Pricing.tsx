@@ -191,15 +191,9 @@ export function Pricing() {
         label="Super Admin"
         title="Device Pricing & Grading"
         subtitle="Configure base prices and grading multipliers"
+        backLink
         actions={
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
             <Button
               variant="primary"
               leftIcon={<Plus className={iconSize.sm} />}

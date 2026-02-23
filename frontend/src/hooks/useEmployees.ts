@@ -240,18 +240,21 @@ export function useBulkCreateSubUsers() {
 
   return useMutation({
     mutationFn: async (subUsers: CreateSubUserInput[]) => {
-      // Transform to API format
+      // Transform to API format — include per-row branch_id
       const users: SubUserBulkItem[] = subUsers.map(u => ({
         email: u.email,
         name: u.name || u.email.split('@')[0],
         phone: u.phone,
         department: u.department,
         employee_id: u.employee_id,
+        branch_id: u.branch_id,
       }));
 
-      // Get enterprise_id and branch_id from first user (all should be same)
+      // Get enterprise_id from first user (all should be same enterprise)
       const enterprise_id = subUsers[0]?.enterprise_id;
-      const branch_id = subUsers[0]?.branch_id;
+      // Top-level branch_id: use only if ALL users share the same branch
+      const allSameBranch = subUsers.every(u => u.branch_id === subUsers[0]?.branch_id);
+      const branch_id = allSameBranch ? subUsers[0]?.branch_id : undefined;
 
       const response = await subUsersApi.bulkCreate({
         enterprise_id,

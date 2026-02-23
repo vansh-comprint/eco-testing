@@ -49,6 +49,7 @@ export interface CreateUserInput {
 
 export interface CreateSubUserInput {
   enterprise_id: string;
+  branch_id?: string;
   name?: string;
   email: string;
   phone?: string;

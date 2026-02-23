@@ -96,8 +96,7 @@ export function ITAdminLogisticsAssignments() {
         label="Logistics Management"
         title="Assignment Queue"
         subtitle="Assign pickups to logistics users"
-        backLink={`${basePath}/logistics`}
-        backLabel="Back to Logistics"
+        backLink
       />
 
       {/* Filters */}

@@ -14,7 +14,6 @@ import {
   Mail,
   Phone,
   Save,
-  CheckCircle,
   MapPin,
   Plus,
   Edit2,
@@ -54,6 +53,8 @@ const OPERATING_HOURS_OPTIONS = [
 
 type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'bank' | 'locations' | 'security';
 
+const NOTIFICATION_STORAGE_KEY = 'ecotribe-it-notification-prefs';
+
 // V3: Pickup location type with snake_case
 interface PickupLocationData {
   id: string;
@@ -85,7 +86,6 @@ export function Settings() {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   // Pickup locations modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<PickupLocationData | null>(null);
@@ -107,7 +107,7 @@ export function Settings() {
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || '',
+    phone: (user?.phone || '').replace(/^\+91[\s-]?/, ''),
     department: user?.department || '',
   });
 
@@ -123,8 +123,8 @@ export function Settings() {
     contactPhone: enterprise?.contactPhone || '',
   });
 
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
+  // Notification preferences — persisted to localStorage
+  const DEFAULT_NOTIFICATIONS = {
     emailAssetUpdates: true,
     emailBatchUpdates: true,
     emailPayoutUpdates: true,
@@ -132,6 +132,13 @@ export function Settings() {
     smsAssetUpdates: false,
     smsBatchUpdates: true,
     smsPayoutUpdates: true,
+  };
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+      if (saved) return { ...DEFAULT_NOTIFICATIONS, ...JSON.parse(saved) };
+    } catch { /* ignore */ }
+    return DEFAULT_NOTIFICATIONS;
   });
 
   // Bank form — load from localStorage if available
@@ -154,6 +161,10 @@ export function Settings() {
     setIsSaving(true);
     try {
       if (activeTab === 'profile') {
+        if (profileForm.phone && profileForm.phone.length !== 10) {
+          addToast({ type: 'error', title: 'Invalid Phone', message: 'Phone number must be exactly 10 digits.' });
+          return;
+        }
         const response = await usersApi.updateMe({
           name: profileForm.name,
           phone: profileForm.phone,
@@ -164,16 +175,20 @@ export function Settings() {
         // Refresh auth store so sidebar/header reflects new name
         await useAuthStoreApi.getState().refreshUser();
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
+      } else if (activeTab === 'notifications') {
+        localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications));
+        addToast({ type: 'success', title: 'Notifications Saved', message: 'Notification preferences have been updated.' });
       } else if (activeTab === 'bank') {
+        if (bankForm.accountNumber && bankForm.accountNumber !== bankForm.confirmAccountNumber) {
+          addToast({ type: 'error', title: 'Account Mismatch', message: 'Account numbers do not match.' });
+          return;
+        }
         // Bank details: persist to localStorage until backend endpoint is available
         localStorage.setItem('ecotribe-bank-details', JSON.stringify(bankForm));
         addToast({ type: 'success', title: 'Bank Details Saved', message: 'Bank details saved locally. Backend persistence coming soon.' });
-      } else {
-        // Enterprise and Notifications: save locally for now
+      } else if (activeTab === 'enterprise') {
         addToast({ type: 'success', title: 'Settings Saved', message: 'Changes saved successfully.' });
       }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
     } catch (error) {
       addToast({
         type: 'error',
@@ -253,8 +268,6 @@ export function Settings() {
         });
       }
       setShowLocationModal(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
       addToast({
         type: 'success',
         title: editingLocation ? 'Location Updated' : 'Location Added',
@@ -380,8 +393,16 @@ export function Settings() {
                       value={profileForm.phone}
                       onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       maxLength={10}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      placeholder="10-digit phone number"
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                        profileForm.phone && profileForm.phone.length > 0 && profileForm.phone.length < 10
+                          ? 'border-red-400 dark:border-red-500/50 focus:border-red-500'
+                          : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {profileForm.phone && profileForm.phone.length > 0 && profileForm.phone.length < 10 && (
+                      <p className="font-mono text-[10px] text-red-500 mt-1">Phone number must be exactly 10 digits</p>
+                    )}
                   </div>
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Department</label>
@@ -474,8 +495,11 @@ export function Settings() {
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">PIN Code</label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
                       value={enterpriseForm.pincode}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value })}
+                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value.replace(/\D/g, '') })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -780,19 +804,9 @@ export function Settings() {
             </div>
           )}
 
-          {/* Save Button - only show for non-locations tabs */}
-          {activeTab !== 'locations' && (
-            <div className="mt-6 flex items-center justify-end gap-4">
-              {saved && (
-                <motion.div
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-2 text-emerald-400"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-mono text-xs uppercase tracking-widest">Changes saved</span>
-                </motion.div>
-              )}
+          {/* Save Button — hidden on Security tab (PasswordChange has its own button) and Locations tab */}
+          {activeTab !== 'locations' && activeTab !== 'security' && (
+            <div className="mt-6 flex items-center justify-end">
               <button
                 onClick={handleSave}
                 disabled={isSaving}
@@ -876,9 +890,12 @@ export function Settings() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
                     placeholder="e.g., 560001"
                     value={locationForm.pin_code || ''}
-                    onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value })}
+                    onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value.replace(/\D/g, '') })}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
                 </div>

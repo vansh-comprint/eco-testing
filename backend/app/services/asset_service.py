@@ -50,6 +50,7 @@ class AssetService:
         statuses: Optional[List[str]] = None,
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None,
     ) -> Tuple[List[AssetResponse], int, float]:
         """List assets with filters and pagination. Returns (assets, total_count, total_value)."""
         assets, total, total_value = await self.repository.get_all(
@@ -63,6 +64,7 @@ class AssetService:
             statuses=statuses,
             assigned_to_user_id=assigned_to_user_id,
             search=search,
+            sort_by=sort_by,
         )
         return [self._asset_to_response(a) for a in assets], total, total_value
 

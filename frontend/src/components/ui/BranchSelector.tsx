@@ -426,6 +426,7 @@ function AddBranchModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent bubbling through React portal to outer form (e.g. BatchCreate)
     if (!validate()) return;
 
     try {

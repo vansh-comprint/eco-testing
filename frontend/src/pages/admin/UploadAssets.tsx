@@ -219,7 +219,7 @@ export function UploadAssets() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton to={`${portalBase}/assets`} label="Back to Assets" className="mb-6" />
+          <BackButton className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">

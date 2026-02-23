@@ -21,7 +21,7 @@ import {
   useDeletePickupLocation,
   useSetDefaultPickupLocation,
 } from '@/hooks';
-import { ConfirmationModal } from '@/components/ui';
+import { ConfirmationModal, useToast } from '@/components/ui';
 
 // V3: Database pickup location type (snake_case)
 interface PickupLocation {
@@ -61,6 +61,7 @@ interface CreatePickupLocationInput {
 export function PickupLocations() {
   // V3: Use React Query hook for auth
   const { user, enterprise } = useAuth();
+  const { addToast } = useToast();
   const enterpriseId = enterprise?.id || '';
 
   // V3: React Query hooks for data fetching
@@ -81,7 +82,7 @@ export function PickupLocations() {
       setIsCreateModalOpen(false);
     } catch (error) {
       console.error('Failed to create location:', error);
-      alert('Failed to create location. Please try again.');
+      addToast({ type: 'error', title: 'Create Failed', message: error instanceof Error ? error.message : 'Failed to create location. Please try again.' });
     }
   };
 
@@ -91,6 +92,7 @@ export function PickupLocations() {
       await setDefaultMutation.mutateAsync({ locationId, enterpriseId });
     } catch (error) {
       console.error('Failed to set default location:', error);
+      addToast({ type: 'error', title: 'Update Failed', message: error instanceof Error ? error.message : 'Failed to set default location. Please try again.' });
     }
   };
 
@@ -107,6 +109,7 @@ export function PickupLocations() {
       setPendingDeleteId(null);
     } catch (error) {
       console.error('Failed to delete location:', error);
+      addToast({ type: 'error', title: 'Delete Failed', message: error instanceof Error ? error.message : 'Failed to delete location. Please try again.' });
     }
   };
 
@@ -334,6 +337,7 @@ interface LocationModalProps {
 }
 
 function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModalProps) {
+  const { addToast } = useToast();
   // V3: Use snake_case for form data to match database
   const [formData, setFormData] = useState<CreatePickupLocationInput>({
     enterprise_id: enterpriseId,
@@ -360,6 +364,7 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
       onClose();
     } catch (error) {
       console.error('Failed to save location:', error);
+      addToast({ type: 'error', title: 'Save Failed', message: error instanceof Error ? error.message : 'Failed to save location. Please try again.' });
     } finally {
       setIsSaving(false);
     }

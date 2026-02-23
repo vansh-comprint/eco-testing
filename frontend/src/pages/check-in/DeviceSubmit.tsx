@@ -205,8 +205,6 @@ export function DeviceSubmit() {
   }
 
   if (!asset) {
-    const backPath = basePath === '/check-in' ? basePath : `${basePath}/my-evaluations`;
-    const backLabel = basePath === '/check-in' ? 'Back to Dashboard' : 'Back to My Evaluations';
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center p-8">
@@ -214,10 +212,10 @@ export function DeviceSubmit() {
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Device Not Found</h2>
           <p className="text-slate-500 dark:text-white/50 mb-6">This device may have been removed or reassigned.</p>
           <button
-            onClick={() => navigate(backPath)}
+            onClick={() => navigate(-1)}
             className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
           >
-            {backLabel}
+            Back
           </button>
         </div>
       </div>
@@ -242,7 +240,7 @@ export function DeviceSubmit() {
           <button
             onClick={() => {
               if (window.confirm('Are you sure? Your progress will be saved.')) {
-                navigate(basePath);
+                navigate(-1);
               }
             }}
             className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors mb-3"

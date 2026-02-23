@@ -239,15 +239,9 @@ export function AllAssets() {
         label="Super Admin"
         title="All Assets"
         subtitle="Organized by Enterprise and Batch"
+        backLink
         actions={
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
             <Button
               variant="primary"
               leftIcon={<Download className={iconSize.sm} />}

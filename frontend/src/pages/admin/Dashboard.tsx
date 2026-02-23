@@ -434,7 +434,7 @@ export function ITAdminDashboard() {
               label: 'In Progress',
               value: stats.batch_active ?? 0,
               accent: 'info' as StatAccent,
-              onClick: () => navigate(`${basePath}/batches?status=active`),
+              onClick: () => navigate(`${basePath}/batches?status=approved,pickup_in_progress`),
             },
           ]}
           statColumns={4}

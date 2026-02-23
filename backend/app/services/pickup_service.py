@@ -217,7 +217,13 @@ class PickupService:
             if pickup.logistics_admin_id != user.id:
                 raise ValueError("Can only assign pickups assigned to you")
 
-        if pickup.status != PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value:
+        # Allow first-time assignment (from logistics admin) and reassignment (from logistics user/scheduled)
+        allowed_statuses = [
+            PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value,
+            PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            PickupStatus.SCHEDULED.value,
+        ]
+        if pickup.status not in allowed_statuses:
             raise ValueError("Pickup must be assigned to logistics admin first")
 
         # Verify the logistics user exists and belongs to this logistics admin
@@ -233,6 +239,12 @@ class PickupService:
                 raise ValueError("This logistics user does not belong to you")
 
         old_status = pickup.status
+        is_reassign = pickup.status in (
+            PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value,
+            PickupStatus.SCHEDULED.value,
+        )
+        old_logistics_user_id = pickup.logistics_user_id if is_reassign else None
+
         pickup.logistics_user_id = data.logistics_user_id
         pickup.status = PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value
         if data.scheduled_date:
@@ -243,6 +255,11 @@ class PickupService:
 
         # Log to audit trail
         audit = AuditService(self.session)
+        detail_msg = (
+            f"Reassigned from logistics user {old_logistics_user_id} to {data.logistics_user_id}"
+            if is_reassign
+            else f"Assigned to logistics user {data.logistics_user_id}"
+        )
         await audit.log_status_change(
             entity_type="pickup_request",
             entity_id=pickup_id,
@@ -250,9 +267,11 @@ class PickupService:
             new_status=pickup.status,
             user_id=user.id,
             enterprise_id=pickup.enterprise_id,
-            details=f"Assigned to logistics user {data.logistics_user_id}",
+            details=detail_msg,
             metadata={
                 "logistics_user_id": data.logistics_user_id,
+                "old_logistics_user_id": old_logistics_user_id,
+                "reassigned": is_reassign,
                 "scheduled_date": str(data.scheduled_date) if data.scheduled_date else None
             }
         )

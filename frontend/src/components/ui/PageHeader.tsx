@@ -14,9 +14,9 @@ export interface PageHeaderProps {
   /** Right-aligned action buttons */
   actions?: React.ReactNode;
   action?: React.ReactNode; // Alias for actions
-  /** Link to navigate back */
-  backLink?: string;
-  /** Label for the back button (e.g., "Back to Branches") */
+  /** Link to navigate back. Pass `true` for browser-back, or a string for explicit route. */
+  backLink?: string | boolean;
+  /** Label for the back button. Defaults to "Back". */
   backLabel?: string;
   /** Whether to show bottom border */
   bordered?: boolean;
@@ -56,7 +56,7 @@ export function PageHeader({
       )}
     >
       <div>
-        {backLink && <BackButton to={backLink} label={backLabel} />}
+        {backLink && <BackButton to={typeof backLink === 'string' ? backLink : undefined} label={backLabel} />}
         {label && (
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-2">
             {label}

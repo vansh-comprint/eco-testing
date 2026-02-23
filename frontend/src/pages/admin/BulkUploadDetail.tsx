@@ -46,10 +46,10 @@ export function BulkUploadDetail() {
           <FileSpreadsheet className="w-12 h-12 mx-auto mb-4 text-zinc-600" />
           <p className="font-display font-bold text-zinc-500 uppercase tracking-wide">Bulk Upload Not Found</p>
           <button
-            onClick={() => navigate(`${basePath}/assets`)}
+            onClick={() => navigate(-1)}
             className="mt-4 text-ecotribe-primary font-mono text-xs uppercase tracking-widest hover:underline"
           >
-            Back to Assets
+            Back
           </button>
         </div>
       </div>
@@ -94,7 +94,7 @@ export function BulkUploadDetail() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton to={`${portalBase}/assets`} label="Back to Assets" className="mb-6" />
+          <BackButton className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-center">

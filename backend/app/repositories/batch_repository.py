@@ -29,6 +29,7 @@ class BatchRepository:
         statuses: Optional[List[str]] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None,
     ) -> Tuple[List[Batch], int]:
         """Get all batches with filters and pagination"""
         query = select(Batch)
@@ -70,8 +71,14 @@ class BatchRepository:
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 
-        # Apply pagination and ordering
-        query = query.order_by(Batch.created_at.desc()).offset(skip).limit(limit)
+        # Apply ordering
+        sort_map = {
+            "oldest": Batch.created_at.asc(),
+            "value_desc": Batch.estimated_value.desc(),
+            "assets_desc": Batch.asset_count.desc(),
+        }
+        order_clause = sort_map.get(sort_by, Batch.created_at.desc())  # default: newest
+        query = query.order_by(order_clause).offset(skip).limit(limit)
 
         result = await self.db.execute(query)
         batches = list(result.scalars().all())

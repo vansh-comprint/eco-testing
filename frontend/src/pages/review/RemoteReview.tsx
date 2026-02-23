@@ -65,10 +65,10 @@ export function RemoteReview() {
           <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase mb-2">Asset Not Found</h2>
           <p className="font-display text-zinc-500 mb-6">The asset you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/review/queue')}
+            onClick={() => navigate(-1)}
             className="interactive px-6 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
           >
-            Back to Queue
+            Back
           </button>
         </div>
       </div>
@@ -122,7 +122,7 @@ export function RemoteReview() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/review/queue')}
+          onClick={() => navigate(-1)}
           className="interactive w-10 h-10 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
         >
           <ArrowLeft className="w-5 h-5 text-slate-900 dark:text-white" />

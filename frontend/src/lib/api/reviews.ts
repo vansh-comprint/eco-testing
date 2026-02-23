@@ -40,8 +40,8 @@ export interface FacilityQCResponse {
 }
 
 export interface ReviewListParams {
-  skip?: number;
-  limit?: number;
+  page?: number;
+  page_size?: number;
   decision?: string;
   status?: string;
 }
@@ -77,8 +77,8 @@ export interface FacilityQCCreateRequest {
 export const reviewsApi = {
   listRemote: (params: ReviewListParams = {}) => {
     const query = new URLSearchParams();
-    if (params.skip) query.set('skip', params.skip.toString());
-    query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page', (params.page ?? 1).toString());
+    query.set('page_size', (params.page_size ?? DEFAULT_PAGE_SIZE).toString());
     if (params.decision) query.set('decision', params.decision);
     return fetchWithAuth<RemoteReviewResponse[]>(`/reviews/remote?${query.toString()}`);
   },
@@ -99,8 +99,8 @@ export const reviewsApi = {
 
   listFacility: (params: ReviewListParams = {}) => {
     const query = new URLSearchParams();
-    if (params.skip) query.set('skip', params.skip.toString());
-    query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page', (params.page ?? 1).toString());
+    query.set('page_size', (params.page_size ?? DEFAULT_PAGE_SIZE).toString());
     if (params.decision) query.set('decision', params.decision);
     return fetchWithAuth<FacilityQCResponse[]>(`/reviews/facility?${query.toString()}`);
   },
@@ -115,8 +115,8 @@ export const reviewsApi = {
 
   listOnsite: (params: ReviewListParams = {}) => {
     const query = new URLSearchParams();
-    if (params.skip) query.set('skip', params.skip.toString());
-    query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page', (params.page ?? 1).toString());
+    query.set('page_size', (params.page_size ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
     return fetchWithAuth<FacilityQCResponse[]>(`/reviews/onsite?${query.toString()}`);
   },

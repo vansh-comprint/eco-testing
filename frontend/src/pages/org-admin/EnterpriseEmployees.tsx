@@ -4,6 +4,7 @@
  * Grouped by branch with search and status filtering
  */
 import React, { useState, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -18,6 +19,8 @@ import {
   Monitor,
   Download,
   Filter,
+  UserPlus,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
@@ -29,14 +32,19 @@ type ViewMode = 'list' | 'by-branch';
 type StatusFilter = 'all' | 'active' | 'pending_invite' | 'inactive';
 
 export function EnterpriseEmployees() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
+
+  // Initialize branch filter from URL ?branch= param (e.g., from BranchDetail "View All" link)
+  const urlBranch = searchParams.get('branch');
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
+  const [viewMode, setViewMode] = useState<ViewMode>(urlBranch ? 'list' : 'by-branch');
 
   // Server-side search/filter params
   const apiParams = useMemo(() => {
@@ -88,10 +96,8 @@ export function EnterpriseEmployees() {
     return { total, active, pending, inactive, totalAssigned };
   }, [employees, employeeAssetCounts, dashStats]);
 
-  // Filtered employees (search/status/branch are now server-side, only sort remains client-side)
-  const filteredEmployees = useMemo(() => {
-    return [...employees].sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
-  }, [employees]);
+  // All filtering and sorting is server-side
+  const filteredEmployees = employees;
 
   // Group by branch
   const employeesByBranch = useMemo(() => {
@@ -133,9 +139,9 @@ export function EnterpriseEmployees() {
   };
 
   const statItems = [
-    { label: 'Total Employees', value: stats.total, icon: <Users className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
-    { label: 'Active', value: stats.active, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter('active') },
-    { label: 'Pending Invite', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter('pending_invite') },
+    { label: 'Total Employees', value: stats.total, icon: <Users className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent, onClick: () => { setStatusFilter('all'); setBranchFilter('all'); } },
+    { label: 'Active', value: stats.active, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'active' ? 'all' : 'active') },
+    { label: 'Pending Invite', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending_invite' ? 'all' : 'pending_invite') },
     { label: 'Assets Assigned', value: stats.totalAssigned, icon: <Monitor className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent },
   ];
 
@@ -157,13 +163,22 @@ export function EnterpriseEmployees() {
         title="All Employees"
         subtitle={`${employees.length} employees across ${branches.length} branches`}
         actions={
-          <button
-            onClick={handleExport}
-            className="px-4 py-2.5 bg-white/70 dark:bg-zinc-800/70 backdrop-blur-sm border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono font-bold text-xs uppercase tracking-widest hover:border-blue-500/40 transition-all flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/org-admin/employees/invite')}
+              className="px-4 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-ecotribe-primary/80 transition-all flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Add Employee
+            </button>
+            <button
+              onClick={handleExport}
+              className="px-4 py-2.5 bg-white/70 dark:bg-zinc-800/70 backdrop-blur-sm border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono font-bold text-xs uppercase tracking-widest hover:border-blue-500/40 transition-all flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
         }
       />
 
@@ -204,35 +219,36 @@ export function EnterpriseEmployees() {
             </select>
           </div>
           <div className="relative">
-            <Building2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${branchFilter !== 'all' ? 'text-ecotribe-primary' : 'text-slate-400'}`} />
+            <Building2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 z-10 ${branchFilter !== 'all' ? 'text-ecotribe-primary' : 'text-slate-400'}`} />
             <select
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
-              className={`pl-9 pr-8 py-3 border bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer ${branchFilter !== 'all' ? 'border-ecotribe-primary/50' : 'border-slate-200 dark:border-white/10'}`}
+              className={`pl-9 pr-8 py-3 min-w-[180px] max-w-[260px] border bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none appearance-none cursor-pointer truncate ${branchFilter !== 'all' ? 'border-ecotribe-primary/50' : 'border-slate-200 dark:border-white/10'}`}
             >
               <option value="all">All Branches</option>
               {branches.map((b: any) => (
-                <option key={b.id} value={b.id}>{b.branch_name || b.name}</option>
+                <option key={b.id} value={b.id}>{b.branch_name || b.name || 'Unnamed Branch'}</option>
               ))}
             </select>
           </div>
           {/* View toggle */}
           <div className="flex border border-slate-200 dark:border-white/10">
             <button
+              onClick={() => setViewMode('by-branch')}
+              className={`px-3 py-2 font-mono font-bold text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1.5 ${
+                viewMode === 'by-branch' ? 'bg-ecotribe-primary text-black' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3 h-3" />
+              By Branch
+            </button>
+            <button
               onClick={() => setViewMode('list')}
               className={`px-3 py-2 font-mono font-bold text-[10px] uppercase tracking-widest transition-colors ${
                 viewMode === 'list' ? 'bg-ecotribe-primary text-black' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('by-branch')}
-              className={`px-3 py-2 font-mono font-bold text-[10px] uppercase tracking-widest transition-colors ${
-                viewMode === 'by-branch' ? 'bg-ecotribe-primary text-black' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              By Branch
+              Flat List
             </button>
           </div>
         </div>
@@ -277,7 +293,7 @@ export function EnterpriseEmployees() {
                 </div>
                 <div className="divide-y divide-slate-200/60 dark:divide-white/5">
                   {branchEmployees.map(emp => (
-                    <EmployeeRow key={emp.id} employee={emp} assetCounts={employeeAssetCounts.get(emp.id)} getStatusBadge={getStatusBadge} />
+                    <EmployeeRow key={emp.id} employee={emp} assetCounts={employeeAssetCounts.get(emp.id)} getStatusBadge={getStatusBadge} onClick={() => navigate(`/org-admin/employees/${emp.id}`)} />
                   ))}
                 </div>
               </div>
@@ -289,13 +305,14 @@ export function EnterpriseEmployees() {
           <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto">
             <div className="min-w-[700px]">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
+            <div className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px_24px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Employee</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Branch</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Role</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Status</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-center">Assigned</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-center">Submitted</p>
+              <span />
             </div>
             <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-200/60 dark:divide-white/5">
               {filteredEmployees.length > 0 ? (
@@ -303,7 +320,14 @@ export function EnterpriseEmployees() {
                   const counts = employeeAssetCounts.get(emp.id);
                   const badge = getStatusBadge(emp.status);
                   return (
-                    <div key={emp.id} className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors">
+                    <div
+                      key={emp.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/org-admin/employees/${emp.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/org-admin/employees/${emp.id}`); } }}
+                      className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px_24px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50"
+                    >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
                           <span className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
@@ -333,6 +357,7 @@ export function EnterpriseEmployees() {
                       </span>
                       <p className="font-mono text-sm text-slate-600 dark:text-zinc-400 text-center">{counts?.assigned || 0}</p>
                       <p className="font-mono text-sm text-ecotribe-primary text-center font-bold">{counts?.submitted || 0}</p>
+                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
                     </div>
                   );
                 })
@@ -351,14 +376,15 @@ export function EnterpriseEmployees() {
   );
 }
 
-function EmployeeRow({ employee: emp, assetCounts, getStatusBadge }: {
+function EmployeeRow({ employee: emp, assetCounts, getStatusBadge, onClick }: {
   employee: any;
   assetCounts?: { assigned: number; submitted: number };
   getStatusBadge: (s: string) => { color: string; icon: React.ReactElement };
+  onClick?: () => void;
 }) {
   const badge = getStatusBadge(emp.status);
   return (
-    <div className="p-4 flex items-center gap-4 hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors">
+    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onClick) { e.preventDefault(); onClick(); } }} className="p-4 flex items-center gap-4 hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50">
       <div className="w-9 h-9 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
         <span className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
           {(emp.name || emp.email || '?').charAt(0)}
@@ -392,6 +418,7 @@ function EmployeeRow({ employee: emp, assetCounts, getStatusBadge }: {
         <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">{assetCounts?.assigned || 0} assigned</p>
         <p className="font-mono text-xs text-ecotribe-primary font-bold">{assetCounts?.submitted || 0} submitted</p>
       </div>
+      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0" />
     </div>
   );
 }

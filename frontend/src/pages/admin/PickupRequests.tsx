@@ -90,13 +90,8 @@ export function PickupRequests() {
 
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // All filtering is now server-side (search + status + enterprise via useInfinitePickups)
-  // Just sort client-side by date descending
-  const filteredRequests = useMemo(() => {
-    const result = [...allPickups];
-    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return result;
-  }, [allPickups]);
+  // All filtering and sorting is server-side (server returns created_at DESC by default)
+  const filteredRequests = allPickups;
 
   // Calculate stats — use backend stats for most, keep exceptions client-side
   const stats = useMemo(() => {
@@ -109,13 +104,13 @@ export function PickupRequests() {
     return { requested, scheduled, inProgress, completed, exceptions };
   }, [allPickups, dashStats]);
 
-  // V3.2: Get branch name from joined data
-  const getBranchName = (request: typeof allPickups[0]) => {
-    return request.branches?.branch_name || 'Unknown Branch';
+  // Get location name from REST API response (pickup_locations join)
+  const getLocationName = (request: typeof allPickups[0]) => {
+    return request.pickup_locations?.name || request.branches?.branch_name || 'Unknown Location';
   };
 
-  const getBranchCity = (request: typeof allPickups[0]) => {
-    return request.branches?.city || '';
+  const getLocationCity = (request: typeof allPickups[0]) => {
+    return request.pickup_locations?.city || request.branches?.city || '';
   };
 
   // Loading state
@@ -240,11 +235,11 @@ export function PickupRequests() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
-                              {getBranchName(request)}
+                              {getLocationName(request)}
                             </h3>
-                            {request.branches?.branch_code && (
+                            {(request.pickup_locations?.state || request.branches?.branch_code) && (
                               <span className="font-mono text-xs text-ecotribe-primary bg-ecotribe-primary/10 px-2 py-0.5">
-                                {request.branches.branch_code}
+                                {request.pickup_locations?.state || request.branches?.branch_code}
                               </span>
                             )}
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest ${statusConfig.color}`}>
@@ -258,7 +253,7 @@ export function PickupRequests() {
                             )}
                           </div>
                           <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                            {getBranchCity(request)}
+                            {getLocationCity(request)}
                           </p>
                         </div>
                       </div>

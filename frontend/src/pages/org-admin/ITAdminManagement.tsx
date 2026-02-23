@@ -21,8 +21,12 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  Key,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from 'lucide-react';
-import { useAuth, useITAdmins, useITAdminBranches, useBranches, useUpdateITAdmin, useUpdateITAdminStatus, useDashboardStats } from '@/hooks';
+import { useAuth, useITAdmins, useITAdminBranches, useBranches, useUpdateITAdmin, useResetITAdminPassword, useUpdateITAdminStatus, useDashboardStats } from '@/hooks';
 import { formatDistanceToNow } from 'date-fns';
 import { USER_STATUS_DISPLAY } from '@/lib/status-display';
 import { ConfirmationModal } from '@/components/ui';
@@ -60,6 +64,7 @@ export function ITAdminManagement() {
   const { stats: dashStats } = useDashboardStats();
 
   const updateITAdmin = useUpdateITAdmin();
+  const resetPassword = useResetITAdminPassword();
   const updateStatus = useUpdateITAdminStatus();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -436,11 +441,27 @@ export function ITAdminManagement() {
           enterpriseId={enterpriseId}
           currentBranchIds={branchInfoMap.get(editingAdmin.id)?.branches?.map(b => b.id) || []}
           onSubmit={async (data) => {
-            await updateITAdmin.mutateAsync({ userId: editingAdmin.id, data });
-            setIsEditModalOpen(false);
-            setEditingAdmin(null);
+            const { newPassword, ...updateData } = data;
+            try {
+              // Update profile fields (name, email, phone, branch)
+              await updateITAdmin.mutateAsync({ userId: editingAdmin.id, data: updateData });
+              // Reset password if provided
+              if (newPassword) {
+                try {
+                  await resetPassword.mutateAsync({ userId: editingAdmin.id, newPassword });
+                } catch (pwErr: any) {
+                  // Profile updated but password failed — tell the user
+                  throw new Error(`Profile updated successfully, but password reset failed: ${pwErr?.message || 'Unknown error'}. Please try resetting the password again.`);
+                }
+              }
+              setIsEditModalOpen(false);
+              setEditingAdmin(null);
+            } catch (err: any) {
+              // Re-throw so EditITAdminModal can display the error
+              throw err;
+            }
           }}
-          isLoading={updateITAdmin.isPending}
+          isLoading={updateITAdmin.isPending || resetPassword.isPending}
         />
       )}
 
@@ -505,21 +526,66 @@ function EditITAdminModal({
   admin: ITAdmin;
   enterpriseId: string;
   currentBranchIds: string[];
-  onSubmit: (data: { name?: string; phone?: string; branch_id?: string }) => Promise<void>;
+  onSubmit: (data: { name?: string; email?: string; phone?: string; branch_id?: string; newPassword?: string }) => Promise<void>;
   isLoading: boolean;
 }) {
   const { data: branches = [] } = useBranches(enterpriseId);
   const [formData, setFormData] = useState({
     name: admin.name || '',
+    email: admin.email || '',
     phone: admin.phone || '',
     branch_id: currentBranchIds[0] || '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Password reset state
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Reset form when admin changes
+  useState(() => {
+    setFormData({
+      name: admin.name || '',
+      email: admin.email || '',
+      phone: admin.phone || '',
+      branch_id: currentBranchIds[0] || '',
+    });
+  });
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim() || formData.name.trim().length < 2) {
       errors.name = 'Name must be at least 2 characters';
+    }
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Enter a valid email address';
+    }
+    if (formData.phone) {
+      const cleaned = formData.phone.replace(/\D/g, '');
+      if (cleaned.length !== 10 || !/^[6-9]\d{9}$/.test(cleaned)) {
+        errors.phone = 'Enter a valid 10-digit mobile number';
+      }
+    }
+    // Password validation (only if user wants to change password)
+    if (showPasswordSection && newPassword) {
+      if (newPassword.length < 8) {
+        errors.newPassword = 'Password must be at least 8 characters';
+      } else if (!/[a-zA-Z]/.test(newPassword)) {
+        errors.newPassword = 'Password must contain at least one letter';
+      } else if (!/[0-9]/.test(newPassword)) {
+        errors.newPassword = 'Password must contain at least one number';
+      } else if (!/[^a-zA-Z0-9]/.test(newPassword)) {
+        errors.newPassword = 'Password must contain at least one special character';
+      }
+      if (newPassword !== confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -528,12 +594,33 @@ function EditITAdminModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    await onSubmit({
+    setSubmitError(null);
+
+    const submitData: Record<string, any> = {
       name: formData.name,
       phone: formData.phone || undefined,
       branch_id: formData.branch_id || undefined,
-    });
-    setFormErrors({});
+    };
+
+    // Only include email if it changed
+    if (formData.email !== admin.email) {
+      submitData.email = formData.email;
+    }
+
+    // Include password if set
+    if (showPasswordSection && newPassword) {
+      submitData.newPassword = newPassword;
+    }
+
+    try {
+      await onSubmit(submitData);
+      setFormErrors({});
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordSection(false);
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Failed to update IT Admin. Please try again.');
+    }
   };
 
   if (!isOpen) return null;
@@ -544,7 +631,7 @@ function EditITAdminModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md shadow-xl"
+        className="relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-zinc-800">
           <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">Edit IT Admin</h2>
@@ -553,7 +640,16 @@ function EditITAdminModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }} className="p-5 space-y-4">
+          {submitError && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm font-mono">
+              {submitError}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Full Name *</label>
             <input
@@ -566,14 +662,20 @@ function EditITAdminModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Email</label>
+            <label className="block text-sm font-medium mb-1.5 text-slate-900 dark:text-white">Email *</label>
             <input
               type="email"
-              value={admin.email}
-              disabled
-              className="w-full px-3 py-2.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-white/50 text-sm cursor-not-allowed"
+              value={formData.email}
+              onChange={(e) => { setFormData(prev => ({ ...prev, email: e.target.value })); setFormErrors(prev => ({ ...prev, email: '' })); }}
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.email ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
-            <p className="mt-1 text-xs text-slate-400 dark:text-white/30 font-mono">Email cannot be changed</p>
+            {formErrors.email && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.email}</p>}
+            {formData.email !== admin.email && (
+              <p className="mt-1 text-xs text-amber-500 font-mono flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Email will be updated — the admin will need to use the new email to log in.
+              </p>
+            )}
           </div>
 
           <div>
@@ -581,12 +683,13 @@ function EditITAdminModal({
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+              onChange={(e) => { setFormData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })); setFormErrors(prev => ({ ...prev, phone: '' })); }}
               inputMode="numeric"
               maxLength={10}
               placeholder="9876543210"
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50"
+              className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.phone ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
             />
+            {formErrors.phone && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.phone}</p>}
           </div>
 
           <div>
@@ -608,6 +711,88 @@ function EditITAdminModal({
             <p className="mt-1 text-xs text-slate-400 dark:text-white/30 font-mono">
               Additional branches can be managed via Branch Management.
             </p>
+          </div>
+
+          {/* Password Reset Section */}
+          <div className="border-t border-slate-200 dark:border-zinc-800 pt-4">
+            {!showPasswordSection ? (
+              <button
+                type="button"
+                onClick={() => setShowPasswordSection(true)}
+                className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                <Key className="w-4 h-4" />
+                Reset Password
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Key className="w-4 h-4 text-amber-500" />
+                    Reset Password
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordSection(false);
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      setFormErrors(prev => { const { newPassword: _, confirmPassword: __, ...rest } = prev; return rest; });
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-zinc-400">New Password *</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => { setNewPassword(e.target.value); setFormErrors(prev => ({ ...prev, newPassword: '' })); }}
+                      placeholder="Min 8 chars, letter + number + special"
+                      className={`w-full px-3 py-2 pr-10 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.newPassword ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {formErrors.newPassword && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.newPassword}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-zinc-400">Confirm Password *</label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); setFormErrors(prev => ({ ...prev, confirmPassword: '' })); }}
+                      placeholder="Re-enter new password"
+                      className={`w-full px-3 py-2 pr-10 bg-slate-50 dark:bg-zinc-900 border text-slate-900 dark:text-white text-sm focus:outline-none focus:border-lime-500/50 ${formErrors.confirmPassword ? 'border-red-500' : 'border-slate-200 dark:border-zinc-800'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {formErrors.confirmPassword && <p className="mt-1 text-xs text-red-500 font-mono">{formErrors.confirmPassword}</p>}
+                </div>
+
+                <p className="text-xs text-amber-500 dark:text-amber-400 font-mono flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                  This will immediately change the admin's password and invalidate their active sessions.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">

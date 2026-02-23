@@ -61,8 +61,8 @@ export interface PayoutResponse {
 }
 
 export interface PayoutListParams {
-  skip?: number;
-  limit?: number;
+  page?: number;
+  page_size?: number;
   status?: string;
 }
 
@@ -84,8 +84,8 @@ export interface PayoutCreateRequest {
 export const payoutsApi = {
   list: (params: PayoutListParams = {}) => {
     const query = new URLSearchParams();
-    if (params.skip) query.set('skip', params.skip.toString());
-    query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
+    query.set('page', (params.page ?? 1).toString());
+    query.set('page_size', (params.page_size ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
     return fetchWithAuth<PayoutResponse[]>(`/payouts?${query.toString()}`);
   },

@@ -16,8 +16,9 @@ import {
   Loader2,
   UserX,
   UserCheck,
+  Building2,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { subUserKeys } from '@/hooks/useEmployees';
@@ -81,6 +82,15 @@ export function EmployeeList() {
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
+
+  // Branch data for IT Admin — show branch badge when managing multiple branches
+  const { data: itAdminBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? userId : '');
+  const showBranchBadge = !isOrgAdmin && itAdminBranches.length > 1;
+  const branchMap = useMemo(() => {
+    const map = new Map<string, string>();
+    itAdminBranches.forEach((b: any) => map.set(b.id, b.branch_name || b.name || ''));
+    return map;
+  }, [itAdminBranches]);
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [pendingToggle, setPendingToggle] = useState<{ userId: string; currentStatus: SubUserStatus; userName: string } | null>(null);
@@ -374,6 +384,14 @@ export function EmployeeList() {
                         {user.department}
                       </span>
                     </div>
+
+                    {/* Branch Badge — only shown for multi-branch IT Admins */}
+                    {showBranchBadge && (
+                      <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 border border-blue-500/20 bg-blue-500/5 font-mono text-xs text-blue-500 dark:text-blue-400 uppercase tracking-wide flex-shrink-0">
+                        <Building2 className="w-3 h-3" />
+                        {user.branch_id ? (branchMap.get(user.branch_id) || 'Unknown') : 'Unassigned'}
+                      </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">

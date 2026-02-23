@@ -14,8 +14,10 @@ import { assetStatusLabels, type AssetStatus } from '@/types/asset';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
+  { value: 'in_progress', label: 'In Progress' },
   { value: 'review', label: 'Pending Review' },
   { value: 'qc', label: 'Pending QC' },
+  { value: 'accepted', label: 'Accepted' },
   { value: 'payout', label: 'Pending Payout' },
   { value: 'completed', label: 'Completed' },
   { value: 'rejected', label: 'Rejected' },
@@ -36,14 +38,16 @@ export function OpsAssets() {
 
   // Map status filter groups to actual status values for server-side filtering
   const STATUS_GROUP_MAP: Record<string, string> = {
+    in_progress: 'assigned,check_in_started,submitted,remote_review',
     review: 'submitted,remote_review',
     qc: 'in_transit,facility_qc,conditionally_accepted',
+    accepted: 'conditionally_accepted,final_accepted',
     payout: 'payout_pending',
     completed: 'final_accepted,completed',
     rejected: 'remote_rejected,final_rejected',
   };
 
-  // Build API params for server-side filtering
+  // Build API params for server-side filtering + sorting
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (debouncedSearch) params.search = debouncedSearch;
@@ -51,8 +55,9 @@ export function OpsAssets() {
     if (statusFilter !== 'all' && STATUS_GROUP_MAP[statusFilter]) {
       params.statuses = STATUS_GROUP_MAP[statusFilter];
     }
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [debouncedSearch, isAllEnterprises, selectedEnterpriseId, statusFilter]);
+  }, [debouncedSearch, isAllEnterprises, selectedEnterpriseId, statusFilter, sortBy]);
 
   // Stable params for unfiltered total count (not affected by search)
   const statsParams = useMemo(() => {
@@ -66,10 +71,11 @@ export function OpsAssets() {
   const stableTotalCount = statsData?.pages[0]?.pagination?.total ?? 0;
   const stableTotalValue = statsData?.pages[0]?.aggregates?.total_value ?? 0;
 
-  // V4: Infinite scroll hook — loads 5 assets at a time via REST API
+  // V4: Infinite scroll hook — loads assets via REST API with server-side sort
   const {
     data,
     isLoading,
+    isFetching,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
@@ -79,18 +85,21 @@ export function OpsAssets() {
   const allAssets = useMemo(() => data?.pages.flatMap(p => p.data || []) ?? [], [data]);
   const totalCount = data?.pages[0]?.pagination?.total ?? 0;
 
-  // Status filtering is now server-side via statuses param; client-side sort only
+  // Background refetch indicator (true when sort/filter changes trigger a server re-fetch)
+  const isRefetching = isFetching && !isLoading && !isFetchingNextPage;
+
+  // Optimistic client-side sort for instant feedback while server re-fetches
   const filteredAssets = useMemo(() => {
-    // Sort
+    if (!isRefetching) return allAssets;
     return [...allAssets].sort((a, b) => {
       if (sortBy === 'value') {
         return (Number(b.final_price) || Number(b.base_price) || 0) - (Number(a.final_price) || Number(a.base_price) || 0);
       }
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
-      return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
+      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
     });
-  }, [allAssets, sortBy]);
+  }, [allAssets, sortBy, isRefetching]);
 
   const getStatusColor = (status: AssetStatus) => {
     const colorMap: Record<string, string> = {
@@ -228,9 +237,15 @@ export function OpsAssets() {
       {filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+          transition={{ duration: 0.15 }}
+          className="relative"
         >
+          {isRefetching && (
+            <div className="absolute top-3 right-3 z-10">
+              <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+            </div>
+          )}
           {/* Mobile Card Layout */}
           <div className="md:hidden space-y-3">
             {filteredAssets.map((asset, idx) => (

@@ -113,6 +113,7 @@ class BatchService:
         statuses: Optional[List[str]] = None,
         created_by: Optional[str] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None,
     ) -> Tuple[List[BatchResponse], int]:
         """List batches with filters and pagination"""
         batches, total = await self.repository.get_all(
@@ -125,6 +126,7 @@ class BatchService:
             statuses=statuses,
             created_by=created_by,
             search=search,
+            sort_by=sort_by,
         )
         responses = [BatchResponse.model_validate(b) for b in batches]
 

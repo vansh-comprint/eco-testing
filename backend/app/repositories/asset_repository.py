@@ -43,6 +43,7 @@ class AssetRepository:
         statuses: Optional[List[str]] = None,
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None,
     ) -> Tuple[List[Asset], int, float]:
         """Get all assets with filters and pagination. Returns (assets, total_count, total_value)."""
         query = select(Asset)
@@ -102,8 +103,15 @@ class AssetRepository:
         value_result = await self.db.execute(value_query)
         total_value = float(value_result.scalar() or 0)
 
-        # Apply pagination and ordering
-        query = query.order_by(Asset.created_at.desc()).offset(skip).limit(limit)
+        # Apply ordering
+        sort_map = {
+            "oldest": Asset.created_at.asc(),
+            "serial": Asset.serial_number.asc(),
+            "brand": Asset.brand.asc(),
+            "value": func.coalesce(Asset.final_price, Asset.base_price, 0).desc(),
+        }
+        order_clause = sort_map.get(sort_by, Asset.created_at.desc())  # default: newest
+        query = query.order_by(order_clause).offset(skip).limit(limit)
 
         # Eagerly load enterprise and branch for name display
         query = query.options(selectinload(Asset.enterprise), selectinload(Asset.branch))

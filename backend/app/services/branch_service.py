@@ -206,6 +206,13 @@ class BranchService:
             if existing and existing.id != branch_id:
                 raise ConflictError(f"Branch with code {update_data['branch_code']} already exists")
 
+        # Auto-update status when it_admin_id changes (unless status is explicitly set)
+        if "it_admin_id" in update_data and "status" not in update_data:
+            if update_data["it_admin_id"] and branch.status == BranchStatus.NEEDS_ADMIN.value:
+                update_data["status"] = BranchStatus.ACTIVE.value
+            elif not update_data["it_admin_id"] and branch.status == BranchStatus.ACTIVE.value:
+                update_data["status"] = BranchStatus.NEEDS_ADMIN.value
+
         for key, value in update_data.items():
             setattr(branch, key, value)
 
@@ -408,13 +415,40 @@ class BranchService:
         asset_result = await self.db.execute(asset_counts_query)
         asset_counts = {row.branch_id: row for row in asset_result}
 
+        # Get batch counts per branch
+        batch_counts_query = (
+            select(
+                Batch.branch_id,
+                func.count(Batch.id).label("total"),
+                func.count(Batch.id)
+                .filter(
+                    Batch.status.in_(
+                        [
+                            "draft",
+                            "pending_approval",
+                            "approved",
+                            "pickup_in_progress",
+                        ]
+                    )
+                )
+                .label("active"),
+            )
+            .where(Batch.enterprise_id == enterprise_id)
+            .where(Batch.branch_id.isnot(None))
+            .group_by(Batch.branch_id)
+        )
+        batch_result = await self.db.execute(batch_counts_query)
+        batch_counts = {row.branch_id: row for row in batch_result}
+
         # Build response
         data = []
         for branch in branches:
             ac = asset_counts.get(branch.id)
+            bc = batch_counts.get(branch.id)
             data.append(
                 {
                     "id": branch.id,
+                    "branch_id": branch.id,
                     "enterprise_id": branch.enterprise_id,
                     "branch_name": branch.branch_name,
                     "branch_code": branch.branch_code,
@@ -425,6 +459,8 @@ class BranchService:
                     "asset_count": ac.total if ac else 0,
                     "pending_assets": ac.pending if ac else 0,
                     "completed_assets": ac.completed if ac else 0,
+                    "total_batch_count": bc.total if bc else 0,
+                    "active_batch_count": bc.active if bc else 0,
                 }
             )
 

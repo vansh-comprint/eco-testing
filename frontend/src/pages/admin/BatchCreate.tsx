@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -45,6 +45,13 @@ export function BatchCreate() {
     branchId: orgBranchCtx?.selectedBranchId || '',
     estimatedAssets: '',
   });
+
+  // Sync branch selection when org branch context changes (fixes wrong branch pre-selected)
+  useEffect(() => {
+    if (isOrgAdmin && orgBranchCtx?.selectedBranchId) {
+      setFormData(prev => ({ ...prev, branchId: orgBranchCtx.selectedBranchId! }));
+    }
+  }, [isOrgAdmin, orgBranchCtx?.selectedBranchId]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [createdBatch, setCreatedBatch] = useState<{ id: string; name: string } | null>(null);
@@ -199,11 +206,11 @@ export function BatchCreate() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/batches`)}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Batches
+            Back
           </button>
 
           <div className="flex items-start gap-5">

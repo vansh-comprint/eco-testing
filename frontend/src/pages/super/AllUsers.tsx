@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Search, Download, Edit2, ArrowLeft, Mail, Phone, UserPlus } from 'lucide-react';
 import { Input, Button, Card, Badge, PageHeader, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useToast } from '@/components/ui/Toast';
 import { EditUserModal, AddUserModal } from '@/pages/super';
 import { useInfiniteUsers, useDebounce, useDashboardStats } from '@/hooks';
 import { usersApi } from '@/lib/api/users';
@@ -23,6 +24,7 @@ interface User {
 
 export function AllUsers() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
@@ -90,7 +92,7 @@ export function AllUsers() {
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {
-    total: dashStats.user_total ?? 0,
+    total: (dashStats.user_super_admin ?? 0) + (dashStats.user_ops_admin ?? 0) + (dashStats.user_it_admin ?? 0) + (dashStats.user_org_admin ?? 0) + (dashStats.user_logistics ?? 0),
     superAdmins: dashStats.user_super_admin ?? 0,
     opsAdmins: dashStats.user_ops_admin ?? 0,
     itAdmins: dashStats.user_it_admin ?? 0,
@@ -107,34 +109,46 @@ export function AllUsers() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // Fetch ALL users from the API (not just the infinite-scroll subset)
-      const params: Record<string, string | number> = { limit: 10000 };
-      if (roleFilter !== 'all') params.role = roleFilter;
-      const result = await usersApi.list(params as any);
-      const allUsers: User[] = (result.data || []).map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        phone: u.phone,
-        role: u.role,
-        status: u.status,
-        enterprise_name: u.enterprise_name,
-        created_at: u.created_at,
-      }));
+      // Fetch ALL users by paginating in batches of 100 (backend max limit)
+      const PAGE_SIZE = 100;
+      const allUsers: User[] = [];
+      let skip = 0;
+      let hasMore = true;
 
-      // Apply client-side search filter if active
-      const exportUsers = searchTerm
-        ? allUsers.filter(u =>
-            u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.enterprise_name?.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        : allUsers;
+      while (hasMore) {
+        const params: Record<string, string | number> = { limit: PAGE_SIZE, skip };
+        if (roleFilter !== 'all') params.role = roleFilter;
+        if (debouncedSearch) params.search = debouncedSearch;
+        const result = await usersApi.list(params as any);
 
-      if (exportUsers.length === 0) return;
+        if (!result.success || !result.data) {
+          addToast({ type: 'error', title: 'Export Failed', message: result.error?.message || 'Could not fetch users' });
+          return;
+        }
+
+        const pageUsers = result.data.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          phone: u.phone,
+          role: u.role,
+          status: u.status,
+          enterprise_name: u.enterprise_name,
+          created_at: u.created_at,
+        }));
+
+        allUsers.push(...pageUsers);
+        skip += PAGE_SIZE;
+        hasMore = pageUsers.length === PAGE_SIZE;
+      }
+
+      if (allUsers.length === 0) {
+        addToast({ type: 'warning', title: 'No Data', message: 'No users found to export' });
+        return;
+      }
 
       const headers = ['Name', 'Email', 'Role', 'Enterprise', 'Phone', 'Status', 'Created At'];
-      const rows = exportUsers.map(u => [
+      const rows = allUsers.map(u => [
         u.name,
         u.email,
         formatRole(u.role),
@@ -153,8 +167,11 @@ export function AllUsers() {
       link.download = `ecotribe-users-${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
       URL.revokeObjectURL(url);
+
+      addToast({ type: 'success', title: 'Export Complete', message: `Exported ${allUsers.length} users` });
     } catch (error) {
       console.error('Export failed:', error);
+      addToast({ type: 'error', title: 'Export Failed', message: 'An unexpected error occurred' });
     } finally {
       setIsExporting(false);
     }
@@ -167,15 +184,9 @@ export function AllUsers() {
         label="Super Admin"
         title="All Users"
         subtitle={`${stats.total} users across all roles`}
+        backLink
         actions={
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => navigate('/super')}
-              leftIcon={<ArrowLeft className={iconSize.sm} />}
-            >
-              Back
-            </Button>
             <Button
               variant="secondary"
               onClick={handleExport}
@@ -202,27 +213,27 @@ export function AllUsers() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"
       >
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-slate-300 dark:hover:ring-zinc-600 transition-all" onClick={() => setRoleFilter('all')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Total</p>
           <p className={`font-brand text-2xl font-bold ${text.primary} mt-1`}>{stats.total}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-red-400 transition-all" onClick={() => setRoleFilter('super_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Super</p>
           <p className={`font-brand text-2xl font-bold text-red-500 mt-1`}>{stats.superAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-amber-400 transition-all" onClick={() => setRoleFilter('ops_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>OPS Admin</p>
           <p className={`font-brand text-2xl font-bold text-amber-500 mt-1`}>{stats.opsAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-blue-400 transition-all" onClick={() => setRoleFilter('it_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>IT Admin</p>
           <p className={`font-brand text-2xl font-bold text-blue-500 mt-1`}>{stats.itAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-emerald-400 transition-all" onClick={() => setRoleFilter('org_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Org Admin</p>
           <p className={`font-brand text-2xl font-bold text-emerald-500 mt-1`}>{stats.orgAdmins}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:ring-1 hover:ring-purple-400 transition-all" onClick={() => setRoleFilter('logistics_admin')}>
           <p className={`font-mono text-xs uppercase tracking-widest ${text.muted}`}>Logistics</p>
           <p className={`font-brand text-2xl font-bold text-purple-500 mt-1`}>{stats.logistics}</p>
         </Card>

@@ -26,6 +26,7 @@ import {
   Upload,
   AlertTriangle,
   User,
+  UserPlus,
   Power
 } from 'lucide-react';
 import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists, useCreateITAdmin } from '@/hooks';
@@ -60,6 +61,7 @@ export function BranchManagement() {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // React Query hooks - IT Admin only sees their assigned branches
   const userId = user?.id || '';
@@ -82,9 +84,9 @@ export function BranchManagement() {
   const deleteBranch = useDeleteBranch();
   const createITAdmin = useCreateITAdmin();
   
-  // Org Admin can fully manage branches; IT Admin can only create new ones
+  // Only Org Admin can manage and create branches
   const canManageBranches = isOrgAdmin;
-  const canCreateBranches = true; // Both Org Admin and IT Admin can create branches
+  const canCreateBranches = isOrgAdmin;
 
   // Handle edit redirect from BranchDetail page
   useEffect(() => {
@@ -136,9 +138,15 @@ export function BranchManagement() {
 
   const handleConfirmDelete = async () => {
     if (branchToDelete) {
-      await deleteBranch.mutateAsync(branchToDelete.id);
-      setIsDeleteModalOpen(false);
-      setBranchToDelete(null);
+      try {
+        setDeleteError(null);
+        await deleteBranch.mutateAsync(branchToDelete.id);
+        setIsDeleteModalOpen(false);
+        setBranchToDelete(null);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to delete branch';
+        setDeleteError(message);
+      }
     }
   };
 
@@ -314,10 +322,11 @@ export function BranchManagement() {
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        onClose={() => { setIsDeleteModalOpen(false); setDeleteError(null); }}
         branch={branchToDelete}
         onConfirm={handleConfirmDelete}
         isLoading={deleteBranch.isPending}
+        error={deleteError}
       />
     </div>
   );
@@ -1130,9 +1139,12 @@ function BranchFormModal({
                     {newAdminErrors.password && <p className="text-xs text-red-500 mt-1">{newAdminErrors.password}</p>}
                   </div>
                 </div>
-                <p className={`text-xs ${text.muted}`}>
-                  A new IT Admin account will be created and assigned to this branch.
-                </p>
+                <div className="flex items-center gap-2 px-3 py-2 bg-lime-500/10 border border-lime-500/30">
+                  <UserPlus className="w-4 h-4 text-lime-600 dark:text-lime-400 flex-shrink-0" />
+                  <p className="text-xs font-medium text-lime-700 dark:text-lime-400">
+                    The IT Admin will be created and assigned when you click "{branch ? 'Save Changes' : 'Create Branch'}" below.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -1205,9 +1217,14 @@ function BranchFormModal({
             <div>
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 name="pin_code"
                 value={formData.pin_code}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const numeric = { ...e, target: { ...e.target, name: 'pin_code', value: e.target.value.replace(/\D/g, '') } };
+                  handleChange(numeric as React.ChangeEvent<HTMLInputElement>);
+                }}
                 required
                 placeholder="PIN Code *"
                 maxLength={6}
@@ -1352,7 +1369,10 @@ function BranchFormModal({
             className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 text-black font-semibold text-sm uppercase tracking-wider transition-all"
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {branch ? 'Save Changes' : 'Create Branch'}
+            {isCreatingNewAdmin
+              ? (branch ? 'Save & Create Admin' : 'Create Branch & Admin')
+              : (branch ? 'Save Changes' : 'Create Branch')
+            }
           </button>
         </div>
       </form>
@@ -1366,13 +1386,15 @@ function DeleteConfirmModal({
   onClose,
   branch,
   onConfirm,
-  isLoading
+  isLoading,
+  error
 }: {
   isOpen: boolean;
   onClose: () => void;
   branch: Branch | null;
   onConfirm: () => void;
   isLoading: boolean;
+  error?: string | null;
 }) {
   if (!isOpen || !branch) return null;
 
@@ -1392,6 +1414,13 @@ function DeleteConfirmModal({
             </p>
           </div>
         </div>
+
+        {error && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
           <button

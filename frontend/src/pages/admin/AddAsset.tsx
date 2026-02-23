@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Laptop, CheckCircle, Info, Plus, ArrowRight, Building2, AlertCircle } from 'lucide-react';
@@ -44,10 +44,17 @@ export function AddAsset() {
   const orgBranchCtx = useOrgBranchSafe();
   const [selectedBranchId, setSelectedBranchId] = useState<string>(orgBranchCtx?.selectedBranchId || '');
 
+  // Sync local state when org branch context changes (fixes wrong branch pre-selected)
+  useEffect(() => {
+    if (isOrgAdmin && orgBranchCtx?.selectedBranchId) {
+      setSelectedBranchId(orgBranchCtx.selectedBranchId);
+    }
+  }, [isOrgAdmin, orgBranchCtx?.selectedBranchId]);
+
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 
-  // V3.2: Determine branch_id - from batch if available, otherwise from selection or single branch
-  const effectiveBranchId = batch?.branch_id || selectedBranchId || (activeBranches.length === 1 ? activeBranches[0].id : undefined);
+  // V3.2: Determine branch_id - from batch if available, otherwise from context/selection or single branch
+  const effectiveBranchId = batch?.branch_id || (isOrgAdmin && orgBranchCtx?.selectedBranchId) || selectedBranchId || (activeBranches.length === 1 ? activeBranches[0].id : undefined);
 
   // V3.2: Check if branch selection is required but missing
   const needsBranchSelection = !batch && activeBranches.length > 1 && !selectedBranchId;
@@ -144,7 +151,7 @@ export function AddAsset() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton to={`${portalBase}/assets`} label="Back to Assets" className="mb-6" />
+          <BackButton className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">

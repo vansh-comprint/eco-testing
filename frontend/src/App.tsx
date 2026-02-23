@@ -34,7 +34,8 @@ import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage, PendingApproval, EnterpriseRegister } from '@/pages/auth';
 import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkUploadDetail, EmployeeList, EmployeeDetail, EmployeeInvite, BulkUserUpload, BatchList, BatchCreate, BatchDetail, DisputeList, DisputeDetail, PayoutView, Settings, PickupRequests, PickupRequestDetail, InitiatePickup, SubmissionDetail, MyEvaluations } from '@/pages/admin';
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
-import { ReviewDashboard, ReviewQueue, RemoteReview, QCQueue, FacilityQC } from '@/pages/review';
+// ReviewDashboard, ReviewQueue, RemoteReview — disabled for now (review portal hidden)
+import { /* ReviewDashboard, ReviewQueue, RemoteReview, */ QCQueue, FacilityQC } from '@/pages/review';
 import { MainAdminDashboard, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, OpsBranches, EnterpriseApplications, OpsSettings } from '@/pages/ops';
 import { EnterpriseList, EnterpriseDetail, LogisticsManagement, PickupQueue } from '@/pages/shared';
 // V3: Org Admin pages
@@ -64,14 +65,14 @@ const subUserNavItems = [
   { label: 'Help', path: '/check-in/help', icon: <HelpIcon /> },
 ];
 
-// OPS Admin Review Portal - Review/QC with DashboardLayout
-const reviewNavItems = [
-  { label: 'Dashboard', path: '/review', icon: <DashboardIcon /> },
-  { label: 'Review Queue', path: '/review/queue', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
-  { label: 'QC Queue', path: '/review/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
-  { label: 'Disputes', path: '/review/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
-  { label: 'History', path: '/review/history', icon: <HistoryIcon />, anyPermission: [Permission.REMOTE_REVIEW, Permission.FACILITY_QC] },
-];
+// OPS Admin Review Portal — disabled for now, will be added under a different role later
+// const reviewNavItems = [
+//   { label: 'Dashboard', path: '/review', icon: <DashboardIcon /> },
+//   { label: 'Review Queue', path: '/review/queue', icon: <ReviewIcon />, permission: Permission.REMOTE_REVIEW },
+//   { label: 'QC Queue', path: '/review/qc', icon: <QCIcon />, permission: Permission.FACILITY_QC },
+//   { label: 'Disputes', path: '/review/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
+//   { label: 'History', path: '/review/history', icon: <HistoryIcon />, anyPermission: [Permission.REMOTE_REVIEW, Permission.FACILITY_QC] },
+// ];
 
 // OPS Admin - Admin Section (always visible, not enterprise-filtered)
 const opsAdminNavItems = [
@@ -238,7 +239,7 @@ function AppRoutes() {
 
   // Memoize badged nav arrays so layout components don't re-render on every tick
   const badgedItAdmin = useMemo(() => withBadges(itAdminNavItems, badges), [badges]);
-  const badgedReview = useMemo(() => withBadges(reviewNavItems, badges), [badges]);
+  // const badgedReview = useMemo(() => withBadges(reviewNavItems, badges), [badges]);
   const badgedOpsAdmin = useMemo(() => withBadges(opsAdminNavItems, badges), [badges]);
   const badgedOpsEnterprise = useMemo(() => withBadges(opsEnterpriseNavItems, badges), [badges]);
   const badgedOrgAdmin = useMemo(() => withBadges(orgAdminNavItems, badges), [badges]);
@@ -314,8 +315,8 @@ function AppRoutes() {
         <Route path="help" element={<PlaceholderPage title="Help" />} />
       </Route>
 
-      {/* Review & QC Routes (formerly Technician) */}
-      <Route
+      {/* Review & QC Routes — disabled for now, will be added under a different role later */}
+      {/* <Route
         path="/review"
         element={
           <ProtectedRoute allowedRoles={['ops_admin']}>
@@ -330,7 +331,7 @@ function AppRoutes() {
         <Route path="qc/:assetId" element={<FacilityQC />} />
         <Route path="disputes" element={<PlaceholderPage title="Disputes" />} />
         <Route path="history" element={<PlaceholderPage title="History" />} />
-      </Route>
+      </Route> */}
 
       {/* OPS Admin Routes - V3: Uses OpsLayout with enterprise selector */}
       <Route

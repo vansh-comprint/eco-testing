@@ -41,7 +41,10 @@ type BranchFormData = {
   pin_code: string;
   site_contact_person: string;
   site_contact_phone: string;
-  operating_hours: string;
+  opening_day: string;
+  closing_day: string;
+  opening_hours: string;
+  closing_hours: string;
   it_admin_id: string;
 };
 
@@ -55,8 +58,46 @@ const emptyForm: BranchFormData = {
   pin_code: '',
   site_contact_person: '',
   site_contact_phone: '',
-  operating_hours: '',
+  opening_day: 'Monday',
+  closing_day: 'Saturday',
+  opening_hours: '',
+  closing_hours: '',
   it_admin_id: '',
+};
+
+const dayOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const timeOptions = (() => {
+  const options: { value: string; label: string }[] = [];
+  for (let hour = 6; hour <= 23; hour++) {
+    for (const minute of [0, 30]) {
+      if (hour === 23 && minute === 30) continue;
+      const h24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const label = `${h12}:${minute.toString().padStart(2, '0')} ${period}`;
+      options.push({ value: h24, label });
+    }
+  }
+  return options;
+})();
+
+// Parse operating_hours string (e.g., "Mon-Sat 09:00 - 18:00") into parts
+const parseOperatingHours = (hours: string | undefined) => {
+  if (!hours) return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
+  const dayMatch = hours.match(/^(\w+)-(\w+)\s+(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+  if (dayMatch) {
+    const dayMap: Record<string, string> = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+    return {
+      openingDay: dayMap[dayMatch[1]] || dayMatch[1],
+      closingDay: dayMap[dayMatch[2]] || dayMatch[2],
+      opening: dayMatch[3],
+      closing: dayMatch[4],
+    };
+  }
+  const timeMatch = hours.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+  if (timeMatch) return { openingDay: 'Monday', closingDay: 'Saturday', opening: timeMatch[1], closing: timeMatch[2] };
+  return { openingDay: 'Monday', closingDay: 'Saturday', opening: '', closing: '' };
 };
 
 const inputClass = 'w-full px-3 py-2.5 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white text-sm focus:border-lime-500 focus:outline-none transition-colors';
@@ -72,6 +113,7 @@ export function OpsBranches() {
   const deleteBranch = useDeleteBranch();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [branchStatusFilter, setBranchStatusFilter] = useState<'all' | 'active' | 'needs_admin'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchResponse | null>(null);
   const [formData, setFormData] = useState<BranchFormData>(emptyForm);
@@ -80,11 +122,17 @@ export function OpsBranches() {
   const [branchToDelete, setBranchToDelete] = useState<BranchResponse | null>(null);
   const [deleteError, setDeleteError] = useState('');
 
-  const filteredBranches = branches.filter((b: BranchResponse) =>
-    b.branch_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.branch_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBranches = branches.filter((b: BranchResponse) => {
+    const matchesSearch =
+      b.branch_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.branch_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.city.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      branchStatusFilter === 'all' ||
+      (branchStatusFilter === 'active' && b.status === 'active') ||
+      (branchStatusFilter === 'needs_admin' && !b.it_admin_id);
+    return matchesSearch && matchesStatus;
+  });
 
   const openCreateModal = () => {
     setEditingBranch(null);
@@ -95,6 +143,7 @@ export function OpsBranches() {
 
   const openEditModal = (branch: BranchResponse) => {
     setEditingBranch(branch);
+    const { openingDay, closingDay, opening, closing } = parseOperatingHours(branch.operating_hours);
     setFormData({
       branch_name: branch.branch_name,
       branch_code: branch.branch_code,
@@ -105,7 +154,10 @@ export function OpsBranches() {
       pin_code: branch.pin_code,
       site_contact_person: branch.site_contact_person || '',
       site_contact_phone: branch.site_contact_phone || '',
-      operating_hours: branch.operating_hours || '',
+      opening_day: openingDay,
+      closing_day: closingDay,
+      opening_hours: opening,
+      closing_hours: closing,
       it_admin_id: branch.it_admin_id || '',
     });
     setFormError('');
@@ -132,11 +184,11 @@ export function OpsBranches() {
       return;
     }
 
-    // Validate phone if provided
+    // Validate phone if provided (contact info — allow landline or mobile, 7-15 digits)
     if (formData.site_contact_phone) {
       const cleaned = formData.site_contact_phone.replace(/\D/g, '');
-      if (cleaned.length !== 10 || !/^[6-9]\d{9}$/.test(cleaned)) {
-        setFormError('Contact phone must be a valid 10-digit Indian mobile number.');
+      if (cleaned.length < 7 || cleaned.length > 15) {
+        setFormError('Contact phone must be 7-15 digits.');
         return;
       }
     }
@@ -146,6 +198,12 @@ export function OpsBranches() {
       setFormError('Branch code must be 1-10 alphanumeric characters.');
       return;
     }
+
+    // Combine days and times into operating_hours string
+    const dayShort: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+    const operating_hours = formData.opening_hours && formData.closing_hours
+      ? `${dayShort[formData.opening_day] || formData.opening_day}-${dayShort[formData.closing_day] || formData.closing_day} ${formData.opening_hours} - ${formData.closing_hours}`
+      : '';
 
     try {
       if (editingBranch) {
@@ -161,7 +219,7 @@ export function OpsBranches() {
             pin_code: formData.pin_code,
             site_contact_person: formData.site_contact_person || undefined,
             site_contact_phone: formData.site_contact_phone || undefined,
-            operating_hours: formData.operating_hours || undefined,
+            operating_hours: operating_hours || undefined,
             it_admin_id: formData.it_admin_id || null,
           },
         });
@@ -177,7 +235,7 @@ export function OpsBranches() {
           pin_code: formData.pin_code,
           site_contact_person: formData.site_contact_person || undefined,
           site_contact_phone: formData.site_contact_phone || undefined,
-          operating_hours: formData.operating_hours || undefined,
+          operating_hours: operating_hours || undefined,
           it_admin_id: formData.it_admin_id || undefined,
         });
       }
@@ -253,17 +311,26 @@ export function OpsBranches() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-4">
+        <div
+          onClick={() => setBranchStatusFilter('all')}
+          className={`border p-4 cursor-pointer transition-colors ${branchStatusFilter === 'all' ? 'border-slate-400 bg-slate-100 dark:bg-white/[0.05]' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:bg-slate-100 dark:hover:bg-white/[0.04]'}`}
+        >
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Total</p>
           <p className="font-brand font-bold text-2xl text-slate-900 dark:text-white">{branches.length}</p>
         </div>
-        <div className="border border-emerald-400/30 bg-emerald-400/5 p-4">
+        <div
+          onClick={() => setBranchStatusFilter('active')}
+          className={`border p-4 cursor-pointer transition-colors ${branchStatusFilter === 'active' ? 'border-emerald-500 bg-emerald-400/10' : 'border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/10'}`}
+        >
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Active</p>
           <p className="font-brand font-bold text-2xl text-emerald-400">
             {branches.filter((b: BranchResponse) => b.status === 'active').length}
           </p>
         </div>
-        <div className="border border-amber-400/30 bg-amber-400/5 p-4">
+        <div
+          onClick={() => setBranchStatusFilter('needs_admin')}
+          className={`border p-4 cursor-pointer transition-colors ${branchStatusFilter === 'needs_admin' ? 'border-amber-500 bg-amber-400/10' : 'border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10'}`}
+        >
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Needs Admin</p>
           <p className="font-brand font-bold text-2xl text-amber-400">
             {branches.filter((b: BranchResponse) => !b.it_admin_id).length}
@@ -478,8 +545,13 @@ export function OpsBranches() {
               <label className={labelClass}>PIN Code *</label>
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.pin_code}
-                onChange={handleFormChange('pin_code')}
+                onChange={(e) => {
+                  const sanitized = e.target.value.replace(/\D/g, '');
+                  setFormData(f => ({ ...f, pin_code: sanitized }));
+                }}
                 maxLength={6}
                 className={`${inputClass} font-mono`}
                 placeholder="e.g. 400001"
@@ -503,8 +575,12 @@ export function OpsBranches() {
               <label className={labelClass}>Contact Phone</label>
               <input
                 type="text"
+                inputMode="numeric"
                 value={formData.site_contact_phone}
-                onChange={handleFormChange('site_contact_phone')}
+                onChange={(e) => {
+                  const sanitized = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData(f => ({ ...f, site_contact_phone: sanitized }));
+                }}
                 maxLength={10}
                 className={`${inputClass} font-mono`}
                 placeholder="e.g. 9876543210"
@@ -512,15 +588,62 @@ export function OpsBranches() {
             </div>
           </div>
 
-          <div>
-            <label className={labelClass}>Operating Hours</label>
-            <input
-              type="text"
-              value={formData.operating_hours}
-              onChange={handleFormChange('operating_hours')}
-              className={inputClass}
-              placeholder="e.g. Mon-Fri 9:00 - 18:00"
-            />
+          {/* Operating Days */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Opening Day</label>
+              <select
+                value={formData.opening_day}
+                onChange={handleFormChange('opening_day')}
+                className={inputClass}
+              >
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Closing Day</label>
+              <select
+                value={formData.closing_day}
+                onChange={handleFormChange('closing_day')}
+                className={inputClass}
+              >
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Operating Hours */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Opening Time</label>
+              <select
+                value={formData.opening_hours}
+                onChange={handleFormChange('opening_hours')}
+                className={inputClass}
+              >
+                <option value="">Select time</option>
+                {timeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Closing Time</label>
+              <select
+                value={formData.closing_hours}
+                onChange={handleFormChange('closing_hours')}
+                className={inputClass}
+              >
+                <option value="">Select time</option>
+                {timeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* IT Admin Assignment */}

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Building2, Plus, Clock, Ban, ExternalLink, Search, CheckCircle, Eye } from 'lucide-react';
-import { PageHeader, StatBox, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { PageHeader, StatBox, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo, useToast } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
 import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats, dashboardStatsKeys } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ export function Enterprises() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusChangeTarget, setStatusChangeTarget] = useState<{ enterprise: Enterprise; newStatus: 'active' | 'inactive' } | null>(null);
@@ -66,12 +67,16 @@ export function Enterprises() {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: enterpriseKeys.all });
         queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+        setStatusChangeTarget(null);
+      } else {
+        addToast({ type: 'error', title: 'Status Change Failed', message: (result as any).error?.message || 'Failed to change enterprise status. Please try again.' });
       }
     } catch (error) {
       console.error('Error changing enterprise status:', error);
+      addToast({ type: 'error', title: 'Status Change Failed', message: error instanceof Error ? error.message : 'Failed to change enterprise status. Please try again.' });
+      setStatusChangeTarget(null);
     } finally {
       setIsChangingStatus(false);
-      setStatusChangeTarget(null);
     }
   };
 
@@ -148,18 +153,22 @@ export function Enterprises() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatBox
-          label="Active Enterprises"
-          value={dashStats.enterprise_active ?? 0}
-          icon={<Building2 className="w-5 h-5" />}
-          accent="success"
-        />
-        <StatBox
-          label="Inactive/Suspended"
-          value={dashStats.enterprise_inactive ?? 0}
-          icon={<Ban className="w-5 h-5" />}
-          accent="warning"
-        />
+        <div onClick={() => setActiveTab('active')} className="cursor-pointer">
+          <StatBox
+            label="Active Enterprises"
+            value={dashStats.enterprise_active ?? 0}
+            icon={<Building2 className="w-5 h-5" />}
+            accent="success"
+          />
+        </div>
+        <div onClick={() => setActiveTab('inactive')} className="cursor-pointer">
+          <StatBox
+            label="Inactive/Suspended"
+            value={dashStats.enterprise_inactive ?? 0}
+            icon={<Ban className="w-5 h-5" />}
+            accent="warning"
+          />
+        </div>
       </div>
 
       {/* Tabs */}

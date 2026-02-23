@@ -46,6 +46,7 @@ async def list_assets(
     status: Optional[AssetStatus] = Query(None, description="Filter by single status"),
     statuses: Optional[str] = Query(None, description="Filter by multiple statuses (comma-separated)"),
     search: Optional[str] = Query(None, description="Search by serial number, brand, model"),
+    sort_by: Optional[str] = Query(None, description="Sort order: newest (default), oldest, serial, brand"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     current_user: User = Depends(require_permission(Permission.ASSET_READ)),
@@ -123,6 +124,7 @@ async def list_assets(
         branch_id=effective_branch_id,
         branch_ids=branch_ids,
         assigned_to_user_id=assigned_to_user_id,
+        sort_by=sort_by,
     )
 
     response = paginated_response(

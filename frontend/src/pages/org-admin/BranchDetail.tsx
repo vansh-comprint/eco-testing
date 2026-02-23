@@ -3,7 +3,7 @@
  * V3.2: Detailed view of a single branch with assets, batches, and IT Admin info
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -24,8 +24,9 @@ import {
   FileText,
   Loader2,
   ChevronRight,
+  Users,
 } from 'lucide-react';
-import { useBranch, useBranchSummary, useAuth, useUpdateBranch, useActiveITAdmins } from '@/hooks';
+import { useBranch, useBranchSummary, useAuth, useUpdateBranch, useActiveITAdmins, useInfiniteSubUsers } from '@/hooks';
 import { PageHeader, Badge, Modal } from '@/components/ui';
 import { text, iconSize } from '@/lib/design-tokens';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -52,6 +53,20 @@ export function BranchDetail() {
   const { data: summaries = [] } = useBranchSummary(enterpriseId);
   const { data: itAdmins = [] } = useActiveITAdmins(isOrgAdmin ? enterpriseId : ''); // Only Org Admin can list IT admins
   const updateBranch = useUpdateBranch();
+
+  // Employees in this branch
+  const branchEmployeeParams = useMemo(() => ({
+    enterprise_id: enterpriseId,
+    branch_id: branchId || '',
+  }), [enterpriseId, branchId]);
+  const { data: employeePages } = useInfiniteSubUsers(
+    branchId ? branchEmployeeParams : {},
+  );
+  const branchEmployees = useMemo(
+    () => employeePages?.pages.flatMap(p => p.data || []) ?? [],
+    [employeePages]
+  );
+  const totalBranchEmployees = employeePages?.pages[0]?.pagination?.total ?? branchEmployees.length;
 
   const [isEditAdminModalOpen, setIsEditAdminModalOpen] = useState(false);
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
@@ -119,11 +134,11 @@ export function BranchDetail() {
           <p className={`text-sm mb-6 ${text.muted}`}>The branch you're looking for doesn't exist or has been deleted.</p>
           <button
             type="button"
-            onClick={() => navigate(`${basePath}/branches`)}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 mx-auto px-4 py-2.5 bg-lime-500 hover:bg-lime-400 text-black font-semibold text-sm uppercase tracking-wider transition-all"
           >
             <ArrowLeft className={iconSize.md} />
-            Back to Branches
+            Back
           </button>
         </div>
       </div>
@@ -137,11 +152,11 @@ export function BranchDetail() {
         <div>
           <button
             type="button"
-            onClick={() => navigate(`${basePath}/branches`)}
+            onClick={() => navigate(-1)}
             className={`flex items-center gap-2 text-sm mb-4 ${text.muted} hover:text-lime-500 transition-colors`}
           >
             <ArrowLeft className={iconSize.sm} />
-            Back to Branches
+            Back
           </button>
 
           <div className="flex items-center gap-4">
@@ -304,6 +319,96 @@ export function BranchDetail() {
               </div>
             </motion.div>
           )}
+          {/* Employees Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 overflow-hidden"
+          >
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className={`${iconSize.md} text-ecotribe-primary`} />
+                <h2 className={`font-display font-bold text-sm uppercase tracking-wider ${text.muted}`}>Employees</h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`font-mono text-xs ${text.muted}`}>{totalBranchEmployees} total</span>
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePath}/employees?branch=${branchId}`)}
+                  className={`text-xs font-semibold text-ecotribe-primary hover:text-ecotribe-primary/70 uppercase tracking-wider transition-colors`}
+                >
+                  View All
+                </button>
+              </div>
+            </div>
+            {branchEmployees.length > 0 ? (
+              <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+                {branchEmployees.slice(0, 8).map(emp => {
+                  const statusColor =
+                    emp.status === 'active' ? 'text-emerald-500' :
+                    emp.status === 'pending_invite' ? 'text-amber-500' :
+                    'text-slate-400 dark:text-zinc-600';
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => navigate(`${basePath}/employees/${emp.id}`)}
+                      className="w-full px-5 py-3.5 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors text-left group"
+                    >
+                      <div className="w-8 h-8 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
+                        <span className="font-mono font-bold text-[11px] text-ecotribe-primary uppercase">
+                          {(emp.name || emp.email || '?').charAt(0)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-display font-bold text-sm truncate ${text.primary}`}>{emp.name || '—'}</p>
+                        <div className="flex items-center gap-3">
+                          <span className={`flex items-center gap-1 font-mono text-[11px] ${text.muted} truncate`}>
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            {emp.email}
+                          </span>
+                          {emp.department && (
+                            <span className="hidden sm:inline-block px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase flex-shrink-0">
+                              {emp.department}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`font-mono font-bold text-[10px] uppercase tracking-widest flex-shrink-0 ${statusColor}`}>
+                        {emp.status === 'pending_invite' ? 'Pending' : emp.status}
+                      </span>
+                      <ChevronRight className={`${iconSize.sm} ${text.muted} group-hover:text-ecotribe-primary transition-colors flex-shrink-0`} />
+                    </button>
+                  );
+                })}
+                {branchEmployees.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`${basePath}/employees?branch=${branchId}`)}
+                    className={`w-full px-5 py-3 text-center font-mono text-xs text-ecotribe-primary hover:text-ecotribe-primary/70 uppercase tracking-widest transition-colors`}
+                  >
+                    View all {totalBranchEmployees} employees
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="px-5 py-10 text-center">
+                <Users className={`w-8 h-8 ${text.muted} mx-auto mb-3`} />
+                <p className={`font-display font-bold text-sm uppercase tracking-wide ${text.muted} mb-1`}>No employees assigned</p>
+                <p className={`font-mono text-xs ${text.muted}`}>Employees invited to this branch will appear here</p>
+                {isOrgAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`${basePath}/employees/invite`)}
+                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-ecotribe-primary/80 transition-all"
+                  >
+                    Invite Employees
+                  </button>
+                )}
+              </div>
+            )}
+          </motion.div>
         </div>
 
         {/* Right Column - Stats & Quick Actions */}
@@ -319,6 +424,13 @@ export function BranchDetail() {
               <h2 className={`font-display font-bold text-sm uppercase tracking-wider ${text.muted}`}>Statistics</h2>
             </div>
             <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className={`${iconSize.md} text-ecotribe-primary`} />
+                  <span className={`text-sm ${text.secondary}`}>Employees</span>
+                </div>
+                <span className={`font-brand font-bold text-lg ${text.primary}`}>{totalBranchEmployees}</span>
+              </div>
               <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Laptop className={`${iconSize.md} text-lime-600 dark:text-lime-400`} />
@@ -404,6 +516,17 @@ export function BranchDetail() {
               <h2 className={`font-display font-bold text-sm uppercase tracking-wider ${text.muted}`}>Quick Actions</h2>
             </div>
             <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+              <button
+                type="button"
+                onClick={() => navigate(`${basePath}/employees?branch=${branchId}`)}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Users className={`${iconSize.md} text-ecotribe-primary`} />
+                  <span className={`text-sm ${text.primary}`}>View Employees</span>
+                </div>
+                <ChevronRight className={`${iconSize.sm} ${text.muted}`} />
+              </button>
               <button
                 type="button"
                 onClick={() => navigate(`${basePath}/assets?branch=${branchId}`)}

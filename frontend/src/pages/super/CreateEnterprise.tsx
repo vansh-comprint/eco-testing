@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Building2, User, ArrowLeft, Save, FileText, Upload, FileCheck, X, Loader2, AlertCircle, Info } from 'lucide-react';
+import { Building2, User, Save, FileText, Upload, FileCheck, X, Loader2, AlertCircle, Info } from 'lucide-react';
 import { Input, Button, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks';
 import { enterprisesApi } from '@/lib/api/enterprises';
@@ -374,15 +374,7 @@ export function CreateEnterprise() {
         label={currentUser?.role === 'ops_admin' ? 'Operations' : 'Super Admin'}
         title="Create Enterprise"
         subtitle="Add a new enterprise to the platform"
-        actions={
-          <Button
-            variant="secondary"
-            onClick={() => navigate((currentUser?.role as string) === 'ops_admin' ? '/ops' : '/super')}
-            leftIcon={<ArrowLeft className={iconSize.sm} />}
-          >
-            Back to Dashboard
-          </Button>
-        }
+        backLink
       />
 
       {/* Form */}

@@ -298,11 +298,11 @@ export function AssetDetail() {
         <p className="font-display font-bold text-zinc-500 uppercase tracking-wide mb-1">Asset not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The asset you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(assetsListPath)}
+          onClick={() => navigate(-1)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          {isLogisticsAdmin ? 'Back to Dashboard' : 'Back to Assets'}
+          Back
         </button>
       </div>
     );
@@ -320,7 +320,7 @@ export function AssetDetail() {
       // Handle self-assignment
       if (assignMode === 'self') {
         if (!user?.id) {
-          console.error('User not authenticated');
+          addToast({ type: 'error', title: 'Authentication Error', message: 'User not authenticated. Please login again.' });
           setIsAssigning(false);
           return;
         }
@@ -357,13 +357,14 @@ export function AssetDetail() {
       // If in create mode, create the new user first
       if (assignMode === 'create') {
         if (!newUserForm.email.trim() || !newUserForm.name.trim()) {
-          console.error('Name and email are required');
+          addToast({ type: 'error', title: 'Validation Error', message: 'Name and email are required.' });
           setIsAssigning(false);
           return;
         }
 
         const newUser = await createSubUserMutation.mutateAsync({
           enterprise_id: enterprise.id,
+          branch_id: asset.branch_id || undefined,
           name: newUserForm.name.trim(),
           email: newUserForm.email.trim(),
           phone: newUserForm.phone.trim() || undefined,
@@ -375,7 +376,7 @@ export function AssetDetail() {
 
       // Assign the asset to the user (existing or newly created)
       if (!userIdToAssign) {
-        console.error('No user selected');
+        addToast({ type: 'error', title: 'Assignment Failed', message: 'Could not identify the user to assign. Please try again.' });
         setIsAssigning(false);
         return;
       }
@@ -550,11 +551,11 @@ export function AssetDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(assetsListPath)}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isLogisticsAdmin ? 'Back to Dashboard' : 'Back to Assets'}
+            Back
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">

@@ -209,11 +209,11 @@ export function InitiatePickup() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/pickups`)}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary mb-3 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            <span className="text-xs font-mono font-bold uppercase tracking-widest">Back to Pickups</span>
+            <span className="text-xs font-mono font-bold uppercase tracking-widest">Back</span>
           </button>
           <div className="flex items-center justify-between">
             <div>

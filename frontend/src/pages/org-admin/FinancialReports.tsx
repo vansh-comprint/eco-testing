@@ -110,7 +110,7 @@ export function FinancialReports() {
       const key = getMonthKey(date);
       const entry = months.find(m => m.key === key);
       if (entry) {
-        entry.disbursed += asset.final_price || 0;
+        entry.disbursed += Number(asset.final_price) || 0;
         entry.assets += 1;
       }
     }
@@ -159,8 +159,8 @@ export function FinancialReports() {
         model: a.model,
         status: a.status,
         grade: a.grade || '-',
-        base_price: a.base_price || 0,
-        final_price: a.final_price || 0,
+        base_price: Number(a.base_price) || 0,
+        final_price: Number(a.final_price) || 0,
         enterprise_id: a.enterprise_id,
         created_at: a.created_at,
         updated_at: a.updated_at,
@@ -194,7 +194,7 @@ export function FinancialReports() {
         brand: a.brand,
         model: a.model,
         grade: a.grade || '-',
-        final_price: a.final_price || 0,
+        final_price: Number(a.final_price) || 0,
         enterprise_id: a.enterprise_id,
         completed_at: a.updated_at,
       }));

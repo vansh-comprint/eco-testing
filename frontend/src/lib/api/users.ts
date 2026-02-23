@@ -20,6 +20,7 @@ export interface UserListParams {
   status?: string;
   search?: string;
   enterprise_id?: string;
+  branch_id?: string;
 }
 
 export interface UserCreateRequest {
@@ -85,6 +86,7 @@ export const usersApi = {
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
     if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
+    if (params.branch_id) query.set('branch_id', params.branch_id);
     return fetchWithAuth<UserResponse[]>(`/users?${query.toString()}`);
   },
 

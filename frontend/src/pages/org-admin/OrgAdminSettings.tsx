@@ -1,7 +1,7 @@
 /**
  * STATUS: COMPLETE
  * Consolidated: org-admin/OrgAdminSettings.tsx (Org Admin settings — profile, enterprise, notifications, bank)
- * Verified: [ ] visual regression [ ] permissions
+ * V3.1: Fix phone validation, security tab dual buttons, enterprise address init, notification persistence, dual toast
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -13,7 +13,6 @@ import {
   Mail,
   Phone,
   Save,
-  CheckCircle,
   Shield,
   Settings as SettingsIcon,
 } from 'lucide-react';
@@ -26,34 +25,37 @@ import { PasswordChange } from '@/components/settings';
 
 type SettingsTab = 'profile' | 'security' | 'enterprise' | 'notifications' | 'bank';
 
+const NOTIFICATION_STORAGE_KEY = 'ecotribe-org-notification-prefs';
+
 export function OrgAdminSettings() {
   const { user, enterprise } = useAuth();
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+
   // Profile form
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: (user?.phone || '').replace(/^\+91[-]?/, ''),
+    phone: (user?.phone || '').replace(/^\+91[\s-]?/, ''),
   });
 
-  // Enterprise form
+  // Enterprise form — handle both structured address {line1, city, ...} and legacy {full: "..."}
+  const addr = enterprise?.address as Record<string, unknown> | undefined;
   const [enterpriseForm, setEnterpriseForm] = useState({
     name: enterprise?.name || '',
     gstin: enterprise?.gstNumber || '',
-    address: enterprise?.address?.line1 || '',
-    city: enterprise?.address?.city || '',
-    state: enterprise?.address?.state || '',
-    pincode: enterprise?.address?.pincode || '',
+    address: (addr?.line1 as string) || (addr?.full as string) || '',
+    city: (addr?.city as string) || '',
+    state: (addr?.state as string) || '',
+    pincode: (addr?.pincode as string) || '',
     contactEmail: enterprise?.contactEmail || '',
-    contactPhone: (enterprise?.contactPhone || '').replace(/^\+91[-]?/, ''),
+    contactPhone: (enterprise?.contactPhone || '').replace(/^\+91[\s-]?/, ''),
   });
 
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
+  // Notification preferences — persisted to localStorage
+  const DEFAULT_NOTIFICATIONS = {
     emailApprovalRequests: true,
     emailPickupUpdates: true,
     emailPayoutUpdates: true,
@@ -62,6 +64,13 @@ export function OrgAdminSettings() {
     smsApprovalRequests: true,
     smsPickupUpdates: false,
     smsPayoutUpdates: true,
+  };
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+      if (saved) return { ...DEFAULT_NOTIFICATIONS, ...JSON.parse(saved) };
+    } catch { /* ignore */ }
+    return DEFAULT_NOTIFICATIONS;
   });
 
   // Bank form
@@ -84,6 +93,11 @@ export function OrgAdminSettings() {
     setIsSaving(true);
     try {
       if (activeTab === 'profile') {
+        // Validate phone number — must be exactly 10 digits if provided
+        if (profileForm.phone && profileForm.phone.length !== 10) {
+          addToast({ type: 'error', title: 'Invalid Phone', message: 'Phone number must be exactly 10 digits.' });
+          return;
+        }
         const response = await usersApi.updateMe({
           name: profileForm.name,
           phone: profileForm.phone,
@@ -114,14 +128,17 @@ export function OrgAdminSettings() {
           throw new Error(response.error?.message || 'Failed to save enterprise details');
         }
         addToast({ type: 'success', title: 'Enterprise Saved', message: 'Enterprise details have been updated.' });
+      } else if (activeTab === 'notifications') {
+        localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications));
+        addToast({ type: 'success', title: 'Notifications Saved', message: 'Notification preferences have been updated.' });
       } else if (activeTab === 'bank') {
+        if (bankForm.accountNumber && bankForm.accountNumber !== bankForm.confirmAccountNumber) {
+          addToast({ type: 'error', title: 'Account Mismatch', message: 'Account numbers do not match.' });
+          return;
+        }
         localStorage.setItem('ecotribe-org-bank-details', JSON.stringify(bankForm));
         addToast({ type: 'success', title: 'Bank Details Saved', message: 'Bank details saved locally. Backend persistence coming soon.' });
-      } else {
-        addToast({ type: 'success', title: 'Settings Saved', message: 'Changes saved successfully.' });
       }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
     } catch (error) {
       addToast({
         type: 'error',
@@ -214,12 +231,15 @@ export function OrgAdminSettings() {
                   </div>
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Email Address</label>
-                    <input
-                      type="email"
-                      value={profileForm.email}
-                      disabled
-                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
-                    />
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={profileForm.email}
+                        disabled
+                        className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] text-slate-400 dark:text-zinc-600 uppercase tracking-widest">Cannot be changed</span>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -231,8 +251,16 @@ export function OrgAdminSettings() {
                       onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       inputMode="numeric"
                       maxLength={10}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      placeholder="10-digit phone number"
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                        profileForm.phone && profileForm.phone.length > 0 && profileForm.phone.length < 10
+                          ? 'border-red-400 dark:border-red-500/50 focus:border-red-500'
+                          : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {profileForm.phone && profileForm.phone.length > 0 && profileForm.phone.length < 10 && (
+                      <p className="font-mono text-[10px] text-red-500 mt-1">Phone number must be exactly 10 digits</p>
+                    )}
                   </div>
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Role</label>
@@ -247,7 +275,7 @@ export function OrgAdminSettings() {
             </div>
           )}
 
-          {/* Security Tab */}
+          {/* Security Tab — PasswordChange has its own submit button, no global Save */}
           {activeTab === 'security' && (
             <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
               <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
@@ -291,7 +319,7 @@ export function OrgAdminSettings() {
                 </div>
 
                 <div>
-                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Address</label>
+                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Address Line 1</label>
                   <textarea
                     value={enterpriseForm.address}
                     onChange={(e) => setEnterpriseForm({ ...enterpriseForm, address: e.target.value })}
@@ -323,8 +351,11 @@ export function OrgAdminSettings() {
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">PIN Code</label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
                       value={enterpriseForm.pincode}
-                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value })}
+                      onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value.replace(/\D/g, '') })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -519,31 +550,23 @@ export function OrgAdminSettings() {
             </div>
           )}
 
-          {/* Save Button */}
-          <div className="mt-6 flex items-center justify-end gap-4">
-            {saved && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center gap-2 text-emerald-400"
+          {/* Save Button — hidden on Security tab (PasswordChange has its own button) */}
+          {activeTab !== 'security' && (
+            <div className="mt-6 flex items-center justify-end">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                <CheckCircle className="w-4 h-4" />
-                <span className="font-mono text-xs uppercase tracking-widest">Changes saved</span>
-              </motion.div>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSaving ? (
-                <div className="w-4 h-4 border-2 border-black/30 border-t-black animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Save Changes
-            </button>
-          </div>
+                {isSaving ? (
+                  <div className="w-4 h-4 border-2 border-black/30 border-t-black animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>

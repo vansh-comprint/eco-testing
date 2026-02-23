@@ -91,6 +91,7 @@ export {
   useCreateITAdmin,
   useBulkCreateITAdmins,
   useUpdateITAdmin,
+  useResetITAdminPassword,
   useUpdateITAdminStatus,
   branchKeys,
   itAdminKeys,

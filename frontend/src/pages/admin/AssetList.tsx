@@ -102,7 +102,7 @@ export function AssetList() {
   const [batchMode, setBatchMode] = useState<'existing' | 'new'>('existing');
   const [newBatchName, setNewBatchName] = useState('');
 
-  // V4: Infinite scroll for assets — server-side pagination + filtering
+  // V4: Infinite scroll for assets — server-side pagination + filtering + sorting
   const infiniteApiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (isOrgAdmin && enterpriseId) params.enterprise_id = enterpriseId;
@@ -120,12 +120,14 @@ export function AssetList() {
     }
     if (batchFilter) params.batch_id = batchFilter;
     if (branchFilter) params.branch_id = branchFilter;
+    if (sortBy) params.sort_by = sortBy;
     return params;
-  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter, batchFilter, branchFilter]);
+  }, [isOrgAdmin, enterpriseId, activeBranchFilter, debouncedSearch, statusFilter, batchFilter, branchFilter, sortBy]);
 
   const {
     data: infiniteData,
     isLoading: assetsLoading,
+    isFetching,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
@@ -136,6 +138,9 @@ export function AssetList() {
   const totalAssetCount = infiniteData?.pages[0]?.pagination?.total ?? 0;
 
   const isLoading = assetsLoading || batchesLoading;
+
+  // Background refetch indicator (true when sort/filter changes trigger a server re-fetch)
+  const isRefetching = isFetching && !isLoading && !isFetchingNextPage;
 
   // V3: Data is already filtered by enterpriseId from the hooks
   const enterpriseSubUsers = subUsers;
@@ -154,26 +159,17 @@ export function AssetList() {
     ...branches.map((b: { id: string; branch_name: string }) => ({ label: b.branch_name, value: b.id })),
   ];
 
-  // Filters (search, status, batch, branch) are now server-side; client-side sort only
+  // Optimistic client-side sort for instant feedback while server re-fetches
   const filteredAssets = useMemo(() => {
-    const result = [...enterpriseAssets];
-
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'oldest':
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        case 'serial':
-          return (a.serial_number || '').localeCompare(b.serial_number || '');
-        case 'brand':
-          return (a.brand || '').localeCompare(b.brand || '');
-        case 'newest':
-        default:
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      }
+    if (!isRefetching) return enterpriseAssets;
+    return [...enterpriseAssets].sort((a, b) => {
+      if (sortBy === 'serial') return (a.serial_number || '').localeCompare(b.serial_number || '');
+      if (sortBy === 'brand') return (a.brand || '').localeCompare(b.brand || '');
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
     });
-
-    return result;
-  }, [enterpriseAssets, sortBy]);
+  }, [enterpriseAssets, sortBy, isRefetching]);
 
   const stats = {
     total: dashboardStats.asset_total ?? totalAssetCount,
@@ -430,8 +426,8 @@ export function AssetList() {
       >
         <StatBox label="Total" value={stats.total} icon={<Laptop className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Unassigned" value={stats.pending} icon={<Clock className="w-4 h-4" />} highlight={stats.pending > 0} onClick={() => handleStatClick('pending_assignment')} active={statusFilter === 'pending_assignment'} />
-        <StatBox label="Ready" value={stats.readyForPickup} icon={<Truck className="w-4 h-4" />} highlight={stats.readyForPickup > 0} onClick={() => handleStatClick('ready_for_pickup')} active={statusFilter === 'ready_for_pickup'} />
-        <StatBox label="Processing" value={stats.inProgress} icon={<TrendingUp className="w-4 h-4" />} onClick={() => handleStatClick('in_progress')} active={statusFilter === 'in_progress'} />
+        <StatBox label="Accepted" value={stats.readyForPickup} icon={<Truck className="w-4 h-4" />} highlight={stats.readyForPickup > 0} onClick={() => handleStatClick('accepted')} active={statusFilter === 'accepted'} />
+        <StatBox label="Processing" value={stats.inProgress} icon={<TrendingUp className="w-4 h-4" />} onClick={() => handleStatClick('processing')} active={statusFilter === 'processing'} />
         <StatBox label="Completed" value={stats.completed} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('completed')} active={statusFilter === 'completed'} />
         <StatBox label="Rejected" value={stats.rejected} icon={<XCircle className="w-4 h-4" />} error={stats.rejected > 0} onClick={() => handleStatClick('rejected')} active={statusFilter === 'rejected'} />
       </motion.div>
@@ -560,10 +556,15 @@ export function AssetList() {
       {/* Asset List */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm shadow-slate-900/[0.03] dark:shadow-none"
+        animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
+        transition={{ duration: 0.15 }}
+        className="relative bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm shadow-slate-900/[0.03] dark:shadow-none"
       >
+        {isRefetching && (
+          <div className="absolute top-3 right-3 z-10">
+            <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
+          </div>
+        )}
         {filteredAssets.length > 0 ? (
           <>
           {/* Mobile Card Layout */}

@@ -161,6 +161,9 @@ export function EnterpriseRegister() {
 
   // React Query mutations
   const createApplication = useCreateEnterpriseApplication();
+  const checkGST = useCheckGSTExists();
+  const checkEmail = useCheckEmailExists();
+  const [isValidating, setIsValidating] = useState(false);
 
   // Update form field
   const updateField = (field: keyof FormData, value: string | boolean) => {
@@ -310,15 +313,50 @@ export function EnterpriseRegister() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle next step
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+  // Handle next step (async for server-side uniqueness checks)
+  const handleNext = async () => {
+    if (isValidating) return; // Guard against double-click race condition
+    if (!validateStep(currentStep)) return;
+
+    // Step 1: Check GST uniqueness
+    if (currentStep === 1 && formData.gstNumber.trim()) {
+      setIsValidating(true);
+      try {
+        const exists = await checkGST.mutateAsync(formData.gstNumber.trim().toUpperCase());
+        if (exists) {
+          setErrors(prev => ({ ...prev, gstNumber: 'This GST number is already registered' }));
+          setIsValidating(false);
+          return;
+        }
+      } catch {
+        // If the check fails (endpoint down, etc.), let the user proceed
+        // The backend will still enforce uniqueness on final submit
+      }
+      setIsValidating(false);
     }
+
+    // Step 2: Check email uniqueness
+    if (currentStep === 2 && formData.orgAdminEmail.trim()) {
+      setIsValidating(true);
+      try {
+        const exists = await checkEmail.mutateAsync(formData.orgAdminEmail.trim().toLowerCase());
+        if (exists) {
+          setErrors(prev => ({ ...prev, orgAdminEmail: 'This email is already registered' }));
+          setIsValidating(false);
+          return;
+        }
+      } catch {
+        // Let user proceed if check fails — backend enforces on submit
+      }
+      setIsValidating(false);
+    }
+
+    setCurrentStep(prev => Math.min(prev + 1, 4));
   };
 
   // Handle previous step
   const handlePrev = () => {
+    setIsValidating(false); // Reset validation state if user goes back mid-check
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
@@ -363,7 +401,14 @@ export function EnterpriseRegister() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.message || 'Upload failed');
+        // FastAPI validation errors return detail as array [{loc, msg, type}], not string
+        const rawDetail = errorData.detail;
+        const message = typeof rawDetail === 'string'
+          ? rawDetail
+          : Array.isArray(rawDetail)
+            ? rawDetail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join('; ')
+            : errorData.message || 'Upload failed';
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -773,6 +818,11 @@ export function EnterpriseRegister() {
                         errors.addressLine1 ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                       } font-mono text-xs focus:outline-none focus:border-ecotribe-primary px-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30 mb-3`}
                     />
+                    {errors.addressLine1 && (
+                      <p className="text-red-400 text-xs font-mono flex items-center gap-1 mb-3">
+                        <AlertCircle className="w-3 h-3" /> {errors.addressLine1}
+                      </p>
+                    )}
                     <input
                       type="text"
                       value={formData.addressLine2}
@@ -783,7 +833,7 @@ export function EnterpriseRegister() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
+                    <div className="space-y-1">
                       <input
                         type="text"
                         value={formData.city}
@@ -793,8 +843,13 @@ export function EnterpriseRegister() {
                           errors.city ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                         } font-mono text-xs focus:outline-none focus:border-ecotribe-primary px-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30`}
                       />
+                      {errors.city && (
+                        <p className="text-red-400 text-xs font-mono flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> {errors.city}
+                        </p>
+                      )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                       <select
                         value={formData.state}
                         onChange={(e) => updateField('state', e.target.value)}
@@ -807,8 +862,13 @@ export function EnterpriseRegister() {
                           <option key={state} value={state}>{state}</option>
                         ))}
                       </select>
+                      {errors.state && (
+                        <p className="text-red-400 text-xs font-mono flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> {errors.state}
+                        </p>
+                      )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                       <input
                         type="text"
                         value={formData.pinCode}
@@ -820,6 +880,11 @@ export function EnterpriseRegister() {
                           errors.pinCode ? 'border-red-500' : 'border-black/10 dark:border-white/10'
                         } font-mono text-xs focus:outline-none focus:border-ecotribe-primary px-4 py-3 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30`}
                       />
+                      {errors.pinCode && (
+                        <p className="text-red-400 text-xs font-mono flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> {errors.pinCode}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -1134,10 +1199,20 @@ export function EnterpriseRegister() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors"
+                disabled={isValidating}
+                className="flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-ecotribe-primary text-black font-brand font-bold uppercase text-xs tracking-wider btn-chamfer hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
-                <ArrowRight className="w-4 h-4" />
+                {isValidating ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </span>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             ) : (
               <button

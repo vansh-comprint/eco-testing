@@ -65,6 +65,7 @@ export interface BatchListParams {
   search?: string;
   enterprise_id?: string;
   branch_id?: string;
+  sort_by?: string;
 }
 
 export interface BatchCreateRequest {
@@ -107,6 +108,7 @@ export const batchesApi = {
     if (params.search) query.set('search', params.search);
     if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
     if (params.branch_id) query.set('branch_id', params.branch_id);
+    if (params.sort_by) query.set('sort_by', params.sort_by);
     return fetchWithAuth<BatchResponse[]>(`/batches?${query.toString()}`);
   },
 

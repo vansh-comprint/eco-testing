@@ -260,11 +260,11 @@ export function BatchDetail() {
         <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Batch not found</p>
         <p className="font-mono text-xs text-zinc-600 mb-6">The batch you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(`${basePath}/batches`)}
+          onClick={() => navigate(-1)}
           className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Batches
+          Back
         </button>
       </div>
     );
@@ -409,11 +409,11 @@ export function BatchDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/batches`)}
+            onClick={() => navigate(-1)}
             className="interactive flex items-center gap-2 text-zinc-500 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Batches
+            Back
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
@@ -1249,7 +1249,7 @@ export function BatchDetail() {
                     onSubmit={handleCreateAssetInline}
                     onCancel={() => setShowAddAssetModal(false)}
                     isLoading={isCreatingAsset}
-                    showSelfAssign={false}
+                    showSelfAssign={true}
                   />
                 </div>
               )}

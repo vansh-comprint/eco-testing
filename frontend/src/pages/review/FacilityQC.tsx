@@ -74,10 +74,10 @@ export function FacilityQC() {
           <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase mb-2">Asset Not Found</h2>
           <p className="font-display text-zinc-500 mb-6">The asset you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate(qcQueuePath)}
+            onClick={() => navigate(-1)}
             className="interactive px-6 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
           >
-            Back to Queue
+            Back
           </button>
         </div>
       </div>
@@ -176,7 +176,7 @@ export function FacilityQC() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <BackButton to={qcQueuePath} label="Back to Queue" />
+        <BackButton />
         <div className="flex-1">
           <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">
             Facility QC
@@ -506,10 +506,10 @@ export function FacilityQC() {
 
               {/* Back Button */}
               <button
-                onClick={() => navigate(qcQueuePath)}
+                onClick={() => navigate(-1)}
                 className="w-full interactive py-2.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
               >
-                Back to Queue
+                Back
               </button>
             </div>
           </motion.div>

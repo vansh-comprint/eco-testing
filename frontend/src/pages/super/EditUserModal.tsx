@@ -117,7 +117,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
     defaultValues: {
       name: user.name,
       email: user.email,
-      phone: (user.phone || '').replace(/^\+91[-]?/, ''),
+      phone: (user.phone || '').replace(/^\+91[\s-]?/, ''),
       role: user.role,
       status: user.status,
       enterprise_id: user.enterprise_id || '',
@@ -366,7 +366,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
             </div>
 
             {/* Enterprise selector - shown for IT Admin, Org Admin, Employee */}
-            {needsEnterprise && (
+            {needsEnterprise && !user.enterprise_id && (
               <div>
                 <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
                   Enterprise <span className="text-red-500">*</span>

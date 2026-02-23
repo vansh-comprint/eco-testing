@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
-import { useSubUsers } from '@/hooks/useEmployees';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usersApi } from '@/lib/api';
 import {
   Upload,
   FileSpreadsheet,
@@ -19,8 +19,16 @@ import {
 } from 'lucide-react';
 import type { CreateSubUserInput } from '@/types';
 
+interface BranchOption {
+  id: string;
+  branch_code: string;
+  branch_name: string;
+}
+
 interface CSVUserUploadProps {
   enterpriseId: string;
+  branchId?: string; // Pre-selected branch for all users; overridden per-row by branch_code column
+  branches?: BranchOption[]; // Available branches for branch_code resolution
   onUpload: (users: CreateSubUserInput[]) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -31,12 +39,13 @@ interface ParsedRow {
   email: string;
   phone?: string;
   department?: string;
+  branch_code?: string;
   errors: string[];
   warnings: string[];
 }
 
 const REQUIRED_COLUMNS = ['email'];
-const OPTIONAL_COLUMNS = ['name', 'phone', 'department'];
+const OPTIONAL_COLUMNS = ['name', 'phone', 'department', 'branch_code'];
 const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
 
 const COLUMN_ALIASES: Record<string, string> = {
@@ -68,6 +77,10 @@ const COLUMN_ALIASES: Record<string, string> = {
   'team': 'department',
   'division': 'department',
   'unit': 'department',
+  'branch': 'branch_code',
+  'branch code': 'branch_code',
+  'branch_name': 'branch_code',
+  'office': 'branch_code',
 };
 
 const DEPARTMENTS = [
@@ -81,7 +94,7 @@ const DEPARTMENTS = [
   'Other',
 ];
 
-export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: CSVUserUploadProps) {
+export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload, onCancel, isLoading }: CSVUserUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
@@ -89,13 +102,6 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
   const [showPreview, setShowPreview] = useState(true);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Fetch existing employees to check for duplicate emails
-  const { data: existingEmployees = [] } = useSubUsers(enterpriseId);
-  const existingEmails = useMemo(
-    () => new Set(existingEmployees.map((e: { email: string }) => e.email.toLowerCase())),
-    [existingEmployees]
-  );
 
   const validRows = parsedData.filter(row => row.errors.length === 0);
   const invalidRows = parsedData.filter(row => row.errors.length > 0);
@@ -113,11 +119,32 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
 
   const isValidPhone = (phone: string): boolean => {
     if (!phone) return true; // Optional field
-    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '').replace(/^91/, '');
-    return /^\d{10}$/.test(cleaned);
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length === 10;
   };
 
-  const parseCSV = useCallback((content: string): void => {
+  // Check which emails already exist in the system via API
+  const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
+    const existing = new Set<string>();
+    try {
+      for (const email of emails) {
+        const response = await usersApi.list({ search: email, limit: 5 });
+        if (response.data) {
+          for (const user of response.data) {
+            if (user.email?.toLowerCase() === email.toLowerCase()) {
+              existing.add(email.toLowerCase());
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // If validation fails, let server catch it during creation
+    }
+    return existing;
+  };
+
+  const parseCSV = useCallback(async (content: string): Promise<void> => {
     setUploadStatus('parsing');
 
     const lines = content.split(/\r?\n/).filter(line => line.trim());
@@ -152,6 +179,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     // Parse data rows
     const rows: ParsedRow[] = [];
     const seenEmails = new Set<string>();
+    const emailsToCheck: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
@@ -177,15 +205,14 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
         row.errors.push('Invalid email format');
       } else if (seenEmails.has(row.email.toLowerCase())) {
         row.errors.push('Duplicate email in file');
-      } else if (existingEmails.has(row.email.toLowerCase())) {
-        row.errors.push('Email already registered — this employee already exists in the system');
       } else {
         seenEmails.add(row.email.toLowerCase());
+        emailsToCheck.push(row.email);
       }
 
       // Validate phone if provided
       if (row.phone && !isValidPhone(row.phone)) {
-        row.errors.push('Phone number must be exactly 10 digits (e.g. 9876543210)');
+        row.errors.push('Invalid phone number (must be 10 digits)');
       }
 
       // Warnings for optional fields
@@ -202,9 +229,19 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       rows.push(row);
     }
 
+    // Server-side email validation — check which emails already exist
+    if (emailsToCheck.length > 0) {
+      const existingEmails = await validateEmailsOnServer(emailsToCheck);
+      for (const row of rows) {
+        if (row.email && existingEmails.has(row.email.toLowerCase()) && !row.errors.length) {
+          row.errors.push('Email already exists in the system');
+        }
+      }
+    }
+
     setParsedData(rows);
     setUploadStatus('ready');
-  }, [existingEmails]);
+  }, []);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -310,7 +347,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
 
       // Convert to CSV-like format for existing parseCSV function
       const lines: string[] = [];
-      const columnCount = 4; // name, email, phone, department
+      const columnCount = 5; // name, email, phone, department, branch_code
 
       worksheet.eachRow((row, rowNumber) => {
         const rowData: string[] = [];
@@ -347,20 +384,66 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     setUploadStatus('uploading');
     setErrorMessage(null);
     try {
-      const users: CreateSubUserInput[] = validRows.map(row => ({
-        enterprise_id: enterpriseId,
-        email: row.email.toLowerCase(),
-        name: row.name || row.email.split('@')[0], // Fallback to email prefix
-        phone: row.phone || undefined,
-        department: row.department || undefined,
-      }));
+      const unmatchedBranches: string[] = [];
+      const users: CreateSubUserInput[] = validRows.map(row => {
+        // Resolve branch_id: row's branch_code takes priority over prop fallback
+        let resolvedBranchId = branchId;
+        if (row.branch_code && branches.length > 0) {
+          const matched = branches.find(
+            b => b.branch_code.toLowerCase() === row.branch_code!.toLowerCase()
+              || b.branch_name.toLowerCase() === row.branch_code!.toLowerCase()
+          );
+          if (matched) {
+            resolvedBranchId = matched.id;
+          } else {
+            // Track unmatched branch codes for user warning
+            if (!unmatchedBranches.includes(row.branch_code)) {
+              unmatchedBranches.push(row.branch_code);
+            }
+          }
+        }
+        return {
+          enterprise_id: enterpriseId,
+          branch_id: resolvedBranchId || undefined,
+          email: row.email.toLowerCase(),
+          name: row.name || row.email.split('@')[0], // Fallback to email prefix
+          phone: row.phone ? row.phone.replace(/\D/g, '').slice(-10) : undefined,
+          department: row.department || undefined,
+        };
+      });
+
+      // Warn about unmatched branch codes (they fall back to pre-selected branch)
+      if (unmatchedBranches.length > 0) {
+        console.warn(`Unmatched branch codes in CSV: ${unmatchedBranches.join(', ')}. These rows use the default branch.`);
+      }
 
       await onUpload(users);
-      setUploadStatus('success');
+      setUploadStatus(unmatchedBranches.length > 0 ? 'success' : 'success');
+      if (unmatchedBranches.length > 0) {
+        setErrorMessage(`Warning: Branch codes not found: ${unmatchedBranches.join(', ')}. Those employees were assigned to the default branch.`);
+      }
     } catch (err) {
-      setUploadStatus('error');
-      const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
-      setErrorMessage(message);
+      const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+
+      // Parse server errors and map them back to CSV rows
+      const emailErrorPattern = /(?:User with email\s+)?(\S+@\S+)\s+already exists/gi;
+      const matches = [...msg.matchAll(emailErrorPattern)];
+
+      if (matches.length > 0) {
+        const errorEmails = new Set(matches.map(m => m[1].toLowerCase()));
+        const updatedData = parsedData.map(row => {
+          if (errorEmails.has(row.email.toLowerCase())) {
+            return { ...row, errors: [...row.errors, 'Email already exists in the system'] };
+          }
+          return row;
+        });
+        setParsedData(updatedData);
+        setUploadStatus('ready');
+        setErrorMessage(`${errorEmails.size} email(s) already exist in the system`);
+      } else {
+        setUploadStatus('ready');
+        setErrorMessage(msg);
+      }
       console.error('Bulk upload error:', err);
     }
   };
@@ -387,6 +470,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       { header: 'email', key: 'email', width: 30 },
       { header: 'phone', key: 'phone', width: 18 },
       { header: 'department', key: 'department', width: 18 },
+      { header: 'branch_code', key: 'branch_code', width: 18 },
     ];
 
     // Style header row
@@ -403,21 +487,22 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance' });
     worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR' });
 
-    // Apply phone validation for rows 2-100 (exactly 10 digits)
+    // Apply phone validation for rows 2-100 (exactly 10 digits, numbers only)
     for (let row = 2; row <= 100; row++) {
       worksheet.getCell(`C${row}`).dataValidation = {
-        type: 'textLength',
-        operator: 'equal',
+        type: 'custom',
         allowBlank: true,
-        formulae: [10],
+        formulae: [`AND(LEN(C${row})=10,ISNUMBER(VALUE(C${row})))`],
         showErrorMessage: true,
         errorStyle: 'stop',
         errorTitle: 'Invalid Phone Number',
-        error: 'Phone number must be exactly 10 digits. Enter digits only (e.g. 9876543210).',
+        error: 'Phone number must be exactly 10 digits (numbers only, e.g. 9876543210).',
         showInputMessage: true,
         promptTitle: 'Phone Number',
-        prompt: 'Enter exactly 10 digits without spaces or country code (e.g. 9876543210)',
+        prompt: 'Enter exactly 10 digits (numbers only, e.g. 9876543210)',
       };
+      // Format as text to prevent Excel from converting to scientific notation
+      worksheet.getCell(`C${row}`).numFmt = '@';
     }
 
     // Apply department dropdown for rows 2-100
@@ -439,11 +524,12 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       { width: 20 },
       { width: 15 },
       { width: 50 },
-      { width: 40 }
+      { width: 40 },
+      { width: 20 }
     ];
 
     // Title
-    instructionsSheet.mergeCells('A1:D1');
+    instructionsSheet.mergeCells('A1:E1');
     instructionsSheet.getCell('A1').value = 'SUB-USER (EMPLOYEE) UPLOAD TEMPLATE - INSTRUCTIONS';
     instructionsSheet.getCell('A1').font = { bold: true, size: 14 };
     instructionsSheet.getCell('A1').fill = {
@@ -466,7 +552,8 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       ['name', 'No', 'Full name of the employee. If blank, email will be used as display name.', 'Vikram Singh, Priya Sharma'],
       ['email', 'YES', 'Valid work email address. Must be unique. Used for device check-in.', 'vikram@company.com'],
       ['phone', 'No', 'Exactly 10 digits, no spaces or country code. Sheet will show error if not 10 digits.', '9876543210'],
-      ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR']
+      ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR'],
+      ['branch_code', 'No', 'Branch code or name. Overrides pre-selected branch for this row.', 'HQ, DELHI-01'],
     ];
 
     columnInstructions.forEach((row, index) => {
@@ -484,8 +571,8 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     });
 
     // Add supported departments
-    const deptStartRow = 10;
-    instructionsSheet.mergeCells(`A${deptStartRow}:D${deptStartRow}`);
+    const deptStartRow = 11;
+    instructionsSheet.mergeCells(`A${deptStartRow}:E${deptStartRow}`);
     instructionsSheet.getCell(`A${deptStartRow}`).value = 'SUPPORTED DEPARTMENTS';
     instructionsSheet.getCell(`A${deptStartRow}`).font = { bold: true, size: 12 };
     instructionsSheet.getCell(`A${deptStartRow}`).fill = {
@@ -500,7 +587,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
 
     // Add tips section
     const tipsStartRow = deptStartRow + DEPARTMENTS.length + 2;
-    instructionsSheet.mergeCells(`A${tipsStartRow}:D${tipsStartRow}`);
+    instructionsSheet.mergeCells(`A${tipsStartRow}:E${tipsStartRow}`);
     instructionsSheet.getCell(`A${tipsStartRow}`).value = 'IMPORTANT NOTES';
     instructionsSheet.getCell(`A${tipsStartRow}`).font = { bold: true, size: 12 };
     instructionsSheet.getCell(`A${tipsStartRow}`).fill = {
@@ -519,7 +606,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
     ];
 
     tips.forEach((tip, index) => {
-      instructionsSheet.mergeCells(`A${tipsStartRow + 1 + index}:D${tipsStartRow + 1 + index}`);
+      instructionsSheet.mergeCells(`A${tipsStartRow + 1 + index}:E${tipsStartRow + 1 + index}`);
       instructionsSheet.getCell(`A${tipsStartRow + 1 + index}`).value = tip;
     });
 
@@ -666,7 +753,7 @@ export function CSVUserUpload({ enterpriseId, onUpload, onCancel, isLoading }: C
       {uploadStatus === 'parsing' && (
         <div className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer py-16 text-center">
           <div className="w-12 h-12 border-2 border-ecotribe-primary border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="font-mono text-sm text-zinc-500 uppercase tracking-widest">Parsing CSV file...</p>
+          <p className="font-mono text-sm text-zinc-500 uppercase tracking-widest">Validating data...</p>
         </div>
       )}
 

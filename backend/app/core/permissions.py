@@ -322,6 +322,8 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         # Pickup permissions
         Permission.PICKUP_VIEW,
         Permission.PICKUP_ASSIGN,
+        # User management (for editing logistics users under them)
+        Permission.USER_UPDATE,
     },
     UserRole.LOGISTICS_USER: {
         Permission.VIEW_ASSIGNED_PICKUPS,

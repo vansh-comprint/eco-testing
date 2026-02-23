@@ -127,17 +127,13 @@ export function useInfiniteDisputes(params: Omit<DisputeListParams, 'page' | 'pa
   });
 }
 
-// Fetch disputes by enterprise
+// Fetch disputes by enterprise (backend auto-scopes by role)
 export function useDisputesByEnterprise(enterpriseId: string) {
   return useQuery({
     queryKey: disputeKeys.byEnterprise(enterpriseId),
     queryFn: async () => {
-      // Fetch all disputes and filter by enterprise's assets
-      const result = await disputesApi.list({ page_size: 100 });
+      const result = await disputesApi.list({ page_size: 500 });
       if (!result.success) throw new Error(result.error?.message || 'Failed to fetch disputes');
-
-      // Note: Server-side filtering by enterprise would be better
-      // For now, return all disputes - the page can filter client-side if needed
       return (result.data || []).map(mapDisputeResponse);
     },
     enabled: !!enterpriseId,

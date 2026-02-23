@@ -24,7 +24,7 @@ import {
   PowerOff,
   Ban,
 } from 'lucide-react';
-import { PageHeader, Card, Spinner, ConfirmationModal } from '@/components/ui';
+import { PageHeader, Card, Spinner, ConfirmationModal, useToast } from '@/components/ui';
 import { CreateEnterpriseUserModal, EditUserModal } from '@/pages/super';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { usersApi } from '@/lib/api/users';
@@ -95,9 +95,12 @@ export function EnterpriseDetail() {
   const navigate = useNavigate();
   const userRole = useUserRole();
   const isSuperAdmin = userRole === 'super_admin';
+  const isOpsAdmin = userRole === 'ops_admin';
+  const canManageEnterprise = isSuperAdmin || isOpsAdmin;
   const basePath = isSuperAdmin ? '/super' : '/ops';
 
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const { data: enterpriseData, isLoading } = useQuery({
     queryKey: ['enterprise-detail', id],
@@ -234,12 +237,17 @@ export function EnterpriseDetail() {
           country: editForm.address_country,
         },
       };
-      await enterprisesApi.update(id, updateData as any);
+      const result = await enterprisesApi.update(id, updateData as any);
+      if (!result.success) {
+        addToast({ type: 'error', title: 'Update Failed', message: (result as any).error?.message || 'Failed to update enterprise. Please try again.' });
+        return;
+      }
       setIsEditing(false);
       queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
     } catch (error) {
       console.error('Failed to update enterprise:', error);
+      addToast({ type: 'error', title: 'Update Failed', message: error instanceof Error ? error.message : 'Failed to update enterprise. Please try again.' });
     } finally {
       setIsSaving(false);
     }
@@ -250,13 +258,18 @@ export function EnterpriseDetail() {
     if (!id || !pendingStatus) return;
     setIsChangingStatus(true);
     try {
-      await enterprisesApi.update(id, { status: pendingStatus });
+      const result = await enterprisesApi.update(id, { status: pendingStatus });
+      if (!result.success) {
+        addToast({ type: 'error', title: 'Status Change Failed', message: (result as any).error?.message || 'Failed to update enterprise status. Please try again.' });
+        return;
+      }
       setShowStatusModal(false);
       setPendingStatus('');
       queryClient.invalidateQueries({ queryKey: ['enterprise-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
     } catch (error) {
       console.error('Failed to update status:', error);
+      addToast({ type: 'error', title: 'Status Change Failed', message: error instanceof Error ? error.message : 'Failed to update enterprise status. Please try again.' });
     } finally {
       setIsChangingStatus(false);
     }
@@ -277,10 +290,10 @@ export function EnterpriseDetail() {
         <h2 className={`font-brand font-bold text-xl mb-2 ${text.primary}`}>Enterprise Not Found</h2>
         <p className={`${text.muted} mb-6`}>The enterprise you're looking for doesn't exist.</p>
         <button
-          onClick={() => navigate(`${basePath}/enterprises`)}
+          onClick={() => navigate(-1)}
           className="px-4 py-2 bg-lime-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-lime-400 transition-all"
         >
-          Back to Enterprises
+          Back
         </button>
       </div>
     );
@@ -326,8 +339,8 @@ export function EnterpriseDetail() {
         subtitle={`Registered on ${enterprise.createdAt.toLocaleDateString()}`}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Super Admin: Edit / Save / Cancel */}
-            {isSuperAdmin && !isEditing && (
+            {/* Platform Admin: Edit / Save / Cancel */}
+            {canManageEnterprise && !isEditing && (
               <button
                 onClick={() => {
                   if (enterprise) {
@@ -359,7 +372,7 @@ export function EnterpriseDetail() {
                 Edit
               </button>
             )}
-            {isSuperAdmin && isEditing && (
+            {canManageEnterprise && isEditing && (
               <>
                 <button
                   onClick={handleSaveEnterprise}
@@ -378,8 +391,8 @@ export function EnterpriseDetail() {
                 </button>
               </>
             )}
-            {/* Super Admin: Status buttons */}
-            {isSuperAdmin && !isEditing && enterprise.status === 'active' && (
+            {/* Platform Admin: Status buttons */}
+            {canManageEnterprise && !isEditing && enterprise.status === 'active' && (
               <>
                 <button
                   onClick={() => { setPendingStatus('suspended'); setShowStatusModal(true); }}
@@ -397,7 +410,7 @@ export function EnterpriseDetail() {
                 </button>
               </>
             )}
-            {isSuperAdmin && !isEditing && (enterprise.status === 'inactive' || enterprise.status === 'suspended') && (
+            {canManageEnterprise && !isEditing && (enterprise.status === 'inactive' || enterprise.status === 'suspended') && (
               <button
                 onClick={() => { setPendingStatus('active'); setShowStatusModal(true); }}
                 className="px-4 py-2 border border-emerald-400/30 bg-emerald-400/5 text-emerald-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-emerald-400/20 transition-all flex items-center gap-2"
@@ -408,7 +421,7 @@ export function EnterpriseDetail() {
             )}
             {/* Back button */}
             <button
-              onClick={() => navigate(`${basePath}/enterprises`)}
+              onClick={() => navigate(-1)}
               className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all flex items-center gap-2"
             >
               <ArrowLeft className={iconSize.sm} />
@@ -442,8 +455,8 @@ export function EnterpriseDetail() {
             </div>
           </div>
           <div className="p-6">
-            {isEditing && isSuperAdmin ? (
-              /* Edit Mode (Super Admin only) */
+            {isEditing && canManageEnterprise ? (
+              /* Edit Mode (Platform Admins) */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -488,7 +501,7 @@ export function EnterpriseDetail() {
                   </div>
                   <div>
                     <label className={labelClasses}>Contact Phone</label>
-                    <input className={inputClasses} value={editForm.contact_phone} onChange={(e) => setEditForm(f => ({ ...f, contact_phone: e.target.value }))} />
+                    <input className={inputClasses} inputMode="numeric" maxLength={10} value={editForm.contact_phone} onChange={(e) => setEditForm(f => ({ ...f, contact_phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
                   </div>
                   <div>
                     <label className={labelClasses}>Address Line 1</label>
@@ -953,7 +966,7 @@ export function EnterpriseDetail() {
         />
       )}
 
-      {/* Status Change Confirmation Modal (Super Admin only) */}
+      {/* Status Change Confirmation Modal */}
       {showStatusModal && (
         <ConfirmationModal
           isOpen={showStatusModal}
