@@ -70,6 +70,38 @@ export interface FacilityQCCreateRequest {
   rejection_reason?: string;
 }
 
+export interface OnSiteQCCreateRequest {
+  asset_id: string;
+  pickup_request_id: string;
+  physical_condition_ok: boolean;
+  powers_on: boolean;
+  screen_ok: boolean;
+  keyboard_ok?: boolean | null;
+  ports_ok: boolean;
+  photo_urls?: string[];
+  notes?: string;
+  extra_data?: Record<string, unknown>;
+}
+
+export interface OnSiteQCResponse {
+  id: string;
+  asset_id: string;
+  pickup_request_id: string | null;
+  performed_by_user_id?: string;
+  status: string;
+  physical_condition_ok: boolean;
+  powers_on: boolean;
+  screen_ok: boolean;
+  keyboard_ok?: boolean | null;
+  ports_ok: boolean;
+  photo_urls?: string[];
+  notes?: string;
+  performed_at: string;
+  extra_data?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -118,8 +150,17 @@ export const reviewsApi = {
     query.set('page', (params.page ?? 1).toString());
     query.set('page_size', (params.page_size ?? DEFAULT_PAGE_SIZE).toString());
     if (params.status) query.set('status', params.status);
-    return fetchWithAuth<FacilityQCResponse[]>(`/reviews/onsite?${query.toString()}`);
+    return fetchWithAuth<OnSiteQCResponse[]>(`/reviews/onsite?${query.toString()}`);
   },
 
-  getOnsite: (id: string) => fetchWithAuth<FacilityQCResponse>(`/reviews/onsite/${id}`),
+  getOnsite: (id: string) => fetchWithAuth<OnSiteQCResponse>(`/reviews/onsite/${id}`),
+
+  createOnsite: (data: OnSiteQCCreateRequest) =>
+    fetchWithAuth<OnSiteQCResponse>('/reviews/onsite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getOnsiteByPickup: (pickupRequestId: string) =>
+    fetchWithAuth<OnSiteQCResponse[]>(`/reviews/onsite/by-pickup/${pickupRequestId}`),
 };

@@ -17,12 +17,13 @@ import {
   UserX,
   UserCheck,
   Building2,
+  ChevronRight,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin, useEmployeeBasePath } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { subUserKeys } from '@/hooks/useEmployees';
-import { InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal } from '@/components/ui';
+import { InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal, DeactivationPreviewModal } from '@/components/ui';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 
@@ -47,17 +48,16 @@ export function EmployeeList() {
   const navigate = useNavigate();
   const location = useLocation();
   // V3: Use React Query hook for auth
-  const { enterprise, user } = useAuth();
-  const enterpriseId = enterprise?.id || '';
+  const { user } = useAuth();
+  const { enterpriseId, basePath, isEnterpriseNested } = useEmployeeBasePath();
   const userId = user?.id || '';
 
   const itBranchCtx = useContext(ITAdminBranchContext);
   const orgBranchCtx = useOrgBranchSafe();
   const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
-  // Determine if org admin context
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  // Determine if org admin context (true for org_admin role, org-admin portal, or enterprise-nested super/ops routes)
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
@@ -93,7 +93,10 @@ export function EmployeeList() {
   }, [itAdminBranches]);
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
-  const [pendingToggle, setPendingToggle] = useState<{ userId: string; currentStatus: SubUserStatus; userName: string } | null>(null);
+  // Deactivation: use preview modal (active → inactive)
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ userId: string; userName: string } | null>(null);
+  // Activation: use simple confirmation modal (inactive → active)
+  const [pendingActivate, setPendingActivate] = useState<{ userId: string; userName: string } | null>(null);
 
   const queryClient = useQueryClient();
   const sendInvitationMutation = useSendSubUserInvitation();
@@ -101,14 +104,14 @@ export function EmployeeList() {
 
   const requestToggleStatus = (userId: string, currentStatus: SubUserStatus, userName: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setPendingToggle({ userId, currentStatus, userName });
+    if (currentStatus === 'active') {
+      setPendingDeactivate({ userId, userName });
+    } else {
+      setPendingActivate({ userId, userName });
+    }
   };
 
-  const confirmToggleStatus = async () => {
-    if (!pendingToggle) return;
-    const { userId, currentStatus } = pendingToggle;
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    setPendingToggle(null);
+  const executeStatusChange = async (userId: string, newStatus: 'active' | 'inactive') => {
     setTogglingIds(prev => new Set(prev).add(userId));
     try {
       await subUsersApi.update(userId, { status: newStatus });
@@ -126,6 +129,20 @@ export function EmployeeList() {
         return next;
       });
     }
+  };
+
+  const confirmDeactivate = async () => {
+    if (!pendingDeactivate) return;
+    const { userId } = pendingDeactivate;
+    setPendingDeactivate(null);
+    await executeStatusChange(userId, 'inactive');
+  };
+
+  const confirmActivate = async () => {
+    if (!pendingActivate) return;
+    const { userId } = pendingActivate;
+    setPendingActivate(null);
+    await executeStatusChange(userId, 'active');
   };
 
   const handleResendInvite = async (userId: string, email: string) => {
@@ -333,117 +350,102 @@ export function EmployeeList() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.03 * Math.min(index, 10) }}
                   onClick={() => navigate(`${basePath}/employees/${user.id}`)}
-                  className="p-5 hover:bg-white/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  className="p-4 grid grid-cols-[auto_1fr_70px_70px_120px_auto_20px] items-center gap-4 hover:bg-white/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer group"
                 >
-                  <div className="flex items-center gap-5">
-                    {/* Avatar */}
-                    <div className="w-12 h-12 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="font-brand font-bold text-sm text-ecotribe-primary">
-                        {user.name.split(' ').map(n => n[0]).join('')}
+                  {/* Avatar */}
+                  <div className="w-11 h-11 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
+                    <span className="font-brand font-bold text-sm text-ecotribe-primary">
+                      {user.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide truncate">{user.name}</p>
+                      <span className={`flex items-center gap-1 font-mono font-bold text-[10px] uppercase tracking-widest flex-shrink-0 ${statusConfig.color}`}>
+                        {statusConfig.icon}
+                        {statusConfig.label}
                       </span>
                     </div>
+                    <div className="flex items-center gap-4 font-mono text-xs text-slate-500 dark:text-white/50">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <Mail className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{user.email}</span>
+                      </span>
+                      {user.phone && (
+                        <span className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                          <Phone className="w-3 h-3" />
+                          {user.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                    {/* User Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">{user.name}</p>
-                        <span className={`flex items-center gap-1 font-mono font-bold text-[10px] uppercase tracking-widest ${statusConfig.color}`}>
-                          {statusConfig.icon}
-                          {statusConfig.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 font-mono text-xs text-slate-500 dark:text-white/50">
-                        <span className="flex items-center gap-1.5">
-                          <Mail className="w-3 h-3" />
-                          {user.email}
-                        </span>
-                        {user.phone && (
-                          <span className="hidden sm:flex items-center gap-1.5">
-                            <Phone className="w-3 h-3" />
-                            {user.phone}
-                          </span>
+                  {/* Assigned */}
+                  <div className="text-center">
+                    <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{user.assignedAssets}</p>
+                    <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Assigned</p>
+                  </div>
+
+                  {/* Submitted */}
+                  <div className="text-center">
+                    <p className="font-brand font-bold text-lg text-ecotribe-primary">{user.submittedAssets}</p>
+                    <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Submitted</p>
+                  </div>
+
+                  {/* Department */}
+                  <div className="text-center">
+                    <span className="inline-block px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-wide truncate max-w-full">
+                      {user.department}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end">
+                    {user.status === 'pending_invite' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResendInvite(user.id, user.email);
+                        }}
+                        disabled={resendingIds.has(user.id)}
+                        className="interactive p-2.5 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-all disabled:opacity-50"
+                        title="Resend Invite"
+                      >
+                        {resendingIds.has(user.id) ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                        ) : (
+                          <Send className="w-4 h-4 text-amber-400" />
                         )}
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="hidden md:flex items-center gap-8">
-                      <div className="text-center">
-                        <p className="font-brand font-bold text-xl text-slate-900 dark:text-white">{user.assignedAssets}</p>
-                        <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Assigned</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="font-brand font-bold text-xl text-ecotribe-primary">{user.submittedAssets}</p>
-                        <p className="font-mono font-bold text-[9px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Submitted</p>
-                      </div>
-                    </div>
-
-                    {/* Department Badge */}
-                    <div className="hidden sm:block">
-                      <span className="px-3 py-1.5 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-wide">
-                        {user.department}
-                      </span>
-                    </div>
-
-                    {/* Branch Badge — only shown for multi-branch IT Admins */}
-                    {showBranchBadge && (
-                      <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 border border-blue-500/20 bg-blue-500/5 font-mono text-xs text-blue-500 dark:text-blue-400 uppercase tracking-wide flex-shrink-0">
-                        <Building2 className="w-3 h-3" />
-                        {user.branch_id ? (branchMap.get(user.branch_id) || 'Unknown') : 'Unassigned'}
-                      </div>
+                      </button>
                     )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      {user.status === 'pending_invite' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleResendInvite(user.id, user.email);
-                          }}
-                          disabled={resendingIds.has(user.id)}
-                          className="interactive p-2.5 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-ecotribe-primary/5 transition-all disabled:opacity-50"
-                          title="Resend Invite"
-                        >
-                          {resendingIds.has(user.id) ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-ecotribe-primary" />
-                          ) : (
-                            <Send className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors" />
-                          )}
-                        </button>
-                      )}
-                      {(user.status === 'active' || user.status === 'inactive') && (
-                        <button
-                          onClick={(e) => requestToggleStatus(user.id, user.status, user.name, e)}
-                          disabled={togglingIds.has(user.id)}
-                          className={`interactive p-2.5 border transition-all disabled:opacity-50 ${
-                            user.status === 'active'
-                              ? 'border-slate-200 dark:border-white/10 hover:border-red-400/30 hover:bg-red-400/5'
-                              : 'border-slate-200 dark:border-white/10 hover:border-emerald-400/30 hover:bg-emerald-400/5'
-                          }`}
-                          title={user.status === 'active' ? 'Deactivate' : 'Activate'}
-                        >
-                          {togglingIds.has(user.id) ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-white/50" />
-                          ) : user.status === 'active' ? (
-                            <UserX className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-red-400 transition-colors" />
-                          ) : (
-                            <UserCheck className="w-4 h-4 text-slate-500 dark:text-white/50 hover:text-emerald-400 transition-colors" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Last Active */}
-                  {/* Mobile-only stats row */}
-                  <div className="flex md:hidden items-center gap-4 mt-3 ml-[4.25rem] font-mono text-xs text-slate-500 dark:text-white/50">
-                    <span>{user.assignedAssets} assigned</span>
-                    <span className="text-ecotribe-primary">{user.submittedAssets} submitted</span>
-                    {user.department !== 'Unassigned' && (
-                      <span className="sm:hidden px-2 py-0.5 border border-slate-200 dark:border-white/10 text-[10px] uppercase">{user.department}</span>
+                    {user.status !== 'pending_invite' && (
+                      <button
+                        type="button"
+                        onClick={(e) => requestToggleStatus(user.id, user.status, user.name, e)}
+                        disabled={togglingIds.has(user.id)}
+                        className={`interactive p-2.5 border transition-all disabled:opacity-50 ${
+                          user.status === 'active'
+                            ? 'border-red-400/30 bg-red-400/5 hover:bg-red-400/15'
+                            : 'border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/15'
+                        }`}
+                        title={user.status === 'active' ? 'Deactivate Employee' : 'Activate Employee'}
+                      >
+                        {togglingIds.has(user.id) ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                        ) : user.status === 'active' ? (
+                          <UserX className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <UserCheck className="w-4 h-4 text-emerald-400" />
+                        )}
+                      </button>
                     )}
                   </div>
+
+                  {/* Nav */}
+                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
                 </motion.div>
               );
             })}
@@ -484,18 +486,24 @@ export function EmployeeList() {
       <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
       <InfiniteScrollInfo loadedCount={subUsers.length} totalCount={totalSubUsers} />
 
+      {/* Deactivation: live preview modal */}
+      <DeactivationPreviewModal
+        isOpen={!!pendingDeactivate}
+        onClose={() => setPendingDeactivate(null)}
+        onConfirm={confirmDeactivate}
+        userId={pendingDeactivate?.userId ?? ''}
+        userName={pendingDeactivate?.userName ?? ''}
+      />
+
+      {/* Activation: simple confirmation */}
       <ConfirmationModal
-        isOpen={!!pendingToggle}
-        onClose={() => setPendingToggle(null)}
-        onConfirm={confirmToggleStatus}
-        title={pendingToggle?.currentStatus === 'active' ? 'Deactivate Employee?' : 'Activate Employee?'}
-        description={
-          pendingToggle?.currentStatus === 'active'
-            ? `Are you sure you want to deactivate ${pendingToggle?.userName}? They will lose access to the portal.`
-            : `Are you sure you want to activate ${pendingToggle?.userName}? They will regain access to the portal.`
-        }
-        confirmText={pendingToggle?.currentStatus === 'active' ? 'Deactivate' : 'Activate'}
-        variant={pendingToggle?.currentStatus === 'active' ? 'danger' : 'info'}
+        isOpen={!!pendingActivate}
+        onClose={() => setPendingActivate(null)}
+        onConfirm={confirmActivate}
+        title="Activate Employee?"
+        description={`Are you sure you want to activate ${pendingActivate?.userName}? They will regain access to the check-in portal.`}
+        confirmText="Activate"
+        variant="info"
       />
     </div>
   );

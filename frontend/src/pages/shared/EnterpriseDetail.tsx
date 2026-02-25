@@ -844,6 +844,13 @@ export function EnterpriseDetail() {
               </div>
               <div className="flex gap-2">
                 <button
+                  onClick={() => navigate(`${basePath}/enterprises/${id}/employees`)}
+                  className="px-3 py-2 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
+                >
+                  <Users className={iconSize.sm} />
+                  View All
+                </button>
+                <button
                   onClick={() => navigate(`${basePath}/enterprises/${id}/bulk-employees`)}
                   className="px-3 py-2 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-purple-400/20 transition-all flex items-center gap-2"
                 >

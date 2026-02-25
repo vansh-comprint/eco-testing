@@ -104,7 +104,7 @@ async def get_epr_certificate(
 @router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_epr_certificate(
     data: EPRCertificateCreate,
-    current_user: User = Depends(require_permission(Permission.PRICING_MANAGE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_EPR_CERTIFICATES)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -112,7 +112,7 @@ async def create_epr_certificate(
 
     Enterprise context is automatically derived from current user's role.
 
-    **Permissions:** PRICING_MANAGE (Super Admin only)
+    **Permissions:** MANAGE_EPR_CERTIFICATES (Super Admin, OPS Admin)
     """
     filled_enterprise_id, _ = auto_fill_context(
         current_user, data.enterprise_id, None
@@ -130,13 +130,13 @@ async def create_epr_certificate(
 async def update_epr_certificate(
     certificate_id: str,
     data: EPRCertificateUpdate,
-    current_user: User = Depends(require_permission(Permission.PRICING_MANAGE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_EPR_CERTIFICATES)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Update EPR certificate by ID.
 
-    **Permissions:** PRICING_MANAGE (Super Admin only)
+    **Permissions:** MANAGE_EPR_CERTIFICATES (Super Admin, OPS Admin)
     """
     service = EPRCertificateService(db)
     certificate = await service.update_certificate(
@@ -150,13 +150,13 @@ async def update_epr_certificate(
 @router.delete("/{certificate_id}", response_model=dict)
 async def delete_epr_certificate(
     certificate_id: str,
-    current_user: User = Depends(require_permission(Permission.PRICING_MANAGE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_EPR_CERTIFICATES)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Delete EPR certificate by ID.
 
-    **Permissions:** PRICING_MANAGE (Super Admin only)
+    **Permissions:** MANAGE_EPR_CERTIFICATES (Super Admin, OPS Admin)
     """
     service = EPRCertificateService(db)
     await service.delete_certificate(certificate_id)

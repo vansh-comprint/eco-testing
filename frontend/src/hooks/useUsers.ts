@@ -224,6 +224,8 @@ export function useToggleCompanyStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
       queryClient.invalidateQueries({ queryKey: ['logistics-management'] });
+      queryClient.invalidateQueries({ queryKey: ['logistics'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

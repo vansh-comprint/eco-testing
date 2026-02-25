@@ -61,10 +61,12 @@ ASSET_TRANSITIONS: Dict[str, Set[str]] = {
     "ready_for_pickup": {"pickup_requested"},
 
     # Pickup requested - waiting for logistics assignment
-    "pickup_requested": {"pickup_scheduled"},
+    # conditionally_accepted: revert path when pickup is cancelled or failed before execution
+    "pickup_requested": {"pickup_scheduled", "conditionally_accepted"},
 
     # Pickup scheduled - logistics will execute
-    "pickup_scheduled": {"picked_up", "in_transit", "pickup_failed_qc"},
+    # conditionally_accepted: revert path when pickup is cancelled or failed before physical collection
+    "pickup_scheduled": {"picked_up", "in_transit", "pickup_failed_qc", "conditionally_accepted"},
 
     # Pickup failed on-site QC - back to scheduled or disputed
     "pickup_failed_qc": {"pickup_scheduled", "disputed"},
@@ -178,8 +180,8 @@ BATCH_TRANSITIONS: Dict[str, Set[str]] = {
     # Rejected - can be revised back to draft
     "rejected": {"draft"},
 
-    # Pickup in progress - at least one pickup created
-    "pickup_in_progress": {"completed"},
+    # Pickup in progress - at least one pickup created, can be cancelled if assets not yet collected
+    "pickup_in_progress": {"completed", "cancelled"},
 
     # Cancelled - terminal
     "cancelled": set(),
@@ -220,10 +222,10 @@ def get_allowed_batch_transitions(current_status: str) -> Set[str]:
 
 PICKUP_TRANSITIONS: Dict[str, Set[str]] = {
     # Created - waiting for OPS assignment
-    "pending_assignment": {"assigned_to_logistics_admin"},
+    "pending": {"assigned_to_logistics_admin"},
 
     # Assigned to logistics admin - waiting for driver assignment
-    "assigned_to_logistics_admin": {"assigned_to_logistics_user", "pending_assignment"},
+    "assigned_to_logistics_admin": {"assigned_to_logistics_user", "pending"},
 
     # Assigned to driver - waiting for scheduling
     "assigned_to_logistics_user": {"scheduled", "assigned_to_logistics_admin"},

@@ -3,9 +3,14 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple
+import logging
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PickupRequest, PickupStatus, AssetStatus, User, UserRole
+from app.models.asset import Asset
+
+logger = logging.getLogger(__name__)
 from app.models.batch import BatchStatus
 from app.repositories.batch_repository import BatchRepository
 from app.repositories.branch_repository import BranchRepository
@@ -17,6 +22,9 @@ from app.schemas.pickup import (
     PickupAssignToLogisticsAdmin,
     PickupAssignToLogisticsUser,
     PickupComplete,
+    PickupFail,
+    PickupPartial,
+    PickupReschedule,
 )
 from app.services.audit_service import AuditService
 
@@ -362,11 +370,30 @@ class PickupService:
 
         return pickup
 
+    # Asset statuses that should be reverted when a pickup is cancelled.
+    # Only revert assets that haven't been physically collected yet.
+    PICKUP_REVERTABLE_ASSET_STATUSES = {
+        AssetStatus.PICKUP_REQUESTED.value,
+        AssetStatus.PICKUP_SCHEDULED.value,
+    }
+
     async def cancel_pickup(self, pickup_id: str, reason: str, user: User) -> PickupRequest:
-        """Cancel a pickup request with audit logging"""
+        """
+        Cancel a pickup request with asset reversion and audit logging.
+
+        Reverts assets in pre-collection statuses (pickup_requested, pickup_scheduled)
+        back to conditionally_accepted. Assets already picked_up or in_transit are NOT
+        reverted — those require manual handling since they're physically in possession.
+        """
         pickup = await self.repo.get_by_id(pickup_id)
         if not pickup:
             raise ValueError("Pickup request not found")
+
+        # Reject if already in a terminal state
+        if pickup.status in (PickupStatus.CANCELLED.value, PickupStatus.COMPLETED.value):
+            raise ValueError(
+                f"Cannot cancel pickup: already in terminal state '{pickup.status}'"
+            )
 
         # Check permissions
         if user.role == UserRole.IT_ADMIN.value:
@@ -380,6 +407,35 @@ class PickupService:
         pickup.status = PickupStatus.CANCELLED.value
         pickup.logistics_notes = f"Cancelled: {reason}"
 
+        # --- Revert asset statuses for assets not yet physically collected ---
+        assets_reverted = 0
+        assets_physical = 0
+
+        if pickup.asset_ids:
+            asset_result = await self.session.execute(
+                select(Asset).where(Asset.id.in_(pickup.asset_ids))
+            )
+            assets = asset_result.scalars().all()
+
+            for asset in assets:
+                if asset.status in self.PICKUP_REVERTABLE_ASSET_STATUSES:
+                    asset.status = AssetStatus.CONDITIONALLY_ACCEPTED.value
+                    assets_reverted += 1
+                elif asset.status in (
+                    AssetStatus.PICKED_UP.value,
+                    AssetStatus.IN_TRANSIT.value,
+                ):
+                    # Asset is physically with logistics — cannot auto-revert
+                    assets_physical += 1
+
+            if assets_physical > 0:
+                logger.warning(
+                    "Pickup %s cancelled but %d assets are physically collected "
+                    "(picked_up/in_transit) — manual intervention required",
+                    pickup_id,
+                    assets_physical,
+                )
+
         await self.session.flush()
 
         # Log to audit trail
@@ -392,7 +448,290 @@ class PickupService:
             user_id=user.id,
             enterprise_id=pickup.enterprise_id,
             details=f"Pickup cancelled: {reason}",
-            metadata={"cancellation_reason": reason}
+            metadata={
+                "cancellation_reason": reason,
+                "assets_reverted": assets_reverted,
+                "assets_physical_warning": assets_physical,
+            },
+        )
+
+        logger.info(
+            "Pickup %s cancelled: %d assets reverted to conditionally_accepted, "
+            "%d assets in physical possession (manual handling needed)",
+            pickup_id,
+            assets_reverted,
+            assets_physical,
+        )
+
+        return pickup
+
+    async def fail_pickup(self, pickup_id: str, data: PickupFail, user: User) -> PickupRequest:
+        """
+        Mark a pickup as failed (Logistics User action) with asset reversion and audit logging.
+
+        Reverts assets in pre-collection statuses back to conditionally_accepted.
+        Increments attempt_count so repeated failure attempts are tracked.
+        """
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        if user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("This pickup is not assigned to you")
+
+        if pickup.status != PickupStatus.IN_PROGRESS.value:
+            raise ValueError("Pickup must be in progress to mark as failed")
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.FAILED.value
+        pickup.failure_reason = data.failure_reason
+        pickup.failed_at = datetime.now(timezone.utc)
+        pickup.attempt_count = (pickup.attempt_count or 0) + 1
+        if data.logistics_notes:
+            pickup.logistics_notes = data.logistics_notes
+
+        # --- Revert asset statuses for assets not yet physically collected ---
+        assets_reverted = 0
+        assets_physical = 0
+
+        if pickup.asset_ids:
+            asset_result = await self.session.execute(
+                select(Asset).where(Asset.id.in_(pickup.asset_ids))
+            )
+            assets = asset_result.scalars().all()
+
+            for asset in assets:
+                if asset.status in self.PICKUP_REVERTABLE_ASSET_STATUSES:
+                    asset.status = AssetStatus.CONDITIONALLY_ACCEPTED.value
+                    assets_reverted += 1
+                elif asset.status in (
+                    AssetStatus.PICKED_UP.value,
+                    AssetStatus.IN_TRANSIT.value,
+                ):
+                    # Asset is physically with logistics — cannot auto-revert
+                    assets_physical += 1
+                else:
+                    logger.warning(
+                        "Pickup %s fail: asset %s has unexpected status '%s' — skipped",
+                        pickup_id,
+                        asset.id,
+                        asset.status,
+                    )
+
+            if assets_physical > 0:
+                logger.warning(
+                    "Pickup %s failed but %d assets are physically collected "
+                    "(picked_up/in_transit) — manual intervention required",
+                    pickup_id,
+                    assets_physical,
+                )
+
+        await self.session.flush()
+
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Pickup failed: {data.failure_reason}",
+            metadata={
+                "failure_reason": data.failure_reason,
+                "attempt_count": pickup.attempt_count,
+                "assets_reverted": assets_reverted,
+                "assets_physical_warning": assets_physical,
+            },
+        )
+
+        logger.info(
+            "Pickup %s failed (attempt %d): %d assets reverted to conditionally_accepted, "
+            "%d assets in physical possession (manual handling needed)",
+            pickup_id,
+            pickup.attempt_count,
+            assets_reverted,
+            assets_physical,
+        )
+
+        return pickup
+
+    async def partial_pickup(self, pickup_id: str, data: PickupPartial, user: User) -> PickupRequest:
+        """
+        Record a partial pickup — some assets collected, some failed (Logistics User action).
+
+        Picked assets → in_transit.
+        Failed assets → pickup_failed_qc.
+        Unaccounted assets (in pickup.asset_ids but not in either list) → conditionally_accepted.
+        """
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        if user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("This pickup is not assigned to you")
+
+        if pickup.status != PickupStatus.IN_PROGRESS.value:
+            raise ValueError("Pickup must be in progress to record partial collection")
+
+        # --- Validate asset ID sets BEFORE any writes ---
+        picked_set = set(data.picked_asset_ids)
+        failed_set = set(data.failed_asset_ids)
+        all_set = set(pickup.asset_ids or [])
+
+        overlap = picked_set & failed_set
+        if overlap:
+            raise ValueError(
+                f"Asset IDs cannot appear in both picked and failed lists: {sorted(overlap)}"
+            )
+
+        submitted = picked_set | failed_set
+        if not submitted.issubset(all_set):
+            unknown = submitted - all_set
+            raise ValueError(
+                f"Asset IDs must belong to this pickup request: {sorted(unknown)}"
+            )
+
+        if not picked_set and not failed_set:
+            raise ValueError("At least one asset must be picked or failed")
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.PARTIAL.value
+        pickup.picked_asset_ids = data.picked_asset_ids
+        pickup.failed_asset_ids = data.failed_asset_ids
+        pickup.attempt_count = (pickup.attempt_count or 0) + 1
+        if data.failure_reason:
+            pickup.failure_reason = data.failure_reason
+        if data.logistics_notes:
+            pickup.logistics_notes = data.logistics_notes
+        if data.proof_of_pickup:
+            pickup.proof_of_pickup = data.proof_of_pickup
+
+        # --- Update individual asset statuses ---
+        if pickup.asset_ids:
+            asset_result = await self.session.execute(
+                select(Asset).where(Asset.id.in_(pickup.asset_ids))
+            )
+            assets = asset_result.scalars().all()
+
+            for asset in assets:
+                if asset.id in picked_set and asset.status in self.PICKUP_REVERTABLE_ASSET_STATUSES:
+                    # Successfully collected — heading to facility
+                    asset.status = AssetStatus.IN_TRANSIT.value
+                elif asset.id in failed_set and asset.status in self.PICKUP_REVERTABLE_ASSET_STATUSES:
+                    # On-site QC failure
+                    asset.status = AssetStatus.PICKUP_FAILED_QC.value
+                elif (
+                    asset.id not in picked_set
+                    and asset.id not in failed_set
+                    and asset.status in self.PICKUP_REVERTABLE_ASSET_STATUSES
+                ):
+                    # Unaccounted asset — revert to conditionally_accepted
+                    asset.status = AssetStatus.CONDITIONALLY_ACCEPTED.value
+                elif asset.status not in self.PICKUP_REVERTABLE_ASSET_STATUSES:
+                    logger.warning(
+                        "Pickup %s partial: asset %s has unexpected status '%s', skipping status update",
+                        pickup_id,
+                        asset.id,
+                        asset.status,
+                    )
+
+        await self.session.flush()
+
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Partial pickup recorded: {len(picked_set)} picked, {len(failed_set)} failed",
+            metadata={
+                "picked_count": len(picked_set),
+                "failed_count": len(failed_set),
+                "failure_reason": data.failure_reason,
+                "attempt_count": pickup.attempt_count,
+            },
+        )
+
+        logger.info(
+            "Pickup %s partial (attempt %d): %d assets in_transit, %d assets pickup_failed_qc, "
+            "%d assets reverted to conditionally_accepted",
+            pickup_id,
+            pickup.attempt_count,
+            len(picked_set),
+            len(failed_set),
+            len(all_set - submitted),
+        )
+
+        return pickup
+
+    async def reschedule_pickup(self, pickup_id: str, data: PickupReschedule, user: User) -> PickupRequest:
+        """
+        Reschedule a failed or partial pickup to a new date (OPS/Admin action).
+
+        Valid source states: failed, partial, rescheduled.
+        Does NOT touch asset_ids, picked_asset_ids, or failed_asset_ids — history is preserved.
+        Assets already in_transit from a partial pickup remain in_transit.
+        """
+        pickup = await self.repo.get_by_id(pickup_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+
+        # Rescheduling is an OPS/Admin action — logistics users cannot reschedule
+        if user.role not in (UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value):
+            raise ValueError("Only OPS Admin or Super Admin can reschedule pickups")
+
+        valid_statuses = [
+            PickupStatus.FAILED.value,
+            PickupStatus.PARTIAL.value,
+            PickupStatus.RESCHEDULED.value,
+        ]
+        if pickup.status not in valid_statuses:
+            raise ValueError(
+                f"Pickup must be in failed, partial, or rescheduled state to reschedule. "
+                f"Current status: '{pickup.status}'"
+            )
+
+        old_status = pickup.status
+        pickup.status = PickupStatus.RESCHEDULED.value
+        pickup.scheduled_date = data.scheduled_date
+        if data.logistics_notes:
+            pickup.logistics_notes = data.logistics_notes
+
+        # Reset failure marker fields — a fresh attempt is being arranged
+        pickup.failure_reason = None
+        pickup.failed_at = None
+
+        # NOTE: Do NOT modify asset_ids, picked_asset_ids, or failed_asset_ids.
+        # Assets already in_transit (from a partial) remain so. Only unresolved assets
+        # are expected to be re-attempted on the next pickup execution.
+
+        await self.session.flush()
+
+        audit = AuditService(self.session)
+        await audit.log_status_change(
+            entity_type="pickup_request",
+            entity_id=pickup_id,
+            old_status=old_status,
+            new_status=pickup.status,
+            user_id=user.id,
+            enterprise_id=pickup.enterprise_id,
+            details=f"Pickup rescheduled to {data.scheduled_date}",
+            metadata={
+                "scheduled_date": str(data.scheduled_date),
+                "rescheduled_from": old_status,
+            },
+        )
+
+        logger.info(
+            "Pickup %s rescheduled from '%s' to %s",
+            pickup_id,
+            old_status,
+            data.scheduled_date,
         )
 
         return pickup

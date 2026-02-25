@@ -19,6 +19,9 @@ from app.schemas.pickup import (
     PickupAssignToLogisticsUser,
     PickupComplete,
     PickupCancel,
+    PickupFail,
+    PickupPartial,
+    PickupReschedule,
     PickupLocationCreate,
     PickupLocationUpdate,
 )
@@ -74,6 +77,11 @@ def _to_response(
         "logistics_notes": pickup.logistics_notes,
         "completed_at": pickup.completed_at,
         "proof_of_pickup": pickup.proof_of_pickup,
+        "failure_reason": pickup.failure_reason,
+        "attempt_count": pickup.attempt_count,
+        "failed_at": pickup.failed_at,
+        "picked_asset_ids": pickup.picked_asset_ids,
+        "failed_asset_ids": pickup.failed_asset_ids,
         "created_at": pickup.created_at,
         "updated_at": pickup.updated_at,
     }
@@ -686,3 +694,75 @@ async def cancel_pickup(
         logger.error(f"Unexpected error: {e}", exc_info=True)
         await db.rollback()
         raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
+
+
+@router.post("/{pickup_id}/fail")
+async def fail_pickup(
+    pickup_id: str,
+    data: PickupFail,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Mark a pickup as failed (Logistics User action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.fail_pickup(pickup_id, data, current_user)
+        await db.commit()
+        await db.refresh(pickup)
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup marked as failed")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error failing pickup {pickup_id}: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.post("/{pickup_id}/partial")
+async def partial_pickup(
+    pickup_id: str,
+    data: PickupPartial,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Record a partial pickup — some assets collected, some failed (Logistics User action)"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.partial_pickup(pickup_id, data, current_user)
+        await db.commit()
+        await db.refresh(pickup)
+        return success_response(data=await _enrich_single(pickup, db), message="Partial pickup recorded")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error recording partial pickup {pickup_id}: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.post("/{pickup_id}/reschedule")
+async def reschedule_pickup(
+    pickup_id: str,
+    data: PickupReschedule,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+):
+    """Reschedule a failed or partial pickup to a new date"""
+    service = PickupService(db)
+
+    try:
+        pickup = await service.reschedule_pickup(pickup_id, data, current_user)
+        await db.commit()
+        await db.refresh(pickup)
+        return success_response(data=await _enrich_single(pickup, db), message="Pickup rescheduled")
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error rescheduling pickup {pickup_id}: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")

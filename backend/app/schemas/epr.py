@@ -13,7 +13,7 @@ class EPRCertificateCreate(BaseModel):
 
     enterprise_id: Optional[str] = None  # Auto-filled from user context
     batch_id: Optional[str] = None
-    total_weight_kg: Decimal = Field(..., gt=0, description="Total weight in kg")
+    total_weight_kg: Optional[Decimal] = Field(None, gt=0, description="Total weight in kg — auto-calculated from asset_ids if not provided")
     recycled_weight_kg: Optional[Decimal] = Field(None, ge=0)
     disposed_weight_kg: Optional[Decimal] = Field(None, ge=0)
     recycler_name: Optional[str] = None

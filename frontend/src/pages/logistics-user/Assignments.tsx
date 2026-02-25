@@ -4,7 +4,7 @@ import {
   Camera, CheckCircle, Clock, MapPin, Phone, Truck, XCircle, Filter,
   ChevronDown, ChevronUp, AlertTriangle, Laptop, Image as ImageIcon, User, Package
 } from 'lucide-react';
-import { useAuth, useLogisticsUserPickups, useUpdatePickupStatus, useCompletePickup } from '@/hooks';
+import { useAuth, useLogisticsUserPickups, useUpdatePickupStatus, useCompletePickup, useFailPickup, usePartialPickup, useCreateOnSiteQC } from '@/hooks';
 import { useToast } from '@/components/ui';
 
 type Condition = 'good' | 'worse' | 'failed';
@@ -14,10 +14,15 @@ type StatusFilter = 'active' | 'all';
 interface AssetQCState {
   serialMatch: boolean;
   powersOn: boolean;
+  physicalConditionOk: boolean;
+  screenOk: boolean;
+  keyboardOk: boolean | null; // null = N/A (non-laptop)
+  portsOk: boolean;
   condition: Condition;
   notes: string;
   pickupPhoto?: string;
   verified: boolean;
+  isNoShow: boolean;
 }
 
 export function LogisticsAssignments() {
@@ -25,8 +30,11 @@ export function LogisticsAssignments() {
   const { data: pickupRequests = [] } = useLogisticsUserPickups(user?.id || '');
   const updateStatusMutation = useUpdatePickupStatus();
   const completePickupMutation = useCompletePickup();
+  const failPickupMutation = useFailPickup();
+  const partialPickupMutation = usePartialPickup();
+  const createQCMutation = useCreateOnSiteQC();
   const { addToast } = useToast();
-  const isLoading = updateStatusMutation.isPending || completePickupMutation.isPending;
+  const isLoading = updateStatusMutation.isPending || completePickupMutation.isPending || failPickupMutation.isPending || partialPickupMutation.isPending || createQCMutation.isPending;
 
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
@@ -41,7 +49,7 @@ export function LogisticsAssignments() {
   const myRequests = useMemo(() => {
     if (statusFilter === 'active') {
       return pickupRequests.filter(r =>
-        !['completed', 'cancelled', 'failed'].includes(r.status)
+        !['completed', 'cancelled', 'failed', 'partial', 'rescheduled'].includes(r.status)
       );
     }
     return pickupRequests;
@@ -65,9 +73,14 @@ export function LogisticsAssignments() {
     return assetQC[assetId] || {
       serialMatch: false,
       powersOn: false,
+      physicalConditionOk: false,
+      screenOk: false,
+      keyboardOk: null,
+      portsOk: false,
       condition: 'good',
       notes: '',
       verified: false,
+      isNoShow: false,
     };
   };
 
@@ -88,28 +101,66 @@ export function LogisticsAssignments() {
     reader.readAsDataURL(file);
   };
 
-  // Mark asset as picked (verified)
+  // Mark asset as picked (verified) — submits QC record to backend
   const markAssetPicked = async (assetId: string) => {
+    if (!activeRequest || activeRequest.status !== 'in_progress') return;
     const qc = getAssetQC(assetId);
-    if (!qc.serialMatch || !qc.powersOn || !qc.pickupPhoto) {
-      addToast({ type: 'warning', title: 'Incomplete', message: 'Please verify serial number, power-on status, and take a pickup photo before marking as picked.' });
+    if (qc.verified) return; // prevent double submission (unique constraint on backend)
+    if (!qc.serialMatch || !qc.powersOn || !qc.physicalConditionOk || !qc.screenOk || !qc.portsOk || !qc.pickupPhoto) {
+      addToast({ type: 'warning', title: 'Incomplete', message: 'Please complete all verification checks and take a pickup photo before marking as picked.' });
       return;
     }
-    updateAssetQC(assetId, { verified: true, condition: 'good' });
-    // TODO: Update asset status in database when mutation is available
-    console.log('Asset marked as picked:', assetId, qc);
+    try {
+      await createQCMutation.mutateAsync({
+        asset_id: assetId,
+        pickup_request_id: activeRequest.id,
+        physical_condition_ok: qc.physicalConditionOk,
+        powers_on: qc.powersOn,
+        screen_ok: qc.screenOk,
+        keyboard_ok: qc.keyboardOk,
+        ports_ok: qc.portsOk,
+        photo_urls: qc.pickupPhoto ? [qc.pickupPhoto] : undefined,
+        notes: qc.notes || undefined,
+        extra_data: { serial_match: qc.serialMatch },
+      });
+      updateAssetQC(assetId, { verified: true, condition: 'good' });
+      addToast({ type: 'success', title: 'QC Saved', message: 'On-site QC recorded' });
+    } catch (error) {
+      addToast({ type: 'error', title: 'QC Failed', message: error instanceof Error ? error.message : 'Failed to save QC record' });
+    }
   };
 
-  // Mark asset as failed QC
+  // Mark asset as failed QC — submits QC record with failed checks
   const markAssetFailed = async (assetId: string) => {
-    updateAssetQC(assetId, { verified: true, condition: 'failed' });
-    console.log('Asset marked as failed:', assetId);
+    if (!activeRequest || activeRequest.status !== 'in_progress') return;
+    const qc = getAssetQC(assetId);
+    if (qc.verified) return; // prevent double submission
+    try {
+      await createQCMutation.mutateAsync({
+        asset_id: assetId,
+        pickup_request_id: activeRequest.id,
+        physical_condition_ok: qc.physicalConditionOk,
+        powers_on: qc.powersOn,
+        screen_ok: qc.screenOk,
+        keyboard_ok: qc.keyboardOk,
+        ports_ok: qc.portsOk,
+        photo_urls: qc.pickupPhoto ? [qc.pickupPhoto] : undefined,
+        notes: qc.notes || 'Failed QC',
+        extra_data: { serial_match: qc.serialMatch },
+      });
+      updateAssetQC(assetId, { verified: true, condition: 'failed' });
+      addToast({ type: 'success', title: 'QC Saved', message: 'Failed QC recorded' });
+    } catch (error) {
+      addToast({ type: 'error', title: 'QC Failed', message: error instanceof Error ? error.message : 'Failed to save QC record' });
+    }
   };
 
-  // Mark asset as no-show
+  // Mark asset as no-show — no QC record (device not present)
   const markNoShow = async (assetId: string) => {
-    updateAssetQC(assetId, { verified: true, condition: 'failed', notes: 'No show' });
-    console.log('Asset marked as no show:', assetId);
+    if (!activeRequest || activeRequest.status !== 'in_progress') return;
+    const qc = getAssetQC(assetId);
+    if (qc.verified) return;
+    updateAssetQC(assetId, { verified: true, condition: 'failed', notes: 'No show', isNoShow: true });
   };
 
   // Handle packing photo
@@ -146,50 +197,66 @@ export function LogisticsAssignments() {
 
   // Finish pickup
   const finishPickup = async () => {
-    if (!activeRequest || !user) {
-      console.error('finishPickup: No active request or user');
-      return;
+    if (!activeRequest) return;
+    const requestId = activeRequest.id;
+    const assets = assetDetails || [];
+
+    // Build picked and failed lists
+    // 'good' and 'worse' = asset was collected (picked)
+    // 'failed' = asset was NOT collected
+    const pickedAssetIds: string[] = [];
+    const failedAssetIds: string[] = [];
+
+    for (const asset of assets) {
+      const qc = getAssetQC(asset.id);
+      if (qc.condition === 'failed') {
+        failedAssetIds.push(asset.id);
+      } else {
+        // 'good' or 'worse' — asset was collected
+        pickedAssetIds.push(asset.id);
+      }
     }
 
-    // Get picked (successful) asset IDs
-    const pickedAssetIds = assetDetails
-      .filter((a: any) => {
-        const qc = getAssetQC(a.id);
-        return qc.verified && qc.condition === 'good';
-      })
-      .map((a: any) => a.id);
-
+    const failedCount = failedAssetIds.length;
     const pickedCount = pickedAssetIds.length;
+    const totalCount = assets.length;
 
-    const failedCount = assetDetails.filter((a: any) => {
-      const qc = getAssetQC(a.id);
-      return qc.verified && qc.condition === 'failed';
-    }).length;
+    // Determine if any failed asset is a no-show (using explicit flag, not string matching)
+    const hasNoShow = failedAssetIds.some(id => getAssetQC(id).isNoShow);
+    const allNoShow = failedAssetIds.length > 0 && failedAssetIds.every(id => getAssetQC(id).isNoShow);
 
     try {
-      if (failedCount === assetDetails.length) {
-        // All failed - mark as cancelled, no assets transition
-        await updateStatusMutation.mutateAsync({
-          requestId: activeRequest.id,
-          status: 'cancelled',
-          notes: `All ${failedCount} assets failed QC or no-show`,
+      if (failedCount === totalCount) {
+        // ALL assets failed — use fail endpoint (enables rescheduling)
+        const failureReason = allNoShow ? 'no_show' : 'qc_failed';
+
+        await failPickupMutation.mutateAsync({
+          requestId,
+          failureReason,
+          notes: `All ${totalCount} assets failed. Reason: ${failureReason}`,
         });
+        addToast({ type: 'success', title: 'Pickup Failed', message: 'Pickup reported as failed' });
       } else if (failedCount > 0) {
-        // Partial success - pass picked asset IDs so they transition to in_transit
-        await updateStatusMutation.mutateAsync({
-          requestId: activeRequest.id,
-          status: 'failed',
-          notes: `Picked: ${pickedCount}, Failed/No-show: ${failedCount}`,
+        // PARTIAL — some picked, some failed
+        const failureReason = hasNoShow ? 'no_show' : 'qc_failed';
+        await partialPickupMutation.mutateAsync({
+          requestId,
           pickedAssetIds,
-        } as any);
+          failedAssetIds,
+          failureReason,
+          notes: `${pickedCount} collected, ${failedCount} failed out of ${totalCount} assets`,
+        });
+        addToast({ type: 'success', title: 'Partial Pickup', message: `${pickedCount} collected, ${failedCount} failed` });
       } else {
-        // Full success - all assets transition to in_transit
+        // ALL passed — use existing complete endpoint
         await completePickupMutation.mutateAsync({
-          requestId: activeRequest.id,
-          completedBy: user.id,
-        } as any);
+          requestId,
+          notes: `All ${totalCount} assets collected successfully`,
+        });
+        addToast({ type: 'success', title: 'Pickup Complete', message: 'Pickup completed successfully' });
       }
-      // Reset local state after successful completion
+
+      // Reset local QC state
       setAssetQC({});
       setFinalProof({});
       setActiveRequestId(null);
@@ -311,20 +378,24 @@ export function LogisticsAssignments() {
                 {isLoading ? 'Starting...' : 'Start Pickup'}
               </button>
             )}
-            {['cancelled', 'completed', 'failed'].includes(activeRequest.status) && (
+            {['cancelled', 'completed', 'failed', 'partial', 'rescheduled'].includes(activeRequest.status) && (
               <div className="px-4 py-2 border border-slate-400/40 bg-slate-400/10 text-slate-500 dark:text-white/50 font-mono text-xs uppercase tracking-widest">
-                {activeRequest.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+                {activeRequest.status === 'cancelled' ? 'Cancelled' : activeRequest.status === 'partial' ? 'Partial' : activeRequest.status === 'rescheduled' ? 'Rescheduled' : activeRequest.status === 'failed' ? 'Failed' : 'Completed'}
               </div>
             )}
           </div>
 
           {/* Asset List */}
           <div className="divide-y divide-slate-200 dark:divide-white/10">
-            {['cancelled', 'completed', 'failed'].includes(activeRequest.status) ? (
+            {['cancelled', 'completed', 'failed', 'partial', 'rescheduled'].includes(activeRequest.status) ? (
               <div className="p-6 text-center">
                 <p className="font-mono text-sm text-slate-500 dark:text-white/50">
                   {activeRequest.status === 'cancelled'
                     ? 'This pickup has been cancelled.'
+                    : activeRequest.status === 'partial'
+                    ? 'This pickup was partially completed. Awaiting rescheduling by OPS Admin.'
+                    : activeRequest.status === 'rescheduled'
+                    ? 'This pickup has been rescheduled. Check back for updated assignment.'
                     : 'This pickup has been completed.'}
                 </p>
               </div>
@@ -371,7 +442,7 @@ export function LogisticsAssignments() {
                             </p>
                             {qc.verified && (
                               <span className={`px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest ${qc.condition === 'good' ? 'bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 border border-emerald-400/30' : 'bg-red-400/10 text-red-600 dark:text-red-400 border border-red-400/30'}`}>
-                                {qc.condition === 'good' ? 'Picked' : qc.notes === 'No show' ? 'No Show' : 'Failed'}
+                                {qc.condition === 'good' ? 'Picked' : qc.isNoShow ? 'No Show' : 'Failed'}
                               </span>
                             )}
                           </div>
@@ -397,9 +468,9 @@ export function LogisticsAssignments() {
                       </div>
                     </div>
 
-                    {/* Expanded Asset Detail */}
+                    {/* Expanded Asset Detail — only when pickup is in_progress */}
                     <AnimatePresence>
-                      {isExpanded && !qc.verified && (
+                      {isExpanded && !qc.verified && activeRequest.status === 'in_progress' && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
@@ -497,6 +568,20 @@ export function LogisticsAssignments() {
                                   </div>
                                 </label>
 
+                                {/* Physical Condition */}
+                                <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 cursor-pointer hover:border-ecotribe-primary/30 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={qc.physicalConditionOk}
+                                    onChange={(e) => updateAssetQC(asset.id, { physicalConditionOk: e.target.checked })}
+                                    className="w-5 h-5 accent-ecotribe-primary"
+                                  />
+                                  <div>
+                                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white">Physical Condition OK</p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">No major dents, cracks, or damage</p>
+                                  </div>
+                                </label>
+
                                 {/* Powers On */}
                                 <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 cursor-pointer hover:border-ecotribe-primary/30 transition-colors">
                                   <input
@@ -508,6 +593,48 @@ export function LogisticsAssignments() {
                                   <div>
                                     <p className="font-display font-bold text-sm text-slate-900 dark:text-white">Device Powers On</p>
                                     <p className="font-mono text-xs text-slate-500 dark:text-white/50">Turn on device and confirm it boots</p>
+                                  </div>
+                                </label>
+
+                                {/* Screen OK */}
+                                <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 cursor-pointer hover:border-ecotribe-primary/30 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={qc.screenOk}
+                                    onChange={(e) => updateAssetQC(asset.id, { screenOk: e.target.checked })}
+                                    className="w-5 h-5 accent-ecotribe-primary"
+                                  />
+                                  <div>
+                                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white">Screen OK</p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">No dead pixels, cracks, or display issues</p>
+                                  </div>
+                                </label>
+
+                                {/* Keyboard OK (optional — only for laptops) */}
+                                <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 cursor-pointer hover:border-ecotribe-primary/30 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={qc.keyboardOk === true}
+                                    onChange={(e) => updateAssetQC(asset.id, { keyboardOk: e.target.checked ? true : null })}
+                                    className="w-5 h-5 accent-ecotribe-primary"
+                                  />
+                                  <div>
+                                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white">Keyboard OK <span className="text-slate-400 dark:text-white/30 font-normal">(laptops only)</span></p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">Keys responsive, no missing or stuck keys</p>
+                                  </div>
+                                </label>
+
+                                {/* Ports OK */}
+                                <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 cursor-pointer hover:border-ecotribe-primary/30 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={qc.portsOk}
+                                    onChange={(e) => updateAssetQC(asset.id, { portsOk: e.target.checked })}
+                                    className="w-5 h-5 accent-ecotribe-primary"
+                                  />
+                                  <div>
+                                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white">Ports OK</p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">USB, charging, audio ports functional</p>
                                   </div>
                                 </label>
 
@@ -558,21 +685,23 @@ export function LogisticsAssignments() {
                             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
                               <button
                                 onClick={() => markAssetPicked(asset.id)}
-                                disabled={!qc.serialMatch || !qc.powersOn || !qc.pickupPhoto}
-                                className={`w-full sm:flex-1 px-4 py-3 font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${qc.serialMatch && qc.powersOn && qc.pickupPhoto ? 'bg-emerald-500 text-white border border-emerald-400/50 hover:bg-emerald-600' : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 border border-slate-300 dark:border-white/20 cursor-not-allowed'}`}
+                                disabled={isLoading || !qc.serialMatch || !qc.powersOn || !qc.physicalConditionOk || !qc.screenOk || !qc.portsOk || !qc.pickupPhoto}
+                                className={`w-full sm:flex-1 px-4 py-3 font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${qc.serialMatch && qc.powersOn && qc.physicalConditionOk && qc.screenOk && qc.portsOk && qc.pickupPhoto ? 'bg-emerald-500 text-white border border-emerald-400/50 hover:bg-emerald-600' : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 border border-slate-300 dark:border-white/20 cursor-not-allowed'}`}
                               >
                                 <CheckCircle className="w-4 h-4" /> Mark Picked
                               </button>
                               <div className="flex gap-2 w-full sm:w-auto">
                                 <button
                                   onClick={() => markAssetFailed(asset.id)}
-                                  className="flex-1 sm:flex-none px-3 sm:px-4 py-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest border border-amber-400/50 flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-amber-500/20 transition-colors"
+                                  disabled={isLoading}
+                                  className="flex-1 sm:flex-none px-3 sm:px-4 py-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest border border-amber-400/50 flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-amber-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   <AlertTriangle className="w-4 h-4" /> Failed
                                 </button>
                                 <button
                                   onClick={() => markNoShow(asset.id)}
-                                  className="flex-1 sm:flex-none px-3 sm:px-4 py-3 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest border border-red-400/50 flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-red-500/20 transition-colors"
+                                  disabled={isLoading}
+                                  className="flex-1 sm:flex-none px-3 sm:px-4 py-3 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-[10px] sm:text-xs uppercase tracking-widest border border-red-400/50 flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   <XCircle className="w-4 h-4" /> No Show
                                 </button>
@@ -678,7 +807,9 @@ function StatusBadge({ status }: { status: string }) {
     scheduled: 'bg-purple-400/10 border border-purple-400/40 text-purple-400',
     in_progress: 'bg-amber-400/10 border border-amber-400/40 text-amber-400',
     completed: 'bg-emerald-400/10 border border-emerald-400/40 text-emerald-400',
-    failed: 'bg-orange-400/10 border border-orange-400/40 text-orange-400',
+    partial: 'bg-orange-400/10 border border-orange-400/40 text-orange-400',
+    failed: 'bg-red-400/10 border border-red-400/40 text-red-400',
+    rescheduled: 'bg-cyan-400/10 border border-cyan-400/40 text-cyan-400',
     cancelled: 'bg-red-400/10 border border-red-400/40 text-red-400',
   };
   const cls = map[status] || 'bg-slate-400/10 border border-slate-400/40 text-slate-400';

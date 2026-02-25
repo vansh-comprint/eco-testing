@@ -14,3 +14,4 @@ export { RemoteReviewQueue } from './RemoteReviewQueue';
 // OpsLogistics moved to @/pages/shared/LogisticsManagement (shared with Super Admin)
 export { OpsBranches } from './OpsBranches';
 export { OpsSettings } from './OpsSettings';
+export { OpsEPRCertificates } from './EPRCertificates';

@@ -1,23 +1,59 @@
 """User service for unified user model"""
 
+import logging
 import secrets
 from typing import Optional, List, Tuple, Dict, Any
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 
 from app.models.user import User, UserRole, UserStatus
-from app.models.enterprise import Branch, Enterprise
+from app.models.enterprise import Branch, BranchStatus, Enterprise
+from app.models.asset import Asset, AssetStatus
+from app.models.logistics import PickupRequest, PickupStatus
+from app.models.submission import Submission
+from app.models.support import Dispute, DisputeStatus
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserBulkCreate
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.utils.security import validate_user_modification
 from app.core.security import get_password_hash
 
+logger = logging.getLogger(__name__)
+
 # Role categories for update validation
 ENTERPRISE_ROLES = {UserRole.ORG_ADMIN.value, UserRole.IT_ADMIN.value, UserRole.EMPLOYEE.value}
 PLATFORM_ROLES = {UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value}
+
+# Asset statuses that must be reverted when an employee is deactivated
+EMPLOYEE_ACTIVE_ASSET_STATUSES = {
+    AssetStatus.ASSIGNED.value,
+    AssetStatus.CHECK_IN_STARTED.value,
+}
+
+# Pickup statuses that are terminal — do not touch them on deactivation
+PICKUP_TERMINAL_STATUSES = {
+    PickupStatus.COMPLETED.value,
+    PickupStatus.CANCELLED.value,
+    PickupStatus.FAILED.value,
+    "in_progress",  # let in-progress pickups complete
+}
+
+# Pickup statuses owned by logistics_admin (revert to pending_assignment on admin deactivation)
+LOGISTICS_ADMIN_PICKUP_STATUSES = {
+    "assigned_to_logistics_admin",
+    "assigned_to_logistics_user",
+    "scheduled",
+    "rescheduled",
+}
+
+# Pickup statuses owned by logistics_user (revert to assigned_to_logistics_admin)
+LOGISTICS_USER_PICKUP_STATUSES = {
+    "assigned_to_logistics_user",
+    "scheduled",
+    "rescheduled",
+}
 
 
 class UserService:
@@ -331,6 +367,11 @@ class UserService:
                 if new_branch:
                     new_branch.it_admin_id = user.id
 
+        # --- Deactivation side-effects (BEFORE commit, inside same transaction) ---
+        new_status = update_data.get("status")
+        if new_status == UserStatus.INACTIVE.value:
+            await self._handle_deactivation_side_effects(user)
+
         # Explicit commit to ensure all changes are persisted
         await self.db.commit()
         await self.db.refresh(user)
@@ -339,7 +380,11 @@ class UserService:
 
     async def delete_user(self, user_id: str, actor: Optional[User] = None) -> bool:
         """
-        Delete a user with IDOR protection.
+        Delete a user with full side-effect cleanup.
+
+        Runs the same side-effect cleanup as deactivation (unassign assets,
+        clear branches, revert pickups, cascade child users, etc.) BEFORE
+        removing the user record. Everything runs in a single transaction.
 
         Args:
             user_id: ID of user to delete
@@ -356,10 +401,40 @@ class UserService:
                 target_user_id=user_id,
                 target_role=user.role,
                 target_enterprise_id=user.enterprise_id,
-                target_status="deleted",  # Deletion is like setting status to deleted
+                target_status="deleted",
             )
 
+        # BLOCK deletion of sole org admin (unlike deactivation which only warns)
+        if user.role == UserRole.ORG_ADMIN.value and user.enterprise_id:
+            other_result = await self.db.execute(
+                select(User)
+                .where(User.enterprise_id == user.enterprise_id)
+                .where(User.role == UserRole.ORG_ADMIN.value)
+                .where(User.status == UserStatus.ACTIVE.value)
+                .where(User.id != user.id)
+            )
+            others = other_result.scalars().all()
+            if len(others) == 0:
+                raise ValidationError(
+                    "Cannot delete the sole active Org Admin for this enterprise. "
+                    "Assign another Org Admin first, or deactivate instead."
+                )
+
+        # Run all role-specific cleanup (assets, branches, pickups, child users, disputes)
+        # before deleting the user record. Same transaction ensures atomicity.
+        await self._handle_deactivation_side_effects(user)
+
+        # Now delete the user record.
+        # FK constraints (SET NULL) handle referential integrity for:
+        # - asset.assigned_to_user_id, batch.created_by, review.reviewed_by, etc.
+        # - submission.user_id uses CASCADE (auto-deleted with user)
+        # Business logic cleanup (asset statuses, branch statuses, pickup reverts)
+        # was already handled by _handle_deactivation_side_effects above.
         success = await self.repository.delete(user_id)
+
+        # Explicit commit to persist both side-effects and deletion atomically
+        await self.db.commit()
+
         return success
 
     async def update_last_login(self, user_id: str) -> Optional[UserResponse]:
@@ -503,7 +578,13 @@ class UserService:
     async def toggle_logistics_company_status(
         self, admin_user_id: str, activate: bool, actor: User
     ) -> dict:
-        """Toggle logistics admin + all their field users active/inactive."""
+        """
+        Toggle logistics admin + all their field users active/inactive.
+
+        When deactivating (activate=False), also reverts all non-terminal pickups
+        assigned to the admin or any of their child users back to pending status,
+        matching the same cleanup as individual user deactivation.
+        """
         admin_user = await self.repository.get_by_id(admin_user_id)
         if not admin_user:
             raise NotFoundError("User", admin_user_id)
@@ -511,22 +592,74 @@ class UserService:
             raise ValidationError("User is not a logistics admin")
 
         new_status = UserStatus.ACTIVE.value if activate else UserStatus.INACTIVE.value
+        new_is_active = activate
 
         # Update admin
         admin_user.status = new_status
+        admin_user.is_active = new_is_active
         admin_user.updated_by = actor.id
         await self.repository.update(admin_user)
 
-        # Update all child logistics users
+        # Update all child logistics users (status + is_active)
         from sqlalchemy import update as sql_update
         from app.models.user import User as UserModel
         stmt = (
             sql_update(UserModel)
             .where(UserModel.parent_user_id == admin_user_id)
             .where(UserModel.role == UserRole.LOGISTICS_USER.value)
-            .values(status=new_status, updated_by=actor.id)
+            .values(status=new_status, is_active=new_is_active, updated_by=actor.id)
         )
         result = await self.db.execute(stmt)
+
+        pickups_reverted = 0
+
+        # When DEACTIVATING: revert all non-terminal pickups assigned to this company
+        if not activate:
+            # Revert pickups assigned to admin → back to pending
+            admin_pickup_result = await self.db.execute(
+                select(PickupRequest)
+                .where(PickupRequest.logistics_admin_id == admin_user_id)
+                .where(PickupRequest.status.in_(list(LOGISTICS_ADMIN_PICKUP_STATUSES)))
+            )
+            admin_pickups = admin_pickup_result.scalars().all()
+
+            for pickup in admin_pickups:
+                pickup.logistics_admin_id = None
+                pickup.logistics_user_id = None
+                pickup.status = PickupStatus.PENDING.value
+                pickups_reverted += 1
+
+            # Also revert pickups assigned to child users that may not be
+            # covered above (e.g., if a child user was assigned a pickup from
+            # a different logistics admin — unlikely but defensive)
+            child_ids_result = await self.db.execute(
+                select(UserModel.id)
+                .where(UserModel.parent_user_id == admin_user_id)
+                .where(UserModel.role == UserRole.LOGISTICS_USER.value)
+            )
+            child_ids = [r[0] for r in child_ids_result.all()]
+
+            if child_ids:
+                child_pickup_result = await self.db.execute(
+                    select(PickupRequest)
+                    .where(PickupRequest.logistics_user_id.in_(child_ids))
+                    .where(PickupRequest.logistics_admin_id != admin_user_id)
+                    .where(PickupRequest.status.in_(list(LOGISTICS_USER_PICKUP_STATUSES)))
+                )
+                child_pickups = child_pickup_result.scalars().all()
+
+                for pickup in child_pickups:
+                    pickup.logistics_user_id = None
+                    pickup.status = "assigned_to_logistics_admin"
+                    pickups_reverted += 1
+
+            logger.info(
+                "Logistics company %s deactivated: %d field users, %d pickups reverted",
+                admin_user_id,
+                result.rowcount,
+                pickups_reverted,
+            )
+
         await self.db.commit()
 
         # Refresh to avoid greenlet_spawn after commit
@@ -536,6 +669,7 @@ class UserService:
             "admin_id": admin_user_id,
             "new_status": new_status,
             "field_users_updated": result.rowcount,
+            "pickups_reverted": pickups_reverted,
         }
 
     async def get_it_admins_with_branches(self, enterprise_id: str) -> List[Dict[str, Any]]:
@@ -589,3 +723,347 @@ class UserService:
             data.append(admin_data)
 
         return data
+
+    # ==================== Deactivation Side-Effects ====================
+
+    async def preview_deactivation(self, user_id: str, actor: User) -> Dict[str, Any]:
+        """
+        Preview the side-effects of deactivating a user without applying them.
+
+        Returns counts of entities that will be affected so the caller can
+        display a confirmation prompt before committing the action.
+        """
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", user_id)
+
+        role = user.role
+        preview: Dict[str, Any] = {
+            "user_id": user_id,
+            "user_role": role,
+            "assets_to_unassign": 0,
+            "submissions_to_delete": 0,
+            "branches_affected": 0,
+            "pickups_to_unassign": 0,
+            "child_users_to_deactivate": 0,
+            "is_sole_org_admin": False,
+            "open_disputes_to_unassign": 0,
+        }
+
+        if role == UserRole.EMPLOYEE.value:
+            # Count assets in active states
+            asset_result = await self.db.execute(
+                select(Asset)
+                .where(Asset.assigned_to_user_id == user_id)
+                .where(Asset.status.in_(list(EMPLOYEE_ACTIVE_ASSET_STATUSES)))
+            )
+            assets = asset_result.scalars().all()
+            preview["assets_to_unassign"] = len(assets)
+
+            # Count partial submissions for check_in_started assets
+            check_in_asset_ids = [
+                a.id for a in assets if a.status == AssetStatus.CHECK_IN_STARTED.value
+            ]
+            if check_in_asset_ids:
+                sub_result = await self.db.execute(
+                    select(Submission).where(
+                        Submission.asset_id.in_(check_in_asset_ids)
+                    )
+                )
+                preview["submissions_to_delete"] = len(sub_result.scalars().all())
+
+            # Count open disputes assigned to this user
+            dispute_result = await self.db.execute(
+                select(Dispute)
+                .where(Dispute.assigned_to_user_id == user_id)
+                .where(Dispute.status.in_([
+                    DisputeStatus.OPEN.value,
+                    DisputeStatus.UNDER_REVIEW.value,
+                    DisputeStatus.ESCALATED.value,
+                ]))
+            )
+            preview["open_disputes_to_unassign"] = len(dispute_result.scalars().all())
+
+        elif role == UserRole.IT_ADMIN.value:
+            # Count branches where this user is the IT admin
+            branch_result = await self.db.execute(
+                select(Branch).where(Branch.it_admin_id == user_id)
+            )
+            preview["branches_affected"] = len(branch_result.scalars().all())
+
+        elif role == UserRole.ORG_ADMIN.value:
+            if user.enterprise_id:
+                # Check if this is the only active org admin for the enterprise
+                other_admins_result = await self.db.execute(
+                    select(User)
+                    .where(User.enterprise_id == user.enterprise_id)
+                    .where(User.role == UserRole.ORG_ADMIN.value)
+                    .where(User.status == UserStatus.ACTIVE.value)
+                    .where(User.id != user_id)
+                )
+                other_admins = other_admins_result.scalars().all()
+                preview["is_sole_org_admin"] = len(other_admins) == 0
+
+        elif role == UserRole.LOGISTICS_ADMIN.value:
+            # Count active child logistics users
+            child_result = await self.db.execute(
+                select(User)
+                .where(User.parent_user_id == user_id)
+                .where(User.role == UserRole.LOGISTICS_USER.value)
+                .where(User.status == UserStatus.ACTIVE.value)
+            )
+            preview["child_users_to_deactivate"] = len(child_result.scalars().all())
+
+            # Count non-terminal pickups assigned to this admin
+            pickup_result = await self.db.execute(
+                select(PickupRequest)
+                .where(PickupRequest.logistics_admin_id == user_id)
+                .where(PickupRequest.status.in_(list(LOGISTICS_ADMIN_PICKUP_STATUSES)))
+            )
+            preview["pickups_to_unassign"] = len(pickup_result.scalars().all())
+
+        elif role == UserRole.LOGISTICS_USER.value:
+            # Count non-terminal pickups assigned to this user
+            pickup_result = await self.db.execute(
+                select(PickupRequest)
+                .where(PickupRequest.logistics_user_id == user_id)
+                .where(PickupRequest.status.in_(list(LOGISTICS_USER_PICKUP_STATUSES)))
+            )
+            preview["pickups_to_unassign"] = len(pickup_result.scalars().all())
+
+        return preview
+
+    async def _handle_deactivation_side_effects(self, user: User) -> Dict[str, Any]:
+        """
+        Dispatch to role-specific deactivation handlers.
+
+        Must be called BEFORE the final db.commit() in update_user so that
+        all changes are contained within the same transaction.
+
+        Returns a summary dict of actions taken (for logging purposes).
+        """
+        role = user.role
+        logger.info(
+            "Handling deactivation side-effects for user %s (role=%s)",
+            user.id,
+            role,
+        )
+
+        if role == UserRole.EMPLOYEE.value:
+            summary = await self._deactivate_employee(user.id)
+
+        elif role == UserRole.IT_ADMIN.value:
+            summary = await self._deactivate_it_admin(user)
+
+        elif role == UserRole.ORG_ADMIN.value:
+            summary = await self._deactivate_org_admin(user)
+
+        elif role == UserRole.LOGISTICS_ADMIN.value:
+            # Sync is_active alongside status
+            user.is_active = False
+            summary = await self._deactivate_logistics_admin(user)
+
+        elif role == UserRole.LOGISTICS_USER.value:
+            # Sync is_active alongside status
+            user.is_active = False
+            summary = await self._deactivate_logistics_user(user)
+
+        else:
+            # Platform roles (super_admin, ops_admin) — no side-effects needed
+            summary = {"role": role, "actions": "none required"}
+
+        logger.info(
+            "Deactivation side-effects complete for user %s: %s",
+            user.id,
+            summary,
+        )
+        return summary
+
+    async def _deactivate_employee(self, user_id: str) -> Dict[str, Any]:
+        """
+        Employee deactivation:
+        1. Find assets in assigned/check_in_started status.
+        2. For check_in_started assets: delete the partial submission first
+           (unique constraint on asset_id requires this before status reset).
+        3. Reset all active assets to pending_assignment and clear assignment.
+        """
+        asset_result = await self.db.execute(
+            select(Asset)
+            .where(Asset.assigned_to_user_id == user_id)
+            .where(Asset.status.in_(list(EMPLOYEE_ACTIVE_ASSET_STATUSES)))
+        )
+        assets = asset_result.scalars().all()
+
+        unassigned_count = 0
+        deleted_submissions = 0
+
+        for asset in assets:
+            if asset.status == AssetStatus.CHECK_IN_STARTED.value:
+                # Delete partial submission before resetting asset status
+                # (Submission.asset_id has a unique constraint — must remove first)
+                del_result = await self.db.execute(
+                    sql_delete(Submission).where(Submission.asset_id == asset.id)
+                )
+                deleted_submissions += del_result.rowcount
+                logger.debug(
+                    "Deleted partial submission for asset %s (check_in_started → pending_assignment)",
+                    asset.id,
+                )
+
+            asset.status = AssetStatus.PENDING_ASSIGNMENT.value
+            asset.assigned_to_user_id = None
+            asset.assigned_at = None
+            unassigned_count += 1
+
+        # Nullify open disputes assigned to this user
+        disputes_result = await self.db.execute(
+            select(Dispute)
+            .where(Dispute.assigned_to_user_id == user_id)
+            .where(Dispute.status.in_([
+                DisputeStatus.OPEN.value,
+                DisputeStatus.UNDER_REVIEW.value,
+                DisputeStatus.ESCALATED.value,
+            ]))
+        )
+        open_disputes = disputes_result.scalars().all()
+        for dispute in open_disputes:
+            dispute.assigned_to_user_id = None
+
+        return {
+            "role": UserRole.EMPLOYEE.value,
+            "assets_unassigned": unassigned_count,
+            "submissions_deleted": deleted_submissions,
+            "disputes_unassigned": len(open_disputes),
+        }
+
+    async def _deactivate_it_admin(self, user: User) -> Dict[str, Any]:
+        """
+        IT Admin deactivation:
+        1. Clear branch.it_admin_id for all branches this admin manages.
+        2. Set branch status to NEEDS_ADMIN.
+        """
+        branch_result = await self.db.execute(
+            select(Branch).where(Branch.it_admin_id == user.id)
+        )
+        branches = branch_result.scalars().all()
+
+        for branch in branches:
+            branch.it_admin_id = None
+            branch.status = BranchStatus.NEEDS_ADMIN.value
+
+        logger.info(
+            "IT Admin %s deactivated: %d branches set to needs_admin",
+            user.id,
+            len(branches),
+        )
+        return {
+            "role": UserRole.IT_ADMIN.value,
+            "branches_cleared": len(branches),
+        }
+
+    async def _deactivate_org_admin(self, user: User) -> Dict[str, Any]:
+        """
+        Org Admin deactivation:
+        Log a warning if this is the last active org admin for the enterprise.
+        No hard block — admin may intentionally leave the enterprise without an admin.
+        """
+        is_sole = False
+        if user.enterprise_id:
+            other_result = await self.db.execute(
+                select(User)
+                .where(User.enterprise_id == user.enterprise_id)
+                .where(User.role == UserRole.ORG_ADMIN.value)
+                .where(User.status == UserStatus.ACTIVE.value)
+                .where(User.id != user.id)
+            )
+            others = other_result.scalars().all()
+            is_sole = len(others) == 0
+            if is_sole:
+                logger.warning(
+                    "Deactivating sole Org Admin %s for enterprise %s. "
+                    "Enterprise will have no active org admin.",
+                    user.id,
+                    user.enterprise_id,
+                )
+
+        return {
+            "role": UserRole.ORG_ADMIN.value,
+            "is_sole_org_admin": is_sole,
+            "enterprise_id": user.enterprise_id,
+        }
+
+    async def _deactivate_logistics_admin(self, user: User) -> Dict[str, Any]:
+        """
+        Logistics Admin deactivation:
+        1. Cascade deactivation to all active child logistics users.
+        2. Revert all non-terminal pickups (assigned_to_logistics_admin, assigned_to_logistics_user,
+           scheduled, rescheduled) back to pending_assignment, clearing both assignment fields.
+        """
+        from sqlalchemy import update as sql_update
+
+        # 1. Cascade status to child logistics users
+        child_update_stmt = (
+            sql_update(User)
+            .where(User.parent_user_id == user.id)
+            .where(User.role == UserRole.LOGISTICS_USER.value)
+            .where(User.status == UserStatus.ACTIVE.value)
+            .values(
+                status=UserStatus.INACTIVE.value,
+                is_active=False,
+            )
+        )
+        child_result = await self.db.execute(child_update_stmt)
+        children_deactivated = child_result.rowcount
+
+        # 2. Revert pickups assigned to this admin back to pending_assignment
+        pickup_result = await self.db.execute(
+            select(PickupRequest)
+            .where(PickupRequest.logistics_admin_id == user.id)
+            .where(PickupRequest.status.in_(list(LOGISTICS_ADMIN_PICKUP_STATUSES)))
+        )
+        pickups = pickup_result.scalars().all()
+
+        for pickup in pickups:
+            pickup.logistics_admin_id = None
+            pickup.logistics_user_id = None
+            pickup.status = PickupStatus.PENDING.value
+
+        logger.info(
+            "Logistics Admin %s deactivated: %d children deactivated, %d pickups reverted",
+            user.id,
+            children_deactivated,
+            len(pickups),
+        )
+        return {
+            "role": UserRole.LOGISTICS_ADMIN.value,
+            "children_deactivated": children_deactivated,
+            "pickups_reverted": len(pickups),
+        }
+
+    async def _deactivate_logistics_user(self, user: User) -> Dict[str, Any]:
+        """
+        Logistics User deactivation:
+        Revert all non-terminal pickups (assigned_to_logistics_user, scheduled, rescheduled)
+        back to assigned_to_logistics_admin, clearing only the logistics_user_id field.
+        The logistics admin assignment is preserved so OPS admin can reassign a different driver.
+        """
+        pickup_result = await self.db.execute(
+            select(PickupRequest)
+            .where(PickupRequest.logistics_user_id == user.id)
+            .where(PickupRequest.status.in_(list(LOGISTICS_USER_PICKUP_STATUSES)))
+        )
+        pickups = pickup_result.scalars().all()
+
+        for pickup in pickups:
+            pickup.logistics_user_id = None
+            pickup.status = "assigned_to_logistics_admin"
+
+        logger.info(
+            "Logistics User %s deactivated: %d pickups reverted to assigned_to_logistics_admin",
+            user.id,
+            len(pickups),
+        )
+        return {
+            "role": UserRole.LOGISTICS_USER.value,
+            "pickups_reverted": len(pickups),
+        }

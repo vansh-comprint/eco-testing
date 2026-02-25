@@ -126,11 +126,11 @@ class OnSiteQCCreate(BaseModel):
 
     asset_id: str = Field(..., description="Asset ID being QC'd")
     pickup_request_id: str = Field(..., description="Pickup request ID")
-    status: str = Field(..., description="QC status")
+    # status is intentionally omitted — derived server-side from check results
     physical_condition_ok: bool = Field(..., description="Physical condition check")
     powers_on: bool = Field(..., description="Powers on check")
     screen_ok: bool = Field(..., description="Screen check")
-    keyboard_ok: bool = Field(..., description="Keyboard check")
+    keyboard_ok: bool | None = Field(None, description="Keyboard check (optional for non-laptop devices)")
     ports_ok: bool = Field(..., description="Ports check")
     photo_urls: Optional[List[str]] = Field(None, description="Photo URLs")
     notes: Optional[str] = Field(None, description="QC notes")
@@ -156,13 +156,13 @@ class OnSiteQCResponse(BaseModel):
 
     id: str
     asset_id: str
-    pickup_request_id: str
+    pickup_request_id: str | None = None  # Nullable: SET NULL when pickup is deleted
     performed_by_user_id: Optional[str] = None
     status: str
     physical_condition_ok: bool
     powers_on: bool
     screen_ok: bool
-    keyboard_ok: bool
+    keyboard_ok: bool | None = None  # Optional for non-laptop devices
     ports_ok: bool
     photo_urls: Optional[List[str]] = None
     notes: Optional[str] = None

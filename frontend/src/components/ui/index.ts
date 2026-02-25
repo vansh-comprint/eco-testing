@@ -82,6 +82,9 @@ export { DeleteBatchModal } from './DeleteBatchModal';
 export { ConfirmationModal } from './ConfirmationModal';
 export type { ConfirmationModalProps } from './ConfirmationModal';
 
+// DeactivationPreviewModal
+export { DeactivationPreviewModal } from './DeactivationPreviewModal';
+
 // EmployeeSelector (Smart selector with inline creation)
 export { EmployeeSelector } from './EmployeeSelector';
 

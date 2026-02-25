@@ -123,6 +123,20 @@ class OnSiteQCRepository(BaseRepository[OnSiteQC]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_asset_and_pickup(
+        self, asset_id: str, pickup_request_id: str
+    ) -> Optional[OnSiteQC]:
+        """Get QC by asset ID + pickup request ID (for duplicate detection)"""
+        result = await self.session.execute(
+            select(OnSiteQC).where(
+                and_(
+                    OnSiteQC.asset_id == asset_id,
+                    OnSiteQC.pickup_request_id == pickup_request_id,
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_pickup_request(self, pickup_request_id: str) -> List[OnSiteQC]:
         """Get all QC records for a pickup request"""
         result = await self.session.execute(

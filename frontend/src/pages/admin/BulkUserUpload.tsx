@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Users, Info, Building2 } from 'lucide-react';
 import { CSVUserUpload } from '@/components/users';
 import { BackButton, BranchSelector } from '@/components/ui';
-import { useAuth, useCreateSubUsers, usePortalBasePath, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { useAuth, useCreateSubUsers, usePortalBasePath, useBranches, useBranchesByITAdmin, useEmployeeBasePath } from '@/hooks';
 import type { CreateSubUserInput } from '@/types';
 
 interface BulkUserUploadProps {
@@ -20,13 +20,15 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
   const { enterprise, user } = useAuth();
   const createSubUsersMutation = useCreateSubUsers();
 
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
+  const { isEnterpriseNested } = useEmployeeBasePath();
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
   const resolvedEnterpriseId = propEnterpriseId || enterprise?.id || '';
 
   // Branch selection state
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
 
-  // Fetch branches for branch_code resolution and pre-selection UI
+  // Fetch branches for branch_code resolution and pre-selection UI.
+  // For enterprise-nested routes (super/ops admin), treat as org admin and fetch by enterprise ID.
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? resolvedEnterpriseId : '');
   const { data: itBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? (user?.id || '') : '');
   const branches = isOrgAdmin ? orgBranches : itBranches;
@@ -57,7 +59,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton className="mb-6" />
+          <BackButton to={propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}/employees` : `${portalBase}/employees`} className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -145,7 +147,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           branchId={autoSelectedBranchId || undefined}
           branches={activeBranches}
           onUpload={handleUpload}
-          onCancel={() => navigate(`${portalBase}/employees`)}
+          onCancel={() => navigate(propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}/employees` : `${portalBase}/employees`)}
         />
       </motion.div>
     </div>

@@ -12,7 +12,7 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react';
-import { useAuth, useCreateSubUsers, useApiError } from '@/hooks';
+import { useAuth, useCreateSubUsers, useApiError, useEmployeeBasePath } from '@/hooks';
 import { BranchSelector } from '@/components/ui';
 
 interface InviteFormData {
@@ -48,17 +48,16 @@ export function EmployeeInvite() {
   const navigate = useNavigate();
   const location = useLocation();
   // V3: Use React Query hooks
-  const { enterprise, user } = useAuth();
+  const { user } = useAuth();
+  const { enterpriseId, basePath, isEnterpriseNested } = useEmployeeBasePath();
   const createSubUsersMutation = useCreateSubUsers();
   const { handleError, showSuccess } = useApiError();
 
-  // V3.2: Detect if we're in Org Admin context
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  // V3.2: Detect if we're in Org Admin context (true for org_admin role, org-admin portal, or enterprise-nested super/ops routes)
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
 
-  // Branch linking: IT Admin uses their user ID, Org Admin uses enterprise ID
+  // Branch linking: IT Admin uses their user ID, Org Admin / nested enterprise uses enterprise ID
   const branchSelectorUserId = !isOrgAdmin ? (user?.id || '') : undefined;
-  const enterpriseId = enterprise?.id || '';
 
   const [invites, setInvites] = useState<InviteFormData[]>([{ ...initialFormData }]);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,7 +178,7 @@ export function EmployeeInvite() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm() || !enterprise?.id) return;
+    if (!validateForm() || !enterpriseId) return;
 
     setIsLoading(true);
 
@@ -191,7 +190,7 @@ export function EmployeeInvite() {
           email: invite.email.trim().toLowerCase(),
           phone: invite.phone.replace(/\D/g, ''),  // Store only digits
           department: invite.department === 'Other' ? invite.customDepartment.trim() : invite.department,
-          enterprise_id: enterprise.id,
+          enterprise_id: enterpriseId,
           branch_id: invite.branch_id || undefined,
         }))
       );
@@ -272,7 +271,7 @@ export function EmployeeInvite() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`${basePath}/employees`)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />

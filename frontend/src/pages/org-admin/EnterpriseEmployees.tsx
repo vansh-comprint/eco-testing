@@ -20,10 +20,15 @@ import {
   Download,
   Filter,
   UserPlus,
+  UserX,
+  UserCheck,
   ChevronRight,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
-import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats, useDebounce, useApiError } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { subUsersApi } from '@/lib/api/sub-users';
+import { subUserKeys } from '@/hooks/useEmployees';
+import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal, DeactivationPreviewModal } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
 import Papa from 'papaparse';
@@ -45,6 +50,57 @@ export function EnterpriseEmployees() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
   const [viewMode, setViewMode] = useState<ViewMode>(urlBranch ? 'list' : 'by-branch');
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  // Deactivation: use preview modal (active → inactive)
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ userId: string; userName: string } | null>(null);
+  // Activation: use simple confirmation modal (inactive → active)
+  const [pendingActivate, setPendingActivate] = useState<{ userId: string; userName: string } | null>(null);
+
+  const queryClient = useQueryClient();
+  const { showSuccess, handleError } = useApiError();
+
+  const requestToggleStatus = (userId: string, currentStatus: string, userName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentStatus === 'active') {
+      setPendingDeactivate({ userId, userName });
+    } else {
+      setPendingActivate({ userId, userName });
+    }
+  };
+
+  const executeStatusChange = async (userId: string, newStatus: 'active' | 'inactive') => {
+    setTogglingIds(prev => new Set(prev).add(userId));
+    try {
+      await subUsersApi.update(userId, { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: subUserKeys.all });
+      showSuccess(
+        newStatus === 'active' ? 'Employee Activated' : 'Employee Deactivated',
+        newStatus === 'active' ? 'Employee is now active.' : 'Employee has been deactivated.'
+      );
+    } catch (error) {
+      handleError(error, 'Updating employee status');
+    } finally {
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
+  const confirmDeactivate = async () => {
+    if (!pendingDeactivate) return;
+    const { userId } = pendingDeactivate;
+    setPendingDeactivate(null);
+    await executeStatusChange(userId, 'inactive');
+  };
+
+  const confirmActivate = async () => {
+    if (!pendingActivate) return;
+    const { userId } = pendingActivate;
+    setPendingActivate(null);
+    await executeStatusChange(userId, 'active');
+  };
 
   // Server-side search/filter params
   const apiParams = useMemo(() => {
@@ -293,7 +349,7 @@ export function EnterpriseEmployees() {
                 </div>
                 <div className="divide-y divide-slate-200/60 dark:divide-white/5">
                   {branchEmployees.map(emp => (
-                    <EmployeeRow key={emp.id} employee={emp} assetCounts={employeeAssetCounts.get(emp.id)} getStatusBadge={getStatusBadge} onClick={() => navigate(`/org-admin/employees/${emp.id}`)} />
+                    <EmployeeRow key={emp.id} employee={emp} assetCounts={employeeAssetCounts.get(emp.id)} getStatusBadge={getStatusBadge} onClick={() => navigate(`/org-admin/employees/${emp.id}`)} onToggleStatus={requestToggleStatus} isToggling={togglingIds.has(emp.id)} />
                   ))}
                 </div>
               </div>
@@ -372,53 +428,123 @@ export function EnterpriseEmployees() {
 
       <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />
       <InfiniteScrollInfo loadedCount={employees.length} totalCount={totalEmployees} />
+
+      {/* Deactivation: live preview modal */}
+      <DeactivationPreviewModal
+        isOpen={!!pendingDeactivate}
+        onClose={() => setPendingDeactivate(null)}
+        onConfirm={confirmDeactivate}
+        userId={pendingDeactivate?.userId ?? ''}
+        userName={pendingDeactivate?.userName ?? ''}
+      />
+
+      {/* Activation: simple confirmation */}
+      <ConfirmationModal
+        isOpen={!!pendingActivate}
+        onClose={() => setPendingActivate(null)}
+        onConfirm={confirmActivate}
+        title="Activate Employee?"
+        description={`Are you sure you want to activate ${pendingActivate?.userName}? They will regain access to the check-in portal.`}
+        confirmText="Activate"
+        variant="info"
+      />
     </div>
   );
 }
 
-function EmployeeRow({ employee: emp, assetCounts, getStatusBadge, onClick }: {
+function EmployeeRow({ employee: emp, assetCounts, getStatusBadge, onClick, onToggleStatus, isToggling }: {
   employee: any;
   assetCounts?: { assigned: number; submitted: number };
   getStatusBadge: (s: string) => { color: string; icon: React.ReactElement };
   onClick?: () => void;
+  onToggleStatus: (userId: string, currentStatus: string, userName: string, e: React.MouseEvent) => void;
+  isToggling: boolean;
 }) {
   const badge = getStatusBadge(emp.status);
   return (
-    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onClick) { e.preventDefault(); onClick(); } }} className="p-4 flex items-center gap-4 hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50">
-      <div className="w-9 h-9 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onClick) { e.preventDefault(); onClick(); } }}
+      className="p-4 grid grid-cols-[auto_1fr_70px_70px_110px_100px_20px] items-center gap-3 hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50"
+    >
+      {/* Avatar */}
+      <div className="w-10 h-10 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">
         <span className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
           {(emp.name || emp.email || '?').charAt(0)}
         </span>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{emp.name || '—'}</p>
+      {/* Info */}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{emp.name || '—'}</p>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest flex-shrink-0 ${badge.color}`}>
+            {badge.icon}
+            {emp.status === 'pending_invite' ? 'Pending' : emp.status}
+          </span>
+        </div>
         <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-1">
-            <Mail className="w-3 h-3 text-slate-400" />
-            <span className="font-mono text-[11px] text-slate-500 dark:text-zinc-500">{emp.email}</span>
+          <span className="flex items-center gap-1 min-w-0">
+            <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="font-mono text-[11px] text-slate-500 dark:text-zinc-500 truncate">{emp.email}</span>
           </span>
           {emp.phone && (
-            <span className="flex items-center gap-1">
-              <Phone className="w-3 h-3 text-slate-400" />
+            <span className="flex items-center gap-1 flex-shrink-0">
+              <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
               <span className="font-mono text-[11px] text-slate-500 dark:text-zinc-500">{emp.phone}</span>
-            </span>
-          )}
-          {emp.department && (
-            <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 font-mono text-[10px] text-slate-500 dark:text-zinc-500 uppercase">
-              {emp.department}
             </span>
           )}
         </div>
       </div>
-      <span className={`inline-flex items-center gap-1 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest ${badge.color}`}>
-        {badge.icon}
-        {emp.status === 'pending_invite' ? 'Pending' : emp.status}
-      </span>
-      <div className="text-right flex-shrink-0 w-20">
-        <p className="font-mono text-xs text-slate-500 dark:text-zinc-500">{assetCounts?.assigned || 0} assigned</p>
-        <p className="font-mono text-xs text-ecotribe-primary font-bold">{assetCounts?.submitted || 0} submitted</p>
+      {/* Assigned */}
+      <div className="text-center">
+        <p className="font-mono text-sm font-bold text-slate-600 dark:text-zinc-400">{assetCounts?.assigned || 0}</p>
+        <p className="font-mono text-[10px] text-slate-400 dark:text-zinc-600 uppercase tracking-wider">Assigned</p>
       </div>
-      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors flex-shrink-0" />
+      {/* Submitted */}
+      <div className="text-center">
+        <p className="font-mono text-sm font-bold text-ecotribe-primary">{assetCounts?.submitted || 0}</p>
+        <p className="font-mono text-[10px] text-slate-400 dark:text-zinc-600 uppercase tracking-wider">Submitted</p>
+      </div>
+      {/* Department */}
+      <div className="text-center">
+        {emp.department ? (
+          <span className="inline-block px-2 py-1 border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 font-mono text-[10px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider truncate max-w-full">
+            {emp.department}
+          </span>
+        ) : (
+          <span className="font-mono text-[10px] text-slate-300 dark:text-zinc-700">—</span>
+        )}
+      </div>
+      {/* Activate / Deactivate */}
+      <div className="text-center">
+        {emp.status !== 'pending_invite' ? (
+          <button
+            type="button"
+            onClick={(e) => onToggleStatus(emp.id, emp.status, emp.name || emp.email, e)}
+            disabled={isToggling}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 border font-mono font-bold text-[10px] uppercase tracking-widest transition-all disabled:opacity-50 ${
+              emp.status === 'active'
+                ? 'border-red-400/30 bg-red-400/5 text-red-400 hover:bg-red-400/10'
+                : 'border-emerald-400/30 bg-emerald-400/5 text-emerald-400 hover:bg-emerald-400/10'
+            }`}
+          >
+            {isToggling ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : emp.status === 'active' ? (
+              <UserX className="w-3 h-3" />
+            ) : (
+              <UserCheck className="w-3 h-3" />
+            )}
+            {emp.status === 'active' ? 'Deactivate' : 'Activate'}
+          </button>
+        ) : (
+          <span className="font-mono text-[10px] text-slate-300 dark:text-zinc-700">—</span>
+        )}
+      </div>
+      {/* Nav arrow */}
+      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-600 group-hover:text-ecotribe-primary transition-colors" />
     </div>
   );
 }

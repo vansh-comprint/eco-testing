@@ -329,6 +329,34 @@ async def process_batch_approval(
     return success_response(data=batch.model_dump(), message=f"Batch {action_msg}")
 
 
+class BatchCancelRequest(BaseModel):
+    reason: str
+
+
+@router.post("/{batch_id}/cancel", response_model=dict)
+async def cancel_batch(
+    batch_id: str,
+    cancel_data: BatchCancelRequest,
+    current_user: User = Depends(require_permission(Permission.BATCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel a batch with full asset and pickup reversion.
+
+    Reverts assets in pre-collection statuses back to conditionally_accepted.
+    Cancels any related non-terminal pickups.
+
+    Allowed from: draft, approved, pickup_in_progress (per state machine).
+
+    **Permissions:** BATCH_UPDATE
+    """
+    service = BatchService(db)
+    existing = await service.get_batch(batch_id)
+    await _check_batch_access(db, existing, current_user)
+    batch = await service.cancel_batch(batch_id, cancel_data.reason, current_user.id)
+    return success_response(data=batch.model_dump(), message="Batch cancelled successfully")
+
+
 @router.delete("/{batch_id}", response_model=dict, status_code=status.HTTP_200_OK)
 async def delete_batch(
     batch_id: str,

@@ -6,7 +6,8 @@ from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import RemoteReview, FacilityQC, AssetStatus, User, UserRole
-from app.models.support import OnSiteQC
+from app.models.support import OnSiteQC, QCStatus
+from app.models.logistics import PickupStatus
 from app.models.review import ReviewDecision
 from app.repositories.review_repository import (
     RemoteReviewRepository,
@@ -15,6 +16,7 @@ from app.repositories.review_repository import (
 )
 from app.repositories.asset_repository import AssetRepository
 from app.repositories.submission_repository import SubmissionRepository
+from app.repositories.pickup_repository import PickupRepository
 from app.schemas.review import (
     RemoteReviewCreate,
     RemoteReviewUpdate,
@@ -252,19 +254,55 @@ class OnSiteQCService:
         self.session = session
         self.repo = OnSiteQCRepository(session)
         self.asset_repo = AssetRepository(session)
+        self.pickup_repo = PickupRepository(session)
 
     async def create_qc(self, data: OnSiteQCCreate, user: User) -> OnSiteQC:
         """Create an on-site QC record (by logistics user)"""
+        # Verify asset exists
         asset = await self.asset_repo.get_by_id(data.asset_id)
         if not asset:
             raise ValueError("Asset not found")
+
+        # Verify pickup exists and is in progress
+        pickup = await self.pickup_repo.get_by_id(data.pickup_request_id)
+        if not pickup:
+            raise ValueError("Pickup request not found")
+        if pickup.status != PickupStatus.IN_PROGRESS.value:
+            raise ValueError("QC can only be submitted when pickup is in progress")
+
+        # Ownership check: logistics users can only submit QC for their own pickups
+        if user.role == UserRole.LOGISTICS_USER.value:
+            if pickup.logistics_user_id != user.id:
+                raise ValueError("You can only submit QC records for pickups assigned to you")
+
+        # Asset membership check: asset must belong to this pickup
+        if data.asset_id not in (pickup.asset_ids or []):
+            raise ValueError("Asset does not belong to this pickup")
+
+        # Duplicate check: one QC record per (asset, pickup) pair
+        existing = await self.repo.get_by_asset_and_pickup(data.asset_id, data.pickup_request_id)
+        if existing:
+            raise ValueError("QC record already exists for this asset in this pickup")
+
+        # Auto-derive status from check results — never trust client-submitted status
+        checks = [
+            data.physical_condition_ok,
+            data.powers_on,
+            data.screen_ok,
+            data.ports_ok,
+        ]
+        # keyboard_ok is optional (non-laptop devices may not have a keyboard)
+        if data.keyboard_ok is not None:
+            checks.append(data.keyboard_ok)
+
+        derived_status = QCStatus.PASSED.value if all(checks) else QCStatus.FAILED.value
 
         qc = OnSiteQC(
             id=f"osqc-{uuid.uuid4()}",
             asset_id=data.asset_id,
             pickup_request_id=data.pickup_request_id,
             performed_by_user_id=user.id,
-            status=data.status,
+            status=derived_status,
             physical_condition_ok=data.physical_condition_ok,
             powers_on=data.powers_on,
             screen_ok=data.screen_ok,
@@ -273,7 +311,7 @@ class OnSiteQCService:
             photo_urls=data.photo_urls,
             notes=data.notes,
             extra_data=data.extra_data,
-            performed_at=datetime.now(timezone.utc),
+            performed_at=datetime.now(timezone.utc),  # Always server-side
         )
 
         await self.repo.create(qc)

@@ -1,10 +1,13 @@
 """Batch service for business logic"""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.models.batch import Batch, BatchStatus
 from app.models.asset import AssetStatus
@@ -510,6 +513,108 @@ class BatchService:
                 "asset_count": len(asset_ids),
             }
         )
+
+    async def cancel_batch(
+        self, batch_id: str, reason: str, cancelled_by: str
+    ) -> BatchResponse:
+        """
+        Cancel a batch with full asset and pickup reversion.
+
+        Allowed from: draft, approved, pickup_in_progress.
+        Assets in pre-collection statuses are reverted to conditionally_accepted.
+        Related non-terminal pickups are cancelled.
+
+        Args:
+            batch_id: ID of batch to cancel
+            reason: Cancellation reason
+            cancelled_by: User ID of the person cancelling
+        """
+        from sqlalchemy import select as sql_select
+
+        batch = await self.repository.get_by_id(batch_id)
+        if not batch:
+            raise NotFoundError("Batch", batch_id)
+
+        # Reject if already in a terminal state
+        if batch.status in (BatchStatus.CANCELLED.value, BatchStatus.COMPLETED.value):
+            raise ValidationError(
+                f"Cannot cancel batch: already in terminal state '{batch.status}'"
+            )
+
+        # Validate state transition via state machine
+        validate_batch_transition(batch.status, BatchStatus.CANCELLED.value)
+
+        old_status = batch.status
+
+        # --- Revert asset statuses ---
+        # Assets in pickup-related statuses should go back to conditionally_accepted.
+        # Assets in ready_for_pickup (post-approval, pre-pickup-creation) also revert.
+        revertable_statuses = [
+            AssetStatus.READY_FOR_PICKUP.value,
+            AssetStatus.PICKUP_REQUESTED.value,
+            AssetStatus.PICKUP_SCHEDULED.value,
+        ]
+        assets_to_revert = await self.asset_repository.get_assets_by_batch_and_statuses(
+            batch_id, revertable_statuses
+        )
+
+        for asset in assets_to_revert:
+            asset.status = AssetStatus.CONDITIONALLY_ACCEPTED.value
+            asset.updated_by = cancelled_by
+
+        # --- Cancel related pickups ---
+        pickup_result = await self.db.execute(
+            sql_select(PickupRequest)
+            .where(PickupRequest.batch_id == batch_id)
+            .where(PickupRequest.status.notin_([
+                PickupStatus.COMPLETED.value,
+                PickupStatus.CANCELLED.value,
+            ]))
+        )
+        pickups = pickup_result.scalars().all()
+
+        for pickup in pickups:
+            pickup.status = PickupStatus.CANCELLED.value
+            pickup.logistics_notes = f"Auto-cancelled: batch cancelled — {reason}"
+
+        # --- Update batch status ---
+        batch.status = BatchStatus.CANCELLED.value
+        batch.updated_by = cancelled_by
+        batch = await self.repository.update(batch)
+
+        # Log to audit trail
+        audit = AuditService(self.db)
+        await audit.log_status_change(
+            entity_type="batch",
+            entity_id=batch_id,
+            old_status=old_status,
+            new_status=batch.status,
+            user_id=cancelled_by,
+            enterprise_id=batch.enterprise_id,
+            branch_id=batch.branch_id,
+            details=f"Batch cancelled: {reason}",
+            metadata={
+                "batch_name": batch.name,
+                "cancellation_reason": reason,
+                "assets_reverted": len(assets_to_revert),
+                "pickups_cancelled": len(pickups),
+            },
+        )
+
+        await self.db.commit()
+        await self.db.refresh(batch)
+
+        logger.info(
+            "Batch %s cancelled: %d assets reverted, %d pickups cancelled",
+            batch_id,
+            len(assets_to_revert),
+            len(pickups),
+        )
+
+        response = BatchResponse.model_validate(batch)
+        status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
+        response.progress = self._build_progress(status_counts)
+        return response
 
     async def delete_batch(
         self,

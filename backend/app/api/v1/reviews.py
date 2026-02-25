@@ -382,7 +382,7 @@ async def list_onsite_qc(
 async def create_onsite_qc(
     data: OnSiteQCCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.PERFORM_ONSITE_QC)),
 ):
     """
     Create an on-site QC record during device pickup.
@@ -391,7 +391,10 @@ async def create_onsite_qc(
     condition checks (screen, keyboard, ports), power-on test, and photos.
     Linked to the pickup request for the asset.
 
-    **Required permission:** PICKUP_UPDATE (logistics users)
+    Status is auto-derived server-side: all checks pass → 'passed', any fail → 'failed'.
+    Logistics users can only submit QC for pickups assigned to them.
+
+    **Required permission:** PERFORM_ONSITE_QC (logistics users)
     """
     service = OnSiteQCService(db)
 
@@ -403,6 +406,37 @@ async def create_onsite_qc(
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
+
+
+@router.get("/onsite/by-pickup/{pickup_request_id}")
+async def get_qc_by_pickup(
+    pickup_request_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.PICKUP_VIEW)),
+):
+    """
+    Get all on-site QC records for a specific pickup request.
+
+    Returns all QC checks performed during the given pickup. Useful for
+    logistics admins reviewing field work and OPS admins auditing pickups.
+
+    **Required permission:** PICKUP_VIEW
+    """
+    service = OnSiteQCService(db)
+
+    try:
+        records = await service.get_by_pickup_request(pickup_request_id)
+        return success_response(
+            data=[_onsite_qc_to_dict(r) for r in records],
+            message=f"Found {len(records)} QC record(s)",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
 
 
 @router.get("/onsite/{qc_id}")

@@ -134,6 +134,7 @@ class Permission(str, Enum):
     # Reports & Analytics
     VIEW_REPORTS = "view_reports"
     VIEW_EPR_CERTIFICATES = "view_epr_certificates"
+    MANAGE_EPR_CERTIFICATES = "manage_epr_certificates"
 
     # Pricing & Analytics
     PRICING_READ = "pricing_read"
@@ -206,6 +207,9 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.REMOTE_REVIEW,
         Permission.FACILITY_QC,
         Permission.HANDLE_DISPUTES,
+        # EPR Certificate permissions
+        Permission.VIEW_EPR_CERTIFICATES,
+        Permission.MANAGE_EPR_CERTIFICATES,
     },
     UserRole.IT_ADMIN: {
         Permission.MANAGE_ASSETS,

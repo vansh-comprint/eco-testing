@@ -1,11 +1,15 @@
 """EPR Certificate service for business logic"""
 
 from datetime import datetime, timezone, date
+from decimal import Decimal
 from typing import Optional, List, Tuple
 from uuid import uuid4
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.epr import EPRCertificate, EPRCertificateStatus
+from app.models.asset import Asset
+from app.models.enterprise import Enterprise
 from app.repositories.epr_repository import EPRCertificateRepository
 from app.schemas.epr import (
     EPRCertificateCreate,
@@ -13,6 +17,23 @@ from app.schemas.epr import (
     EPRCertificateResponse,
 )
 from app.utils.exceptions import NotFoundError, ValidationError
+
+# Default weights (kg) by device type keyword — used when asset.weight_kg is not set
+_DEVICE_TYPE_WEIGHTS: dict[str, float] = {
+    "laptop": 2.5,
+    "notebook": 2.5,
+    "desktop": 8.0,
+    "tower": 8.0,
+    "server": 15.0,
+    "monitor": 5.0,
+    "tablet": 0.5,
+    "phone": 0.2,
+    "mobile": 0.2,
+    "printer": 7.0,
+    "keyboard": 0.8,
+    "mouse": 0.15,
+}
+_DEFAULT_DEVICE_WEIGHT = 2.5  # kg fallback for unknown device types
 
 
 class EPRCertificateService:
@@ -28,6 +49,38 @@ class EPRCertificateService:
         now = datetime.now(timezone.utc)
         short_id = uuid4().hex[:6].upper()
         return f"EPR-{now.strftime('%Y%m')}-{short_id}"
+
+    @staticmethod
+    def _estimate_device_weight(asset: Asset) -> Decimal:
+        """Estimate device weight in kg from asset model/brand if weight_kg not set."""
+        if asset.weight_kg is not None:
+            return Decimal(str(asset.weight_kg))
+        # Search model name for device type keywords (case-insensitive)
+        search_text = f"{asset.model or ''} {asset.brand or ''}".lower()
+        for keyword, weight in _DEVICE_TYPE_WEIGHTS.items():
+            if keyword in search_text:
+                return Decimal(str(weight))
+        return Decimal(str(_DEFAULT_DEVICE_WEIGHT))
+
+    async def _calculate_weight_from_assets(self, asset_ids: List[str]) -> Tuple[Decimal, Decimal, Decimal]:
+        """
+        Look up assets and calculate total/recycled/disposed weights.
+        Returns (total_weight_kg, recycled_weight_kg, disposed_weight_kg).
+        Uses 85% recycled / 15% disposed ratio.
+        """
+        result = await self.db.execute(
+            select(Asset).where(Asset.id.in_(asset_ids))
+        )
+        assets = result.scalars().all()
+
+        total = sum(
+            (self._estimate_device_weight(a) for a in assets), Decimal("0")
+        )
+
+        recycled = (total * Decimal("0.85")).quantize(Decimal("0.001"))
+        disposed = (total * Decimal("0.15")).quantize(Decimal("0.001"))
+        total = total.quantize(Decimal("0.001"))
+        return total, recycled, disposed
 
     async def get_certificate(self, certificate_id: str) -> EPRCertificateResponse:
         """Get EPR certificate by ID"""
@@ -62,6 +115,29 @@ class EPRCertificateService:
         if not data.enterprise_id:
             raise ValidationError("Enterprise ID is required")
 
+        # Validate that the enterprise exists
+        result = await self.db.execute(
+            select(Enterprise).where(Enterprise.id == data.enterprise_id)
+        )
+        enterprise = result.scalar_one_or_none()
+        if not enterprise:
+            raise NotFoundError("Enterprise", data.enterprise_id)
+
+        # Auto-calculate weights from asset_ids when total_weight_kg not provided
+        total_weight_kg = data.total_weight_kg
+        recycled_weight_kg = data.recycled_weight_kg
+        disposed_weight_kg = data.disposed_weight_kg
+
+        if total_weight_kg is None:
+            if not data.asset_ids:
+                raise ValidationError("Either total_weight_kg or asset_ids is required")
+            auto_total, auto_recycled, auto_disposed = await self._calculate_weight_from_assets(data.asset_ids)
+            total_weight_kg = auto_total
+            if recycled_weight_kg is None:
+                recycled_weight_kg = auto_recycled
+            if disposed_weight_kg is None:
+                disposed_weight_kg = auto_disposed
+
         certificate_number = self._generate_certificate_number(data.enterprise_id)
 
         certificate = EPRCertificate(
@@ -70,9 +146,9 @@ class EPRCertificateService:
             batch_id=data.batch_id,
             certificate_number=certificate_number,
             status=EPRCertificateStatus.PENDING.value,
-            total_weight_kg=data.total_weight_kg,
-            recycled_weight_kg=data.recycled_weight_kg,
-            disposed_weight_kg=data.disposed_weight_kg,
+            total_weight_kg=total_weight_kg,
+            recycled_weight_kg=recycled_weight_kg,
+            disposed_weight_kg=disposed_weight_kg,
             recycler_name=data.recycler_name,
             recycler_license_number=data.recycler_license_number,
             recycler_partner_id=data.recycler_partner_id,

@@ -666,70 +666,64 @@ export function PickupQueue() {
                       </button>
                     </div>
                   ) : (
-                    /* Existing Logistics Admins List */
-                    <div className="space-y-2">
-                      {(showReassignMode
-                        ? activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id)
-                        : activeLogisticsAdmins
-                      ).length > 0 ? (
-                        (showReassignMode
+                    /* Logistics Admin Dropdown */
+                    <div className="space-y-3">
+                      {(() => {
+                        const availableAdmins = showReassignMode
                           ? activeLogisticsAdmins.filter(admin => admin.id !== selectedRequestData.logistics_admin_id)
-                          : activeLogisticsAdmins
-                        ).map((admin) => (
-                          <button
-                            key={admin.id}
-                            onClick={() => setSelectedLogisticsAdmin(admin.id)}
-                            className={`w-full interactive p-4 border text-left transition-all ${
-                              selectedLogisticsAdmin === admin.id
-                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 border flex items-center justify-center ${
-                                selectedLogisticsAdmin === admin.id
-                                  ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                  : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
-                              }`}>
-                                <User className={`w-5 h-5 ${
-                                  selectedLogisticsAdmin === admin.id
-                                    ? 'text-ecotribe-primary'
-                                    : 'text-slate-500 dark:text-white/50'
-                                }`} />
-                              </div>
-                              <div>
-                                <p className={`font-display font-bold uppercase ${
-                                  selectedLogisticsAdmin === admin.id
-                                    ? 'text-ecotribe-primary'
-                                    : 'text-slate-900 dark:text-white'
-                                }`}>
-                                  {admin.name}
-                                </p>
-                                {admin.company_name && (
-                                  <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                                    {admin.company_name}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="p-4 border border-amber-400/30 bg-amber-400/10 text-center">
-                          <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                          <p className="font-mono text-xs text-amber-400 mb-2">
-                            {showReassignMode ? 'No other partners available' : 'No logistics partners added yet'}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setShowAddAdmin(true)}
-                            className="interactive inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add Partner
-                          </button>
-                        </div>
-                      )}
+                          : activeLogisticsAdmins;
+
+                        return availableAdmins.length > 0 ? (
+                          <>
+                            <select
+                              value={selectedLogisticsAdmin}
+                              onChange={(e) => setSelectedLogisticsAdmin(e.target.value)}
+                              className="w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-ecotribe-primary focus:outline-none transition-colors appearance-none cursor-pointer"
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                            >
+                              <option value="">Select a logistics partner...</option>
+                              {availableAdmins.map((admin) => (
+                                <option key={admin.id} value={admin.id}>
+                                  {admin.name}{admin.company_name ? ` — ${admin.company_name}` : ''}{admin.phone ? ` (${admin.phone})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {/* Show selected partner details */}
+                            {selectedLogisticsAdmin && (() => {
+                              const selected = availableAdmins.find(a => a.id === selectedLogisticsAdmin);
+                              if (!selected) return null;
+                              return (
+                                <div className="flex items-center gap-3 p-3 border border-ecotribe-primary/30 bg-ecotribe-primary/5">
+                                  <div className="w-10 h-10 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <User className="w-5 h-5 text-ecotribe-primary" />
+                                  </div>
+                                  <div>
+                                    <p className="font-display font-bold text-ecotribe-primary uppercase text-sm">{selected.name}</p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50">
+                                      {[selected.company_name, selected.phone, selected.email].filter(Boolean).join(' · ')}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          <div className="p-4 border border-amber-400/30 bg-amber-400/10 text-center">
+                            <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+                            <p className="font-mono text-xs text-amber-400 mb-2">
+                              {showReassignMode ? 'No other partners available' : 'No logistics partners added yet'}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddAdmin(true)}
+                              className="interactive inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add Partner
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

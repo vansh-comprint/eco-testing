@@ -317,7 +317,7 @@ export function useCompletePickup() {
 
   return useMutation({
     mutationFn: async ({ requestId, notes }: { requestId: string; notes?: string }) => {
-      const response = await pickupsApi.complete(requestId, { notes });
+      const response = await pickupsApi.complete(requestId, { logistics_notes: notes });
       if (!response.success) throw new Error(response.error?.message || 'Failed to complete pickup');
       return response.data;
     },
@@ -330,6 +330,104 @@ export function useCompletePickup() {
         queryClient.refetchQueries({ queryKey: assetKeys.all }),
       ]);
       queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    },
+  });
+}
+
+/**
+ * Fail pickup (all assets not collected — enables rescheduling)
+ */
+export function useFailPickup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ requestId, failureReason, notes }: {
+      requestId: string;
+      failureReason: string;
+      notes?: string;
+    }) => {
+      const response = await pickupsApi.fail(requestId, { failure_reason: failureReason, logistics_notes: notes });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to report pickup failure');
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: pickupKeys.detail(variables.requestId) }),
+        queryClient.refetchQueries({ queryKey: pickupKeys.all }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
+        queryClient.refetchQueries({ queryKey: assetKeys.all }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    },
+  });
+}
+
+/**
+ * Partial pickup (some assets collected, some failed)
+ */
+export function usePartialPickup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ requestId, pickedAssetIds, failedAssetIds, failureReason, notes, proofOfPickup }: {
+      requestId: string;
+      pickedAssetIds: string[];
+      failedAssetIds: string[];
+      failureReason?: string;
+      notes?: string;
+      proofOfPickup?: Record<string, unknown>;
+    }) => {
+      const response = await pickupsApi.partial(requestId, {
+        picked_asset_ids: pickedAssetIds,
+        failed_asset_ids: failedAssetIds,
+        failure_reason: failureReason,
+        logistics_notes: notes,
+        proof_of_pickup: proofOfPickup,
+      });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to record partial pickup');
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: pickupKeys.detail(variables.requestId) }),
+        queryClient.refetchQueries({ queryKey: pickupKeys.all }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
+        queryClient.refetchQueries({ queryKey: assetKeys.all }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    },
+  });
+}
+
+/**
+ * Reschedule pickup
+ */
+export function useReschedulePickup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ requestId, scheduledDate, notes }: {
+      requestId: string;
+      scheduledDate: string;
+      notes?: string;
+    }) => {
+      const response = await pickupsApi.reschedule(requestId, { scheduled_date: scheduledDate, logistics_notes: notes });
+      if (!response.success) throw new Error(response.error?.message || 'Failed to reschedule pickup');
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: pickupKeys.detail(variables.requestId) }),
+        queryClient.refetchQueries({ queryKey: pickupKeys.all }),
+        queryClient.refetchQueries({ queryKey: logisticsKeys.all }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
@@ -375,7 +473,7 @@ export function useUpdatePickupStatus() {
     }) => {
       // Map status to appropriate API call
       if (status === 'completed') {
-        const response = await pickupsApi.complete(requestId, { notes });
+        const response = await pickupsApi.complete(requestId, { logistics_notes: notes });
         if (!response.success) throw new Error(response.error?.message || 'Failed to complete pickup');
         return response.data;
       }

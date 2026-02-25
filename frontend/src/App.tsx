@@ -36,7 +36,7 @@ import { ITAdminDashboard, AddAsset, UploadAssets, AssetList, AssetDetail, BulkU
 import { SubUserDashboard, DeviceSubmit, SubmissionSuccess } from '@/pages/check-in';
 // ReviewDashboard, ReviewQueue, RemoteReview — disabled for now (review portal hidden)
 import { /* ReviewDashboard, ReviewQueue, RemoteReview, */ QCQueue, FacilityQC } from '@/pages/review';
-import { MainAdminDashboard, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, OpsBranches, EnterpriseApplications, OpsSettings } from '@/pages/ops';
+import { MainAdminDashboard, OpsAssets, PayoutProcessing, OpsDisputes, RemoteReviewQueue, OpsBranches, EnterpriseApplications, OpsSettings, OpsEPRCertificates } from '@/pages/ops';
 import { EnterpriseList, EnterpriseDetail, LogisticsManagement, PickupQueue } from '@/pages/shared';
 // V3: Org Admin pages
 import { OrgAdminDashboard, PickupApprovals, FinancialReports, EPRCertificates, BranchManagement, BranchDetail, BulkBranchUpload, CreditsWallet, ITAdminManagement, BulkITAdminUpload, ITAdminInvite, EnterpriseAssets, EnterpriseBatches, EnterpriseEmployees, EnterprisePickups, EnterpriseDisputes, OrgAdminSettings } from '@/pages/org-admin';
@@ -60,8 +60,7 @@ const itAdminNavItems = [
 
 // Employee Portal - Device self-evaluation
 const subUserNavItems = [
-  { label: 'My Submissions', path: '/check-in/submissions', icon: <DashboardIcon />, permission: Permission.SUBMISSION_VIEW },
-  { label: 'Submit Device', path: '/check-in/submit', icon: <SubmitIcon />, permission: Permission.SUBMIT_DEVICE_EVALUATION },
+  { label: 'My Devices', path: '/check-in', icon: <DashboardIcon />, permission: Permission.SUBMISSION_VIEW },
   { label: 'Help', path: '/check-in/help', icon: <HelpIcon /> },
 ];
 
@@ -80,6 +79,7 @@ const opsAdminNavItems = [
   { label: 'Applications', path: '/ops/applications', icon: <DocumentIcon />, permission: Permission.MANAGE_ENTERPRISE_APPLICATIONS },
   { label: 'Enterprises', path: '/ops/enterprises', icon: <EnterpriseIcon />, permission: Permission.VIEW_ALL_ENTERPRISES },
   { label: 'Logistics', path: '/ops/logistics', icon: <TruckIcon />, permission: Permission.LOGISTICS_MANAGE },
+  { label: 'EPR Certificates', path: '/ops/epr', icon: <DocumentIcon />, permission: Permission.VIEW_EPR_CERTIFICATES },
   { label: 'Settings', path: '/ops/settings', icon: <SettingsIcon /> },
 ];
 
@@ -307,8 +307,6 @@ function AppRoutes() {
         }
       >
         <Route index element={<SubUserDashboard />} />
-        <Route path="submissions" element={<SubUserDashboard />} />
-        <Route path="submit" element={<SubUserDashboard />} />
         <Route path="submit/:assetId" element={<DeviceSubmit />} />
         <Route path="submissions/:assetId" element={<SubmissionDetail />} />
         <Route path="success" element={<SubmissionSuccess />} />
@@ -352,6 +350,10 @@ function AppRoutes() {
         <Route path="enterprises/:id" element={<EnterpriseDetail />} />
         <Route path="enterprises/:id/bulk-it-admins" element={<BulkITAdminUploadWrapper />} />
         <Route path="enterprises/:id/bulk-employees" element={<BulkUserUploadWrapper />} />
+        <Route path="enterprises/:id/employees" element={<EmployeeList />} />
+        <Route path="enterprises/:id/employees/invite" element={<EmployeeInvite />} />
+        <Route path="enterprises/:id/employees/upload" element={<BulkUserUploadWrapper />} />
+        <Route path="enterprises/:id/employees/:subUserId" element={<EmployeeDetail />} />
         <Route path="branches" element={<OpsBranches />} />
         <Route path="assets" element={<OpsAssets />} />
         <Route path="assets/:assetId" element={<AssetDetail />} />
@@ -360,6 +362,7 @@ function AppRoutes() {
         <Route path="logistics" element={<LogisticsManagement />} />
         <Route path="qc" element={<QCQueue />} />
         <Route path="qc/:assetId" element={<FacilityQC />} />
+        <Route path="epr" element={<OpsEPRCertificates />} />
         <Route path="settings" element={<OpsSettings />} />
       </Route>
 
@@ -461,6 +464,10 @@ function AppRoutes() {
         <Route path="enterprises/:id" element={<EnterpriseDetail />} />
         <Route path="enterprises/:id/bulk-it-admins" element={<BulkITAdminUploadWrapper />} />
         <Route path="enterprises/:id/bulk-employees" element={<BulkUserUploadWrapper />} />
+        <Route path="enterprises/:id/employees" element={<EmployeeList />} />
+        <Route path="enterprises/:id/employees/invite" element={<EmployeeInvite />} />
+        <Route path="enterprises/:id/employees/upload" element={<BulkUserUploadWrapper />} />
+        <Route path="enterprises/:id/employees/:subUserId" element={<EmployeeDetail />} />
         <Route path="assets/:assetId" element={<AssetDetail />} />
         <Route path="users" element={<AllUsers />} />
         <Route path="admins" element={<Admins />} />
@@ -546,14 +553,6 @@ function SettingsIcon() {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
-
-function SubmitIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
   );
 }

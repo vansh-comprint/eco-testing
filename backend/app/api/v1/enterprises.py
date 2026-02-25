@@ -2,7 +2,8 @@
 
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
+from fastapi import APIRouter, Body, Depends, status, Query, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -529,6 +530,61 @@ async def update_enterprise(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.get("/{enterprise_id}/deactivation-preview", response_model=dict)
+async def preview_enterprise_deactivation(
+    enterprise_id: str,
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Preview the impact of deactivating an enterprise.
+
+    Returns counts of users, batches, pickups, and branches that will be affected.
+    Use this before calling the deactivate endpoint.
+
+    **Permissions:** ENTERPRISE_UPDATE
+    **Roles:** Super Admin, OPS Admin only
+    """
+    if not is_platform_admin(current_user):
+        raise EcoTribeAuthorizationError("Only platform admins can deactivate enterprises")
+
+    service = EnterpriseService(db)
+    preview = await service.preview_deactivation(enterprise_id)
+    return success_response(data=preview)
+
+
+@router.post("/{enterprise_id}/deactivate", response_model=dict)
+async def deactivate_enterprise(
+    enterprise_id: str,
+    reason: str = Body(..., embed=True),
+    current_user: User = Depends(require_permission(Permission.ENTERPRISE_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Deactivate an enterprise with full cascade cleanup.
+
+    - Deactivates all users (triggering per-user cleanup: assets, branches, pickups, disputes)
+    - Cancels all non-terminal batches
+    - Cancels all non-terminal pickups
+    - Sets enterprise status to INACTIVE
+
+    Use the preview endpoint first to see the impact.
+
+    **Permissions:** ENTERPRISE_UPDATE
+    **Roles:** Super Admin, OPS Admin only
+    """
+    if not is_platform_admin(current_user):
+        raise EcoTribeAuthorizationError("Only platform admins can deactivate enterprises")
+
+    service = EnterpriseService(db)
+    result = await service.deactivate_enterprise(enterprise_id, reason, current_user.id)
+    return success_response(
+        data=result,
+        message=f"Enterprise deactivated: {result['users_deactivated']} users, "
+                f"{result['batches_cancelled']} batches, {result['pickups_cancelled']} pickups affected",
+    )
+
+
 @router.delete("/{enterprise_id}", response_model=dict, status_code=status.HTTP_200_OK)
 async def delete_enterprise(
     enterprise_id: str,
@@ -537,6 +593,9 @@ async def delete_enterprise(
 ):
     """
     Delete enterprise by ID.
+
+    Only allowed if the enterprise has no active users. Use the deactivate
+    endpoint first to cascade-deactivate all dependencies, then delete.
 
     **Permissions:** ENTERPRISE_DELETE
     """
@@ -550,3 +609,5 @@ async def delete_enterprise(
         return success_response(message="Enterprise deleted successfully")
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

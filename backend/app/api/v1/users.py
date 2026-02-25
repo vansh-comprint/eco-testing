@@ -215,6 +215,44 @@ async def list_it_admins_with_branches(
     return success_response(data=data)
 
 
+@router.get("/{user_id}/deactivation-preview", response_model=dict)
+async def preview_user_deactivation(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Preview side-effects of deactivating a user.
+
+    Returns counts of entities that will be affected when the user is set to inactive:
+    - assets_to_unassign: Assets that will be returned to pending_assignment
+    - submissions_to_delete: Partial submissions that will be removed
+    - branches_affected: Branches that will lose their IT admin
+    - pickups_to_unassign: Pickup requests that will be reverted
+    - child_users_to_deactivate: Logistics users that will be cascade-deactivated
+    - is_sole_org_admin: Whether this is the last active org admin for the enterprise
+    - open_disputes_to_unassign: Open disputes that will be unassigned
+
+    **Permissions:** USER_UPDATE, EMPLOYEE_UPDATE, or MANAGE_LOGISTICS_USERS (based on target role)
+    **Roles:** Super Admin, OPS Admin, Org Admin, IT Admin (employees), Logistics Admin (logistics users)
+    """
+    service = UserService(db)
+    target = await service.get_user(user_id)
+    target_role = UserRole(target.role) if target.role else None
+    required_permission = _get_required_permission(target_role, "UPDATE")
+    await require_permission(required_permission)(current_user)
+
+    # Enterprise-scoped access check for non-platform admins
+    if not is_platform_admin(current_user):
+        target_enterprise = getattr(target, "enterprise_id", None)
+        if target_enterprise and not can_access_enterprise(current_user, str(target_enterprise)):
+            from app.utils.exceptions import AuthorizationError
+            raise AuthorizationError("You do not have access to this user")
+
+    preview = await service.preview_deactivation(user_id, actor=current_user)
+    return success_response(data=preview)
+
+
 @router.get("/{user_id}", response_model=dict)
 async def get_user(
     user_id: str,
@@ -244,18 +282,23 @@ async def get_user(
 async def update_user(
     user_id: str,
     user_data: UserUpdate,
-    current_user: User = Depends(require_permission(Permission.USER_UPDATE)),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Update user by ID.
 
-    **Permissions:** USER_UPDATE
-    **Roles:** Super Admin, OPS Admin
+    **Permissions:** USER_UPDATE, EMPLOYEE_UPDATE, or MANAGE_LOGISTICS_USERS (based on target role)
+    **Roles:** Super Admin, OPS Admin, IT Admin (employees), Logistics Admin (logistics users)
 
     Note: Users cannot modify users at or above their role hierarchy level.
     """
     service = UserService(db)
+    target = await service.get_user(user_id)
+    target_role = UserRole(target.role) if target.role else None
+    required_permission = _get_required_permission(target_role, "UPDATE")
+    await require_permission(required_permission)(current_user)
+
     user = await service.update_user(user_id, user_data, current_user.id, actor=current_user)
     return success_response(data=user.model_dump(), message="User updated successfully")
 
@@ -357,15 +400,20 @@ async def update_user_status(
     user_id: str,
     status: str = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.USER_UPDATE)),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a single user's status (active/inactive)."""
     if status not in ("active", "inactive"):
         raise ValidationError("Status must be 'active' or 'inactive'")
+
     service = UserService(db)
-    from app.schemas.user import UserUpdate
-    result = await service.update_user(user_id, UserUpdate(status=status), current_user)
-    return success_response(data=result, message=f"User status updated to {status}")
+    target = await service.get_user(user_id)
+    target_role = UserRole(target.role) if target.role else None
+    required_permission = _get_required_permission(target_role, "UPDATE")
+    await require_permission(required_permission)(current_user)
+
+    result = await service.update_user(user_id, UserUpdate(status=status), current_user.id, actor=current_user)
+    return success_response(data=result.model_dump(), message=f"User status updated to {status}")
 
 
 @router.post("/{user_id}/toggle-company-status")

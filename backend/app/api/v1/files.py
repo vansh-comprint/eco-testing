@@ -87,7 +87,7 @@ async def upload_pickup_evidence(
 async def upload_epr_certificate(
     file: UploadFile = File(..., description="EPR certificate"),
     enterprise_id: str = Form(..., description="Enterprise ID"),
-    current_user: User = Depends(require_permission(Permission.PRICING_MANAGE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_EPR_CERTIFICATES)),
 ):
     """
     Upload EPR compliance certificate.
@@ -95,7 +95,7 @@ async def upload_epr_certificate(
     **Allowed formats**: PDF
     **Max size**: 50 MB
     **Bucket**: epr-certificates
-    **Permissions**: PRICING_MANAGE (Super Admin only)
+    **Permissions**: MANAGE_EPR_CERTIFICATES (Super Admin, OPS Admin)
     """
     from app.core.storage import MAX_DOCUMENT_SIZE
 

@@ -68,6 +68,24 @@ export interface EnterpriseUpdateRequest {
   status?: string;
 }
 
+export interface EnterpriseDeactivationPreview {
+  enterprise_id: string;
+  enterprise_name: string;
+  total_users_to_deactivate: number;
+  users_by_role: Record<string, number>;
+  batches_to_cancel: number;
+  pickups_to_cancel: number;
+  branches_affected: number;
+}
+
+export interface EnterpriseDeactivationResult {
+  enterprise_id: string;
+  users_deactivated: number;
+  batches_cancelled: number;
+  pickups_cancelled: number;
+  reason: string;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -98,4 +116,13 @@ export const enterprisesApi = {
 
   delete: (id: string) =>
     fetchWithAuth<void>(`/enterprises/${id}`, { method: 'DELETE' }),
+
+  previewDeactivation: (id: string) =>
+    fetchWithAuth<EnterpriseDeactivationPreview>(`/enterprises/${id}/deactivation-preview`),
+
+  deactivate: (id: string, reason: string) =>
+    fetchWithAuth<EnterpriseDeactivationResult>(`/enterprises/${id}/deactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 };

@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useSendSubUserInvitation, useApiError, useBranches, useBranchesByITAdmin } from '@/hooks';
+import { useAuth, useSubUsers, useUpdateSubUser, useDeleteSubUser, useAssets, useSendSubUserInvitation, useApiError, useBranches, useBranchesByITAdmin, useEmployeeBasePath } from '@/hooks';
 import { BranchSelector } from '@/components/ui';
 import { format } from 'date-fns';
 
@@ -43,12 +43,14 @@ export function EmployeeDetail() {
   const { subUserId } = useParams<{ subUserId: string }>();
 
   // V3: Use React Query hook for auth
-  const { user, enterprise } = useAuth();
+  const { user } = useAuth();
+  const { enterpriseId, basePath, portalBase, isEnterpriseNested } = useEmployeeBasePath();
 
-  // V3.2: Detect if we're in Org Admin context
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
-  const basePath = isOrgAdmin ? '/org-admin' : '/admin';
-  const enterpriseId = enterprise?.id || '';
+  // V3.2: Detect if we're in Org Admin context (true for org_admin role, org-admin portal, or enterprise-nested super/ops routes)
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
+
+  // Super Admin asset list is at /super/enterprise-assets, other portals use /assets
+  const assetListPath = portalBase === '/super' ? `${portalBase}/enterprise-assets` : `${portalBase}/assets`;
 
   // V3: React Query hooks
   const { data: subUsers = [], isLoading: subUsersLoading } = useSubUsers(enterpriseId);
@@ -245,7 +247,7 @@ export function EmployeeDetail() {
         <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">Employee not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The employee you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`${basePath}/employees`)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -264,7 +266,7 @@ export function EmployeeDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`${basePath}/employees`)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -510,7 +512,7 @@ export function EmployeeDetail() {
                 {userAssets.slice(0, 5).map((asset) => (
                   <div
                     key={asset.id}
-                    onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
+                    onClick={() => navigate(`${portalBase}/assets/${asset.id}`)}
                     className="p-5 hover:bg-slate-100 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between">
@@ -531,7 +533,7 @@ export function EmployeeDetail() {
                 {userAssets.length > 5 && (
                   <div className="p-4 text-center">
                     <button
-                      onClick={() => navigate(`${basePath}/assets?assignee=${subUser.id}`)}
+                      onClick={() => navigate(`${assetListPath}?assignee=${subUser.id}`)}
                       className="font-mono text-xs text-ecotribe-primary hover:underline uppercase tracking-widest"
                     >
                       View all {userAssets.length} assets
@@ -544,7 +546,7 @@ export function EmployeeDetail() {
                 <Laptop className="w-8 h-8 text-slate-500 dark:text-white/50 mx-auto mb-3" />
                 <p className="font-display text-slate-500 dark:text-white/50 text-sm mb-2">No assets assigned</p>
                 <button
-                  onClick={() => navigate(`${basePath}/assets`)}
+                  onClick={() => navigate(`${assetListPath}`)}
                   className="font-mono text-xs text-ecotribe-primary hover:underline uppercase tracking-widest"
                 >
                   Assign Assets

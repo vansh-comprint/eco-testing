@@ -8,6 +8,7 @@
 export { useAuth } from './useAuth';
 export { useDebounce } from './useDebounce';
 export { usePortalBasePath } from './usePortalBasePath';
+export { useEmployeeBasePath } from './useEmployeeBasePath';
 
 // API Error Handling
 export { useApiError } from './useApiError';
@@ -136,6 +137,9 @@ export {
   useSetDefaultPickupLocation,
   useCompletePickup,
   useCancelPickup,
+  useFailPickup,
+  usePartialPickup,
+  useReschedulePickup,
   pickupKeys,
 } from './usePickups';
 
@@ -222,6 +226,13 @@ export {
   EPR_STATUS_LABELS,
   EPR_STATUS_COLORS,
 } from './useEPRCertificates';
+
+// Reviews (On-Site QC)
+export {
+  useOnsiteQCByPickup,
+  useCreateOnSiteQC,
+  reviewKeys,
+} from './useReviews';
 
 // Sidebar Badges
 export { useSidebarBadges, getBadgeForPath } from './useSidebarBadges';

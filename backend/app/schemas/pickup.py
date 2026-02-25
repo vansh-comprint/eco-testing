@@ -53,6 +53,30 @@ class PickupCancel(BaseModel):
     reason: str = Field(..., description="Cancellation reason")
 
 
+class PickupFail(BaseModel):
+    """Schema for marking a pickup as failed"""
+    failure_reason: str = Field(
+        ...,
+        description="Reason: no_show, qc_failed, wrong_address, refused, device_mismatch, other",
+    )
+    logistics_notes: Optional[str] = Field(None, description="Additional notes")
+
+
+class PickupPartial(BaseModel):
+    """Schema for recording a partial pickup (some assets collected, some failed)"""
+    picked_asset_ids: List[str] = Field(..., description="Asset IDs successfully collected")
+    failed_asset_ids: List[str] = Field(..., description="Asset IDs that failed")
+    failure_reason: Optional[str] = Field(None, description="Why some assets failed")
+    logistics_notes: Optional[str] = Field(None, description="Additional notes")
+    proof_of_pickup: Optional[Dict[str, Any]] = Field(None, description="Proof for collected assets")
+
+
+class PickupReschedule(BaseModel):
+    """Schema for rescheduling a failed or partial pickup"""
+    scheduled_date: datetime = Field(..., description="New scheduled date/time")
+    logistics_notes: Optional[str] = Field(None, description="Additional notes")
+
+
 class PickupRequestResponse(BaseModel):
     """Schema for pickup request response"""
     id: str
@@ -71,8 +95,15 @@ class PickupRequestResponse(BaseModel):
     status: str
     special_instructions: Optional[str] = None
     logistics_notes: Optional[str] = None
+    started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     proof_of_pickup: Optional[Dict[str, Any]] = None
+    # Failure tracking fields
+    failure_reason: Optional[str] = None
+    attempt_count: int = 0
+    failed_at: Optional[datetime] = None
+    picked_asset_ids: Optional[List[str]] = None
+    failed_asset_ids: Optional[List[str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

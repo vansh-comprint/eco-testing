@@ -1,8 +1,10 @@
 """Enterprise service for business logic"""
 
+import logging
 from datetime import datetime
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from uuid import uuid4
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enterprise import (
@@ -10,8 +12,11 @@ from app.models.enterprise import (
     EnterpriseStatus,
     EnterpriseApplication,
     EnterpriseApplicationStatus,
+    Branch,
 )
 from app.models.user import User, UserRole, UserStatus
+from app.models.batch import Batch, BatchStatus
+from app.models.logistics import PickupRequest, PickupStatus
 from app.repositories.enterprise_repository import (
     EnterpriseRepository,
     EnterpriseApplicationRepository,
@@ -27,6 +32,8 @@ from app.schemas.enterprise import (
 from app.utils.exceptions import NotFoundError, ValidationError, ConflictError
 from app.core.security import get_password_hash
 from app.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 
 
 class EnterpriseService:
@@ -125,8 +132,175 @@ class EnterpriseService:
         enterprise = await self.repository.update(enterprise)
         return EnterpriseResponse.model_validate(enterprise)
 
+    async def deactivate_enterprise(
+        self, enterprise_id: str, reason: str, actor_id: str
+    ) -> Dict[str, Any]:
+        """
+        Deactivate an enterprise with full cascade cleanup.
+
+        1. Deactivate all enterprise users (triggering per-user side-effects:
+           asset unassignment, pickup reversion, branch cleanup, etc.)
+        2. Cancel all non-terminal batches
+        3. Cancel all non-terminal pickups
+        4. Set enterprise status to INACTIVE
+
+        All changes run in a single transaction for atomicity.
+        """
+        from app.services.user_service import UserService
+
+        enterprise = await self.repository.get_by_id(enterprise_id)
+        if not enterprise:
+            raise NotFoundError("Enterprise", enterprise_id)
+
+        if enterprise.status == EnterpriseStatus.INACTIVE.value:
+            raise ValidationError("Enterprise is already inactive")
+
+        # --- 1. Deactivate all active enterprise users ---
+        users_result = await self.db.execute(
+            select(User)
+            .where(User.enterprise_id == enterprise_id)
+            .where(User.status == UserStatus.ACTIVE.value)
+        )
+        active_users = users_result.scalars().all()
+
+        user_service = UserService(self.db)
+        users_deactivated = 0
+
+        for user in active_users:
+            # Run per-user side-effects (assets, branches, pickups, disputes, child users)
+            await user_service._handle_deactivation_side_effects(user)
+            user.status = UserStatus.INACTIVE.value
+            users_deactivated += 1
+
+        # --- 2. Cancel all non-terminal batches ---
+        batch_terminal = {BatchStatus.COMPLETED.value, BatchStatus.CANCELLED.value}
+        batch_result = await self.db.execute(
+            select(Batch)
+            .where(Batch.enterprise_id == enterprise_id)
+            .where(Batch.status.notin_(batch_terminal))
+        )
+        active_batches = batch_result.scalars().all()
+
+        for batch in active_batches:
+            batch.status = BatchStatus.CANCELLED.value
+            batch.updated_by = actor_id
+
+        # --- 3. Cancel all non-terminal pickups ---
+        pickup_terminal = {PickupStatus.COMPLETED.value, PickupStatus.CANCELLED.value}
+        pickup_result = await self.db.execute(
+            select(PickupRequest)
+            .where(PickupRequest.enterprise_id == enterprise_id)
+            .where(PickupRequest.status.notin_(pickup_terminal))
+        )
+        active_pickups = pickup_result.scalars().all()
+
+        for pickup in active_pickups:
+            pickup.status = PickupStatus.CANCELLED.value
+            pickup.logistics_notes = f"Auto-cancelled: enterprise deactivated — {reason}"
+
+        # --- 4. Set enterprise status to INACTIVE ---
+        enterprise.status = EnterpriseStatus.INACTIVE.value
+        enterprise.updated_by = actor_id
+        await self.repository.update(enterprise)
+
+        await self.db.commit()
+
+        logger.info(
+            "Enterprise %s deactivated: %d users, %d batches, %d pickups affected",
+            enterprise_id,
+            users_deactivated,
+            len(active_batches),
+            len(active_pickups),
+        )
+
+        return {
+            "enterprise_id": enterprise_id,
+            "users_deactivated": users_deactivated,
+            "batches_cancelled": len(active_batches),
+            "pickups_cancelled": len(active_pickups),
+            "reason": reason,
+        }
+
+    async def preview_deactivation(self, enterprise_id: str) -> Dict[str, Any]:
+        """
+        Preview the impact of deactivating an enterprise without applying changes.
+        Returns counts of entities that will be affected.
+        """
+        enterprise = await self.repository.get_by_id(enterprise_id)
+        if not enterprise:
+            raise NotFoundError("Enterprise", enterprise_id)
+
+        # Count active users
+        users_result = await self.db.execute(
+            select(User)
+            .where(User.enterprise_id == enterprise_id)
+            .where(User.status == UserStatus.ACTIVE.value)
+        )
+        active_users = users_result.scalars().all()
+
+        # Count by role
+        role_counts: Dict[str, int] = {}
+        for user in active_users:
+            role_counts[user.role] = role_counts.get(user.role, 0) + 1
+
+        # Count active batches
+        batch_terminal = {BatchStatus.COMPLETED.value, BatchStatus.CANCELLED.value}
+        batch_result = await self.db.execute(
+            select(Batch)
+            .where(Batch.enterprise_id == enterprise_id)
+            .where(Batch.status.notin_(batch_terminal))
+        )
+        active_batches = batch_result.scalars().all()
+
+        # Count active pickups
+        pickup_terminal = {PickupStatus.COMPLETED.value, PickupStatus.CANCELLED.value}
+        pickup_result = await self.db.execute(
+            select(PickupRequest)
+            .where(PickupRequest.enterprise_id == enterprise_id)
+            .where(PickupRequest.status.notin_(pickup_terminal))
+        )
+        active_pickups = pickup_result.scalars().all()
+
+        # Count branches
+        branch_result = await self.db.execute(
+            select(Branch).where(Branch.enterprise_id == enterprise_id)
+        )
+        branches = branch_result.scalars().all()
+
+        return {
+            "enterprise_id": enterprise_id,
+            "enterprise_name": enterprise.name,
+            "total_users_to_deactivate": len(active_users),
+            "users_by_role": role_counts,
+            "batches_to_cancel": len(active_batches),
+            "pickups_to_cancel": len(active_pickups),
+            "branches_affected": len(branches),
+        }
+
     async def delete_enterprise(self, enterprise_id: str) -> bool:
-        """Delete an enterprise"""
+        """
+        Delete an enterprise — only if it has no active dependencies.
+
+        For enterprises with active users/assets/batches, use deactivate_enterprise
+        instead. Deletion is for cleanup of empty/test enterprises only.
+        """
+        enterprise = await self.repository.get_by_id(enterprise_id)
+        if not enterprise:
+            raise NotFoundError("Enterprise", enterprise_id)
+
+        # Block deletion if active users exist
+        users_result = await self.db.execute(
+            select(User)
+            .where(User.enterprise_id == enterprise_id)
+            .where(User.status != UserStatus.INACTIVE.value)
+        )
+        active_users = users_result.scalars().all()
+        if active_users:
+            raise ValidationError(
+                f"Cannot delete enterprise with {len(active_users)} active user(s). "
+                "Deactivate the enterprise first, or remove all users."
+            )
+
         return await self.repository.delete(enterprise_id)
 
 

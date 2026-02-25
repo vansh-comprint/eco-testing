@@ -154,12 +154,14 @@ class User(BaseModel):
         "Notification", back_populates="user", cascade="all, delete-orphan"
     )
 
-    # Disputes
+    # Disputes — assigned_to is NOT ownership; use save-update/merge only so
+    # that deleting a user sets assigned_to_user_id = NULL via FK ondelete="SET NULL"
+    # instead of cascading a DELETE of the dispute row.
     assigned_disputes = relationship(
         "Dispute",
         foreign_keys="Dispute.assigned_to_user_id",
         back_populates="assigned_to",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge",
     )
     resolved_disputes = relationship(
         "Dispute", foreign_keys="Dispute.resolved_by_user_id", back_populates="resolved_by"

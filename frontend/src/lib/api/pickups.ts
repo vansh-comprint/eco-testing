@@ -113,7 +113,7 @@ export interface PickupUpdateRequest {
 }
 
 export interface PickupCompleteRequest {
-  notes?: string;
+  logistics_notes?: string;
   proof_of_pickup?: unknown;
 }
 
@@ -272,6 +272,39 @@ export const pickupsApi = {
     fetchWithAuth<PickupResponse>(`/pickups/${id}/cancel`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    }),
+
+  /**
+   * Fail a pickup (all assets not collected)
+   */
+  fail: (id: string, data: { failure_reason: string; logistics_notes?: string }) =>
+    fetchWithAuth<PickupResponse>(`/pickups/${id}/fail`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Record a partial pickup (some assets collected, some not)
+   */
+  partial: (id: string, data: {
+    picked_asset_ids: string[];
+    failed_asset_ids: string[];
+    failure_reason?: string;
+    logistics_notes?: string;
+    proof_of_pickup?: Record<string, unknown>;
+  }) =>
+    fetchWithAuth<PickupResponse>(`/pickups/${id}/partial`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Reschedule a pickup
+   */
+  reschedule: (id: string, data: { scheduled_date: string; logistics_notes?: string }) =>
+    fetchWithAuth<PickupResponse>(`/pickups/${id}/reschedule`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };
 

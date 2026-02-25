@@ -159,7 +159,7 @@ class OnSiteQC(BaseModel):
         String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True
     )
     pickup_request_id = Column(
-        String, ForeignKey("pickup_requests.id", ondelete="CASCADE"), nullable=False, index=True
+        String, ForeignKey("pickup_requests.id", ondelete="SET NULL"), nullable=True, index=True
     )
     performed_by_user_id = Column(
         String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
@@ -172,7 +172,7 @@ class OnSiteQC(BaseModel):
     physical_condition_ok = Column(Boolean, nullable=False)
     powers_on = Column(Boolean, nullable=False)
     screen_ok = Column(Boolean, nullable=False)
-    keyboard_ok = Column(Boolean, nullable=False)
+    keyboard_ok = Column(Boolean, nullable=True)  # Optional for non-laptop devices
     ports_ok = Column(Boolean, nullable=False)
 
     # Evidence

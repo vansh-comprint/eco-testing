@@ -21,6 +21,7 @@ import { parseApiError } from '@/lib/api/error-handler';
 import { assetKeys } from './useAssets';
 import { batchKeys } from './useBatches';
 import { userKeys } from './useUsers';
+import { dashboardStatsKeys } from './useDashboardStats';
 
 // Query keys for cache management
 export const branchKeys = {
@@ -524,6 +525,7 @@ export function useUpdateITAdminStatus() {
       queryClient.invalidateQueries({ queryKey: itAdminKeys.all });
       queryClient.invalidateQueries({ queryKey: branchKeys.all });
       queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
     },
   });
 }

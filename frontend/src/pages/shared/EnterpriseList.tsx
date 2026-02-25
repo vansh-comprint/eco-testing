@@ -14,6 +14,7 @@ import { useInfiniteEnterprises } from '@/hooks';
 import { useUserRole } from '@/stores/authStoreApi';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { useQueryClient } from '@tanstack/react-query';
+import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 
 export function EnterpriseList() {
@@ -61,6 +62,8 @@ export function EnterpriseList() {
     try {
       await enterprisesApi.update(statusChangeTarget.id, { status: statusChangeTarget.newStatus });
       queryClient.invalidateQueries({ queryKey: ['enterprises'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
       refetch();
     } catch (error) {
       console.error('Failed to update enterprise status:', error);

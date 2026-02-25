@@ -164,6 +164,12 @@ export const batchesApi = {
       body: JSON.stringify({ action: 'reject', rejection_reason: reason, org_admin_notes: notes }),
     }),
 
+  cancel: (id: string, reason: string) =>
+    fetchWithAuth<BatchResponse>(`/batches/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
   pendingApproval: (params: { skip?: number; limit?: number } = {}) => {
     const query = new URLSearchParams();
     if (params.skip) query.set('skip', params.skip.toString());

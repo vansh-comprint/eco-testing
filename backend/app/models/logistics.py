@@ -1,6 +1,6 @@
 """Logistics models for pickup management"""
 
-from sqlalchemy import Column, String, Text, DateTime, Date, ForeignKey, JSON, ARRAY
+from sqlalchemy import Column, String, Text, DateTime, Date, ForeignKey, Integer, JSON, ARRAY
 from sqlalchemy.orm import relationship
 import enum
 
@@ -17,6 +17,8 @@ class PickupStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
+    PARTIAL = "partial"
+    RESCHEDULED = "rescheduled"
     CANCELLED = "cancelled"
 
 
@@ -95,6 +97,15 @@ class PickupRequest(BaseModel):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     proof_of_pickup = Column(JSON, nullable=True)  # Photos, signatures, etc.
 
+    # Failure tracking
+    failure_reason = Column(String, nullable=True)  # no_show, qc_failed, wrong_address, refused, device_mismatch, other
+    attempt_count = Column(Integer, default=0, server_default="0", nullable=False)
+    failed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Per-asset outcome tracking (for partial pickups)
+    picked_asset_ids = Column(ARRAY(String), nullable=True)  # Assets successfully collected
+    failed_asset_ids = Column(ARRAY(String), nullable=True)   # Assets that failed
+
     # Relationships
     location = relationship("PickupLocation", back_populates="pickup_requests")
     batch = relationship("Batch", back_populates="pickup_request")
@@ -109,7 +120,9 @@ class PickupRequest(BaseModel):
     assigned_by = relationship("User", foreign_keys=[assigned_by_id], backref="pickups_assigned")
 
     on_site_qc_records = relationship(
-        "OnSiteQC", back_populates="pickup_request", cascade="all, delete-orphan"
+        "OnSiteQC",
+        back_populates="pickup_request",
+        cascade="save-update, merge",  # Preserve QC records as forensic evidence when pickup is deleted
     )
 
     def __repr__(self) -> str:

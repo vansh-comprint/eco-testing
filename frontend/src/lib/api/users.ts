@@ -50,6 +50,18 @@ export interface PasswordResetRequest {
   new_password: string;
 }
 
+export interface DeactivationPreview {
+  user_id: string;
+  user_role: string;
+  assets_to_unassign: number;
+  submissions_to_delete: number;
+  branches_affected: number;
+  pickups_to_unassign: number;
+  child_users_to_deactivate: number;
+  is_sole_org_admin: boolean;
+  open_disputes_to_unassign: number;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -149,4 +161,8 @@ export const usersApi = {
       method: 'POST',
       body: JSON.stringify({ activate }),
     }),
+
+  /** Preview the side-effects of deactivating a user */
+  previewDeactivation: (userId: string) =>
+    fetchWithAuth<DeactivationPreview>(`/users/${userId}/deactivation-preview`),
 };
