@@ -126,13 +126,34 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   };
 
   // Check which emails already exist in the system via API
+  // Batches lookups to avoid O(n) individual requests for large CSVs
   const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
     const existing = new Set<string>();
     try {
-      for (const email of emails) {
-        const response = await usersApi.list({ search: email, limit: 5 });
-        if (response.data) {
-          for (const user of response.data) {
+      // Fetch a large page of existing users for this enterprise to check against
+      // This covers both admin roles and employees in one call
+      const response = await usersApi.list({
+        enterprise_id: enterpriseId,
+        limit: 500,
+      });
+      if (response.data) {
+        const serverEmails = new Set(
+          response.data.map((u: { email?: string }) => u.email?.toLowerCase()).filter(Boolean)
+        );
+        for (const email of emails) {
+          if (serverEmails.has(email.toLowerCase())) {
+            existing.add(email.toLowerCase());
+          }
+        }
+      }
+
+      // Also check for any emails not found above (could be in other enterprises / global uniqueness)
+      const unchecked = emails.filter(e => !existing.has(e.toLowerCase()));
+      // Only do individual lookups for a reasonable number of remaining emails
+      for (const email of unchecked.slice(0, 20)) {
+        const resp = await usersApi.list({ search: email, limit: 1 });
+        if (resp.data) {
+          for (const user of resp.data) {
             if (user.email?.toLowerCase() === email.toLowerCase()) {
               existing.add(email.toLowerCase());
               break;

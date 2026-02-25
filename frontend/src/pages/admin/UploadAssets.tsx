@@ -309,6 +309,7 @@ export function UploadAssets() {
           enterpriseId={enterprise.id}
           batchId={batchId}
           branches={activeBranches}
+          branchRequired={needsBranchSelection}
           onUpload={handleUpload}
           onCancel={() => navigate(isOrgAdmin ? '/org-admin/assets' : '/admin/assets')}
         />

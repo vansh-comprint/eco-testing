@@ -298,6 +298,9 @@ export function EnterpriseAssets() {
                             <Building2 className="w-3 h-3" />
                             {branchMap.get(asset.branch_id || '') || '—'}
                           </span>
+                          {batchMap.get(asset.batch_id || '') && (
+                            <span className="truncate">{batchMap.get(asset.batch_id || '')}</span>
+                          )}
                           <span>
                             {asset.created_at
                               ? formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })
@@ -315,12 +318,13 @@ export function EnterpriseAssets() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full table-fixed">
                 <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[18%]" />
+                  <col className="w-[20%]" />
                   <col className="w-[16%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[8%]" />
                 </colgroup>
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
@@ -332,6 +336,9 @@ export function EnterpriseAssets() {
                     </th>
                     <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
                       Branch
+                    </th>
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Batch
                     </th>
                     <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
                       Status
@@ -358,25 +365,30 @@ export function EnterpriseAssets() {
                       >
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+                            <div className="w-10 h-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center flex-shrink-0">
                               <Laptop className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
                             </div>
-                            <div>
-                              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{asset.brand}</p>
-                              <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">{asset.model}</p>
+                            <div className="min-w-0">
+                              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase truncate">{asset.brand}</p>
+                              <p className="font-mono text-xs text-slate-500 dark:text-zinc-600 truncate">{asset.model}</p>
                             </div>
                           </div>
                         </td>
                         <td className="py-4 px-6">
-                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-400">{asset.serial_number}</span>
+                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-400 truncate block">{asset.serial_number}</span>
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            <span className="font-mono text-xs text-slate-500 dark:text-zinc-400">
+                            <span className="font-mono text-xs text-slate-500 dark:text-zinc-400 truncate">
                               {branchMap.get(asset.branch_id || '') || '—'}
                             </span>
                           </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-400 truncate block">
+                            {batchMap.get(asset.batch_id || '') || '—'}
+                          </span>
                         </td>
                         <td className="py-4 px-6">
                           <Badge variant={statusConfig.variant} size="sm">
