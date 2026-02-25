@@ -2,25 +2,34 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Laptop, Clock, Search, Package, CheckCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useInfiniteAssets, useUpdateAsset, useDebounce } from '@/hooks';
+import { useInfiniteAssets, useUpdateAsset, useDebounce, useEnterprises } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { useToast } from '@/components/ui';
+import { useUserRole } from '@/stores/authStoreApi';
 
 export function QCQueue() {
   const navigate = useNavigate();
   const location = useLocation();
+  const userRole = useUserRole();
+  const isSuperAdmin = userRole === 'super_admin';
   const updateAssetMutation = useUpdateAsset();
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [sectionFilter, setSectionFilter] = useState<'all' | 'in_transit' | 'facility_qc'>('all');
+  const [localEnterpriseId, setLocalEnterpriseId] = useState<string>('');
   const { addToast } = useToast();
+
+  // Enterprise list for Super Admin local filter
+  const { data: enterprisesData = [] } = useEnterprises();
 
   // Safe enterprise context (returns null outside OPS layout)
   const opsContext = useOptionalOpsEnterprise();
   const selectedEnterpriseId = opsContext?.selectedEnterpriseId ?? null;
   const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
-  const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId) ? selectedEnterpriseId : undefined;
+  const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId)
+    ? selectedEnterpriseId
+    : (localEnterpriseId || undefined);
 
   // Server-side filtered queries with search + sort
   const inTransitParams = useMemo(() => {
@@ -176,6 +185,18 @@ export function QCQueue() {
             className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
+        {isSuperAdmin && (
+          <select
+            value={localEnterpriseId}
+            onChange={(e) => setLocalEnterpriseId(e.target.value)}
+            className="px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest focus:border-ecotribe-primary focus:outline-none transition-colors"
+          >
+            <option value="">All Enterprises</option>
+            {enterprisesData.map((e) => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
+        )}
         <div className="flex gap-2">
           <button
             onClick={() => setSortBy('newest')}
