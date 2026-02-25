@@ -599,7 +599,7 @@ function EditITAdminModal({
     const submitData: Record<string, any> = {
       name: formData.name,
       phone: formData.phone || undefined,
-      branch_id: formData.branch_id || undefined,
+      branch_id: formData.branch_id || null,
     };
 
     // Only include email if it changed

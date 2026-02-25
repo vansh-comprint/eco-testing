@@ -213,6 +213,26 @@ class BranchService:
             elif not update_data["it_admin_id"] and branch.status == BranchStatus.ACTIVE.value:
                 update_data["status"] = BranchStatus.NEEDS_ADMIN.value
 
+        # Sync user.branch_id when branch.it_admin_id changes (bidirectional sync)
+        if "it_admin_id" in update_data:
+            old_admin_id = branch.it_admin_id  # capture before setattr loop
+            new_admin_id = update_data["it_admin_id"]
+
+            if old_admin_id != new_admin_id:
+                # Clear old admin's branch_id if it still points to this branch
+                if old_admin_id:
+                    result = await self.db.execute(select(User).where(User.id == old_admin_id))
+                    old_admin = result.scalar_one_or_none()
+                    if old_admin and old_admin.branch_id == branch_id:
+                        old_admin.branch_id = None
+
+                # Set new admin's branch_id to this branch
+                if new_admin_id:
+                    result = await self.db.execute(select(User).where(User.id == new_admin_id))
+                    new_admin = result.scalar_one_or_none()
+                    if new_admin:
+                        new_admin.branch_id = branch_id
+
         for key, value in update_data.items():
             setattr(branch, key, value)
 

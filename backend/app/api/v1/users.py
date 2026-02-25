@@ -256,17 +256,20 @@ async def preview_user_deactivation(
 @router.get("/{user_id}", response_model=dict)
 async def get_user(
     user_id: str,
-    current_user: User = Depends(require_permission(Permission.USER_READ)),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get user by ID.
 
-    **Permissions:** USER_READ
-    **Roles:** Super Admin, OPS Admin, Org Admin
+    **Permissions:** USER_READ, EMPLOYEE_READ, or MANAGE_LOGISTICS_USERS (based on target role)
+    **Roles:** Super Admin, OPS Admin, Org Admin, IT Admin (employees), Logistics Admin (logistics users)
     """
     service = UserService(db)
     user = await service.get_user(user_id)
+    target_role = UserRole(user.role) if user.role else None
+    required_permission = _get_required_permission(target_role, "READ")
+    await require_permission(required_permission)(current_user)
 
     # Access check for non-platform admins
     if not is_platform_admin(current_user):
