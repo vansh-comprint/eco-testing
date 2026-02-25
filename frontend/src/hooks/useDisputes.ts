@@ -87,7 +87,16 @@ export function useAllDisputes() {
 }
 
 // Map API response to local Dispute type
+// Backend statuses: open, under_review, resolved, rejected, escalated
+// Frontend display statuses: pending (open/under_review), upheld/overturned/partial (resolved + resolution)
 function mapDisputeResponse(d: DisputeResponse): Dispute {
+  let displayStatus = d.status;
+  if (d.status === 'open' || d.status === 'under_review' || d.status === 'escalated') {
+    displayStatus = 'pending';
+  } else if (d.status === 'resolved' && d.resolution) {
+    displayStatus = d.resolution; // 'upheld', 'overturned', or 'partial'
+  }
+
   return {
     id: d.id,
     asset_id: d.asset_id,
@@ -95,7 +104,7 @@ function mapDisputeResponse(d: DisputeResponse): Dispute {
     reason: d.dispute_type,
     description: d.description,
     evidence: d.evidence_urls,
-    status: d.status,
+    status: displayStatus,
     type: d.dispute_type,
     resolution: d.resolution as Dispute['resolution'],
     resolved_by: d.resolved_by_user_id,

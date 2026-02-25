@@ -98,16 +98,37 @@ export function EnterpriseBatches() {
     return counts;
   }, [assets]);
 
-  // Stats from backend dashboard endpoint
-  const stats = {
-    draft: dashboardStats.batch_draft ?? 0,
-    pendingApproval: dashboardStats.batch_pending_approval ?? 0,
-    approved: dashboardStats.batch_approved ?? 0,
-    pickup: dashboardStats.batch_pickup_in_progress ?? 0,
-    completed: dashboardStats.batch_completed ?? 0,
-    rejected: dashboardStats.batch_rejected ?? 0,
-    totalValue: dashboardStats.batch_total_value ?? 0,
-  };
+  // Filtered-aware stats: use batch list data when filters are active
+  const stats = useMemo(() => {
+    const isFiltered = branchFilter !== 'all' || !!debouncedSearch;
+
+    if (!isFiltered) {
+      // No filters — use dashboard stats (global, accurate)
+      return {
+        draft: dashboardStats.batch_draft ?? 0,
+        pendingApproval: dashboardStats.batch_pending_approval ?? 0,
+        approved: dashboardStats.batch_approved ?? 0,
+        pickup: dashboardStats.batch_pickup_in_progress ?? 0,
+        completed: dashboardStats.batch_completed ?? 0,
+        rejected: dashboardStats.batch_rejected ?? 0,
+        totalValue: dashboardStats.batch_total_value ?? 0,
+      };
+    }
+
+    // Filters active — compute from loaded batch data
+    // Note: this only counts loaded pages, not total server count
+    // But it's more accurate than showing unfiltered global stats
+    const countByStatus = (status: string) => batches.filter(b => b.status === status).length;
+    return {
+      draft: countByStatus('draft'),
+      pendingApproval: countByStatus('pending_approval'),
+      approved: countByStatus('approved'),
+      pickup: countByStatus('pickup_in_progress'),
+      completed: countByStatus('completed'),
+      rejected: countByStatus('rejected'),
+      totalValue: batches.reduce((sum, b) => sum + (Number(b.estimated_value) || 0), 0),
+    };
+  }, [branchFilter, debouncedSearch, batches, dashboardStats]);
 
   // All filtering and sorting is server-side (server returns created_at DESC by default)
   const filteredBatches = batches;
