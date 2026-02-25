@@ -112,7 +112,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 p-5"
         >
           <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3">
-            Default Branch (applied to all uploaded employees)
+            {isOrgAdmin ? 'Select a branch before proceeding' : 'Default Branch (applied to all uploaded employees)'}
           </p>
           <BranchSelector
             enterpriseId={resolvedEnterpriseId}
@@ -120,7 +120,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
             value={selectedBranchId || null}
             onChange={(branchId) => setSelectedBranchId(branchId || '')}
             label="Branch"
-            placeholder="Select branch (optional)..."
+            placeholder={isOrgAdmin ? "Select branch..." : "Select branch (optional)..."}
             required={isOrgAdmin}
             showAddNew={false}
             filterActive={true}
@@ -148,6 +148,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           branches={activeBranches}
           onUpload={handleUpload}
           onCancel={() => navigate(propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}/employees` : `${portalBase}/employees`)}
+          isOrgAdmin={isOrgAdmin}
         />
       </motion.div>
     </div>

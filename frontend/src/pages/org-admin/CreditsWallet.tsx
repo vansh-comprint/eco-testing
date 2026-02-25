@@ -5,7 +5,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Wallet,
   TrendingUp,
@@ -13,19 +13,16 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Download,
-  Filter,
   Calendar,
-  Building2,
   Loader2,
   Info,
   CreditCard,
   Banknote,
   CheckCircle,
-  AlertCircle
 } from 'lucide-react';
-import { useAuth, useApiError } from '@/hooks';
+import { useAuth } from '@/hooks';
 import { walletApi } from '@/lib/api/payouts';
-import { PageHeader, Badge, Modal } from '@/components/ui';
+import { PageHeader, Badge } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
@@ -67,10 +64,8 @@ interface CreditTransaction {
 export function CreditsWallet() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
-  const { handleError, showSuccess } = useApiError();
 
   // State
-  const [isRedemptionModalOpen, setIsRedemptionModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
 
   // React Query hooks - using REST API
@@ -216,14 +211,13 @@ export function CreditsWallet() {
         title="Credits Wallet"
         subtitle={`Manage your credits and redemptions for ${enterprise?.name}`}
         action={
-          <button
-            onClick={() => setIsRedemptionModalOpen(true)}
-            disabled={wallet.available_balance <= 0}
-            className="flex items-center gap-2 px-4 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm uppercase tracking-wider transition-all"
-          >
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 font-semibold text-sm uppercase tracking-wider cursor-default select-none">
             <Banknote className={iconSize.md} />
             Request Redemption
-          </button>
+            <span className="ml-1 px-2 py-0.5 text-xs font-bold bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+              Coming Soon
+            </span>
+          </div>
         }
       />
 
@@ -363,13 +357,6 @@ export function CreditsWallet() {
         </div>
       </div>
 
-      {/* Redemption Request Modal */}
-      <RedemptionModal
-        isOpen={isRedemptionModalOpen}
-        onClose={() => setIsRedemptionModalOpen(false)}
-        availableBalance={wallet.available_balance}
-        enterpriseId={enterpriseId}
-      />
     </div>
   );
 }
@@ -472,158 +459,6 @@ function TransactionStatusBadge({ status }: { status: string }) {
   const { variant } = config[status] || { variant: 'default' };
 
   return <Badge variant={variant} size="sm">{status}</Badge>;
-}
-
-// Redemption Modal Component
-function RedemptionModal({
-  isOpen,
-  onClose,
-  availableBalance,
-  enterpriseId
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  availableBalance: number;
-  enterpriseId: string;
-}) {
-  const [amount, setAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const queryClient = useQueryClient();
-  const { handleError, showSuccess } = useApiError();
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const requestAmount = parseInt(amount) || 0;
-    if (requestAmount <= 0 || requestAmount > availableBalance) return;
-
-    setIsSubmitting(true);
-    try {
-      const response = await walletApi.debit(enterpriseId, {
-        amount: requestAmount,
-        description: `Redemption request for ${formatCurrency(requestAmount)}`,
-      });
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to process redemption');
-      }
-      showSuccess('Redemption Requested', `${formatCurrency(requestAmount)} will be transferred to your bank account within 3-5 business days.`);
-      queryClient.invalidateQueries({ queryKey: walletKeys.detail(enterpriseId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.list(enterpriseId) });
-      setAmount('');
-      onClose();
-    } catch (error) {
-      handleError(error, 'Requesting redemption');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const requestAmount = parseInt(amount) || 0;
-  const isValidAmount = requestAmount > 0 && requestAmount <= availableBalance;
-
-  if (!isOpen) return null;
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Request Redemption" size="md">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Available Balance Display */}
-        <div className="p-4 bg-lime-50 dark:bg-lime-500/10 border border-lime-200 dark:border-lime-500/20">
-          <div className="flex items-center justify-between">
-            <span className={`text-sm ${text.secondary}`}>Available Balance</span>
-            <span className="font-brand text-xl font-bold text-lime-700 dark:text-lime-400">
-              {formatCurrency(availableBalance)}
-            </span>
-          </div>
-        </div>
-
-        {/* Amount Input */}
-        <div>
-          <label className={`block text-sm font-medium mb-1.5 ${text.primary}`}>
-            Redemption Amount *
-          </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-zinc-500">₹</span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-              min="1"
-              max={availableBalance}
-              className="w-full pl-8 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
-            />
-          </div>
-          {requestAmount > availableBalance && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Amount exceeds available balance
-            </p>
-          )}
-        </div>
-
-        {/* Quick Amount Buttons */}
-        <div className="flex items-center gap-2">
-          {[25, 50, 75, 100].map(percent => {
-            const quickAmount = Math.floor(availableBalance * percent / 100);
-            return (
-              <button
-                key={percent}
-                type="button"
-                onClick={() => setAmount(quickAmount.toString())}
-                className={`px-3 py-1.5 text-xs font-semibold border ${
-                  parseInt(amount) === quickAmount
-                    ? 'bg-lime-500 border-lime-500 text-black'
-                    : 'border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:border-lime-500/50'
-                } transition-colors`}
-              >
-                {percent}%
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bank Account Info */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
-          <div className="flex items-start gap-3">
-            <Building2 className={`${iconSize.md} ${text.muted} mt-0.5`} />
-            <div>
-              <p className={`text-sm font-medium ${text.primary}`}>Bank Account</p>
-              <p className={`text-xs ${text.muted} mt-1`}>
-                Funds will be transferred to your registered bank account within 3-5 business days.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={!isValidAmount || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 hover:bg-lime-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm uppercase tracking-wider transition-all"
-          >
-            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Request {isValidAmount && formatCurrency(requestAmount)}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
 }
 
 export default CreditsWallet;

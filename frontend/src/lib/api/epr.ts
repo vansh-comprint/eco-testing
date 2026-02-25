@@ -26,6 +26,9 @@ export interface EPRCertificateResponse {
   recycler_license_number?: string;
   certificate_url?: string;
   notes?: string;
+  sent_to_enterprise_id?: string;
+  sent_at?: string;
+  sent_by?: string;
   extra_data?: Record<string, unknown>;
   created_at: string;
   updated_at?: string;
@@ -73,6 +76,11 @@ export interface EPRWeightTotals {
   disposed_weight: number;
 }
 
+export interface EPRCertificatePushRequest {
+  certificate_ids: string[];
+  destination_enterprise_id: string;
+}
+
 // ============================================================================
 // API
 // ============================================================================
@@ -110,4 +118,10 @@ export const eprCertificatesApi = {
     if (enterpriseId) query.set('enterprise_id', enterpriseId);
     return fetchWithAuth<EPRWeightTotals>(`/epr-certificates/weight-totals?${query.toString()}`);
   },
+
+  push: (data: EPRCertificatePushRequest) =>
+    fetchWithAuth<EPRCertificateResponse[]>('/epr-certificates/push', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

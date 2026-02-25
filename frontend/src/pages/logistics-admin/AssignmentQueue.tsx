@@ -1,16 +1,25 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Plus, AlertCircle, AlertTriangle, Package, ChevronDown } from 'lucide-react';
+import { UserPlus, Truck, Search, Calendar, MapPin, CheckCircle, Clock, X, User, Users, Plus, AlertCircle, AlertTriangle, Package, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth, useLogisticsAdminPickups, useLogisticsUsers, useEnterprises, useAssignToLogisticsUser, useCreateLogisticsUser } from '@/hooks';
 import { useToast } from '@/components/ui';
 import type { PickupResponse } from '@/lib/api/pickups';
 
-type StatusFilter = 'active' | 'all';
+type StatusFilter = 'active' | 'completed' | 'all';
+
+function getStatusFilterFromQuery(status: string | null): StatusFilter {
+  if (status === 'completed') return 'completed';
+  if (status === 'all') return 'all';
+  return 'active';
+}
 
 export function LogisticsAssignmentQueue() {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
   const currentLogisticsAdminId = user?.id || '';
   const { data: pickupRequests = [], isLoading } = useLogisticsAdminPickups(currentLogisticsAdminId);
   const { data: logisticsUsers = [] } = useLogisticsUsers(currentLogisticsAdminId);
@@ -18,7 +27,7 @@ export function LogisticsAssignmentQueue() {
   const assignMutation = useAssignToLogisticsUser();
   const createUserMutation = useCreateLogisticsUser();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => getStatusFilterFromQuery(statusParam));
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedPickup, setSelectedPickup] = useState<PickupResponse | null>(null);
   const [selectedUser, setSelectedUser] = useState('');
@@ -38,6 +47,11 @@ export function LogisticsAssignmentQueue() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const nextStatusFilter = getStatusFilterFromQuery(statusParam);
+    setStatusFilter((previousFilter) => (previousFilter === nextStatusFilter ? previousFilter : nextStatusFilter));
+  }, [statusParam]);
 
   // Add new user state
   const [showAddUser, setShowAddUser] = useState(false);
@@ -64,13 +78,26 @@ export function LogisticsAssignmentQueue() {
     const scheduled = pickupRequests.filter(r => r.status === 'scheduled').length;
     const inProgress = pickupRequests.filter(r => r.status === 'in_progress').length;
     const completed = pickupRequests.filter(r => r.status === 'completed').length;
-    return { needsAssignment, scheduled, inProgress, completed };
-  }, [pickupRequests]);
+
+    // Users assigned to at least one active (non-terminal) pickup
+    const activeStatuses = new Set(['assigned_to_logistics_user', 'scheduled', 'in_progress']);
+    const busyUserIds = new Set(
+      pickupRequests
+        .filter(r => r.logistics_user_id && activeStatuses.has(r.status))
+        .map(r => r.logistics_user_id as string)
+    );
+    const unassignedUsers = myLogisticsUsers.filter(u => !busyUserIds.has(u.id)).length;
+
+    return { needsAssignment, scheduled, inProgress, completed, unassignedUsers };
+  }, [pickupRequests, myLogisticsUsers]);
 
   const queue = useMemo(() => {
     return pickupRequests
       .filter(r => {
         // Filter by status
+        if (statusFilter === 'completed') {
+          return r.status === 'completed';
+        }
         if (statusFilter === 'active') {
           return ['pending', 'assigned_to_logistics_admin', 'assigned_to_logistics_user', 'scheduled', 'in_progress'].includes(r.status);
         }
@@ -220,13 +247,14 @@ export function LogisticsAssignmentQueue() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-4 border-l border-t border-slate-200 dark:border-white/10"
+        className="grid grid-cols-2 md:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10"
       >
         {[
           { label: 'Needs Assignment', value: stats.needsAssignment, icon: <AlertTriangle className="w-4 h-4" />, highlight: stats.needsAssignment > 0 },
           { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4" /> },
           { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4" /> },
           { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4" /> },
+          { label: 'Unassigned Users', value: stats.unassignedUsers, icon: <Users className="w-4 h-4" />, highlight: stats.unassignedUsers > 0 && stats.needsAssignment > 0 },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -262,6 +290,7 @@ export function LogisticsAssignmentQueue() {
         <div className="flex gap-2">
           {([
             { key: 'active' as const, label: 'Active' },
+            { key: 'completed' as const, label: 'Completed' },
             { key: 'all' as const, label: 'All' },
           ]).map((filter) => (
             <button
@@ -290,10 +319,12 @@ export function LogisticsAssignmentQueue() {
           <div className="py-16 text-center">
             <Truck className="w-12 h-12 text-slate-500 dark:text-white/50 mx-auto mb-4" />
             <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">
-              No pickups assigned to you yet
+              {statusFilter === 'completed' ? 'No completed pickups yet' : 'No pickups assigned to you yet'}
             </p>
             <p className="font-mono text-xs text-slate-400 dark:text-white/30">
-              Pickups will appear here once the operations team assigns them to you.
+              {statusFilter === 'completed'
+                ? 'Completed pickups will appear here after field completion.'
+                : 'Pickups will appear here once the operations team assigns them to you.'}
             </p>
           </div>
         ) : (

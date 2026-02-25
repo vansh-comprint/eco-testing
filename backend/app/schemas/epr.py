@@ -39,6 +39,13 @@ class EPRCertificateUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class EPRCertificatePush(BaseModel):
+    """Schema for pushing/sending EPR certificates to an enterprise"""
+
+    certificate_ids: List[str] = Field(..., description="List of certificate IDs to push")
+    destination_enterprise_id: str = Field(..., description="Target enterprise ID to send certificates to")
+
+
 class EPRCertificateResponse(BaseModel):
     """Schema for EPR certificate response"""
 
@@ -69,6 +76,11 @@ class EPRCertificateResponse(BaseModel):
 
     # Document
     certificate_url: Optional[str] = None
+
+    # Push/Distribution
+    sent_to_enterprise_id: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    sent_by: Optional[str] = None
 
     # Additional
     notes: Optional[str] = None

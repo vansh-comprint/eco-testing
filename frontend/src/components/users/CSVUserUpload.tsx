@@ -32,6 +32,7 @@ interface CSVUserUploadProps {
   onUpload: (users: CreateSubUserInput[]) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
+  isOrgAdmin?: boolean; // Whether to show branch requirement notes
 }
 
 interface ParsedRow {
@@ -94,7 +95,7 @@ const DEPARTMENTS = [
   'Other',
 ];
 
-export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload, onCancel, isLoading }: CSVUserUploadProps) {
+export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload, onCancel, isLoading, isOrgAdmin }: CSVUserUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
@@ -102,6 +103,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   const [showPreview, setShowPreview] = useState(true);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [validatingEmails, setValidatingEmails] = useState(false);
 
   const validRows = parsedData.filter(row => row.errors.length === 0);
   const invalidRows = parsedData.filter(row => row.errors.length > 0);
@@ -231,12 +233,14 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
     // Server-side email validation — check which emails already exist
     if (emailsToCheck.length > 0) {
+      setValidatingEmails(true);
       const existingEmails = await validateEmailsOnServer(emailsToCheck);
       for (const row of rows) {
         if (row.email && existingEmails.has(row.email.toLowerCase()) && !row.errors.length) {
           row.errors.push('Email already exists in the system');
         }
       }
+      setValidatingEmails(false);
     }
 
     setParsedData(rows);
@@ -424,26 +428,8 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
-
-      // Parse server errors and map them back to CSV rows
-      const emailErrorPattern = /(?:User with email\s+)?(\S+@\S+)\s+already exists/gi;
-      const matches = [...msg.matchAll(emailErrorPattern)];
-
-      if (matches.length > 0) {
-        const errorEmails = new Set(matches.map(m => m[1].toLowerCase()));
-        const updatedData = parsedData.map(row => {
-          if (errorEmails.has(row.email.toLowerCase())) {
-            return { ...row, errors: [...row.errors, 'Email already exists in the system'] };
-          }
-          return row;
-        });
-        setParsedData(updatedData);
-        setUploadStatus('ready');
-        setErrorMessage(`${errorEmails.size} email(s) already exist in the system`);
-      } else {
-        setUploadStatus('ready');
-        setErrorMessage(msg);
-      }
+      setUploadStatus('ready');
+      setErrorMessage(msg);
       console.error('Bulk upload error:', err);
     }
   };
@@ -460,18 +446,30 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   };
 
   const downloadTemplate = async () => {
+    // For Org Admin, require branch selection before template download
+    if (isOrgAdmin && !branchId) {
+      alert('Please select a branch before downloading the template');
+      return;
+    }
+
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Employees');
 
-    // Add headers
-    worksheet.columns = [
+    // Add headers - include branch dropdown only for "select all" scenario
+    const headers = [
       { header: 'name', key: 'name', width: 25 },
       { header: 'email', key: 'email', width: 30 },
       { header: 'phone', key: 'phone', width: 18 },
       { header: 'department', key: 'department', width: 18 },
-      { header: 'branch_code', key: 'branch_code', width: 18 },
     ];
+
+    // Add branch_code column only if branch not pre-selected (for "select all" branch option)
+    if (!branchId || branchId === '') {
+      headers.push({ header: 'branch_code', key: 'branch_code', width: 18 });
+    }
+
+    worksheet.columns = headers;
 
     // Style header row
     worksheet.getRow(1).font = { bold: true };
@@ -505,7 +503,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       worksheet.getCell(`C${row}`).numFmt = '@';
     }
 
-    // Apply department dropdown for rows 2-100
+    // Apply department dropdown for rows 2-100 (column D is always department)
     const departmentList = DEPARTMENTS.join(',');
     for (let row = 2; row <= 100; row++) {
       worksheet.getCell(`D${row}`).dataValidation = {
@@ -516,6 +514,23 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
         errorTitle: 'Invalid Department',
         error: 'Please select a department from the dropdown list',
       };
+    }
+
+    // Add branch dropdown for column E (branch_code) if it exists
+    if (!branchId || branchId === '') {
+      const branchOptions = branches.length > 0
+        ? branches.map(b => b.branch_name || b.branch_code).join(',')
+        : 'HQ,BRANCH-01,BRANCH-02'; // Fallback examples
+      for (let row = 2; row <= 100; row++) {
+        worksheet.getCell(`E${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [`"${branchOptions}"`],
+          showInputMessage: true,
+          errorTitle: 'Invalid Branch',
+          error: 'Please select a branch from the dropdown list',
+        };
+      }
     }
 
     // Create Instructions sheet
@@ -553,8 +568,12 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       ['email', 'YES', 'Valid work email address. Must be unique. Used for device check-in.', 'vikram@company.com'],
       ['phone', 'No', 'Exactly 10 digits, no spaces or country code. Sheet will show error if not 10 digits.', '9876543210'],
       ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR'],
-      ['branch_code', 'No', 'Branch code or name. Overrides pre-selected branch for this row.', 'HQ, DELHI-01'],
     ];
+
+    // Add branch_code column instruction only if branch not pre-selected
+    if (!branchId || branchId === '') {
+      columnInstructions.push(['branch_code', 'No', 'Branch (use dropdown). Overrides pre-selected branch for this row.', 'HQ, DELHI-01']);
+    }
 
     columnInstructions.forEach((row, index) => {
       const rowNum = index + 4;
@@ -691,6 +710,27 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
+          {/* Branch Selection Note for Org Admin */}
+          {isOrgAdmin && !branchId && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 border border-amber-400/20 bg-amber-400/5 p-4"
+            >
+              <div className="flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-display font-bold text-sm text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">
+                    Branch Selection Required
+                  </p>
+                  <p className="font-mono text-xs text-amber-600/80 dark:text-amber-400/80">
+                    Please select a branch above before downloading the template or uploading a file. The branch will be applied to all employees in your upload.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <div className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer">
             <div className="p-8">
               <div
@@ -709,6 +749,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                   type="file"
                   accept=".csv,.xlsx,.xls"
                   onChange={handleFileInput}
+                  disabled={isOrgAdmin && !branchId}
                   className="hidden"
                   id="csv-user-upload"
                 />
@@ -727,8 +768,12 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <label htmlFor="csv-user-upload" className="cursor-pointer">
-                    <span className="interactive inline-flex items-center gap-2 px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all">
+                  <label htmlFor="csv-user-upload" className={`${isOrgAdmin && !branchId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                    <span className={`interactive inline-flex items-center gap-2 px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
+                      isOrgAdmin && !branchId
+                        ? 'bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed'
+                        : 'bg-ecotribe-primary text-black hover:bg-white'
+                    }`}>
                       <FileSpreadsheet className="w-4 h-4" />
                       Select File
                     </span>
@@ -736,7 +781,12 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                   <button
                     type="button"
                     onClick={downloadTemplate}
-                    className="interactive px-5 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                    disabled={isOrgAdmin && !branchId}
+                    className={`interactive px-5 py-2.5 border font-mono font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all ${
+                      isOrgAdmin && !branchId
+                        ? 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10'
+                    }`}
                   >
                     <Download className="w-4 h-4" />
                     Download Excel Template

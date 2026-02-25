@@ -15,8 +15,9 @@ from app.schemas.epr import (
     EPRCertificateCreate,
     EPRCertificateUpdate,
     EPRCertificateResponse,
+    EPRCertificatePush,
 )
-from app.utils.exceptions import NotFoundError, ValidationError
+from app.utils.exceptions import NotFoundError, ValidationError, AuthorizationError
 
 # Default weights (kg) by device type keyword — used when asset.weight_kg is not set
 _DEVICE_TYPE_WEIGHTS: dict[str, float] = {
@@ -194,3 +195,51 @@ class EPRCertificateService:
     async def get_weight_totals(self, enterprise_id: str) -> dict:
         """Get aggregate weight totals for an enterprise"""
         return await self.repository.get_weight_totals(enterprise_id)
+
+    async def push_certificates(
+        self, push_data: EPRCertificatePush, pushed_by: str
+    ) -> List[EPRCertificateResponse]:
+        """
+        Push/send EPR certificates to a destination enterprise.
+
+        Only OPS Admin / Super Admin can push certificates.
+        Updates the certificate's sent_to_enterprise_id, sent_at, and sent_by fields.
+        """
+        # Validate destination enterprise exists
+        result = await self.db.execute(
+            select(Enterprise).where(Enterprise.id == push_data.destination_enterprise_id)
+        )
+        dest_enterprise = result.scalar_one_or_none()
+        if not dest_enterprise:
+            raise NotFoundError("Enterprise", push_data.destination_enterprise_id)
+
+        # Fetch and update all certificates
+        result = await self.db.execute(
+            select(EPRCertificate).where(EPRCertificate.id.in_(push_data.certificate_ids))
+        )
+        certificates = result.scalars().all()
+
+        if len(certificates) != len(push_data.certificate_ids):
+            raise NotFoundError(
+                "EPR Certificate",
+                f"Some certificates not found (found {len(certificates)}, expected {len(push_data.certificate_ids)})",
+            )
+
+        # Update each certificate
+        now = datetime.now(timezone.utc)
+        for cert in certificates:
+            cert.sent_to_enterprise_id = push_data.destination_enterprise_id
+            cert.sent_at = now
+            cert.sent_by = pushed_by
+            cert.updated_by = pushed_by
+
+        # Commit changes
+        await self.db.commit()
+
+        # Refresh and return updated certificates
+        responses = []
+        for cert in certificates:
+            await self.db.refresh(cert)
+            responses.append(EPRCertificateResponse.model_validate(cert))
+
+        return responses

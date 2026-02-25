@@ -54,7 +54,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'This month',
       icon: <ListChecks className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
-      onClick: () => navigate('/logistics-admin/assignments'),
+      onClick: () => navigate('/logistics-admin/assignments?status=completed'),
     },
     {
       label: 'Field Users',
@@ -62,7 +62,7 @@ export function LogisticsAdminDashboard() {
       subLabel: 'Your team',
       icon: <Users className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
-      onClick: () => navigate('/logistics-admin/assignments'),
+      onClick: () => navigate('/logistics-admin/users'),
     },
   ];
 

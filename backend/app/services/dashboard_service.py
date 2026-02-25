@@ -462,16 +462,15 @@ async def get_dashboard_stats(
         )
 
         # -- Dispute breakdown for Org Admin --
-        dc = await _status_counts(
-            db, Dispute, Dispute.status,
-            Dispute.asset_id.in_(select(Asset.id).where(Asset.enterprise_id == eid))
-        )
+        _dispute_scope = Dispute.asset_id.in_(select(Asset.id).where(Asset.enterprise_id == eid))
+        dc = await _status_counts(db, Dispute, Dispute.status, _dispute_scope)
+        rc = await _status_counts(db, Dispute, Dispute.resolution, _dispute_scope)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
             dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
         )
-        stats["dispute_upheld"] = dc.get("upheld", 0)
-        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["dispute_upheld"] = rc.get("upheld", 0)
+        stats["dispute_overturned"] = rc.get("overturned", 0)
 
     elif role == UserRole.IT_ADMIN.value:
         eid = user.enterprise_id
@@ -580,15 +579,15 @@ async def get_dashboard_stats(
 
         # -- Dispute stats for IT Admin --
         dispute_asset_scope = select(Asset.id).where(scope)
-        dc = await _status_counts(
-            db, Dispute, Dispute.status, Dispute.asset_id.in_(dispute_asset_scope)
-        )
+        _dispute_filter = Dispute.asset_id.in_(dispute_asset_scope)
+        dc = await _status_counts(db, Dispute, Dispute.status, _dispute_filter)
+        rc = await _status_counts(db, Dispute, Dispute.resolution, _dispute_filter)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
             dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
         )
-        stats["dispute_upheld"] = dc.get("upheld", 0)
-        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["dispute_upheld"] = rc.get("upheld", 0)
+        stats["dispute_overturned"] = rc.get("overturned", 0)
 
     elif role == UserRole.OPS_ADMIN.value:
         # When enterprise_id is provided, scope all stats to that enterprise
@@ -634,12 +633,13 @@ async def get_dashboard_stats(
         # Disputes (platform-wide or enterprise-scoped)
         dispute_filters = [Dispute.asset_id.in_(select(Asset.id).where(Asset.enterprise_id == eid))] if eid else []
         dc = await _status_counts(db, Dispute, Dispute.status, *dispute_filters)
+        rc = await _status_counts(db, Dispute, Dispute.resolution, *dispute_filters)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
             dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
         )
-        stats["dispute_upheld"] = dc.get("upheld", 0)
-        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["dispute_upheld"] = rc.get("upheld", 0)
+        stats["dispute_overturned"] = rc.get("overturned", 0)
         stats["pending_disputes"] = stats["dispute_pending"]
 
         # -- Pickup granular breakdown --
@@ -703,12 +703,13 @@ async def get_dashboard_stats(
 
         # -- Dispute breakdown --
         dc = await _status_counts(db, Dispute, Dispute.status)
+        rc = await _status_counts(db, Dispute, Dispute.resolution)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
             dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
         )
-        stats["dispute_upheld"] = dc.get("upheld", 0)
-        stats["dispute_overturned"] = dc.get("overturned", 0)
+        stats["dispute_upheld"] = rc.get("upheld", 0)
+        stats["dispute_overturned"] = rc.get("overturned", 0)
         stats["pending_disputes"] = stats["dispute_pending"]
 
     elif role in (UserRole.EMPLOYEE.value, "sub_user"):

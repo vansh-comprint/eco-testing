@@ -35,14 +35,25 @@ class EPRCertificateRepository:
         status: Optional[EPRCertificateStatus] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[EPRCertificate], int]:
-        """Get all EPR certificates with filters and pagination"""
+        """
+        Get all EPR certificates with filters and pagination.
+
+        When enterprise_id is provided, returns certificates where:
+        - enterprise_id = the provided ID (certificates created for this enterprise)
+        - OR sent_to_enterprise_id = the provided ID (certificates pushed TO this enterprise)
+        """
         query = select(EPRCertificate)
         count_query = select(func.count(EPRCertificate.id))
 
         # Apply filters
         if enterprise_id:
-            query = query.where(EPRCertificate.enterprise_id == enterprise_id)
-            count_query = count_query.where(EPRCertificate.enterprise_id == enterprise_id)
+            # Include both owned and received certificates
+            enterprise_filter = or_(
+                EPRCertificate.enterprise_id == enterprise_id,
+                EPRCertificate.sent_to_enterprise_id == enterprise_id,
+            )
+            query = query.where(enterprise_filter)
+            count_query = count_query.where(enterprise_filter)
 
         if status:
             query = query.where(EPRCertificate.status == status.value)
@@ -100,13 +111,21 @@ class EPRCertificateRepository:
         return result.scalar() or 0
 
     async def get_weight_totals(self, enterprise_id: str) -> dict:
-        """Get total weights for an enterprise's EPR certificates"""
+        """
+        Get total weights for an enterprise's EPR certificates.
+
+        Includes both owned certificates (enterprise_id) and received certificates (sent_to_enterprise_id).
+        """
+        enterprise_filter = or_(
+            EPRCertificate.enterprise_id == enterprise_id,
+            EPRCertificate.sent_to_enterprise_id == enterprise_id,
+        )
         result = await self.db.execute(
             select(
                 func.coalesce(func.sum(EPRCertificate.total_weight_kg), 0).label("total_weight"),
                 func.coalesce(func.sum(EPRCertificate.recycled_weight_kg), 0).label("recycled_weight"),
                 func.coalesce(func.sum(EPRCertificate.disposed_weight_kg), 0).label("disposed_weight"),
-            ).where(EPRCertificate.enterprise_id == enterprise_id)
+            ).where(enterprise_filter)
         )
         row = result.one()
         return {

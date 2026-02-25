@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,6 +18,7 @@ import {
   Camera,
   FileText,
   ChevronRight,
+  ChevronDown,
   UserPlus,
   Search,
   X,
@@ -144,6 +145,19 @@ export function PickupRequestDetail() {
   const [selectedUser, setSelectedUser] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Add new user state
   const [showAddUser, setShowAddUser] = useState(false);
@@ -248,6 +262,8 @@ export function PickupRequestDetail() {
     setSelectedUser(request.logistics_user_id || '');
     setScheduledDate(request.scheduled_date ? new Date(request.scheduled_date).toISOString().slice(0, 16) : '');
     setUserSearch('');
+    setIsUserDropdownOpen(false);
+    setShowAddUser(false);
     setShowAssignModal(true);
   };
 
@@ -671,73 +687,25 @@ export function PickupRequestDetail() {
 
               {/* Modal Content */}
               <div className="p-6 space-y-6">
-                {/* User Search & Add New */}
+                {/* Field User Selection */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">
-                      Search Field User
-                    </label>
-                    {!showAddUser && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAddUser(true)}
-                        className="flex items-center gap-1 px-2 py-1 border border-ecotribe-primary/50 text-ecotribe-primary font-mono text-xs uppercase hover:bg-ecotribe-primary/10 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Add New
-                      </button>
-                    )}
-                  </div>
+                  <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3 block">
+                    Select Field User <span className="text-red-400">*</span>
+                  </label>
 
                   {showAddUser ? (
-                    /* Add New User Form */
-                    <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">
-                          Add Field User
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddUser(false)}
-                          className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors"
-                        >
+                    /* Add New User inline form */
+                    <div className="p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5 space-y-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-mono font-bold text-xs text-ecotribe-primary uppercase">Add Field User</p>
+                        <button type="button" onClick={() => setShowAddUser(false)} className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-
-                      <div className="space-y-3">
-                        <input
-                          type="text"
-                          placeholder="Name *"
-                          value={newUserName}
-                          onChange={(e) => setNewUserName(e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''))}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="email"
-                          placeholder="Email *"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Password * (min 8 chars)"
-                          value={newUserPassword}
-                          onChange={(e) => setNewUserPassword(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          placeholder="Phone"
-                          value={newUserPhone}
-                          onChange={(e) => setNewUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          maxLength={10}
-                          className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none"
-                        />
-                      </div>
-
+                      <input type="text" placeholder="Name *" value={newUserName} onChange={(e) => setNewUserName(e.target.value.replace(/[^a-zA-Z\s'.\-]/g, ''))} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="email" placeholder="Email *" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="password" placeholder="Password * (min 8 chars)" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
+                      <input type="tel" placeholder="Phone (optional)" value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} inputMode="numeric" className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none" />
                       <button
                         type="button"
                         onClick={handleCreateUser}
@@ -748,94 +716,110 @@ export function PickupRequestDetail() {
                             : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/50 cursor-not-allowed'
                         }`}
                       >
-                        {isCreatingUser ? (
-                          <Clock className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            Create User
-                          </>
-                        )}
+                        {isCreatingUser ? <Clock className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Create &amp; Select User</>}
                       </button>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
-                      <input
-                        type="text"
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                        placeholder="Search by name, email, or phone..."
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
-                      />
+                    /* Collapsible searchable dropdown — matches AssignmentQueue pattern */
+                    <div ref={userDropdownRef} className="relative">
+                      {/* Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                        className="w-full px-4 py-3 flex items-center justify-between border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-ecotribe-primary/50 transition-colors"
+                      >
+                        {selectedUser && logisticsUsers.find(u => u.id === selectedUser) ? (
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {logisticsUsers.find(u => u.id === selectedUser)!.name}
+                            </span>
+                            <span className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">
+                              {logisticsUsers.find(u => u.id === selectedUser)!.phone || logisticsUsers.find(u => u.id === selectedUser)!.email}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-sm text-slate-400 dark:text-white/30">Select field user...</span>
+                        )}
+                        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Dropdown panel */}
+                      <AnimatePresence>
+                        {isUserDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute top-full left-0 right-0 z-20 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl"
+                          >
+                            {/* Search + Add New */}
+                            <div className="flex gap-2 p-2 border-b border-slate-200 dark:border-white/10">
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
+                                <input
+                                  type="text"
+                                  value={userSearch}
+                                  onChange={(e) => setUserSearch(e.target.value)}
+                                  placeholder="Search by name, email, or phone..."
+                                  autoFocus
+                                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setIsUserDropdownOpen(false); setShowAddUser(true); }}
+                                className="flex items-center gap-1.5 px-3 py-2 border border-ecotribe-primary/50 bg-ecotribe-primary/10 text-ecotribe-primary font-mono text-xs uppercase font-bold hover:bg-ecotribe-primary/20 transition-colors flex-shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Add New
+                              </button>
+                            </div>
+
+                            {/* User list */}
+                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04]">
+                              {filteredUsers.length > 0 ? filteredUsers.map(fieldUser => (
+                                <button
+                                  key={fieldUser.id}
+                                  type="button"
+                                  onClick={() => { setSelectedUser(fieldUser.id); setIsUserDropdownOpen(false); setUserSearch(''); }}
+                                  className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
+                                    selectedUser === fieldUser.id
+                                      ? 'bg-ecotribe-primary/10 border-l-2 border-ecotribe-primary'
+                                      : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-display font-bold text-sm truncate ${selectedUser === fieldUser.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
+                                      {fieldUser.name || 'Unknown'}
+                                    </p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">
+                                      {fieldUser.phone || fieldUser.email}
+                                    </p>
+                                  </div>
+                                  {selectedUser === fieldUser.id && <CheckCircle className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />}
+                                </button>
+                              )) : (
+                                <div className="p-5 text-center">
+                                  <AlertTriangle className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                                  <p className="font-mono text-sm text-slate-500 dark:text-white/50 mb-3">
+                                    {userSearch ? `No users found matching "${userSearch}"` : 'No field users yet'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setIsUserDropdownOpen(false); setShowAddUser(true); }}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
+                                  >
+                                    <Plus className="w-3 h-3" /> Add First User
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
-
-                {/* User List */}
-                {!showAddUser && (
-                  <div>
-                    <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-3 block">
-                      Select User <span className="text-red-400">*</span>
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-                      {filteredUsers.map(fieldUser => (
-                        <motion.div
-                          key={fieldUser.id}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setSelectedUser(fieldUser.id)}
-                          className={`p-4 border-2 cursor-pointer transition-all ${
-                            selectedUser === fieldUser.id
-                              ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-ecotribe-primary/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 border flex items-center justify-center ${
-                              selectedUser === fieldUser.id
-                                ? 'border-ecotribe-primary bg-ecotribe-primary/20'
-                                : 'border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5'
-                            }`}>
-                              <User className={`w-5 h-5 ${
-                                selectedUser === fieldUser.id ? 'text-ecotribe-primary' : 'text-slate-500 dark:text-white/50'
-                              }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-display font-bold text-sm uppercase truncate ${
-                                selectedUser === fieldUser.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'
-                              }`}>
-                                {fieldUser.name || 'Unknown'}
-                              </p>
-                              <p className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">
-                                {fieldUser.phone || fieldUser.email}
-                              </p>
-                            </div>
-                            {selectedUser === fieldUser.id && (
-                              <CheckCircle className="w-5 h-5 text-ecotribe-primary flex-shrink-0" />
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    {filteredUsers.length === 0 && (
-                      <div className="p-6 border border-amber-400/30 bg-amber-400/10 text-center">
-                        <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-                        <p className="font-mono text-sm text-amber-400 mb-2">
-                          {userSearch ? `No users found matching "${userSearch}"` : 'No field users added yet'}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddUser(true)}
-                          className="inline-flex items-center gap-1 px-3 py-2 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add First User
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Scheduled Date */}
                 {!showAddUser && (

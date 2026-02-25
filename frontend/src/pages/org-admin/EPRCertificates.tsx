@@ -17,6 +17,7 @@ import {
   Recycle,
   Trash2,
   Calendar,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@/hooks';
 import {
@@ -253,6 +254,12 @@ export function EPRCertificates() {
                     >
                       {EPR_STATUS_LABELS[cert.status] || cert.status}
                     </span>
+                    {cert.sent_to_enterprise_id && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider rounded-sm bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
+                        <ArrowRight className="w-2.5 h-2.5" />
+                        Received
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500 dark:text-white/40 font-display">
@@ -294,6 +301,12 @@ export function EPRCertificates() {
                         </span>
                       )}
                     </div>
+                  )}
+
+                  {cert.sent_at && (
+                    <p className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-display">
+                      Received: {format(new Date(cert.sent_at), 'dd MMM yyyy HH:mm')}
+                    </p>
                   )}
 
                   {cert.notes && (

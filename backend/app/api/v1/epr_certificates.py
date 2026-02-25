@@ -9,10 +9,10 @@ from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models.user import User
 from app.models.epr import EPRCertificateStatus
-from app.schemas.epr import EPRCertificateCreate, EPRCertificateUpdate
+from app.schemas.epr import EPRCertificateCreate, EPRCertificateUpdate, EPRCertificatePush
 from app.services.epr_service import EPRCertificateService
 from app.utils.response import success_response, paginated_response
-from app.utils.exceptions import ValidationError as EcoTribeValidationError
+from app.utils.exceptions import ValidationError as EcoTribeValidationError, AuthorizationError
 from app.utils.scoping import get_scoped_filters, auto_fill_context
 
 router = APIRouter()
@@ -161,3 +161,27 @@ async def delete_epr_certificate(
     service = EPRCertificateService(db)
     await service.delete_certificate(certificate_id)
     return success_response(message="EPR certificate deleted successfully")
+
+
+@router.post("/push", response_model=dict)
+async def push_epr_certificates(
+    data: EPRCertificatePush,
+    current_user: User = Depends(require_permission(Permission.MANAGE_EPR_CERTIFICATES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Push/send EPR certificates to another enterprise.
+
+    This endpoint allows OPS Admin to send EPR certificates generated from one enterprise
+    to another enterprise's Org Admin, making them visible in the destination enterprise's
+    EPR certificate view.
+
+    **Permissions:** MANAGE_EPR_CERTIFICATES (Super Admin, OPS Admin only)
+    """
+    service = EPRCertificateService(db)
+    certificates = await service.push_certificates(data, current_user.id)
+
+    return success_response(
+        data=[cert.model_dump() for cert in certificates],
+        message=f"Pushed {len(certificates)} EPR certificate(s) to enterprise",
+    )

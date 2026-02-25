@@ -22,12 +22,14 @@ import {
   Building2,
   Laptop,
   AlertCircle,
+  Send,
 } from 'lucide-react';
 import {
   useEPRCertificates,
   useEPRWeightTotals,
   useCreateEPRCertificate,
   useUpdateEPRCertificate,
+  usePushEPRCertificates,
   EPR_STATUS_LABELS,
   EPR_STATUS_COLORS,
 } from '@/hooks/useEPRCertificates';
@@ -60,6 +62,12 @@ export function OpsEPRCertificates() {
     recycler_license_number: '',
     notes: '',
   });
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [selectedCertificateIds, setSelectedCertificateIds] = useState<string[]>([]);
+  const [pushForm, setPushForm] = useState({
+    destination_enterprise_id: '',
+  });
+  const pushMutation = usePushEPRCertificates();
 
   // Fetch certificates (filtered by enterprise if selected)
   const { data: certificates = [], isLoading, refetch } = useEPRCertificates({
@@ -143,6 +151,54 @@ export function OpsEPRCertificates() {
       setSelectedAssetIds([]);
     } else {
       setSelectedAssetIds(eligibleAssets.map((a) => a.id));
+    }
+  };
+
+  // Toggle certificate selection
+  const toggleCertificate = (certificateId: string) => {
+    setSelectedCertificateIds((prev) =>
+      prev.includes(certificateId) ? prev.filter((id) => id !== certificateId) : [...prev, certificateId]
+    );
+  };
+
+  const selectAllCertificates = () => {
+    if (selectedCertificateIds.length === filteredCertificates.length) {
+      setSelectedCertificateIds([]);
+    } else {
+      setSelectedCertificateIds(filteredCertificates.map((c) => c.id));
+    }
+  };
+
+  // Handle push
+  const handlePush = async () => {
+    if (selectedCertificateIds.length === 0) {
+      addToast({ type: 'warning', title: 'No certificates selected', message: 'Select at least one certificate to push' });
+      return;
+    }
+
+    if (!pushForm.destination_enterprise_id) {
+      addToast({ type: 'warning', title: 'No destination', message: 'Select a destination enterprise' });
+      return;
+    }
+
+    try {
+      const result = await pushMutation.mutateAsync({
+        certificate_ids: selectedCertificateIds,
+        destination_enterprise_id: pushForm.destination_enterprise_id,
+      });
+
+      addToast({
+        type: 'success',
+        title: 'Certificates Pushed',
+        message: `Pushed ${selectedCertificateIds.length} certificate(s) to enterprise`,
+      });
+
+      setShowPushModal(false);
+      setSelectedCertificateIds([]);
+      setPushForm({ destination_enterprise_id: '' });
+      refetch();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Push Failed', message: err.message || 'Failed to push certificates' });
     }
   };
 
@@ -282,6 +338,14 @@ export function OpsEPRCertificates() {
               >
                 <Download className={iconSize.sm} />
                 Export
+              </button>
+              <button
+                onClick={() => setShowPushModal(true)}
+                disabled={!filteredCertificates.length}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-white/10 text-sm font-mono uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                Push
               </button>
               <button
                 onClick={() => setShowGenerateModal(true)}
@@ -864,6 +928,154 @@ export function OpsEPRCertificates() {
                     )}
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Push Certificate Modal */}
+      <AnimatePresence>
+        {showPushModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPushModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-slate-200 dark:border-white/10 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white uppercase">
+                      Push EPR Certificates
+                    </h2>
+                    <p className="font-display text-sm text-slate-500 dark:text-white/50 mt-1">
+                      Send certificates to another enterprise's Org Admin
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowPushModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Certificate Selection */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-wider">
+                      Certificates to Push ({filteredCertificates.length})
+                    </h3>
+                    {filteredCertificates.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={selectAllCertificates}
+                        className="text-xs font-mono text-ecotribe-primary hover:underline uppercase"
+                      >
+                        {selectedCertificateIds.length === filteredCertificates.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    )}
+                  </div>
+
+                  {filteredCertificates.length === 0 ? (
+                    <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-8 text-center">
+                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="font-display text-sm text-slate-500 dark:text-white/50">
+                        No certificates available to push.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 dark:border-white/10 max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                      {filteredCertificates.map((cert) => (
+                        <label
+                          key={cert.id}
+                          className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCertificateIds.includes(cert.id)}
+                            onChange={() => toggleCertificate(cert.id)}
+                            className="w-4 h-4 text-ecotribe-primary rounded border-slate-300"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-mono text-xs text-slate-900 dark:text-white">
+                              {cert.certificate_number}
+                            </span>
+                            <span className="text-xs text-slate-400 dark:text-white/30 ml-2">
+                              {Number(cert.total_weight_kg).toLocaleString()} kg • {cert.status}
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedCertificateIds.length > 0 && (
+                    <p className="text-xs text-ecotribe-primary font-mono mt-2">
+                      {selectedCertificateIds.length} certificate{selectedCertificateIds.length !== 1 ? 's' : ''} selected
+                    </p>
+                  )}
+                </div>
+
+                {/* Destination Enterprise */}
+                <div>
+                  <label className="block text-xs font-display text-slate-500 dark:text-white/40 mb-2">
+                    Destination Enterprise ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={pushForm.destination_enterprise_id}
+                    onChange={(e) => setPushForm({ ...pushForm, destination_enterprise_id: e.target.value })}
+                    placeholder="Enter the target enterprise UUID"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm focus:outline-none focus:border-ecotribe-primary"
+                  />
+                  <p className="text-xs text-slate-400 dark:text-white/30 mt-1">
+                    Certificates will be visible to this enterprise's Org Admin
+                  </p>
+                </div>
+
+                {/* Info */}
+                <div className="border border-blue-400/30 bg-blue-400/5 p-4 flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-500 dark:text-white/50 font-display">
+                    Pushing certificates makes them visible to the destination enterprise's Org Admin portal. They'll see
+                    these as received certificates and can track them for compliance.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-white/10 p-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPushModal(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-white/10 text-sm font-mono uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePush}
+                  disabled={selectedCertificateIds.length === 0 || !pushForm.destination_enterprise_id || pushMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-ecotribe-primary text-white text-sm font-mono uppercase tracking-wider hover:bg-ecotribe-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {pushMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Push ({selectedCertificateIds.length})
+                </button>
               </div>
             </motion.div>
           </motion.div>

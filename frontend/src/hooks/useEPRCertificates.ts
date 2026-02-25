@@ -10,6 +10,7 @@ import {
   type EPRCertificateCreateRequest,
   type EPRCertificateUpdateRequest,
   type EPRWeightTotals,
+  type EPRCertificatePushRequest,
 } from '@/lib/api/epr';
 
 // Query keys for cache management
@@ -122,6 +123,24 @@ export function useDeleteEPRCertificate() {
     mutationFn: async (certificateId: string) => {
       const response = await eprCertificatesApi.delete(certificateId);
       if (!response.success) throw new Error(response.error?.message || 'Failed to delete EPR certificate');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eprKeys.all });
+    },
+  });
+}
+
+/**
+ * Push/send EPR certificates to another enterprise
+ */
+export function usePushEPRCertificates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: EPRCertificatePushRequest) => {
+      const response = await eprCertificatesApi.push(input);
+      if (!response.success) throw new Error(response.error?.message || 'Failed to push EPR certificates');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: eprKeys.all });

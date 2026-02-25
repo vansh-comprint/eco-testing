@@ -30,6 +30,8 @@ export function LogisticsUserManagement() {
 
   // Edit user form
   const [editForm, setEditForm] = useState({ name: '', phone: '', email: '' });
+  const [editPhoneError, setEditPhoneError] = useState('');
+  const [addPhoneError, setAddPhoneError] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,6 +57,7 @@ export function LogisticsUserManagement() {
   // ─── Add user handlers ────────────────────────────────────────────────────
   const resetAddForm = () => {
     setAddForm({ name: '', phone: '', email: '', password: '' });
+    setAddPhoneError('');
     setShowAddPassword(false);
   };
 
@@ -71,6 +74,14 @@ export function LogisticsUserManagement() {
     return null;
   };
 
+  // Validates phone: optional +91 prefix then exactly 10 digits
+  const validatePhone = (phone: string): string | null => {
+    if (!phone) return null; // phone is optional
+    const digits = phone.replace(/^\+91/, '');
+    if (!/^\d{10}$/.test(digits)) return 'Enter a valid 10-digit phone number (e.g. 9876543210 or +919876543210)';
+    return null;
+  };
+
   const addUser = async () => {
     if (!addForm.name || !addForm.email || !addForm.password) {
       addToast({ type: 'error', title: 'Missing Fields', message: 'Name, email, and password are required' });
@@ -79,6 +90,11 @@ export function LogisticsUserManagement() {
     const pwdError = validatePassword(addForm.password);
     if (pwdError) {
       addToast({ type: 'error', title: 'Weak Password', message: pwdError });
+      return;
+    }
+    const phoneErr = validatePhone(addForm.phone);
+    if (phoneErr) {
+      setAddPhoneError(phoneErr);
       return;
     }
     try {
@@ -113,6 +129,7 @@ export function LogisticsUserManagement() {
 
   const handleCloseEdit = () => {
     setEditingUser(null);
+    setEditPhoneError('');
     setShowResetPassword(false);
     setNewPassword('');
     setConfirmPassword('');
@@ -132,6 +149,11 @@ export function LogisticsUserManagement() {
     }
     if (!editForm.email.trim()) {
       addToast({ type: 'error', title: 'Missing Field', message: 'Email is required' });
+      return;
+    }
+    const phoneErr = validatePhone(editForm.phone);
+    if (phoneErr) {
+      setEditPhoneError(phoneErr);
       return;
     }
     try {
@@ -453,11 +475,18 @@ export function LogisticsUserManagement() {
               <input
                 type="tel"
                 value={addForm.phone}
-                onChange={(e) => setAddForm({ ...addForm, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+                  setAddForm({ ...addForm, phone: val });
+                  setAddPhoneError(validatePhone(val) || '');
+                }}
                 inputMode="numeric"
-                placeholder="Enter phone number (optional)"
-                className={inputCls}
+                placeholder="Enter phone number (optional, e.g. 9876543210)"
+                className={`${inputCls}${addPhoneError ? ' border-red-400 dark:border-red-400' : ''}`}
               />
+              {addPhoneError && (
+                <p className="text-red-500 text-xs mt-1">{addPhoneError}</p>
+              )}
             </div>
           </div>
 
@@ -466,7 +495,7 @@ export function LogisticsUserManagement() {
             <Button
               variant="primary"
               onClick={addUser}
-              disabled={!addForm.name || !addForm.email || !addForm.password || addForm.password.length < 8 || createUserMutation.isPending}
+              disabled={!addForm.name || !addForm.email || !addForm.password || addForm.password.length < 8 || !!addPhoneError || createUserMutation.isPending}
               className="flex-1"
             >
               {createUserMutation.isPending ? 'Creating...' : 'Create User'}
@@ -511,11 +540,18 @@ export function LogisticsUserManagement() {
                 <input
                   type="tel"
                   value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '');
+                    setEditForm({ ...editForm, phone: val });
+                    setEditPhoneError(validatePhone(val) || '');
+                  }}
                   inputMode="numeric"
-                  placeholder="Enter phone number"
-                  className={inputCls}
+                  placeholder="Enter phone number (e.g. 9876543210)"
+                  className={`${inputCls}${editPhoneError ? ' border-red-400 dark:border-red-400' : ''}`}
                 />
+                {editPhoneError && (
+                  <p className="text-red-500 text-xs mt-1">{editPhoneError}</p>
+                )}
               </div>
             </div>
 
@@ -607,7 +643,7 @@ export function LogisticsUserManagement() {
               <Button
                 variant="primary"
                 onClick={saveEdit}
-                disabled={!editForm.name.trim() || !editForm.email.trim() || updateUserMutation.isPending}
+                disabled={!editForm.name.trim() || !editForm.email.trim() || !!editPhoneError || updateUserMutation.isPending}
                 className="flex-1"
               >
                 {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}

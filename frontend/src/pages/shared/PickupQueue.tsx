@@ -5,7 +5,7 @@
  * Super Admin: Shows all pickups platform-wide
  */
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Truck,
@@ -21,9 +21,11 @@ import {
   Send,
   Plus,
   X,
-  RefreshCcw
+  RefreshCcw,
+  ChevronDown,
+  UserPlus
 } from 'lucide-react';
-import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useEnterprises, useDashboardStats } from '@/hooks';
+import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useAssignToLogisticsUser, useLogisticsUsers, useEnterprises, useDashboardStats } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { ConfirmationModal, useToast } from '@/components/ui';
 import { useUserRole } from '@/stores/authStoreApi';
@@ -38,7 +40,10 @@ export function PickupQueue() {
   const { data: pickupRequests = [], isLoading } = useAllPickupRequests();
   const { data: logisticsAdmins = [], isLoading: isLoadingLogistics } = useLogisticsAdmins();
   const { data: enterprisesData = [] } = useEnterprises();
-  const assignMutation = useAssignToLogisticsAdmin();
+  const assignAdminMutation = useAssignToLogisticsAdmin();
+  const assignUserMutation = useAssignToLogisticsUser();
+  // Keep backward-compat alias used in confirmation modal
+  const assignMutation = assignAdminMutation;
   const createAdminMutation = useCreateLogisticsAdmin();
   const { addToast } = useToast();
 
@@ -60,6 +65,35 @@ export function PickupQueue() {
 
   // Assignment modal state
   const [showAssignModal, setShowAssignModal] = useState(false);
+
+  // Logistics user selection (tier-2, optional)
+  const [selectedLogisticsUser, setSelectedLogisticsUser] = useState('');
+  const [logisticsUserSearch, setLogisticsUserSearch] = useState('');
+  const [isLogisticsUserDropdownOpen, setIsLogisticsUserDropdownOpen] = useState(false);
+  const logisticsUserDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch users for the selected logistics admin
+  const { data: logisticsUsersForAdmin = [] } = useLogisticsUsers(selectedLogisticsAdmin || undefined);
+  const activeLogisticsUsersForAdmin = logisticsUsersForAdmin.filter(u => u.status === 'active');
+  const filteredLogisticsUsers = logisticsUserSearch
+    ? activeLogisticsUsersForAdmin.filter(u =>
+        u.name?.toLowerCase().includes(logisticsUserSearch.toLowerCase()) ||
+        u.email?.toLowerCase().includes(logisticsUserSearch.toLowerCase()) ||
+        u.phone?.toLowerCase().includes(logisticsUserSearch.toLowerCase())
+      )
+    : activeLogisticsUsersForAdmin;
+  const selectedLogisticsUserObj = activeLogisticsUsersForAdmin.find(u => u.id === selectedLogisticsUser) || null;
+
+  // Close logistics user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (logisticsUserDropdownRef.current && !logisticsUserDropdownRef.current.contains(e.target as Node)) {
+        setIsLogisticsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Add new logistics admin state
   const [showAddAdmin, setShowAddAdmin] = useState(false);
@@ -126,6 +160,9 @@ export function PickupQueue() {
     if (!request) return;
     setSelectedRequest(requestId);
     setSelectedLogisticsAdmin('');
+    setSelectedLogisticsUser('');
+    setLogisticsUserSearch('');
+    setIsLogisticsUserDropdownOpen(false);
     setShowReassignMode(!!request.logistics_admin_id);
     setShowAddAdmin(false);
     setShowAssignModal(true);
@@ -135,6 +172,9 @@ export function PickupQueue() {
     setShowAssignModal(false);
     setSelectedRequest(null);
     setSelectedLogisticsAdmin('');
+    setSelectedLogisticsUser('');
+    setLogisticsUserSearch('');
+    setIsLogisticsUserDropdownOpen(false);
     setShowReassignMode(false);
     setShowAddAdmin(false);
   };
@@ -143,10 +183,18 @@ export function PickupQueue() {
     if (!selectedRequest || !selectedLogisticsAdmin || !user) return;
 
     try {
-      await assignMutation.mutateAsync({
+      await assignAdminMutation.mutateAsync({
         requestId: selectedRequest,
         logisticsAdminId: selectedLogisticsAdmin,
       });
+
+      // Optionally also assign to a specific logistics user
+      if (selectedLogisticsUser) {
+        await assignUserMutation.mutateAsync({
+          requestId: selectedRequest,
+          logisticsUserId: selectedLogisticsUser,
+        });
+      }
 
       closeAssignModal();
       setShowConfirmModal(false);

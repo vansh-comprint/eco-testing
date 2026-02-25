@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import {
   Search,
   Monitor,
+  Laptop,
   Filter,
   Download,
   Eye,
@@ -25,6 +26,9 @@ import { useAuth, useInfiniteAssets, useBranches, useDashboardStats, useDebounce
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
+import { getAssetStatusDisplay } from '@/lib/status-display';
+import type { AssetStatus } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
 import Papa from 'papaparse';
 
 type SortOption = 'newest' | 'oldest' | 'serial' | 'brand';
@@ -123,16 +127,6 @@ export function EnterpriseAssets() {
     URL.revokeObjectURL(url);
   };
 
-  const getStatusColor = (status: string) => {
-    if (['pending_assignment', 'assigned', 'check_in_started'].includes(status)) return 'border-amber-400/30 bg-amber-400/10 text-amber-500';
-    if (['submitted', 'remote_review', 'facility_review'].includes(status)) return 'border-blue-400/30 bg-blue-400/10 text-blue-500';
-    if (['conditionally_accepted', 'final_accepted', 'ready_for_pickup'].includes(status)) return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-500';
-    if (status === 'completed') return 'border-lime-400/30 bg-lime-400/10 text-lime-500';
-    if (['remote_rejected', 'final_rejected'].includes(status)) return 'border-red-400/30 bg-red-400/10 text-red-500';
-    return 'border-slate-300/30 bg-slate-300/10 text-slate-500';
-  };
-
-  const formatStatus = (status: string) => status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const statItems = [
     { label: 'Total Assets', value: stats.total, icon: <Monitor className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
@@ -257,90 +251,157 @@ export function EnterpriseAssets() {
         )}
       </div>
 
-      {/* Asset Table */}
+      {/* Asset List */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
         transition={{ duration: 0.15 }}
-        className="relative border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto"
+        className="relative bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 shadow-sm shadow-slate-900/[0.03] dark:shadow-none"
       >
         {isRefetching && (
           <div className="absolute top-3 right-3 z-10">
             <div className="w-4 h-4 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin" />
           </div>
         )}
-        <div className="min-w-[700px]">
-        {/* Table Header */}
-        <div className="grid grid-cols-[1fr_120px_1fr_140px_100px_60px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Device</p>
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Serial</p>
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Branch</p>
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Status</p>
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-right">Value</p>
-          <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest text-center">View</p>
-        </div>
-
-        {/* Table Body */}
-        <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-200/60 dark:divide-white/5">
-          {filteredAssets.length > 0 ? (
-            filteredAssets.map((asset, idx) => (
-              <motion.div
-                key={asset.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.01 * Math.min(idx, 10) }}
-                onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
-                className="grid grid-cols-[1fr_120px_1fr_140px_100px_60px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 cursor-pointer transition-colors"
-              >
-                {/* Device */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex items-center justify-center flex-shrink-0">
-                    <Monitor className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+        {filteredAssets.length > 0 ? (
+          <>
+            {/* Mobile Card Layout */}
+            <div className="md:hidden divide-y divide-slate-200 dark:divide-white/5">
+              {filteredAssets.map((asset, index) => {
+                const statusConfig = getAssetStatusDisplay(asset.status as AssetStatus);
+                return (
+                  <div
+                    key={asset.id}
+                    onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
+                    className="p-4 cursor-pointer active:bg-slate-50 dark:active:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase truncate">
+                            {asset.brand} {asset.model}
+                          </p>
+                          <Badge variant={statusConfig.variant} size="sm">
+                            {statusConfig.label}
+                          </Badge>
+                        </div>
+                        <p className="font-mono text-xs text-slate-500 dark:text-zinc-400 mb-2">{asset.serial_number}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-500">
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {branchMap.get(asset.branch_id || '') || '—'}
+                          </span>
+                          <span>
+                            {asset.created_at
+                              ? formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{asset.brand} {asset.model}</p>
-                  </div>
-                </div>
-
-                {/* Serial */}
-                <p className="font-mono text-xs text-ecotribe-primary truncate">{asset.serial_number}</p>
-
-                {/* Branch */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                  <p className="font-mono text-xs text-slate-600 dark:text-zinc-400 truncate">
-                    {branchMap.get(asset.branch_id || '') || '—'}
-                  </p>
-                </div>
-
-                {/* Status */}
-                <span className={`inline-flex items-center px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest w-fit ${getStatusColor(asset.status)}`}>
-                  {formatStatus(asset.status)}
-                </span>
-
-                {/* Value */}
-                <p className="font-mono text-xs text-slate-600 dark:text-zinc-400 text-right">
-                  {asset.final_price ? `₹${asset.final_price.toLocaleString('en-IN')}` : asset.base_price ? `₹${asset.base_price.toLocaleString('en-IN')}` : '—'}
-                </p>
-
-                {/* View */}
-                <div className="flex justify-center">
-                  <Eye className="w-4 h-4 text-slate-400 hover:text-ecotribe-primary transition-colors" />
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            <div className="py-16 text-center">
-              <Monitor className="w-12 h-12 text-slate-300 dark:text-zinc-700 mx-auto mb-4" />
-              <p className="font-display font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wide mb-1">No assets found</p>
-              <p className="font-mono text-xs text-slate-400 dark:text-zinc-600">
-                {searchQuery || statusFilter !== 'all' || branchFilter !== 'all' ? 'Try adjusting your filters.' : 'No assets have been added yet.'}
-              </p>
+                );
+              })}
             </div>
-          )}
-        </div>
 
-        </div>{/* min-w-[700px] */}
+            {/* Desktop Table Layout */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Device
+                    </th>
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Serial
+                    </th>
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Branch
+                    </th>
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Status
+                    </th>
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Added
+                    </th>
+                    <th className="text-right py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/5">
+                  {filteredAssets.map((asset, index) => {
+                    const statusConfig = getAssetStatusDisplay(asset.status as AssetStatus);
+                    return (
+                      <motion.tr
+                        key={asset.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.03 * Math.min(index, 10) }}
+                        onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
+                        className="hover:bg-white/70 dark:hover:bg-white/[0.06] cursor-pointer transition-colors group"
+                      >
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+                              <Laptop className="w-5 h-5 text-slate-500 dark:text-zinc-500" />
+                            </div>
+                            <div>
+                              <p className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">{asset.brand}</p>
+                              <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">{asset.model}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-400">{asset.serial_number}</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="font-mono text-xs text-slate-500 dark:text-zinc-400">
+                              {branchMap.get(asset.branch_id || '') || '—'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <Badge variant={statusConfig.variant} size="sm">
+                            {statusConfig.label}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="font-mono text-xs text-slate-500 dark:text-zinc-600">
+                            {asset.created_at
+                              ? formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })
+                              : '—'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/org-admin/assets/${asset.id}`);
+                            }}
+                            className="interactive p-2 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                          >
+                            <Eye className="w-4 h-4 text-slate-500 dark:text-zinc-500 group-hover:text-ecotribe-primary" />
+                          </button>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <div className="py-20 text-center">
+            <Laptop className="w-12 h-12 text-slate-400 dark:text-zinc-700 mx-auto mb-4" />
+            <p className="font-display font-bold text-slate-600 dark:text-zinc-500 uppercase tracking-wide mb-2">No assets found</p>
+            <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
+              {searchQuery || statusFilter !== 'all' || branchFilter !== 'all' ? 'Try adjusting your filters.' : 'No assets have been added yet.'}
+            </p>
+          </div>
+        )}
       </motion.div>
 
       <InfiniteScrollTrigger hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} fetchNextPage={fetchNextPage} />

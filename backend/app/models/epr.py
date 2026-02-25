@@ -1,6 +1,6 @@
 """EPR (Extended Producer Responsibility) compliance models"""
 
-from sqlalchemy import Column, String, Date, ForeignKey, Numeric, Text, JSON, ARRAY
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Numeric, Text, JSON, ARRAY
 from sqlalchemy.orm import relationship
 import enum
 
@@ -70,9 +70,17 @@ class EPRCertificate(BaseModel):
     notes = Column(Text, nullable=True)
     extra_data = Column(JSON, nullable=True)
 
+    # Push/Distribution tracking
+    sent_to_enterprise_id = Column(
+        String, ForeignKey("enterprises.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    sent_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    sent_by = Column(String, nullable=True)
+
     # Relationships
     enterprise = relationship("Enterprise", back_populates="epr_certificates")
     batch = relationship("Batch", back_populates="epr_certificate")
+    sent_to_enterprise = relationship("Enterprise", foreign_keys=[sent_to_enterprise_id])
 
     def __repr__(self) -> str:
         return f"<EPRCertificate(id={self.id}, certificate_number={self.certificate_number}, status={self.status})>"

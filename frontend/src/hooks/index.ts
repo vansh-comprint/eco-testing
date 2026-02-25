@@ -222,6 +222,7 @@ export {
   useCreateEPRCertificate,
   useUpdateEPRCertificate,
   useDeleteEPRCertificate,
+  usePushEPRCertificates,
   eprKeys,
   EPR_STATUS_LABELS,
   EPR_STATUS_COLORS,
