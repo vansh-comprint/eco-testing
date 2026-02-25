@@ -22,7 +22,7 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useInfiniteAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
+import { useAuth, useInfiniteAssets, useBranches, useBatches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -71,6 +71,7 @@ export function EnterpriseAssets() {
   const assets = useMemo(() => assetPages?.pages.flatMap(p => p.data || []) ?? [], [assetPages]);
   const totalAssets = assetPages?.pages[0]?.pagination?.total;
   const { data: branches = [] } = useBranches(enterpriseId);
+  const { data: batches = [] } = useBatches(enterpriseId);
   const { stats: dashboardStats } = useDashboardStats();
 
   // Branch lookup
@@ -79,6 +80,12 @@ export function EnterpriseAssets() {
     branches.forEach(b => map.set(b.id, b.branch_name));
     return map;
   }, [branches]);
+
+  const batchMap = useMemo(() => {
+    const map = new Map<string, string>();
+    batches.forEach(b => map.set(b.id, b.name));
+    return map;
+  }, [batches]);
 
   // Stats from backend dashboard endpoint
   const stats = {
@@ -112,8 +119,8 @@ export function EnterpriseAssets() {
       brand: a.brand,
       model: a.model,
       status: a.status,
-      branch: branchMap.get(a.branch_id || '') || '—',
-      batch_id: a.batch_id || '—',
+      branch: branchMap.get(a.branch_id || '') || '-',
+      batch: batchMap.get(a.batch_id || '') || '-',
       base_price: a.base_price || '',
       final_price: a.final_price || '',
       created_at: new Date(a.created_at).toLocaleDateString(),

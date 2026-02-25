@@ -76,6 +76,8 @@ export function Settings() {
   const { user, enterprise } = useAuth();
   const { addToast } = useToast();
   const enterpriseId = enterprise?.id || '';
+  const isITAdmin = user?.role === 'it_admin';
+  const enterpriseReadOnly = isITAdmin;
 
   // V3: React Query hooks
   const { data: pickupLocations = [], isLoading: locationsLoading } = usePickupLocations(enterpriseId);
@@ -207,7 +209,7 @@ export function Settings() {
     { id: 'locations' as const, label: 'Pickup Locations', icon: <MapPin className="w-4 h-4" /> },
     { id: 'notifications' as const, label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
     { id: 'bank' as const, label: 'Bank Details', icon: <CreditCard className="w-4 h-4" /> },
-  ];
+  ].filter(tab => !(isITAdmin && tab.id === 'bank'));
 
   // V3: Location modal handlers with snake_case
   const openAddLocation = () => {
@@ -440,6 +442,13 @@ export function Settings() {
                 <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">Enterprise Details</h2>
               </div>
               <div className="p-5 space-y-5">
+                {enterpriseReadOnly && (
+                  <div className="p-3 border border-blue-400/20 bg-blue-400/5">
+                    <p className="font-mono text-xs text-blue-400">
+                      Enterprise settings are managed by your Org Admin and are read-only.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Company Name</label>
@@ -447,6 +456,7 @@ export function Settings() {
                       type="text"
                       value={enterpriseForm.name}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, name: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -457,6 +467,7 @@ export function Settings() {
                       placeholder="22AAAAA0000A1Z5"
                       value={enterpriseForm.gstin}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, gstin: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -468,6 +479,7 @@ export function Settings() {
                     value={enterpriseForm.address}
                     onChange={(e) => setEnterpriseForm({ ...enterpriseForm, address: e.target.value })}
                     rows={2}
+                    disabled={enterpriseReadOnly}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors resize-none"
                   />
                 </div>
@@ -479,6 +491,7 @@ export function Settings() {
                       type="text"
                       value={enterpriseForm.city}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, city: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -488,6 +501,7 @@ export function Settings() {
                       type="text"
                       value={enterpriseForm.state}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, state: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -500,6 +514,7 @@ export function Settings() {
                       maxLength={6}
                       value={enterpriseForm.pincode}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, pincode: e.target.value.replace(/\D/g, '') })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -512,6 +527,7 @@ export function Settings() {
                       type="email"
                       value={enterpriseForm.contactEmail}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactEmail: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -521,6 +537,7 @@ export function Settings() {
                       type="tel"
                       value={enterpriseForm.contactPhone}
                       onChange={(e) => setEnterpriseForm({ ...enterpriseForm, contactPhone: e.target.value })}
+                      disabled={enterpriseReadOnly}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                     />
                   </div>
@@ -721,7 +738,7 @@ export function Settings() {
           )}
 
           {/* Bank Tab */}
-          {activeTab === 'bank' && (
+          {activeTab === 'bank' && !isITAdmin && (
             <div className="bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 btn-chamfer">
               <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center gap-3">
                 <CreditCard className="w-5 h-5 text-slate-500 dark:text-zinc-600" />
@@ -804,8 +821,8 @@ export function Settings() {
             </div>
           )}
 
-          {/* Save Button — hidden on Security tab (PasswordChange has its own button) and Locations tab */}
-          {activeTab !== 'locations' && activeTab !== 'security' && (
+          {/* Save Button — hidden on Security tab (PasswordChange has its own button), Locations tab, and enterprise tab when read-only */}
+          {activeTab !== 'locations' && activeTab !== 'security' && !(activeTab === 'enterprise' && enterpriseReadOnly) && (
             <div className="mt-6 flex items-center justify-end">
               <button
                 onClick={handleSave}

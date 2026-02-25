@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Papa from 'papaparse';
 import { motion } from 'framer-motion';
 import { BarChart3, ArrowLeft, Download, TrendingUp, TrendingDown, Building2, Users, Laptop, IndianRupee } from 'lucide-react';
 import { Button, Card, Badge, PageHeader, DashboardStatGrid } from '@/components/ui';
@@ -94,16 +95,43 @@ export function Analytics() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Export analytics data as JSON
-                const exportData = {
-                  generated_at: new Date().toISOString(),
-                  ...analyticsData,
-                };
-                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                // Export analytics data as CSV
+                const exportData = [
+                  {
+                    metric: 'Total Enterprises',
+                    value: analyticsData.totalEnterprises,
+                  },
+                  {
+                    metric: 'Active Enterprises',
+                    value: analyticsData.activeEnterprises,
+                  },
+                  {
+                    metric: 'Inactive Enterprises',
+                    value: analyticsData.inactiveEnterprises,
+                  },
+                  {
+                    metric: 'Pending Approvals',
+                    value: analyticsData.pendingApprovals,
+                  },
+                  {
+                    metric: 'Total Users',
+                    value: analyticsData.totalUsers,
+                  },
+                  {
+                    metric: 'Total Assets',
+                    value: analyticsData.totalAssets,
+                  },
+                  {
+                    metric: 'Total Revenue',
+                    value: analyticsData.totalRevenue,
+                  },
+                ];
+                const csv = Papa.unparse(exportData);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `ecotribe-analytics-${new Date().toISOString().split('T')[0]}.json`;
+                a.download = `ecotribe-analytics-${new Date().toISOString().split('T')[0]}.csv`;
                 a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();

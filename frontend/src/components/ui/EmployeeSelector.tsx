@@ -97,17 +97,21 @@ export function EmployeeSelector({
   // Fetch employees
   const { data: employees = [], isLoading, refetch } = useSubUsers(enterpriseId);
 
-  // Filter employees based on search
+  // Filter employees based on branch (when provided) and search query
   const filteredEmployees = useMemo(() => {
-    if (!searchQuery.trim()) return employees;
+    let result = employees as (Employee & { branch_id?: string | null })[];
+    if (branchId) {
+      result = result.filter(emp => emp.branch_id === branchId);
+    }
+    if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase();
-    return employees.filter((emp: Employee) =>
+    return result.filter((emp) =>
       emp.name?.toLowerCase().includes(query) ||
       emp.email?.toLowerCase().includes(query) ||
       emp.employee_id?.toLowerCase().includes(query) ||
       emp.department?.toLowerCase().includes(query)
     );
-  }, [employees, searchQuery]);
+  }, [employees, branchId, searchQuery]);
 
   // Get selected employee
   const selectedEmployee = useMemo(

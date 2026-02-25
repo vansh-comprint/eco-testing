@@ -98,6 +98,18 @@ export function EnterpriseBatches() {
     return counts;
   }, [assets]);
 
+  // Sum asset values per batch (fallback when batch.estimated_value is null/0)
+  const batchAssetValues = useMemo(() => {
+    const values = new Map<string, number>();
+    assets.forEach(a => {
+      if (a.batch_id) {
+        const price = Number(a.final_price) || Number(a.base_price) || 0;
+        values.set(a.batch_id, (values.get(a.batch_id) || 0) + price);
+      }
+    });
+    return values;
+  }, [assets]);
+
   // Filtered-aware stats: use batch list data when filters are active
   const stats = useMemo(() => {
     const isFiltered = branchFilter !== 'all' || !!debouncedSearch;
@@ -126,9 +138,9 @@ export function EnterpriseBatches() {
       pickup: countByStatus('pickup_in_progress'),
       completed: countByStatus('completed'),
       rejected: countByStatus('rejected'),
-      totalValue: batches.reduce((sum, b) => sum + (Number(b.estimated_value) || 0), 0),
+      totalValue: batches.reduce((sum, b) => sum + (Number(b.estimated_value) || batchAssetValues.get(b.id) || 0), 0),
     };
-  }, [branchFilter, debouncedSearch, batches, dashboardStats]);
+  }, [branchFilter, debouncedSearch, batches, dashboardStats, batchAssetValues]);
 
   // All filtering and sorting is server-side (server returns created_at DESC by default)
   const filteredBatches = batches;
@@ -137,8 +149,8 @@ export function EnterpriseBatches() {
     const csv = Papa.unparse(filteredBatches.map(b => ({
       name: b.name,
       status: b.status,
-      branch: branchMap.get(b.branch_id || '') || '—',
-      it_admin: adminMap.get(b.it_admin_id || '') || '—',
+      branch: branchMap.get(b.branch_id || '') || '-',
+      it_admin: adminMap.get(b.it_admin_id || '') || '-',
       asset_count: batchAssetCounts.get(b.id) || 0,
       estimated_value: b.estimated_value || '',
       created_at: new Date(b.created_at).toLocaleDateString(),
@@ -328,11 +340,14 @@ export function EnterpriseBatches() {
                         <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">
                           {assetCount} asset{assetCount !== 1 ? 's' : ''}
                         </span>
-                        {batch.estimated_value ? (
-                          <span className="font-mono text-xs text-ecotribe-primary font-bold">
-                            ₹{(batch.estimated_value / 1000).toFixed(0)}K
-                          </span>
-                        ) : null}
+                        {(() => {
+                          const batchValue = Number(batch.estimated_value) || batchAssetValues.get(batch.id) || 0;
+                          return batchValue > 0 ? (
+                            <span className="font-mono text-xs text-ecotribe-primary font-bold">
+                              ₹{(batchValue / 1000).toFixed(0)}K
+                            </span>
+                          ) : null;
+                        })()}
                         <span className="font-mono text-xs text-slate-400 dark:text-zinc-600">
                           {new Date(batch.created_at).toLocaleDateString()}
                         </span>

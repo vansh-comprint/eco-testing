@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Laptop, CheckCircle, Info, Plus, ArrowRight, Building2, AlertCircle } from 'lucide-react';
@@ -6,6 +6,7 @@ import { AssetForm } from '@/components/assets';
 import { BackButton } from '@/components/ui';
 import { useAuth, useCreateAsset, useBatches, useBatchesByITAdmin, useBranches, useBranchesByITAdmin, useApiError, usePortalBasePath } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import type { CreateAssetInput } from '@/hooks';
 
 export function AddAsset() {
@@ -42,14 +43,16 @@ export function AddAsset() {
   const [successState, setSuccessState] = useState<{ serialNumber: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const orgBranchCtx = useOrgBranchSafe();
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(orgBranchCtx?.selectedBranchId || '');
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const contextBranchId = isOrgAdmin ? (orgBranchCtx?.selectedBranchId || '') : (itBranchCtx?.selectedBranchId || '');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(contextBranchId);
 
-  // Sync local state when org branch context changes (fixes wrong branch pre-selected)
+  // Sync local state when branch context changes
   useEffect(() => {
-    if (isOrgAdmin && orgBranchCtx?.selectedBranchId) {
-      setSelectedBranchId(orgBranchCtx.selectedBranchId);
+    if (contextBranchId) {
+      setSelectedBranchId(contextBranchId);
     }
-  }, [isOrgAdmin, orgBranchCtx?.selectedBranchId]);
+  }, [contextBranchId]);
 
   const batch = batchId ? batches.find((b: { id: string }) => b.id === batchId) : null;
 

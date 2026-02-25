@@ -1,5 +1,5 @@
-import { useState, useMemo, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useMemo, useContext, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -47,6 +47,7 @@ const DEPARTMENT_OPTIONS = [
 export function EmployeeList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   // V3: Use React Query hook for auth
   const { user } = useAuth();
   const { enterpriseId, basePath, isEnterpriseNested } = useEmployeeBasePath();
@@ -54,10 +55,25 @@ export function EmployeeList() {
 
   const itBranchCtx = useContext(ITAdminBranchContext);
   const orgBranchCtx = useOrgBranchSafe();
-  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
 
   // Determine if org admin context (true for org_admin role, org-admin portal, or enterprise-nested super/ops routes)
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
+
+  // OR-14 / IT-03: Read ?branch= URL param and sync into branch contexts
+  const urlBranchId = searchParams.get('branch') || '';
+  const [orgBranchFilter, setOrgBranchFilter] = useState(urlBranchId);
+
+  // For IT Admin: seed the branch context from URL param on mount
+  useEffect(() => {
+    if (!isOrgAdmin && urlBranchId && itBranchCtx && itBranchCtx.selectedBranchId !== urlBranchId) {
+      itBranchCtx.setSelectedBranchId(urlBranchId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const activeBranchFilter = isOrgAdmin
+    ? (orgBranchFilter || orgBranchCtx?.selectedBranchId || null)
+    : (itBranchCtx?.selectedBranchId || null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
