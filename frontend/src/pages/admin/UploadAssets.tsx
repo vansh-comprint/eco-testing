@@ -6,7 +6,7 @@ import { BackButton } from '@/components/ui';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin, usePortalBasePath } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { usersApi } from '@/lib/api/users';
 
 // V3: Input type for creating assets with snake_case
@@ -72,7 +72,11 @@ export function UploadAssets() {
   const itAdminBranchId = !isOrgAdmin
     ? (itBranchCtx?.selectedBranchId || user?.branchId || undefined)
     : undefined;
-  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || undefined;
+
+  // Local branch selection state — used when there is no batch/context branch and user selects inline
+  const [localBranchId, setLocalBranchId] = useState<string | undefined>(undefined);
+
+  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || localBranchId || undefined;
   const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
 
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata): Promise<BulkUploadResult | void> => {
@@ -262,7 +266,7 @@ export function UploadAssets() {
         </div>
       </motion.div>
 
-      {/* Branch Warning */}
+      {/* Branch Selector — shown when no branch is determined from context/batch */}
       {needsBranchSelection && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -274,11 +278,21 @@ export function UploadAssets() {
             <div className="w-10 h-10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-5 h-5 text-amber-400" />
             </div>
-            <div>
-              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">Branch Selection Required</p>
-              <p className="font-mono text-xs text-zinc-400">
-                Please select a specific branch before uploading assets. Go back and choose a branch from the branch filter, or select a batch that is associated with a branch.
+            <div className="flex-1">
+              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">Select a Branch</p>
+              <p className="font-mono text-xs text-zinc-400 mb-3">
+                Choose which branch these assets belong to before uploading.
               </p>
+              <select
+                value={localBranchId || ''}
+                onChange={e => setLocalBranchId(e.target.value || undefined)}
+                className="w-full bg-zinc-900 border border-amber-400/30 text-white font-mono text-xs px-3 py-2 focus:outline-none focus:border-amber-400/60 appearance-none"
+              >
+                <option value="">-- Select a branch --</option>
+                {activeBranches.map((b: { id: string; branch_name: string }) => (
+                  <option key={b.id} value={b.id}>{b.branch_name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </motion.div>
@@ -294,6 +308,7 @@ export function UploadAssets() {
         <CSVUpload
           enterpriseId={enterprise.id}
           batchId={batchId}
+          branches={activeBranches}
           onUpload={handleUpload}
           onCancel={() => navigate(isOrgAdmin ? '/org-admin/assets' : '/admin/assets')}
         />
