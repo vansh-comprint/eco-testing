@@ -37,17 +37,17 @@ export function EnterpriseDisputes() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState('all');
 
-  // Map frontend display status to backend API status param
-  const apiStatusMap: Record<string, string> = {
-    pending: 'open',
-    upheld: 'resolved',
-    overturned: 'resolved',
-    partial: 'resolved',
+  // Map frontend display status to backend API params (status + resolution)
+  const apiFilterMap: Record<string, { status: string; resolution?: string }> = {
+    pending: { status: 'open' },
+    upheld: { status: 'resolved', resolution: 'upheld' },
+    overturned: { status: 'resolved', resolution: 'overturned' },
+    partial: { status: 'resolved', resolution: 'partial' },
   };
 
   const { data: disputePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteDisputes({
-    ...(statusFilter !== 'all' && apiStatusMap[statusFilter]
-      ? { status: apiStatusMap[statusFilter] }
+    ...(statusFilter !== 'all' && apiFilterMap[statusFilter]
+      ? apiFilterMap[statusFilter]
       : {}),
   });
   const disputes = useMemo(() => disputePages?.pages.flatMap(p => p.data || []) ?? [], [disputePages]);

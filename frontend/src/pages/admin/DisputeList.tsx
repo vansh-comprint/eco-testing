@@ -46,7 +46,18 @@ export function DisputeList() {
   // Build server-side params (search + status)
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
-    if (statusFilter) params.status = statusFilter;
+    if (statusFilter) {
+      // Map display statuses to backend API params
+      const resolutionValues = ['upheld', 'overturned', 'partial'];
+      if (resolutionValues.includes(statusFilter)) {
+        params.status = 'resolved';
+        params.resolution = statusFilter;
+      } else if (statusFilter === 'pending') {
+        params.status = 'open';
+      } else {
+        params.status = statusFilter;
+      }
+    }
     if (debouncedSearch) params.search = debouncedSearch;
     return params;
   }, [statusFilter, debouncedSearch]);
