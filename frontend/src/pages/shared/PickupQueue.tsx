@@ -25,7 +25,7 @@ import {
   ChevronDown,
   UserPlus
 } from 'lucide-react';
-import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useAssignToLogisticsUser, useLogisticsUsers, useEnterprises, useDashboardStats } from '@/hooks';
+import { useAuth, useAllPickupRequests, useLogisticsAdmins, useCreateLogisticsAdmin, useAssignToLogisticsAdmin, useAssignToLogisticsUser, useAvailableLogisticsUsers, useEnterprises, useDashboardStats } from '@/hooks';
 import { useOptionalOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import { ConfirmationModal, useToast } from '@/components/ui';
 import { useUserRole } from '@/stores/authStoreApi';
@@ -72,9 +72,9 @@ export function PickupQueue() {
   const [isLogisticsUserDropdownOpen, setIsLogisticsUserDropdownOpen] = useState(false);
   const logisticsUserDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch users for the selected logistics admin
-  const { data: logisticsUsersForAdmin = [] } = useLogisticsUsers(selectedLogisticsAdmin || undefined);
-  const activeLogisticsUsersForAdmin = logisticsUsersForAdmin.filter(u => u.status === 'active');
+  // Fetch active users scoped to the selected logistics admin (parent_user_id filter)
+  const { data: logisticsUsersForAdmin = [] } = useAvailableLogisticsUsers(selectedLogisticsAdmin);
+  const activeLogisticsUsersForAdmin = logisticsUsersForAdmin;
   const filteredLogisticsUsers = logisticsUserSearch
     ? activeLogisticsUsersForAdmin.filter(u =>
         u.name?.toLowerCase().includes(logisticsUserSearch.toLowerCase()) ||
@@ -725,7 +725,7 @@ export function PickupQueue() {
                           <>
                             <select
                               value={selectedLogisticsAdmin}
-                              onChange={(e) => setSelectedLogisticsAdmin(e.target.value)}
+                              onChange={(e) => { setSelectedLogisticsAdmin(e.target.value); setSelectedLogisticsUser(''); setLogisticsUserSearch(''); setIsLogisticsUserDropdownOpen(false); }}
                               className="w-full px-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display text-sm focus:border-ecotribe-primary focus:outline-none transition-colors appearance-none cursor-pointer"
                               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                             >
@@ -775,6 +775,120 @@ export function PickupQueue() {
                     </div>
                   )}
                 </div>
+
+                {/* Logistics User Dropdown — tier-2 optional assignment */}
+                {!showAddAdmin && selectedLogisticsAdmin && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-mono font-bold text-xs uppercase tracking-widest text-slate-500 dark:text-white/50">
+                        Assign Field User <span className="font-normal lowercase">(optional)</span>
+                      </p>
+                    </div>
+
+                    <div ref={logisticsUserDropdownRef} className="relative">
+                      {/* Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => setIsLogisticsUserDropdownOpen(!isLogisticsUserDropdownOpen)}
+                        className="w-full px-4 py-3 flex items-center justify-between border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-ecotribe-primary/50 transition-colors"
+                      >
+                        {selectedLogisticsUserObj ? (
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{selectedLogisticsUserObj.name}</span>
+                            <span className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">{selectedLogisticsUserObj.phone || selectedLogisticsUserObj.email}</span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-sm text-slate-400 dark:text-white/30">
+                            {activeLogisticsUsersForAdmin.length === 0 ? 'No field users in this partner' : 'Select field user (optional)...'}
+                          </span>
+                        )}
+                        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isLogisticsUserDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {selectedLogisticsUser && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedLogisticsUser(''); setLogisticsUserSearch(''); }}
+                          className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Dropdown panel */}
+                      <AnimatePresence>
+                        {isLogisticsUserDropdownOpen && activeLogisticsUsersForAdmin.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute top-full left-0 right-0 z-20 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl"
+                          >
+                            {/* Search */}
+                            <div className="p-2 border-b border-slate-200 dark:border-white/10">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-white/50" />
+                                <input
+                                  type="text"
+                                  value={logisticsUserSearch}
+                                  onChange={(e) => setLogisticsUserSearch(e.target.value)}
+                                  placeholder="Search by name, email, or phone..."
+                                  autoFocus
+                                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30"
+                                />
+                              </div>
+                            </div>
+
+                            {/* User list */}
+                            <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04]">
+                              {filteredLogisticsUsers.map(u => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => { setSelectedLogisticsUser(u.id); setIsLogisticsUserDropdownOpen(false); setLogisticsUserSearch(''); }}
+                                  className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
+                                    selectedLogisticsUser === u.id
+                                      ? 'bg-ecotribe-primary/10 border-l-2 border-ecotribe-primary'
+                                      : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  <UserPlus className={`w-4 h-4 flex-shrink-0 ${selectedLogisticsUser === u.id ? 'text-ecotribe-primary' : 'text-slate-400 dark:text-white/30'}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-display font-bold text-sm truncate ${selectedLogisticsUser === u.id ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
+                                      {u.name || 'Unknown'}
+                                    </p>
+                                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 truncate">{u.phone || u.email}</p>
+                                  </div>
+                                  {selectedLogisticsUser === u.id && <CheckCircle className="w-4 h-4 text-ecotribe-primary flex-shrink-0" />}
+                                </button>
+                              ))}
+                              {filteredLogisticsUsers.length === 0 && (
+                                <div className="p-4 text-center">
+                                  <p className="font-mono text-sm text-slate-500 dark:text-white/50">
+                                    No users found matching "{logisticsUserSearch}"
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {selectedLogisticsUserObj && (
+                      <div className="flex items-center gap-3 p-3 mt-2 border border-ecotribe-primary/30 bg-ecotribe-primary/5">
+                        <div className="w-8 h-8 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-ecotribe-primary" />
+                        </div>
+                        <div>
+                          <p className="font-display font-bold text-ecotribe-primary uppercase text-sm">{selectedLogisticsUserObj.name}</p>
+                          <p className="font-mono text-xs text-slate-500 dark:text-white/50">{selectedLogisticsUserObj.phone || selectedLogisticsUserObj.email}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}
