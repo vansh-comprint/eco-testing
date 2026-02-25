@@ -1,12 +1,15 @@
 """Service layer for Payout and Wallet business logic"""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List, Tuple
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Payout, EnterpriseWallet, CreditTransaction, PayoutStatus, TransactionType, User, UserRole
+from app.models.batch import Batch, BatchStatus
 from app.repositories.payout_repository import PayoutRepository, WalletRepository, TransactionRepository
 from app.schemas.payout import PayoutCreate, WalletCredit, WalletDebit
 from app.utils.security import (
@@ -16,6 +19,9 @@ from app.utils.security import (
     validate_amount,
     validate_text_length,
 )
+from app.utils.state_machine import validate_batch_transition, StateTransitionError
+
+logger = logging.getLogger(__name__)
 
 
 class WalletService:
@@ -235,6 +241,10 @@ class PayoutService:
             )
             await self.wallet_service.credit(enterprise_id, wallet_credit, user)
             await self.session.flush()
+
+            # Wallet payouts complete immediately — try to mark batch completed
+            if data.batch_id:
+                await self._try_complete_batch(data.batch_id)
         else:
             payout = Payout(
                 id=payout_id,
@@ -306,7 +316,58 @@ class PayoutService:
             raise ValueError(f"Invalid action: {action}. Must be 'complete' or 'fail'")
 
         await self.session.flush()
+
+        # After completing a payout, check if all payouts for this batch are done
+        if action == "complete" and payout.batch_id:
+            await self._try_complete_batch(payout.batch_id)
+
         return payout
+
+    async def _try_complete_batch(self, batch_id: str) -> None:
+        """
+        Check if all payouts for a batch are completed and, if so, transition
+        the batch to 'completed' status.
+
+        Called after any payout reaches COMPLETED state.
+        Catches StateTransitionError gracefully — batch may not yet be in a
+        transitionable state (e.g. still pickup_in_progress with other pending payouts).
+        """
+        # Count payouts for this batch that are NOT completed
+        stmt = select(func.count(Payout.id)).where(
+            Payout.batch_id == batch_id,
+            Payout.status != PayoutStatus.COMPLETED.value,
+        )
+        result = await self.session.execute(stmt)
+        non_completed_count = result.scalar_one()
+
+        if non_completed_count > 0:
+            # Some payouts still pending — do not complete batch yet
+            return
+
+        # All payouts completed — load and transition the batch
+        batch_result = await self.session.execute(
+            select(Batch).where(Batch.id == batch_id)
+        )
+        batch = batch_result.scalar_one_or_none()
+
+        if not batch:
+            logger.warning("_try_complete_batch: batch %s not found", batch_id)
+            return
+
+        try:
+            validate_batch_transition(batch.status, BatchStatus.COMPLETED.value)
+            batch.status = BatchStatus.COMPLETED.value
+            batch.completed_at = datetime.now(timezone.utc)
+            await self.session.flush()
+            logger.info(
+                "_try_complete_batch: batch %s transitioned to completed", batch_id
+            )
+        except StateTransitionError:
+            logger.debug(
+                "_try_complete_batch: batch %s in status '%s' cannot transition to completed — skipping",
+                batch_id,
+                batch.status,
+            )
 
     async def list_payouts(
         self,
