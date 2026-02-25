@@ -191,8 +191,9 @@ export function SubUserDashboard() {
                   <div className="px-4 pb-4">
                     <div className="flex items-center gap-1 mb-2">
                       {steps.map((step) => {
-                        const isCompleted = step.id < config.step;
-                        const isCurrent = step.id === config.step;
+                        const isTerminal = ['completed', 'final_accepted', 'final_rejected', 'payout_pending'].includes(asset.status);
+                        const isCompleted = step.id < config.step || (isTerminal && step.id === config.step);
+                        const isCurrent = step.id === config.step && !isTerminal;
                         return (
                           <div key={step.id} className="flex-1 flex items-center gap-1">
                             <div

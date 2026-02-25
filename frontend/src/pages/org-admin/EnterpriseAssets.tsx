@@ -313,7 +313,15 @@ export function EnterpriseAssets() {
 
             {/* Desktop Table Layout */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
                     <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
@@ -328,10 +336,10 @@ export function EnterpriseAssets() {
                     <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
                       Status
                     </th>
-                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                    <th className="text-left py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest whitespace-nowrap">
                       Added
                     </th>
-                    <th className="text-right py-4 px-6 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
+                    <th className="text-right py-4 px-4 font-mono font-bold text-xs text-slate-700 dark:text-white/60 uppercase tracking-widest">
                       Action
                     </th>
                   </tr>

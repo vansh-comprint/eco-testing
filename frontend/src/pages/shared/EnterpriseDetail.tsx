@@ -791,6 +791,13 @@ export function EnterpriseDetail() {
                           )}
                         </div>
                       </div>
+                      <button
+                        onClick={() => { setEditingUser(user); setIsEditUserModalOpen(true); }}
+                        className="p-2 hover:bg-blue-400/10 transition-colors border border-transparent hover:border-blue-400/20"
+                        title="Edit IT Admin"
+                      >
+                        <Edit2 className="w-4 h-4 text-blue-400" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -871,7 +878,10 @@ export function EnterpriseDetail() {
             <>
               <div className="divide-y divide-slate-200/60 dark:divide-zinc-800/60">
                 {subUsers.slice((employeePage - 1) * PAGE_SIZE, employeePage * PAGE_SIZE).map((user) => (
-                  <div key={user.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                  <div key={user.id}
+                    onClick={() => navigate(`${basePath}/enterprises/${id}/employees/${user.id}`)}
+                    className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
@@ -902,6 +912,7 @@ export function EnterpriseDetail() {
                           )}
                         </div>
                       </div>
+                      <ChevronRight className={`w-4 h-4 ${text.muted} flex-shrink-0`} />
                     </div>
                   </div>
                 ))}

@@ -37,18 +37,36 @@ import { useAuthStoreApi } from '@/stores';
 import { PermissionGate, Permission } from '@/permissions';
 import { PasswordChange } from '@/components/settings';
 
-// Operating hours options for dropdown
-const OPERATING_HOURS_OPTIONS = [
-  { value: 'Mon-Fri, 9 AM - 5 PM', label: 'Monday - Friday, 9 AM - 5 PM' },
-  { value: 'Mon-Fri, 9 AM - 6 PM', label: 'Monday - Friday, 9 AM - 6 PM' },
-  { value: 'Mon-Fri, 10 AM - 6 PM', label: 'Monday - Friday, 10 AM - 6 PM' },
-  { value: 'Mon-Fri, 10 AM - 7 PM', label: 'Monday - Friday, 10 AM - 7 PM' },
-  { value: 'Mon-Sat, 9 AM - 5 PM', label: 'Monday - Saturday, 9 AM - 5 PM' },
-  { value: 'Mon-Sat, 9 AM - 6 PM', label: 'Monday - Saturday, 9 AM - 6 PM' },
-  { value: 'Mon-Sat, 10 AM - 6 PM', label: 'Monday - Saturday, 10 AM - 6 PM' },
-  { value: 'Mon-Sat, 10 AM - 7 PM', label: 'Monday - Saturday, 10 AM - 7 PM' },
-  { value: '24/7', label: '24 Hours, 7 Days a Week' },
-  { value: 'custom', label: 'Custom Hours' },
+// Operating days options
+const OPERATING_DAYS_OPTIONS = [
+  { value: 'Mon-Fri', label: 'Monday - Friday' },
+  { value: 'Mon-Sat', label: 'Monday - Saturday' },
+  { value: 'Sun-Sat', label: 'Sunday - Saturday (All Days)' },
+  { value: 'Custom', label: 'Custom' },
+];
+
+// Generate 30-min interval time options from 6:00 AM to 10:00 PM
+function generateTimeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let h = 6; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      if (h === 22 && m === 30) break;
+      const period = h < 12 ? 'AM' : 'PM';
+      const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const displayM = m === 0 ? '00' : '30';
+      const label = `${displayH}:${displayM} ${period}`;
+      options.push({ value: label, label });
+    }
+  }
+  return options;
+}
+const TIME_OPTIONS = generateTimeOptions();
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat',
+  'Haryana', 'Himachal Pradesh', 'Jammu & Kashmir', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Odisha', 'Punjab', 'Rajasthan', 'Tamil Nadu',
+  'Telangana', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
 ];
 
 type SettingsTab = 'profile' | 'enterprise' | 'notifications' | 'bank' | 'locations' | 'security';
@@ -96,12 +114,16 @@ export function Settings() {
     name: '',
     address: '',
     city: '',
+    state: '',
     pin_code: '',
     contact_person: '',
     contact_phone: '',
-    operating_hours: 'Mon-Fri, 9 AM - 6 PM',
+    operating_hours: 'Mon-Fri, 9:00 AM - 6:00 PM',
     special_instructions: '',
   });
+  const [selectedDays, setSelectedDays] = useState('Mon-Fri');
+  const [openTime, setOpenTime] = useState('9:00 AM');
+  const [closeTime, setCloseTime] = useState('6:00 PM');
   const [customHours, setCustomHours] = useState('');
   const [useCustomHours, setUseCustomHours] = useState(false);
 
@@ -218,12 +240,16 @@ export function Settings() {
       name: '',
       address: '',
       city: '',
+      state: '',
       pin_code: '',
       contact_person: '',
       contact_phone: '',
-      operating_hours: 'Mon-Fri, 9 AM - 6 PM',
+      operating_hours: 'Mon-Fri, 9:00 AM - 6:00 PM',
       special_instructions: '',
     });
+    setSelectedDays('Mon-Fri');
+    setOpenTime('9:00 AM');
+    setCloseTime('6:00 PM');
     setCustomHours('');
     setUseCustomHours(false);
     setShowLocationModal(true);
@@ -231,22 +257,34 @@ export function Settings() {
 
   const openEditLocation = (location: PickupLocationData) => {
     setEditingLocation(location);
-    // Check if existing hours match a preset option
-    const isPreset = OPERATING_HOURS_OPTIONS.some(
-      opt => opt.value === location.operating_hours && opt.value !== 'custom'
-    );
+    // Try to parse existing hours string into days + time components
+    // Expected format: "Mon-Fri, 9:00 AM - 6:00 PM"
+    const hoursStr = location.operating_hours || '';
+    const match = hoursStr.match(/^(Mon-Fri|Mon-Sat|Sun-Sat),\s*(.+?)\s*-\s*(.+)$/);
+    if (match) {
+      setSelectedDays(match[1]);
+      setOpenTime(match[2].trim());
+      setCloseTime(match[3].trim());
+      setUseCustomHours(false);
+      setCustomHours('');
+    } else {
+      setSelectedDays('Mon-Fri');
+      setOpenTime('9:00 AM');
+      setCloseTime('6:00 PM');
+      setUseCustomHours(true);
+      setCustomHours(hoursStr);
+    }
     setLocationForm({
       name: location.name,
       address: location.address,
       city: location.city,
+      state: (location as any).state || '',
       pin_code: location.pin_code,
       contact_person: location.contact_person,
       contact_phone: location.contact_phone,
-      operating_hours: isPreset ? location.operating_hours : 'custom',
+      operating_hours: hoursStr,
       special_instructions: location.special_instructions || '',
     });
-    setCustomHours(isPreset ? '' : location.operating_hours);
-    setUseCustomHours(!isPreset);
     setShowLocationModal(true);
   };
 
@@ -254,8 +292,10 @@ export function Settings() {
     if (!enterpriseId) return;
     setIsSaving(true);
     try {
-      // Use custom hours if selected, otherwise use the dropdown value
-      const finalOperatingHours = useCustomHours ? customHours : locationForm.operating_hours;
+      // Combine day range + time range, or use custom free-text
+      const finalOperatingHours = useCustomHours
+        ? customHours
+        : `${selectedDays}, ${openTime} - ${closeTime}`;
       const formData = { ...locationForm, operating_hours: finalOperatingHours };
 
       if (editingLocation) {
@@ -903,19 +943,35 @@ export function Settings() {
                 </div>
                 <div>
                   <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
-                    PIN Code <span className="text-red-400">*</span>
+                    State
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    placeholder="e.g., 560001"
-                    value={locationForm.pin_code || ''}
-                    onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value.replace(/\D/g, '') })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
-                  />
+                  <select
+                    value={locationForm.state || ''}
+                    onChange={(e) => setLocationForm({ ...locationForm, state: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                  >
+                    <option value="" className="bg-white dark:bg-[#0a0a0a]">Select state</option>
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s} value={s} className="bg-white dark:bg-[#0a0a0a]">{s}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                  PIN Code <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="e.g., 560001"
+                  value={locationForm.pin_code || ''}
+                  onChange={(e) => setLocationForm({ ...locationForm, pin_code: e.target.value.replace(/\D/g, '') })}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -949,38 +1005,74 @@ export function Settings() {
 
               <div>
                 <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
-                  Operating Hours <span className="text-red-400">*</span>
+                  Operating Days <span className="text-red-400">*</span>
                 </label>
                 <select
-                  value={useCustomHours ? 'custom' : (locationForm.operating_hours || '')}
+                  value={useCustomHours ? 'Custom' : selectedDays}
                   onChange={(e) => {
-                    if (e.target.value === 'custom') {
+                    if (e.target.value === 'Custom') {
                       setUseCustomHours(true);
-                      setLocationForm({ ...locationForm, operating_hours: 'custom' });
                     } else {
                       setUseCustomHours(false);
                       setCustomHours('');
-                      setLocationForm({ ...locationForm, operating_hours: e.target.value });
+                      setSelectedDays(e.target.value);
                     }
                   }}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
                 >
-                  {OPERATING_HOURS_OPTIONS.map((opt) => (
+                  {OPERATING_DAYS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">
                       {opt.label}
                     </option>
                   ))}
                 </select>
-                {useCustomHours && (
+              </div>
+
+              {!useCustomHours ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      Opening Time <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={openTime}
+                      onChange={(e) => setOpenTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      {TIME_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      Closing Time <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={closeTime}
+                      onChange={(e) => setCloseTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer"
+                    >
+                      {TIME_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#0a0a0a]">{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                    Custom Hours <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g., Mon-Wed 9 AM - 5 PM, Thu-Sat 10 AM - 8 PM"
                     value={customHours}
                     onChange={(e) => setCustomHours(e.target.value)}
-                    className="w-full mt-2 px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
                 <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
@@ -1005,7 +1097,7 @@ export function Settings() {
               </button>
               <button
                 onClick={handleSaveLocation}
-                disabled={isSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : !locationForm.operating_hours)}
+                disabled={isSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : (!selectedDays || !openTime || !closeTime))}
                 className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSaving ? (

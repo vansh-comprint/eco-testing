@@ -146,6 +146,7 @@ export const logisticsApi = {
     query.set('role', 'logistics_user');
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
+    if (params.logistics_admin_id) query.set('logistics_admin_id', params.logistics_admin_id);
     return fetchWithAuth<LogisticsUserResponse[]>(`/users?${query.toString()}`);
   },
 

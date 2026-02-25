@@ -161,7 +161,6 @@ export function FinancialReports() {
         grade: a.grade || '-',
         base_price: Number(a.base_price) || 0,
         final_price: Number(a.final_price) || 0,
-        enterprise_id: a.enterprise_id,
         created_at: a.created_at,
         updated_at: a.updated_at,
       }));
@@ -195,7 +194,6 @@ export function FinancialReports() {
         model: a.model,
         grade: a.grade || '-',
         final_price: Number(a.final_price) || 0,
-        enterprise_id: a.enterprise_id,
         completed_at: a.updated_at,
       }));
       downloadCSV(data, 'payout_summary');

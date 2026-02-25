@@ -136,11 +136,20 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         </div>
       )}
 
-      {/* CSV Upload Component */}
+      {/* Branch required note for Org Admin */}
+      {isOrgAdmin && activeBranches.length > 1 && !selectedBranchId && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 font-mono text-xs text-amber-700 dark:text-amber-400">
+          <Building2 className="w-4 h-4 flex-shrink-0" />
+          Please select a branch above before downloading the template or uploading employees.
+        </div>
+      )}
+
+      {/* CSV Upload Component — gated behind branch selection for Org Admin with multiple branches */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
+        className={isOrgAdmin && activeBranches.length > 1 && !selectedBranchId ? 'opacity-50 pointer-events-none' : ''}
       >
         <CSVUserUpload
           enterpriseId={resolvedEnterpriseId}

@@ -51,7 +51,7 @@ export function SuperAdminDashboard() {
       onClick: () => navigate('/super/users'),
     },
     {
-      label: 'Active Admins',
+      label: 'Platform Admins',
       value: stats.admin_count ?? 0,
       icon: <Shield className={`${iconSize.lg} text-lime-500`} />,
       accent: 'brand' as StatAccent,
