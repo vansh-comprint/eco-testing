@@ -23,22 +23,21 @@ import {
 } from '@/hooks';
 import { ConfirmationModal, useToast } from '@/components/ui';
 
-// V3: Database pickup location type (snake_case)
+// V3: Database pickup location type (matches PickupLocationResponse from API)
 interface PickupLocation {
   id: string;
   enterprise_id: string;
   name: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  pin_code: string;
+  address: string;
+  city?: string;
+  state?: string;
+  pin_code?: string;
   contact_person?: string;
   contact_phone?: string;
   operating_hours?: string;
   special_instructions?: string;
   is_default?: boolean;
-  status?: string;
+  is_active?: boolean;
   created_at: string;
   updated_at?: string;
 }
@@ -46,11 +45,10 @@ interface PickupLocation {
 interface CreatePickupLocationInput {
   enterprise_id: string;
   name: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  pin_code: string;
+  address: string;
+  city?: string;
+  state?: string;
+  pin_code?: string;
   contact_person?: string;
   contact_phone?: string;
   operating_hours?: string;
@@ -78,7 +76,7 @@ export function PickupLocations() {
 
   const handleCreateLocation = async (input: CreatePickupLocationInput) => {
     try {
-      await createLocationMutation.mutateAsync(input as any);
+      await createLocationMutation.mutateAsync(input);
       setIsCreateModalOpen(false);
     } catch (error) {
       console.error('Failed to create location:', error);
@@ -177,7 +175,7 @@ export function PickupLocations() {
           {pickupLocations.map((location) => (
             <LocationCard
               key={location.id}
-              location={location as any}
+              location={location}
               onSetDefault={handleSetDefault}
               onEdit={setEditingLocation}
               onDelete={handleDelete}
@@ -236,10 +234,7 @@ interface LocationCardProps {
 }
 
 function LocationCard({ location, onSetDefault, onEdit, onDelete }: LocationCardProps) {
-  // V3: Combine address fields for display
-  const fullAddress = location.address_line2
-    ? `${location.address_line1}, ${location.address_line2}`
-    : location.address_line1;
+  const fullAddress = location.address;
 
   return (
     <motion.div
@@ -338,12 +333,10 @@ interface LocationModalProps {
 
 function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModalProps) {
   const { addToast } = useToast();
-  // V3: Use snake_case for form data to match database
   const [formData, setFormData] = useState<CreatePickupLocationInput>({
     enterprise_id: enterpriseId,
     name: location?.name || '',
-    address_line1: location?.address_line1 || '',
-    address_line2: location?.address_line2 || '',
+    address: location?.address || '',
     city: location?.city || '',
     state: location?.state || '',
     pin_code: location?.pin_code || '',
@@ -407,32 +400,18 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
             />
           </div>
 
-          {/* Address Line 1 */}
+          {/* Address */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-white/60 mb-2">
-              Address Line 1 *
+              Address *
             </label>
-            <input
-              type="text"
+            <textarea
               required
-              value={formData.address_line1}
-              onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-              placeholder="Building name, street address"
-              className="w-full px-3 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-ecotribe-primary focus:ring-1 focus:ring-ecotribe-primary"
-            />
-          </div>
-
-          {/* Address Line 2 */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-white/60 mb-2">
-              Address Line 2
-            </label>
-            <input
-              type="text"
-              value={formData.address_line2 || ''}
-              onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
-              placeholder="Area, landmark (optional)"
-              className="w-full px-3 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-ecotribe-primary focus:ring-1 focus:ring-ecotribe-primary"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Building name, street address, area, landmark"
+              rows={2}
+              className="w-full px-3 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-ecotribe-primary focus:ring-1 focus:ring-ecotribe-primary resize-none"
             />
           </div>
 
