@@ -21,6 +21,7 @@ class DisputeRepository(BaseRepository[Dispute]):
         raised_by_user_id: Optional[str] = None,
         assigned_to_user_id: Optional[str] = None,
         status: Optional[str] = None,
+        resolution: Optional[str] = None,
         dispute_type: Optional[str] = None,
         search: Optional[str] = None,
         skip: int = 0,
@@ -47,6 +48,8 @@ class DisputeRepository(BaseRepository[Dispute]):
             conditions.append(Dispute.assigned_to_user_id == assigned_to_user_id)
         if status:
             conditions.append(Dispute.status == status)
+        if resolution:
+            conditions.append(Dispute.resolution == resolution)
         if dispute_type:
             conditions.append(Dispute.dispute_type == dispute_type)
         if search:

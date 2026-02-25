@@ -70,6 +70,7 @@ async def list_disputes(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     status: str = Query(None, description="Filter by status: open, in_progress, resolved, escalated, closed"),
+    resolution: str = Query(None, description="Filter by resolution outcome: upheld, overturned, partial"),
     dispute_type: str = Query(None, description="Filter by type: grading, valuation, damage, missing_item, other"),
     search: str = Query(None, description="Search by serial number, brand, model, or description"),
     db: AsyncSession = Depends(get_db),
@@ -90,6 +91,7 @@ async def list_disputes(
         disputes, total = await service.list_disputes(
             user=current_user,
             status=status,
+            resolution=resolution,
             dispute_type=dispute_type,
             search=search,
             skip=skip,

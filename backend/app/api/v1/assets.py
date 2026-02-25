@@ -1,5 +1,6 @@
 """Asset management endpoints"""
 
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +50,8 @@ async def list_assets(
     sort_by: Optional[str] = Query(None, description="Sort order: newest (default), oldest, serial, brand"),
     enterprise_id: Optional[str] = Query(None, description="Filter by enterprise ID (platform admins only)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
+    date_from: Optional[datetime] = Query(None, description="Filter assets created on or after this date (ISO 8601)"),
+    date_to: Optional[datetime] = Query(None, description="Filter assets created on or before this date (ISO 8601)"),
     current_user: User = Depends(require_permission(Permission.ASSET_READ)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -125,6 +128,8 @@ async def list_assets(
         branch_ids=branch_ids,
         assigned_to_user_id=assigned_to_user_id,
         sort_by=sort_by,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     response = paginated_response(

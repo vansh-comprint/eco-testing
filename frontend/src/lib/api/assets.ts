@@ -55,6 +55,8 @@ export interface AssetListParams {
   enterprise_id?: string;
   search?: string;
   sort_by?: string;
+  date_from?: string;
+  date_to?: string;
 }
 
 export interface AssetCreateRequest {
@@ -114,6 +116,8 @@ export const assetsApi = {
     if (params.search) query.set('search', params.search);
     if (params.statuses) query.set('statuses', params.statuses);
     if (params.sort_by) query.set('sort_by', params.sort_by);
+    if (params.date_from) query.set('date_from', params.date_from);
+    if (params.date_to) query.set('date_to', params.date_to);
     return fetchWithAuth<AssetResponse[]>(`/assets?${query.toString()}`);
   },
 

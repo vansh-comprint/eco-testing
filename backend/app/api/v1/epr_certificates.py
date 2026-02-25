@@ -94,7 +94,12 @@ async def get_epr_certificate(
     from app.utils.scoping import is_platform_admin, can_access_enterprise
     if not is_platform_admin(current_user):
         cert_enterprise = getattr(certificate, 'enterprise_id', None)
-        if cert_enterprise and not can_access_enterprise(current_user, str(cert_enterprise)):
+        cert_sent_to = getattr(certificate, 'sent_to_enterprise_id', None)
+        has_access = (
+            (cert_enterprise and can_access_enterprise(current_user, str(cert_enterprise)))
+            or (cert_sent_to and can_access_enterprise(current_user, str(cert_sent_to)))
+        )
+        if not has_access:
             from app.utils.exceptions import AuthorizationError
             raise AuthorizationError("You do not have access to this certificate")
 

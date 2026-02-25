@@ -1,5 +1,6 @@
 """Asset repository for database operations"""
 
+from datetime import datetime
 from typing import Optional, List, Tuple, Dict
 from sqlalchemy import select, func, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +45,8 @@ class AssetRepository:
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
         sort_by: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> Tuple[List[Asset], int, float]:
         """Get all assets with filters and pagination. Returns (assets, total_count, total_value)."""
         query = select(Asset)
@@ -95,6 +98,16 @@ class AssetRepository:
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
             value_query = value_query.where(search_filter)
+
+        if date_from:
+            query = query.where(Asset.created_at >= date_from)
+            count_query = count_query.where(Asset.created_at >= date_from)
+            value_query = value_query.where(Asset.created_at >= date_from)
+
+        if date_to:
+            query = query.where(Asset.created_at <= date_to)
+            count_query = count_query.where(Asset.created_at <= date_to)
+            value_query = value_query.where(Asset.created_at <= date_to)
 
         # Get total count and total value
         total_result = await self.db.execute(count_query)

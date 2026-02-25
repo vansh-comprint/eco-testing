@@ -13,7 +13,8 @@ import {
   ArrowDownRight,
   Loader2
 } from 'lucide-react';
-import { useAuth, useAssets, useEnterprises } from '@/hooks';
+import { useAuth, useEnterprises } from '@/hooks';
+import { useInfiniteAssets } from '@/hooks/useAssets';
 import Papa from 'papaparse';
 
 type TimeRange = 'week' | 'month' | 'quarter' | 'year';
@@ -33,13 +34,60 @@ function getMonthKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
+function toISOString(date: Date): string {
+  return date.toISOString();
+}
+
 export function FinancialReports() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
-  const { data: assets = [] } = useAssets(enterpriseId);
   const { data: enterprises = [] } = useEnterprises();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [isExporting, setIsExporting] = useState<string | null>(null);
+
+  // Compute date bounds for the current period (server-side filtering)
+  const { dateFrom, dateTo, prevDateFrom, prevDateTo } = useMemo(() => {
+    const now = new Date();
+    const days = TIME_RANGE_DAYS[timeRange];
+    const currentCutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const previousCutoff = new Date(now.getTime() - days * 2 * 24 * 60 * 60 * 1000);
+    return {
+      dateFrom: toISOString(currentCutoff),
+      dateTo: toISOString(now),
+      prevDateFrom: toISOString(previousCutoff),
+      prevDateTo: toISOString(currentCutoff),
+    };
+  }, [timeRange]);
+
+  // Fetch current period assets with server-side date filtering (limit 500 per page)
+  const { data: currentPagesData } = useInfiniteAssets(
+    { enterprise_id: enterpriseId, date_from: dateFrom, date_to: dateTo },
+    500
+  );
+  const filteredAssets = useMemo(
+    () => currentPagesData?.pages.flatMap(p => p.data ?? []) ?? [],
+    [currentPagesData]
+  );
+
+  // Fetch previous period assets for growth comparison
+  const { data: prevPagesData } = useInfiniteAssets(
+    { enterprise_id: enterpriseId, date_from: prevDateFrom, date_to: prevDateTo },
+    500
+  );
+  const previousPeriodAssets = useMemo(
+    () => prevPagesData?.pages.flatMap(p => p.data ?? []) ?? [],
+    [prevPagesData]
+  );
+
+  // Fetch ALL assets (no date filter) for the 6-month trend chart
+  const { data: allPagesData } = useInfiniteAssets(
+    { enterprise_id: enterpriseId },
+    500
+  );
+  const assets = useMemo(
+    () => allPagesData?.pages.flatMap(p => p.data ?? []) ?? [],
+    [allPagesData]
+  );
 
   // Export helper function
   const downloadCSV = (data: object[], filename: string) => {
@@ -51,28 +99,6 @@ export function FinancialReports() {
     link.click();
     URL.revokeObjectURL(link.href);
   };
-
-  // Filter assets by selected time range
-  const filteredAssets = useMemo(() => {
-    const now = new Date();
-    const cutoff = new Date(now.getTime() - TIME_RANGE_DAYS[timeRange] * 24 * 60 * 60 * 1000);
-    return assets.filter(a => {
-      const date = new Date(a.updated_at || a.created_at);
-      return date >= cutoff;
-    });
-  }, [assets, timeRange]);
-
-  // Previous period assets for growth comparison
-  const previousPeriodAssets = useMemo(() => {
-    const now = new Date();
-    const days = TIME_RANGE_DAYS[timeRange];
-    const currentCutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    const previousCutoff = new Date(now.getTime() - days * 2 * 24 * 60 * 60 * 1000);
-    return assets.filter(a => {
-      const date = new Date(a.updated_at || a.created_at);
-      return date >= previousCutoff && date < currentCutoff;
-    });
-  }, [assets, timeRange]);
 
   // Calculate metrics from filtered assets
   const completedAssets = useMemo(() => filteredAssets.filter(a => a.status === 'completed'), [filteredAssets]);

@@ -1,8 +1,8 @@
 """Asset service for business logic"""
 
+from datetime import datetime, timezone
 from typing import Optional, List, Tuple
 from uuid import uuid4
-from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset import Asset, AssetStatus
@@ -51,6 +51,8 @@ class AssetService:
         assigned_to_user_id: Optional[str] = None,
         search: Optional[str] = None,
         sort_by: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> Tuple[List[AssetResponse], int, float]:
         """List assets with filters and pagination. Returns (assets, total_count, total_value)."""
         assets, total, total_value = await self.repository.get_all(
@@ -65,6 +67,8 @@ class AssetService:
             assigned_to_user_id=assigned_to_user_id,
             search=search,
             sort_by=sort_by,
+            date_from=date_from,
+            date_to=date_to,
         )
         return [self._asset_to_response(a) for a in assets], total, total_value
 

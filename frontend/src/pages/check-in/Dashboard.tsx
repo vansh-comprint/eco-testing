@@ -19,6 +19,7 @@ import { assetStatusLabels } from '@/types/asset';
 import type { AssetStatus } from '@/types/asset';
 import { glass, text, iconSize } from '@/lib/design-tokens';
 import { contentVariants, createSectionTransition } from '@/lib/animations';
+import { TERMINAL_ASSET_STATUSES } from '@/lib/constants';
 
 export function SubUserDashboard() {
   const navigate = useNavigate();
@@ -191,7 +192,7 @@ export function SubUserDashboard() {
                   <div className="px-4 pb-4">
                     <div className="flex items-center gap-1 mb-2">
                       {steps.map((step) => {
-                        const isTerminal = ['completed', 'final_accepted', 'final_rejected', 'payout_pending'].includes(asset.status);
+                        const isTerminal = (TERMINAL_ASSET_STATUSES as readonly string[]).includes(asset.status);
                         const isCompleted = step.id < config.step || (isTerminal && step.id === config.step);
                         const isCurrent = step.id === config.step && !isTerminal;
                         return (

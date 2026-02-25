@@ -19,7 +19,7 @@ import {
   Building2,
   ChevronRight,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin, useEmployeeBasePath } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin, useEmployeeBasePath, useBranches } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { subUserKeys } from '@/hooks/useEmployees';
@@ -98,6 +98,9 @@ export function EmployeeList() {
 
   const assets = isOrgAdmin ? orgAssets : itAssets;
   const assetsLoading = isOrgAdmin ? orgAssetsLoading : itAssetsLoading;
+
+  // Branch data for Org Admin branch selector dropdown
+  const { data: orgBranches = [] } = useBranches(isOrgAdmin ? (enterpriseId || '') : '');
 
   // Branch data for IT Admin — show branch badge when managing multiple branches
   const { data: itAdminBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? userId : '');
@@ -325,6 +328,35 @@ export function EmployeeList() {
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
+            {/* Branch selector — visible for Org Admin (multi-branch) and IT Admin (multi-branch) */}
+            {isOrgAdmin && orgBranches.length > 0 && (
+              <select
+                value={orgBranchFilter}
+                onChange={(e) => setOrgBranchFilter(e.target.value)}
+                className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
+              >
+                <option value="" className="bg-white dark:bg-[#0a0a0a]">All Branches</option>
+                {orgBranches.map((b: any) => (
+                  <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
+                    {b.branch_name || b.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {!isOrgAdmin && itAdminBranches.length > 1 && (
+              <select
+                value={itBranchCtx?.selectedBranchId || ''}
+                onChange={(e) => itBranchCtx?.setSelectedBranchId(e.target.value || null)}
+                className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
+              >
+                <option value="" className="bg-white dark:bg-[#0a0a0a]">All Branches</option>
+                {itAdminBranches.map((b: any) => (
+                  <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
+                    {b.branch_name || b.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -473,11 +505,11 @@ export function EmployeeList() {
             </div>
             <p className="font-display font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">No employees found</p>
             <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">
-              {searchQuery || statusFilter || departmentFilter
+              {searchQuery || statusFilter || departmentFilter || activeBranchFilter
                 ? 'Try adjusting your filters'
                 : 'Invite employees to start checking in devices'}
             </p>
-            {!searchQuery && !statusFilter && !departmentFilter && (
+            {!searchQuery && !statusFilter && !departmentFilter && !activeBranchFilter && (
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => navigate(`${basePath}/employees/upload`)}

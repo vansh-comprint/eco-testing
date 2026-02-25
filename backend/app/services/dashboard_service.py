@@ -676,7 +676,20 @@ async def get_dashboard_stats(
         stats["user_logistics_admin"] = uc.get(UserRole.LOGISTICS_ADMIN.value, 0)
         stats["user_logistics_user"] = uc.get(UserRole.LOGISTICS_USER.value, 0)
         stats["user_logistics"] = stats["user_logistics_admin"] + stats["user_logistics_user"]
-        stats["admin_count"] = stats["user_super_admin"] + stats["user_ops_admin"] + stats["user_logistics_admin"]
+        # admin_count: only active platform admins (super + ops + logistics admin)
+        stats["admin_count"] = await _count(
+            db,
+            select(func.count()).select_from(User).where(
+                and_(
+                    User.role.in_([
+                        UserRole.SUPER_ADMIN.value,
+                        UserRole.OPS_ADMIN.value,
+                        UserRole.LOGISTICS_ADMIN.value,
+                    ]),
+                    User.status == "active",
+                )
+            ),
+        )
 
         # -- Asset summary for Analytics --
         sa = await _status_counts(db, Asset, Asset.status)
