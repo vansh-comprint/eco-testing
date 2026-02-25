@@ -182,9 +182,10 @@ export function PickupRequestDetail() {
   // IMPORTANT: All hooks must be called before any early returns
   // Move useMemo BEFORE the conditional return to follow React's rules of hooks
   const filteredUsers = useMemo(() => {
-    if (!userSearch) return logisticsUsers;
+    const activeUsers = logisticsUsers.filter(u => u.status === 'active');
+    if (!userSearch) return activeUsers;
     const query = userSearch.toLowerCase();
-    return logisticsUsers.filter(u =>
+    return activeUsers.filter(u =>
       u.name?.toLowerCase().includes(query) ||
       u.email?.toLowerCase().includes(query) ||
       u.phone?.toLowerCase().includes(query)
@@ -801,15 +802,20 @@ export function PickupRequestDetail() {
                               )) : (
                                 <div className="p-5 text-center">
                                   <AlertTriangle className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-                                  <p className="font-mono text-sm text-slate-500 dark:text-white/50 mb-3">
-                                    {userSearch ? `No users found matching "${userSearch}"` : 'No field users yet'}
+                                  <p className="font-mono text-sm text-slate-500 dark:text-white/50 mb-1">
+                                    {userSearch ? `No users found matching "${userSearch}"` : 'No active field users found'}
                                   </p>
+                                  {!userSearch && (
+                                    <p className="font-mono text-xs text-slate-400 dark:text-white/30 mb-3">
+                                      Add a user from the Users section or create one below.
+                                    </p>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => { setIsUserDropdownOpen(false); setShowAddUser(true); }}
                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs uppercase hover:bg-amber-400/30 transition-colors"
                                   >
-                                    <Plus className="w-3 h-3" /> Add First User
+                                    <Plus className="w-3 h-3" /> Add New User
                                   </button>
                                 </div>
                               )}
