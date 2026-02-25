@@ -1,6 +1,6 @@
 # EcoTribe Bug Catalog — 2026-02-25
 
-> **Total Bugs: 40** | Fixed: 11 | Open: 29 | Grouped by portal/role
+> **Total Bugs: 40** | Fixed: 13 | Open: 27 | Grouped by portal/role
 
 ---
 
@@ -43,12 +43,12 @@
 | IT-03 | Employee | Missing filter-by-branch when IT admin has multiple branches assigned | Filter/Feature | Medium | OPEN |
 | IT-04 | Settings | Bank section should NOT appear for IT Admin | UI/Permissions | Medium | OPEN |
 | IT-05 | Settings | Enterprise fields should NOT be editable by IT Admin | Permissions | Medium | OPEN |
-| IT-06 | Settings > Pickup Location | Cannot delete or update existing pickup locations | Functional | High | OPEN |
+| IT-06 | Settings > Pickup Location | Cannot delete or update existing pickup locations | Functional | High | **FIXED** (a0b1e20) |
 | IT-07 | Settings > Add Location | Missing opening/closing days and hours fields in the form | Feature Gap | Medium | OPEN |
 | IT-08 | Settings > Add Location | Pickup location form fields should use dropdowns | UI/UX | Low | OPEN |
 | IT-09 | Assets | Bulk action card (assign/add to batch/delete) UI not proper — should be one line with cross icon in top-right | UI/Layout | Low | OPEN |
 | IT-10 | Assets | Employee dropdown in asset creation should filter by selected branch (currently shows all branches' employees) | Filter/Logic | Medium | OPEN |
-| IT-11 | Assets > Bulk Upload | File selection and CSV/Excel button not working from Assets page (works from Batch > Add Asset > Bulk Upload) | Functional | High | OPEN |
+| IT-11 | Assets > Bulk Upload | File selection and CSV/Excel button not working from Assets page (works from Batch > Add Asset > Bulk Upload) | Functional | High | **FIXED** (af7d666) |
 | IT-12 | Pickups | Filtering and stats card not in sync | Data/Filter | Medium | OPEN |
 
 ---
@@ -110,6 +110,8 @@
 | edc8422 | 2026-02-25 | OR-13, IT-02 | Fix IT Admin unassign (frontend `null` vs `undefined`), backend bidirectional sync, GET /users dynamic permission |
 | e92b3ad | 2026-02-25 | CP-01, LA-05, LA-03, LA-04, OR-08, SA-03 | EPR certificate push, logistics admin indicators, KPI card fixes, dashboard stats |
 | bb9ed33 | 2026-02-25 | OA-01 | Logistics user assignment dropdown in pickup queue |
+| a0b1e20 | 2026-02-25 | IT-06 | Fix pickup location CRUD: align frontend types with backend API contract |
+| af7d666 | 2026-02-25 | IT-11 | Fix bulk upload from Assets page: add inline branch selector |
 
 ---
 
@@ -117,32 +119,30 @@
 
 | Severity | Total | Fixed | Open | Bug IDs (Open) |
 |----------|-------|-------|------|----------------|
-| **High** | 10 | 6 | 4 | IT-06, IT-11, OR-07, SA-02 |
+| **High** | 10 | 8 | 2 | OR-07, SA-02 |
 | **Medium** | 22 | 4 | 18 | LA-01, OA-02, IT-03, IT-04, IT-05, IT-07, IT-10, IT-12, EM-01, OR-01, OR-02, OR-03, OR-06, OR-09, OR-10, OR-11, OR-14, OR-15, SA-01, SA-04 |
 | **Low** | 8 | 0 | 8 | LA-06, LU-01, IT-08, IT-09, OR-04, OR-05, OR-12 |
 
 ## Remaining Open by Priority
 
-### High Priority (4 remaining)
-1. **IT-06** — Settings > Pickup Location: Cannot delete or update existing pickup locations
-2. **IT-11** — Assets > Bulk Upload: File selection and CSV/Excel button not working from Assets page
-3. **OR-07** — Batches: Batch status not updating after payouts are processed
-4. **SA-02** — QC: Filters only work client-side — need server-side filtering
+### High Priority (2 remaining)
+1. **OR-07** — Batches: Batch status not updating after payouts are processed
+2. **SA-02** — QC: Filters only work client-side — need server-side filtering
 
 ### Medium Priority (18 remaining)
-5. OR-02, OR-09, IT-12, OR-15 — Filters not working across portals
-6. OR-03, OR-05, SA-04 — Export issues (Excel format/data)
-7. IT-03, IT-10, OR-14 — Branch-scoping missing
-8. OR-11 — Batch value display
-9. IT-04, IT-05 — IT Admin Settings permissions
-10. OR-01 — Payout permission error → "Coming Soon"
-11. OR-06 — Asset listing UI consistency
-12. OR-10 — Bulk upload branch selection
-13. EM-01 — Employee check-in status stuck
-14. OA-02 — Enterprise detail editing
-15. IT-07 — Pickup location form fields
-16. LA-01 — Logistics admin asset assign dropdown
-17. SA-01 — Super Admin dashboard stats
+3. OR-02, OR-09, IT-12, OR-15 — Filters not working across portals
+4. OR-03, OR-05, SA-04 — Export issues (Excel format/data)
+5. IT-03, IT-10, OR-14 — Branch-scoping missing
+6. OR-11 — Batch value display
+7. IT-04, IT-05 — IT Admin Settings permissions
+8. OR-01 — Payout permission error → "Coming Soon"
+9. OR-06 — Asset listing UI consistency
+10. OR-10 — Bulk upload branch selection
+11. EM-01 — Employee check-in status stuck
+12. OA-02 — Enterprise detail editing
+13. IT-07 — Pickup location form fields
+14. LA-01 — Logistics admin asset assign dropdown
+15. SA-01 — Super Admin dashboard stats
 
 ### Low Priority (8 remaining)
-18. LA-06, IT-08, IT-09, LU-01, OR-04, OR-12 — UI/validation/layout issues
+16. LA-06, IT-08, IT-09, LU-01, OR-04, OR-12 — UI/validation/layout issues
