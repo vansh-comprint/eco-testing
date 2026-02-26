@@ -78,7 +78,7 @@ class EPRCertificate(BaseModel):
     sent_by = Column(String, nullable=True)
 
     # Relationships
-    enterprise = relationship("Enterprise", back_populates="epr_certificates")
+    enterprise = relationship("Enterprise", back_populates="epr_certificates", foreign_keys=[enterprise_id])
     batch = relationship("Batch", back_populates="epr_certificate")
     sent_to_enterprise = relationship("Enterprise", foreign_keys=[sent_to_enterprise_id])
 

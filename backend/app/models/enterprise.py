@@ -137,7 +137,8 @@ class Enterprise(BaseModel):
     )
     payouts = relationship("Payout", back_populates="enterprise", cascade="all, delete-orphan")
     epr_certificates = relationship(
-        "EPRCertificate", back_populates="enterprise", cascade="all, delete-orphan"
+        "EPRCertificate", back_populates="enterprise", cascade="all, delete-orphan",
+        foreign_keys="EPRCertificate.enterprise_id"
     )
 
     def __repr__(self) -> str:
