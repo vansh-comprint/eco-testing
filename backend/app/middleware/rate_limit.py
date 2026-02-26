@@ -173,9 +173,10 @@ PAYOUT_RATE_LIMIT = RateLimitConfig(
     key_prefix="payout"
 )
 
-# Public file upload - 10 uploads per hour per IP
+# Public file upload - 30 uploads per hour per IP
+# Enterprise registration requires multiple docs (GST, PAN, incorporation, etc.)
 PUBLIC_UPLOAD_RATE_LIMIT = RateLimitConfig(
-    requests=10,
+    requests=30,
     window_seconds=3600,
     key_prefix="public_upload"
 )
