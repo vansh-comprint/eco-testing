@@ -276,8 +276,8 @@ async def seed():
         if epr_count < 1:
             try:
                 await conn.execute("""
-                    INSERT INTO epr_certificates (id, enterprise_id, certificate_number, issue_date, expiry_date, status, created_at, updated_at, created_by)
-                    VALUES ($1, $2, $3, $4, $5, 'active', $6, $6, 'seed-demo')
+                    INSERT INTO epr_certificates (id, enterprise_id, certificate_number, issue_date, expiry_date, status, total_weight_kg, created_at, updated_at, created_by)
+                    VALUES ($1, $2, $3, $4, $5, 'active', 25.0, $6, $6, 'seed-demo')
                 """, uid(), ent_id, f"EPR-2026-{str(uuid.uuid4())[:8].upper()}", NOW - timedelta(days=90), NOW + timedelta(days=275), NOW)
                 print(f"  [created] EPR certificate for TechCorp")
             except Exception as e:

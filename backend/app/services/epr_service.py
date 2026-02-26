@@ -159,7 +159,44 @@ class EPRCertificateService:
             updated_by=created_by,
         )
 
+        # Check for assets already assigned to another EPR certificate
+        if data.asset_ids:
+            already_assigned_result = await self.db.execute(
+                select(Asset.id, Asset.epr_certificate_id).where(
+                    Asset.id.in_(data.asset_ids),
+                    Asset.epr_certificate_id.isnot(None),
+                )
+            )
+            duplicates = already_assigned_result.all()
+            if duplicates:
+                dup_ids = [str(row[0]) for row in duplicates]
+                raise ValidationError(
+                    f"Assets already have EPR certificates: {', '.join(dup_ids[:5])}"
+                )
+
         certificate = await self.repository.create(certificate)
+
+        # Write back epr_certificate_id to each referenced asset
+        if data.asset_ids:
+            assets_result = await self.db.execute(
+                select(Asset).where(Asset.id.in_(data.asset_ids))
+            )
+            for asset in assets_result.scalars().all():
+                asset.epr_certificate_id = certificate.id
+            await self.db.flush()
+
+        # After certificate creation, update batch EPR tracking
+        if data.batch_id:
+            from app.models.batch import Batch
+            batch_result = await self.db.execute(
+                select(Batch).where(Batch.id == data.batch_id)
+            )
+            batch = batch_result.scalar_one_or_none()
+            if batch:
+                batch.epr_certificate_id = certificate.id
+                batch.epr_status = "pending"
+                await self.db.flush()
+
         return EPRCertificateResponse.model_validate(certificate)
 
     async def update_certificate(
@@ -186,6 +223,21 @@ class EPRCertificateService:
 
         certificate.updated_by = updated_by
         certificate = await self.repository.update(certificate)
+
+        # If status changed to issued, update batch epr_status too
+        if (
+            update_data.get("status") == EPRCertificateStatus.ISSUED.value
+            and certificate.batch_id
+        ):
+            from app.models.batch import Batch
+            batch_result = await self.db.execute(
+                select(Batch).where(Batch.id == certificate.batch_id)
+            )
+            batch = batch_result.scalar_one_or_none()
+            if batch:
+                batch.epr_status = "issued"
+                await self.db.flush()
+
         return EPRCertificateResponse.model_validate(certificate)
 
     async def delete_certificate(self, certificate_id: str) -> bool:
@@ -193,6 +245,14 @@ class EPRCertificateService:
         certificate = await self.repository.get_by_id(certificate_id)
         if not certificate:
             raise NotFoundError("EPR Certificate", certificate_id)
+        # Clear epr_certificate_id on all assets that referenced this certificate
+        if certificate.asset_ids:
+            assets_result = await self.db.execute(
+                select(Asset).where(Asset.id.in_(certificate.asset_ids))
+            )
+            for asset in assets_result.scalars().all():
+                asset.epr_certificate_id = None
+            await self.db.flush()
         return await self.repository.delete(certificate_id)
 
     async def get_weight_totals(self, enterprise_id: str) -> dict:

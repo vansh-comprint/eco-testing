@@ -25,9 +25,6 @@ export * from './payout';
 // Notification types
 export * from './notification';
 
-// EPR Certificate types
-export * from './epr';
-
 // Bulk Upload types
 export * from './bulkUpload';
 

@@ -123,6 +123,7 @@ export const Permission = {
   // Reports & Analytics
   VIEW_REPORTS: 'view_reports',
   VIEW_EPR_CERTIFICATES: 'view_epr_certificates',
+  MANAGE_EPR_CERTIFICATES: 'manage_epr_certificates',
 
   // Pricing & Analytics
   PRICING_READ: 'pricing_read',

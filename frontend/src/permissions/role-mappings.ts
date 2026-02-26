@@ -64,6 +64,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Set<PermissionValue>> = {
     Permission.FACILITY_QC,
     Permission.HANDLE_DISPUTES,
     Permission.VIEW_REPORTS,
+    Permission.VIEW_EPR_CERTIFICATES,
+    Permission.MANAGE_EPR_CERTIFICATES,
     Permission.HANDLE_ESCALATIONS,
     Permission.OVERRIDE_DECISIONS,
     Permission.VIEW_ALL_ENTERPRISES,
