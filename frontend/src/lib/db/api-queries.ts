@@ -67,26 +67,31 @@ export async function fetchUsersByEnterprise(enterpriseId: string) {
 
 export async function fetchAllAssets() {
   const response = await assetsApi.list({ limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 
 export async function fetchAssets(enterpriseId: string) {
   const response = await assetsApi.list({ enterprise_id: enterpriseId, limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 
 export async function fetchAssetById(assetId: string) {
   const response = await assetsApi.get(assetId);
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch asset');
   return response.data;
 }
 
 export async function fetchAssetsByBranch(branchId: string) {
   const response = await assetsApi.list({ branch_id: branchId, limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 
 export async function fetchAssetsByBatch(batchId: string) {
   const response = await assetsApi.list({ batch_id: batchId, limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 
@@ -100,6 +105,7 @@ export async function fetchAssetsByITAdmin(itAdminId: string, branchId?: string)
   const params: { limit: number; branch_id?: string } = { limit: 500 };
   if (branchId) params.branch_id = branchId;
   const response = await assetsApi.list(params);
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 
@@ -109,16 +115,18 @@ export async function fetchAssetsByITAdmin(itAdminId: string, branchId?: string)
 export async function fetchSelfAssignedAssets(userId: string) {
   // Self-assigned assets are assets where the user is both the IT admin and the assigned user
   const response = await assetsApi.list({ limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   const assets = response.data || [];
   // Filter client-side for self-assigned (assigned_to_user_id matches the current user)
   return Array.isArray(assets) ? assets.filter((a: any) => a.assigned_to_user_id === userId) : [];
 }
 
 /**
- * Fetch pending self-evaluations
+ * Fetch pending self-evaluations (assets assigned but not yet submitted)
  */
 export async function fetchPendingSelfEvaluations(userId: string) {
-  const response = await assetsApi.list({ status: 'pending_evaluation', limit: 100 });
+  const response = await assetsApi.list({ statuses: 'assigned,check_in_started', limit: 500 });
+  if (!response.success) throw new Error(response.error?.message || 'Failed to fetch assets');
   return response.data || [];
 }
 

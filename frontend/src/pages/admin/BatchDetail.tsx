@@ -18,7 +18,7 @@ import {
   Search,
   FileSpreadsheet
 } from 'lucide-react';
-import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useSubmitBatchForApproval, useDeleteBatch, useUpdateBatch, useBranches, useBranchesByITAdmin, useCreatePickupRequest, useCreateAsset, useApiError } from '@/hooks';
+import { useAuth, useBatches, useBatchesByITAdmin, useAssets, useAssetsByITAdmin, useAssetsByBatch, useSubmitBatchForApproval, useDeleteBatch, useUpdateBatch, useBranches, useBranchesByITAdmin, useCreatePickupRequest, useCreateAsset, useApiError } from '@/hooks';
 import { assetsApi } from '@/lib/api/assets';
 import { AssetForm } from '@/components/assets';
 import type { CreateAssetInput } from '@/hooks';
@@ -52,6 +52,9 @@ export function BatchDetail() {
   // V3.2: React Query hooks - use different hooks based on role
   const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
   const { data: itBatches = [], isLoading: itBatchesLoading } = useBatchesByITAdmin(isOrgAdmin ? '' : userId);
+  // Fetch batch-specific assets directly from backend (server-side batch_id filter)
+  const { data: batchAssetsData = [], isLoading: batchAssetsLoading } = useAssetsByBatch(batchId || '');
+  // Also fetch all assets for "available assets" list (unassigned to any batch)
   const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
   const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
@@ -91,7 +94,7 @@ export function BatchDetail() {
     }
   };
 
-  const isLoading = batchesLoading || assetsLoading;
+  const isLoading = batchesLoading || batchAssetsLoading || assetsLoading;
 
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [isCreatingPickup, setIsCreatingPickup] = useState(false);
@@ -134,23 +137,22 @@ export function BatchDetail() {
 
   const batch = batches.find(b => b.id === batchId);
 
+  // V3.3: Use server-fetched batch assets instead of client-side filtering
+  const batchAssets = batchAssetsData;
+
   // Auto-open submit modal when navigated with ?action=submit from batch list
   // Only open if there are verified assets to submit
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('action') === 'submit' && batch?.status === 'draft') {
-      const currentBatchAssets = assets.filter(a => a.batch_id === batchId);
-      const currentVerified = currentBatchAssets.filter(a =>
+      const currentVerified = batchAssets.filter(a =>
         a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
       );
       if (currentVerified.length > 0) {
         setShowSubmitModal(true);
       }
     }
-  }, [location.search, batch?.status, assets, batchId]);
-
-  // V3: Use snake_case field names
-  const batchAssets = assets.filter(a => a.batch_id === batchId);
+  }, [location.search, batch?.status, batchAssets]);
 
   // Available assets: not assigned to ANY batch, in the same branch, and in an eligible status
   const availableAssets = useMemo(() => {

@@ -42,7 +42,7 @@ async def _check_asset_access(db, asset_data, current_user: User):
 @router.get("", response_model=dict)
 async def list_assets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
+    limit: int = Query(10, ge=1, le=1000, description="Number of records to return"),
     batch_id: Optional[str] = Query(None, description="Filter by batch"),
     status: Optional[AssetStatus] = Query(None, description="Filter by single status"),
     statuses: Optional[str] = Query(None, description="Filter by multiple statuses (comma-separated)"),
