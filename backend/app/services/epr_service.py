@@ -190,6 +190,9 @@ class EPRCertificateService:
 
     async def delete_certificate(self, certificate_id: str) -> bool:
         """Delete an EPR certificate"""
+        certificate = await self.repository.get_by_id(certificate_id)
+        if not certificate:
+            raise NotFoundError("EPR Certificate", certificate_id)
         return await self.repository.delete(certificate_id)
 
     async def get_weight_totals(self, enterprise_id: str) -> dict:

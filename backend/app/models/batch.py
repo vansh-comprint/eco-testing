@@ -127,7 +127,7 @@ class Batch(BaseModel):
         "Payout", back_populates="batch", uselist=False, cascade="all, delete-orphan"
     )
     epr_certificate = relationship(
-        "EPRCertificate", back_populates="batch", uselist=False, cascade="all, delete-orphan"
+        "EPRCertificate", back_populates="batch", uselist=False, cascade="save-update, merge"
     )
 
     def __repr__(self) -> str:

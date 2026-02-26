@@ -68,9 +68,15 @@ async def get_weight_totals(
 
     **Permissions:** VIEW_EPR_CERTIFICATES
     """
+    from app.utils.scoping import is_platform_admin, can_access_enterprise
+
     eid = enterprise_id or current_user.enterprise_id
     if not eid:
         raise EcoTribeValidationError("Enterprise ID is required")
+
+    # Non-platform admins can only query their own enterprise
+    if not is_platform_admin(current_user) and not can_access_enterprise(current_user, eid):
+        raise AuthorizationError("You do not have access to this enterprise's data")
 
     service = EPRCertificateService(db)
     totals = await service.get_weight_totals(eid)
