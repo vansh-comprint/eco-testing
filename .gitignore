@@ -84,3 +84,6 @@ backend/storage/documents/
 
 # Frontend sub-project claude config
 frontend/.claude/
+
+# Docs
+docs/
