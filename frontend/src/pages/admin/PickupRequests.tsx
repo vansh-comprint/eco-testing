@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -19,6 +19,8 @@ import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useAuth, useInfinitePickups, useDebounce, useDashboardStats } from '@/hooks';
 // PickupRequestStatus type not used — statuses are raw strings from backend
 import { pickupTimeSlotLabels } from '@/types/pickup';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 
 // Backend PickupStatus values: pending, assigned_to_logistics_admin,
 // assigned_to_logistics_user, scheduled, in_progress, completed, failed, cancelled
@@ -59,18 +61,23 @@ export function PickupRequests() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Build server-side params (search + status + enterprise)
+  // Build server-side params (search + status + enterprise + branch)
   const apiParams = useMemo(() => {
     const params: Record<string, string | undefined> = {};
     if (statusFilter) params.status = statusFilter;
     if (enterpriseId) params.enterprise_id = enterpriseId;
     if (debouncedSearch) params.search = debouncedSearch;
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
     return params;
-  }, [statusFilter, enterpriseId, debouncedSearch]);
+  }, [statusFilter, enterpriseId, debouncedSearch, activeBranchFilter]);
 
   const { stats: dashStats } = useDashboardStats();
 
@@ -93,16 +100,15 @@ export function PickupRequests() {
   // All filtering and sorting is server-side (server returns created_at DESC by default)
   const filteredRequests = allPickups;
 
-  // Calculate stats — use backend stats for most, keep exceptions client-side
-  const stats = useMemo(() => {
-    const requested = dashStats.pickup_pending ?? allPickups.filter(r => r.status === 'pending').length;
-    const scheduled = dashStats.pickup_scheduled ?? allPickups.filter(r => r.status === 'scheduled').length;
-    const inProgress = dashStats.pickup_in_progress ?? allPickups.filter(r => r.status === 'in_progress').length;
-    const completed = dashStats.pickup_completed ?? allPickups.filter(r => r.status === 'completed').length;
-    const exceptions = allPickups.filter(r => r.status === 'failed' || r.status === 'cancelled').length;
-
-    return { requested, scheduled, inProgress, completed, exceptions };
-  }, [allPickups, dashStats]);
+  // Calculate stats — all from backend dashboard endpoint (filter-independent)
+  const stats = useMemo(() => ({
+    requested: dashStats.pickup_pending ?? 0,
+    scheduled: dashStats.pickup_scheduled ?? 0,
+    inProgress: dashStats.pickup_in_progress ?? 0,
+    completed: dashStats.pickup_completed ?? 0,
+    exceptions: dashStats.pickup_failed ?? 0,
+    total: dashStats.pickup_total ?? 0,
+  }), [dashStats]);
 
   // Get location name from REST API response (pickup_locations join)
   const getLocationName = (request: typeof allPickups[0]) => {
@@ -138,7 +144,7 @@ export function PickupRequests() {
             Pickup Requests
           </h1>
           <p className="font-display text-slate-500 dark:text-white/50 text-sm mt-2 uppercase tracking-wide">
-            {totalCount} total pickup requests
+            {stats.total || totalCount} total pickup requests
           </p>
         </motion.div>
       </div>

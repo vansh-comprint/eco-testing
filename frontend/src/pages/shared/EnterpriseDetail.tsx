@@ -912,7 +912,13 @@ export function EnterpriseDetail() {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className={`w-4 h-4 ${text.muted} flex-shrink-0`} />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingUser({ id: user.id, name: user.name || user.email, email: user.email, role: 'employee', status: user.status, phone: user.phone }); setIsEditUserModalOpen(true); }}
+                        className={`p-2 hover:bg-purple-500/10 transition-colors ${text.muted} hover:text-purple-500 flex-shrink-0`}
+                        title="Edit Employee"
+                      >
+                        <Edit2 className={iconSize.sm} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -981,6 +987,7 @@ export function EnterpriseDetail() {
           allowedRoles={[
             { value: 'org_admin', label: 'Org Admin' },
             { value: 'it_admin', label: 'IT Admin' },
+            { value: 'employee', label: 'Employee' },
           ]}
         />
       )}

@@ -74,6 +74,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
   const { enterprise } = useAuth();
   const enterpriseId = propEnterpriseId || enterprise?.id || '';
   const backLabel = 'Back';
+  const backPath = propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}` : `${portalBase}/it-admins`;
 
   const { data: branches = [] } = useBranches(enterpriseId);
   const bulkCreate = useBulkCreateITAdmins();
@@ -750,7 +751,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
               </button>
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(backPath)}
                 className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
               >
                 View IT Admins
@@ -771,7 +772,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton className="mb-6" />
+          <BackButton to={backPath} className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -947,7 +948,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
               </button>
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(backPath)}
                 className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
               >
                 {backLabel}
@@ -1179,7 +1180,7 @@ export function BulkITAdminUpload({ enterpriseId: propEnterpriseId }: BulkITAdmi
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate(backPath)}
               disabled={uploadStatus === 'uploading'}
               className="interactive px-6 py-3 text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white font-mono font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
             >

@@ -53,6 +53,7 @@ export function DisputeDetail() {
   // Determine base path based on current location
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  const assetsPath = isOrgAdmin ? '/org-admin/enterprise-assets' : `${basePath}/assets`;
 
   // Fetch dispute with asset details
   const { data: dispute, isLoading, error } = useDispute(disputeId || '');
@@ -481,7 +482,7 @@ export function DisputeDetail() {
               transition={{ delay: 0.35 }}
             >
               <button
-                onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
+                onClick={() => navigate(`${assetsPath}/${asset.id}`)}
                 className="w-full interactive px-5 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 transition-all flex items-center justify-center gap-2"
               >
                 <Laptop className="w-4 h-4" />

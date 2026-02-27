@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -15,6 +15,8 @@ import {
 import { useAuth, useAllAssets, useInfiniteDisputes, useDebounce, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
+import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 
 type DisputeStatus = 'pending' | 'upheld' | 'overturned' | 'partial';
 
@@ -37,13 +39,17 @@ export function DisputeList() {
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
 
+  const itBranchCtx = useContext(ITAdminBranchContext);
+  const orgBranchCtx = useOrgBranchSafe();
+  const activeBranchFilter = itBranchCtx?.selectedBranchId || orgBranchCtx?.selectedBranchId || null;
+
   const { stats: dashStats } = useDashboardStats();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Build server-side params (search + status)
+  // Build server-side params (search + status + branch)
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (statusFilter) {
@@ -60,8 +66,9 @@ export function DisputeList() {
       }
     }
     if (debouncedSearch) params.search = debouncedSearch;
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
     return params;
-  }, [statusFilter, debouncedSearch]);
+  }, [statusFilter, debouncedSearch, activeBranchFilter]);
 
   // Infinite scroll disputes — search + status are server-side
   const {

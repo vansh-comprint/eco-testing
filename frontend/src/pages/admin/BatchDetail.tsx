@@ -48,6 +48,8 @@ export function BatchDetail() {
   const isSuperAdmin = user?.role === 'super_admin' || location.pathname.startsWith('/super');
   const canSeeFinancials = isOrgAdmin || isOpsAdmin || isSuperAdmin;
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+  const assetsPath = isOrgAdmin ? '/org-admin/enterprise-assets' : `${basePath}/assets`;
+  const batchesPath = isOrgAdmin ? '/org-admin/enterprise-batches' : `${basePath}/batches`;
 
   // V3.2: React Query hooks - use different hooks based on role
   const { data: orgBatches = [], isLoading: orgBatchesLoading } = useBatches(isOrgAdmin ? enterpriseId : '');
@@ -395,7 +397,7 @@ export function BatchDetail() {
       await deleteBatchMutation.mutateAsync({ batchId: batch.id, deleteAssets, deleteSubUsers });
       showSuccess('Batch Deleted', 'Batch has been successfully deleted');
       // Navigate back to batch list after successful deletion
-      navigate(`${basePath}/batches`);
+      navigate(batchesPath);
     } catch (error) {
       handleError(error, 'Deleting batch');
       setIsDeleting(false);
@@ -603,7 +605,7 @@ export function BatchDetail() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.03 * Math.min(index, 10) }}
-                      onClick={() => navigate(`${basePath}/assets/${asset.id}`)}
+                      onClick={() => navigate(`${assetsPath}/${asset.id}`)}
                       className="border-b border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.05] cursor-pointer transition-colors"
                     >
                       <td className="py-4 px-5">
@@ -644,7 +646,7 @@ export function BatchDetail() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`${basePath}/assets/${asset.id}`);
+                            navigate(`${assetsPath}/${asset.id}`);
                           }}
                           className="interactive p-2 hover:bg-white/5 transition-colors"
                         >

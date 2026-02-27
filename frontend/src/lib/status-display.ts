@@ -148,8 +148,8 @@ export const ASSET_STATUS_FILTER_OPTIONS = [
 // Status groups for filtering
 export const ASSET_STATUS_GROUPS: Record<string, AssetStatus[]> = {
   in_review: ['submitted', 'remote_review', 'facility_qc'],
-  accepted: ['conditionally_accepted', 'final_accepted', 'payout_pending'],
-  rejected: ['remote_rejected', 'final_rejected'],
+  accepted: ['conditionally_accepted', 'final_accepted', 'ready_for_pickup', 'pickup_requested', 'pickup_scheduled', 'pickup_failed_qc', 'picked_up', 'in_transit', 'payout_pending'],
+  rejected: ['remote_rejected', 'final_rejected', 'disputed'],
   awaiting_verification: ['submitted', 'remote_review'],
   // V3.2: Ready for pickup - only assets explicitly approved for pickup by org admin
   ready_for_pickup: ['ready_for_pickup'],

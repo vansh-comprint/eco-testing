@@ -3,7 +3,7 @@
  * Org Admin view showing ALL employees (sub-users) across all branches
  * Grouped by branch with search and status filtering
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -23,6 +23,7 @@ import {
   UserX,
   UserCheck,
   ChevronRight,
+  Upload,
 } from 'lucide-react';
 import { useAuth, useInfiniteSubUsers, useAssets, useBranches, useDashboardStats, useDebounce, useApiError } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,6 +32,7 @@ import { subUserKeys } from '@/hooks/useEmployees';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal, DeactivationPreviewModal } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type ViewMode = 'list' | 'by-branch';
@@ -50,6 +52,13 @@ export function EnterpriseEmployees() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
   const [viewMode, setViewMode] = useState<ViewMode>(urlBranch ? 'list' : 'by-branch');
+
+  // Sync with sidebar branch selector (OrgBranchContext)
+  const orgBranchCtx = useOrgBranchSafe();
+  useEffect(() => {
+    if (!orgBranchCtx || urlBranch) return; // URL param takes priority
+    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+  }, [orgBranchCtx?.selectedBranchId, urlBranch]);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   // Deactivation: use preview modal (active → inactive)
   const [pendingDeactivate, setPendingDeactivate] = useState<{ userId: string; userName: string } | null>(null);
@@ -226,6 +235,13 @@ export function EnterpriseEmployees() {
             >
               <UserPlus className="w-4 h-4" />
               Add Employee
+            </button>
+            <button
+              onClick={() => navigate('/org-admin/employees/upload')}
+              className="px-4 py-2.5 bg-white/70 dark:bg-zinc-800/70 backdrop-blur-sm border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono font-bold text-xs uppercase tracking-widest hover:border-blue-500/40 transition-all flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Bulk Upload
             </button>
             <button
               onClick={handleExport}

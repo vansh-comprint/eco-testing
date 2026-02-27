@@ -3,8 +3,8 @@
  * Org Admin view showing ALL pickup requests across enterprise
  * Status tracking with branch filtering and logistics timeline
  */
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -24,18 +24,30 @@ import {
 } from 'lucide-react';
 import { useAuth, useInfinitePickups, useBranches, useDashboardStats } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type StatusFilter = 'all' | 'pending' | 'assigned' | 'scheduled' | 'in_progress' | 'completed' | 'failed';
 
 export function EnterprisePickups() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
+  const urlBranch = searchParams.get('branch');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
+
+  // Sync with sidebar branch selector (OrgBranchContext)
+  // URL ?branch= param takes priority over context (same pattern as EnterpriseAssets/EnterpriseBatches)
+  const orgBranchCtx = useOrgBranchSafe();
+  useEffect(() => {
+    if (!orgBranchCtx || urlBranch) return;
+    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+  }, [orgBranchCtx?.selectedBranchId, urlBranch]);
 
   // Map UI status groups to actual backend status values for server-side filtering
   const backendStatusParam = useMemo(() => {
@@ -68,16 +80,15 @@ export function EnterprisePickups() {
     return map;
   }, [branches]);
 
-  // Stats — use backend stats where available, keep failed client-side (no backend equivalent)
-  const stats = useMemo(() => {
-    const pending = dashStats.pickup_pending ?? pickups.filter(p => p.status === 'pending').length;
-    const assigned = dashStats.pickup_assigned ?? pickups.filter(p => ['assigned_to_logistics_admin', 'assigned_to_logistics_user'].includes(p.status)).length;
-    const scheduled = dashStats.pickup_scheduled ?? pickups.filter(p => p.status === 'scheduled').length;
-    const inProgress = dashStats.pickup_in_progress ?? pickups.filter(p => p.status === 'in_progress').length;
-    const completed = dashStats.pickup_completed ?? pickups.filter(p => p.status === 'completed').length;
-    const failed = pickups.filter(p => ['failed', 'cancelled'].includes(p.status)).length;
-    return { pending, assigned, scheduled, inProgress, completed, failed };
-  }, [pickups, dashStats]);
+  // Stats from backend dashboard endpoint (filter-independent)
+  const stats = useMemo(() => ({
+    pending: dashStats.pickup_pending ?? 0,
+    assigned: dashStats.pickup_assigned ?? 0,
+    scheduled: dashStats.pickup_scheduled ?? 0,
+    inProgress: dashStats.pickup_in_progress ?? 0,
+    completed: dashStats.pickup_completed ?? 0,
+    failed: dashStats.pickup_failed ?? 0,
+  }), [dashStats]);
 
   // Filtered pickups
   const filteredPickups = useMemo(() => {
@@ -281,7 +292,7 @@ export function EnterprisePickups() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.03 * Math.min(idx, 10) }}
-                  onClick={() => navigate(`/org-admin/pickups/${pickup.id}`)}
+                  onClick={() => navigate(`/org-admin/enterprise-pickups/${pickup.id}`)}
                   className="p-5 hover:bg-white/60 dark:hover:bg-white/[0.04] cursor-pointer transition-colors group"
                 >
                   <div className="flex items-start gap-4">

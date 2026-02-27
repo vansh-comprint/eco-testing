@@ -33,6 +33,8 @@ export interface DisputeListParams {
   resolution?: string;
   dispute_type?: string;
   search?: string;
+  branch_id?: string;
+  enterprise_id?: string;
 }
 
 export interface DisputeCreateRequest {
@@ -55,6 +57,8 @@ export const disputesApi = {
     if (params.resolution) query.set('resolution', params.resolution);
     if (params.dispute_type) query.set('dispute_type', params.dispute_type);
     if (params.search) query.set('search', params.search);
+    if (params.branch_id) query.set('branch_id', params.branch_id);
+    if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);
     return fetchWithAuth<DisputeResponse[]>(`/disputes?${query.toString()}`);
   },
 

@@ -3,7 +3,7 @@
  * Org Admin view showing ALL batches across enterprise with IT Admin attribution
  * Pipeline overview with status-based filtering and drill-down
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -27,6 +27,7 @@ import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteSc
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
 import { safeNumber } from '@/utils/formatters';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type StatusGroup = 'all' | 'draft' | 'pending_approval' | 'approved' | 'pickup' | 'completed' | 'rejected';
@@ -45,6 +46,14 @@ export function EnterpriseBatches() {
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState<StatusGroup>((normalizedStatus as StatusGroup) || 'all');
   const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || 'all');
+
+  // Sync with sidebar branch selector (OrgBranchContext)
+  const orgBranchCtx = useOrgBranchSafe();
+  const urlBranch = searchParams.get('branch');
+  useEffect(() => {
+    if (!orgBranchCtx || urlBranch) return;
+    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+  }, [orgBranchCtx?.selectedBranchId, urlBranch]);
 
   // Map status filter groups to actual status values for server-side filtering
   const STATUS_GROUP_MAP: Record<string, string> = {
@@ -110,7 +119,7 @@ export function EnterpriseBatches() {
     return values;
   }, [assets]);
 
-  // Filtered-aware stats: use batch list data when filters are active
+  // Filtered-aware stats: use batch list data when filters active, dashboardStats otherwise
   const stats = useMemo(() => {
     const isFiltered = branchFilter !== 'all' || !!debouncedSearch;
 
@@ -290,7 +299,7 @@ export function EnterpriseBatches() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.03 * Math.min(idx, 10) }}
-                onClick={() => navigate(`/org-admin/batches/${batch.id}`)}
+                onClick={() => navigate(`/org-admin/enterprise-batches/${batch.id}`)}
                 className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 hover:border-lime-500/25 dark:hover:border-lime-400/20 hover:shadow-md hover:shadow-lime-500/5 hover:-translate-y-0.5 cursor-pointer transition-all duration-200"
               >
                 <div className="p-5">

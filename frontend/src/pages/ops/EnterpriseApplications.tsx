@@ -65,6 +65,7 @@ interface EnterpriseApplication {
   review_notes: string | null;
   admin_notes: string | null;
   rejection_reason: string | null;
+  enterprise_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -742,7 +743,7 @@ export function EnterpriseApplications() {
                                   {expandedApplication.status === 'approved' && (
                                     <button
                                       type="button"
-                                      onClick={() => navigate(`${basePath}/enterprises`)}
+                                      onClick={() => navigate(`${basePath}/enterprises/${expandedApplication.enterprise_id}`)}
                                       className="w-full interactive py-3 border border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-all font-mono font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2"
                                     >
                                       <Building2 className="w-4 h-4" /> View Enterprise

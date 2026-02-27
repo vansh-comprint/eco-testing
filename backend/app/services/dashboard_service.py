@@ -280,10 +280,17 @@ _ASSET_ACCEPTED = [
     AssetStatus.CONDITIONALLY_ACCEPTED.value,
     AssetStatus.FINAL_ACCEPTED.value,
     AssetStatus.READY_FOR_PICKUP.value,
+    AssetStatus.PICKUP_REQUESTED.value,
+    AssetStatus.PICKUP_SCHEDULED.value,
+    AssetStatus.PICKUP_FAILED_QC.value,
+    AssetStatus.PICKED_UP.value,
+    AssetStatus.IN_TRANSIT.value,
+    AssetStatus.PAYOUT_PENDING.value,
 ]
 _ASSET_REJECTED = [
     AssetStatus.REMOTE_REJECTED.value,
     AssetStatus.FINAL_REJECTED.value,
+    AssetStatus.DISPUTED.value,
 ]
 
 
@@ -450,6 +457,11 @@ async def get_dashboard_stats(
         stats["pickup_scheduled"] = pc.get(PickupStatus.SCHEDULED.value, 0)
         stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
         stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
+        stats["pickup_total"] = sum(pc.values())
+        stats["pickup_failed"] = (
+            pc.get(PickupStatus.FAILED.value, 0)
+            + pc.get(PickupStatus.CANCELLED.value, 0)
+        )
 
         # -- Employee stats for Org Admin --
         stats["employee_total"] = await _count(
@@ -578,6 +590,11 @@ async def get_dashboard_stats(
         )
         stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
         stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
+        stats["pickup_total"] = sum(pc.values())
+        stats["pickup_failed"] = (
+            pc.get(PickupStatus.FAILED.value, 0)
+            + pc.get(PickupStatus.CANCELLED.value, 0)
+        )
 
         # -- Employee stats for IT Admin --
         emp_filters = [User.enterprise_id == eid, User.role.in_([UserRole.EMPLOYEE.value, "sub_user"])]

@@ -61,7 +61,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <BackButton to={propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}/employees` : `${portalBase}/employees`} className="mb-6" />
+          <BackButton to={propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}` : `${portalBase}/employees`} className="mb-6" />
 
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 border border-ecotribe-primary/30 bg-ecotribe-primary/10 flex items-center justify-center">
@@ -158,7 +158,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
           branchId={autoSelectedBranchId || undefined}
           branches={activeBranches}
           onUpload={handleUpload}
-          onCancel={() => navigate(propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}/employees` : `${portalBase}/employees`)}
+          onCancel={() => navigate(propEnterpriseId ? `${portalBase}/enterprises/${propEnterpriseId}` : `${portalBase}/employees`)}
           isOrgAdmin={isOrgAdmin}
         />
       </motion.div>

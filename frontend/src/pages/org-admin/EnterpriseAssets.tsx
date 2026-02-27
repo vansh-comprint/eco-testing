@@ -3,7 +3,7 @@
  * Org Admin view showing ALL assets across all branches
  * Read-only overview with branch filtering and drill-down to AssetDetail
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -29,6 +29,7 @@ import { iconSize } from '@/lib/design-tokens';
 import { getAssetStatusDisplay } from '@/lib/status-display';
 import type { AssetStatus } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type SortOption = 'newest' | 'oldest' | 'serial' | 'brand';
@@ -45,13 +46,22 @@ export function EnterpriseAssets() {
   const [branchFilter, setBranchFilter] = useState(searchParams.get('branch') || 'all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
+  // Sync with sidebar branch selector (OrgBranchContext)
+  const orgBranchCtx = useOrgBranchSafe();
+  const urlBranch = searchParams.get('branch');
+  useEffect(() => {
+    if (!orgBranchCtx || urlBranch) return;
+    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+  }, [orgBranchCtx?.selectedBranchId, urlBranch]);
+
   // Map status filter groups to actual status values for server-side filtering
+  // Must match backend _ASSET_* groupings in dashboard_service.py
   const STATUS_GROUP_MAP: Record<string, string> = {
     pending: 'pending_assignment,assigned,check_in_started',
     in_review: 'submitted,remote_review,facility_qc',
-    accepted: 'conditionally_accepted,final_accepted,ready_for_pickup',
+    accepted: 'conditionally_accepted,final_accepted,ready_for_pickup,pickup_requested,pickup_scheduled,pickup_failed_qc,picked_up,in_transit,payout_pending',
     completed: 'completed',
-    rejected: 'remote_rejected,final_rejected',
+    rejected: 'remote_rejected,final_rejected,disputed',
   };
 
   // Server-side search + enterprise + status + branch filter + sort
@@ -279,7 +289,7 @@ export function EnterpriseAssets() {
                 return (
                   <div
                     key={asset.id}
-                    onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
+                    onClick={() => navigate(`/org-admin/enterprise-assets/${asset.id}`)}
                     className="p-4 cursor-pointer active:bg-slate-50 dark:active:bg-white/[0.03] transition-colors"
                   >
                     <div className="flex items-start gap-3">
@@ -360,7 +370,7 @@ export function EnterpriseAssets() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.03 * Math.min(index, 10) }}
-                        onClick={() => navigate(`/org-admin/assets/${asset.id}`)}
+                        onClick={() => navigate(`/org-admin/enterprise-assets/${asset.id}`)}
                         className="hover:bg-white/70 dark:hover:bg-white/[0.06] cursor-pointer transition-colors group"
                       >
                         <td className="py-4 px-6">
@@ -406,7 +416,7 @@ export function EnterpriseAssets() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/org-admin/assets/${asset.id}`);
+                              navigate(`/org-admin/enterprise-assets/${asset.id}`);
                             }}
                             className="interactive p-2 border border-slate-200 dark:border-white/10 hover:border-ecotribe-primary/30 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                           >

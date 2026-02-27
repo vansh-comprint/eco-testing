@@ -177,7 +177,14 @@ export function PickupRequestDetail() {
     ? '/logistics-admin/assignments'
     : basePath === '/logistics'
     ? '/logistics'
+    : basePath === '/org-admin'
+    ? '/org-admin/enterprise-pickups'
     : `${basePath}/pickups`;
+
+  const assetsDetailPath = (assetId: string) =>
+    basePath === '/org-admin'
+      ? `/org-admin/enterprise-assets/${assetId}`
+      : `${basePath}/assets/${assetId}`;
 
   // IMPORTANT: All hooks must be called before any early returns
   // Move useMemo BEFORE the conditional return to follow React's rules of hooks
@@ -455,7 +462,7 @@ export function PickupRequestDetail() {
                 return (
                   <div
                     key={assetId || idx}
-                    onClick={() => navigate(`${basePath}/assets/${assetId}`)}
+                    onClick={() => assetId && navigate(assetsDetailPath(assetId))}
                     className="p-4 hover:bg-slate-50 dark:hover:bg-white/[0.05] cursor-pointer transition-colors group flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4">

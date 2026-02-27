@@ -3,8 +3,8 @@
  * Org Admin view showing ALL disputes across enterprise with branch attribution
  * Read-only overview with status filtering
  */
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -24,18 +24,30 @@ import { useAuth, useInfiniteDisputes, useAssets, useBranches, useDashboardStats
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
+import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type StatusFilter = 'all' | 'pending' | 'upheld' | 'overturned' | 'partial';
 
 export function EnterpriseDisputes() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
 
+  const urlBranch = searchParams.get('branch');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState('all');
+  const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
+
+  // Sync with sidebar branch selector (OrgBranchContext)
+  // URL ?branch= param takes priority over context (same pattern as EnterpriseAssets/EnterpriseBatches)
+  const orgBranchCtx = useOrgBranchSafe();
+  useEffect(() => {
+    if (!orgBranchCtx || urlBranch) return;
+    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+  }, [orgBranchCtx?.selectedBranchId, urlBranch]);
 
   // Map frontend display status to backend API params (status + resolution)
   const apiFilterMap: Record<string, { status: string; resolution?: string }> = {
@@ -69,15 +81,14 @@ export function EnterpriseDisputes() {
     return map;
   }, [assets]);
 
-  // Stats — use backend stats where available, keep partial client-side
-  const stats = useMemo(() => {
-    const total = dashStats.dispute_total ?? disputes.length;
-    const pending = dashStats.dispute_pending ?? disputes.filter(d => d.status === 'pending').length;
-    const upheld = dashStats.dispute_upheld ?? disputes.filter(d => d.status === 'upheld').length;
-    const overturned = dashStats.dispute_overturned ?? disputes.filter(d => d.status === 'overturned').length;
-    const partial = disputes.filter(d => d.status === 'partial').length;
-    return { total, pending, upheld, overturned, partial };
-  }, [disputes, dashStats]);
+  // Stats — all from backend dashboard endpoint (filter-independent)
+  const stats = useMemo(() => ({
+    total: dashStats.dispute_total ?? 0,
+    pending: dashStats.dispute_pending ?? 0,
+    upheld: dashStats.dispute_upheld ?? 0,
+    overturned: dashStats.dispute_overturned ?? 0,
+    partial: 0, // TODO: add dispute_partial to backend if needed
+  }), [dashStats]);
 
   // Filtered disputes
   const filteredDisputes = useMemo(() => {
@@ -261,7 +272,7 @@ export function EnterpriseDisputes() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.03 * Math.min(idx, 10) }}
-                onClick={() => navigate(`/org-admin/disputes/${dispute.id}`)}
+                onClick={() => navigate(`/org-admin/enterprise-disputes/${dispute.id}`)}
                 className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 hover:border-lime-500/25 dark:hover:border-lime-400/20 hover:shadow-md hover:shadow-lime-500/5 hover:-translate-y-0.5 cursor-pointer transition-all duration-200"
               >
                 <div className="p-5 flex items-start gap-4">

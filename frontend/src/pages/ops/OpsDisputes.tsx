@@ -37,14 +37,15 @@ export function OpsDisputes() {
   const [resolverNotes, setResolverNotes] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // Infinite scroll disputes — pass status + search to server
+  // Infinite scroll disputes — pass status + search + enterprise to server
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (statusFilter === 'pending') params.status = 'open';
     // 'resolved' and 'all' are handled client-side since there's no single "resolved" status value
     if (debouncedSearch) params.search = debouncedSearch;
+    if (!isAllEnterprises && selectedEnterpriseId) params.enterprise_id = selectedEnterpriseId;
     return params;
-  }, [statusFilter, debouncedSearch]);
+  }, [statusFilter, debouncedSearch, isAllEnterprises, selectedEnterpriseId]);
 
   const {
     data: disputeData,

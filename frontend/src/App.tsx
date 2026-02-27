@@ -101,7 +101,7 @@ const orgAdminNavItems = [
     label: 'Organization', path: '/org-admin/branches', icon: <EnterpriseIcon />, children: [
       { label: 'Branches', path: '/org-admin/branches', icon: <EnterpriseIcon />, permission: Permission.MANAGE_BRANCHES },
       { label: 'IT Admins', path: '/org-admin/it-admins', icon: <UsersIcon />, permission: Permission.MANAGE_IT_ADMINS },
-      { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+      { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
       { label: 'Settings', path: '/org-admin/settings', icon: <SettingsIcon />, permission: Permission.ENTERPRISE_UPDATE },
     ]
   },
@@ -131,7 +131,7 @@ const orgAdminNavItems = [
 const orgAdminITViewNavItems = [
   { label: 'Assets', path: '/org-admin/assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
   { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon />, permission: Permission.BATCH_READ },
-  { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
   { label: 'Pickups', path: '/org-admin/pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
   { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
   { label: 'Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon />, permission: Permission.SUBMISSION_VIEW },
@@ -389,10 +389,15 @@ function AppRoutes() {
         <Route path="settings" element={<OrgAdminSettings />} />
         {/* Enterprise-level overview pages */}
         <Route path="enterprise-assets" element={<EnterpriseAssets />} />
+        <Route path="enterprise-assets/:assetId" element={<AssetDetail />} />
         <Route path="enterprise-batches" element={<EnterpriseBatches />} />
-        <Route path="enterprise-employees" element={<EnterpriseEmployees />} />
+        <Route path="enterprise-batches/:batchId" element={<BatchDetail />} />
+        {/* Backward-compat redirect: old enterprise-employees URL → /org-admin/employees */}
+        <Route path="enterprise-employees" element={<Navigate to="/org-admin/employees" replace />} />
         <Route path="enterprise-pickups" element={<EnterprisePickups />} />
+        <Route path="enterprise-pickups/:requestId" element={<PickupRequestDetail />} />
         <Route path="enterprise-disputes" element={<EnterpriseDisputes />} />
+        <Route path="enterprise-disputes/:disputeId" element={<DisputeDetail />} />
         {/* Branch Operations routes (IT Admin CRUD via toggle) */}
         <Route path="assets" element={<AssetList />} />
         <Route path="assets/new" element={<AddAsset />} />
@@ -406,7 +411,7 @@ function AppRoutes() {
         <Route path="evaluate/:assetId" element={<DeviceSubmit />} />
         <Route path="submissions/:assetId" element={<SubmissionDetail />} />
         <Route path="bulk-uploads/:uploadId" element={<BulkUploadDetail />} />
-        <Route path="employees" element={<EmployeeList />} />
+        <Route path="employees" element={<EnterpriseEmployees />} />
         <Route path="employees/:subUserId" element={<EmployeeDetail />} />
         <Route path="employees/invite" element={<EmployeeInvite />} />
         <Route path="employees/upload" element={<BulkUserUpload />} />

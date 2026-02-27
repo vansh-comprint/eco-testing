@@ -379,7 +379,7 @@ export function OrgAdminDashboard() {
                 </div>
               </div>
               <div
-                onClick={() => navigate('/org-admin/disputes')}
+                onClick={() => navigate('/org-admin/enterprise-disputes')}
                 className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3 cursor-pointer hover:border-amber-500/30 transition-colors"
               >
                 <AlertTriangle className="w-4 h-4 text-amber-500" />

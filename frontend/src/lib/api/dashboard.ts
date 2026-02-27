@@ -83,6 +83,8 @@ export interface DashboardStats {
   // Pickup breakdown (IT Admin, Org Admin, OPS Admin)
   pickup_pending?: number;
   pickup_scheduled?: number;
+  pickup_total?: number;
+  pickup_failed?: number;
 
   // Employee (IT Admin, Org Admin)
   employee_total?: number;
