@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAllAssets, useAllSubUsers, assetKeys, useCreateDispute, useDisputeByAsset, disputeKeys } from '@/hooks';
+import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
+import { batchKeys } from '@/hooks/useBatches';
 import { usersApi } from '@/lib/api/users';
 import { reviewsApi } from '@/lib/api/reviews';
 import { submissionsApi } from '@/lib/api/submissions';
@@ -299,8 +301,11 @@ export function SubmissionDetail() {
         addToast({ type: 'error', title: 'Approval Failed', message: result.error?.message || 'Failed to approve submission.' });
         return;
       }
-      // Invalidate asset queries so UI reflects new status
+      // Invalidate caches so destination page reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       setShowApproveModal(false);
       addToast({ type: 'success', title: 'Submission Accepted', message: 'The device has been conditionally accepted.' });
       navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);
@@ -325,8 +330,11 @@ export function SubmissionDetail() {
         addToast({ type: 'error', title: 'Rejection Failed', message: result.error?.message || 'Failed to reject submission.' });
         return;
       }
-      // Invalidate asset queries so UI reflects new status
+      // Invalidate caches so destination page reflects new status
       queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       setShowRejectModal(false);
       addToast({ type: 'success', title: 'Submission Rejected', message: 'The employee will be notified.' });
       navigate(`${basePath}${(isOpsAdmin || isSuperAdmin) ? '/reviews' : '/dashboard'}`);

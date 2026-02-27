@@ -751,15 +751,15 @@ export function PickupRequestDetail() {
                         <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
                       </button>
 
-                      {/* Dropdown panel */}
+                      {/* Dropdown panel - uses normal flow (not absolute) so modal can scroll */}
                       <AnimatePresence>
                         {isUserDropdownOpen && (
                           <motion.div
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute top-full left-0 right-0 z-20 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl"
+                            className="border border-t-0 border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden"
                           >
                             {/* Search + Add New */}
                             <div className="flex gap-2 p-2 border-b border-slate-200 dark:border-white/10">

@@ -20,7 +20,10 @@ import {
   FileCheck,
   Send,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, useAsset, useApiError } from '@/hooks';
+import { assetKeys } from '@/hooks/useAssets';
+import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { useSubmissionStore } from '@/stores';
 import {
   PHOTO_SLOTS,
@@ -44,6 +47,7 @@ const STEPS = [
 export function DeviceSubmit() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { assetId } = useParams<{ assetId: string }>();
   const { user } = useAuth();
   
@@ -147,8 +151,11 @@ export function DeviceSubmit() {
         },
       });
 
-      // Wait a bit to ensure persistence
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Invalidate cached asset data so dashboard shows updated status immediately
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assetKeys.all }),
+        queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all }),
+      ]);
 
       showSuccess('Device Submitted', 'Your device evaluation has been submitted successfully');
       const successPath = basePath === '/check-in' ? `${basePath}/success` : `${basePath}/my-evaluations`;

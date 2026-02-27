@@ -58,6 +58,9 @@ export function BatchList() {
 
   // Determine base path for navigation
   const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
+  const isOpsAdmin = user?.role === 'ops_admin' || location.pathname.startsWith('/ops');
+  const isSuperAdmin = user?.role === 'super_admin' || location.pathname.startsWith('/super');
+  const canSeeFinancials = isOrgAdmin || isOpsAdmin || isSuperAdmin;
 
   // Debug logging
   console.log('📋 BatchList - user:', user?.name, 'userId:', userId, 'role:', user?.role, 'isOrgAdmin:', isOrgAdmin);
@@ -238,13 +241,13 @@ export function BatchList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className={`grid grid-cols-2 sm:grid-cols-3 ${isOrgAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm`}
+        className={`grid grid-cols-2 sm:grid-cols-3 ${canSeeFinancials ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm`}
       >
         <StatBox label="Total" value={stats.total} icon={<Package className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Draft" value={stats.draft} icon={<Clock className="w-4 h-4" />} onClick={() => handleStatClick('draft')} active={statusFilter === 'draft'} />
         <StatBox label="Pending" value={stats.pendingApproval} icon={<AlertTriangle className="w-4 h-4" />} highlight={stats.pendingApproval > 0} onClick={() => handleStatClick('pending_approval')} active={statusFilter === 'pending_approval'} />
         <StatBox label="Active" value={stats.active} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('approved,pickup_in_progress')} active={statusFilter === 'approved,pickup_in_progress'} />
-        {isOrgAdmin && <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />}
+        {canSeeFinancials && <StatBox label="Total Value" value={`₹${(stats.totalValue / 100000).toFixed(1)}L`} icon={<IndianRupee className="w-4 h-4" />} isText />}
       </motion.div>
 
       {/* Search & Filters */}
@@ -346,8 +349,8 @@ export function BatchList() {
                         <span>
                           Created {format(new Date(batch.created_at), 'MMM d, yyyy')}
                         </span>
-                        {/* Value inline on mobile — Org Admin only */}
-                        {isOrgAdmin && (
+                        {/* Value inline on mobile — financial roles only */}
+                        {canSeeFinancials && (
                           <span className="sm:hidden font-brand font-bold text-ecotribe-primary">
                             ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K
                           </span>
@@ -360,8 +363,8 @@ export function BatchList() {
                       )}
                     </div>
 
-                    {/* Value - desktop only, Org Admin only */}
-                    {isOrgAdmin && (
+                    {/* Value - desktop only, financial roles only */}
+                    {canSeeFinancials && (
                       <div className="hidden sm:block text-right flex-shrink-0">
                         <p className="font-brand font-bold text-2xl text-ecotribe-primary">
                           ₹{(safeNumber(batch.estimated_value) / 1000).toFixed(0)}K

@@ -5,6 +5,7 @@
  * Permission-gated sections: Pickup Locations (MANAGE_PICKUP_LOCATIONS), Enterprise (MANAGE_ENTERPRISE_SETTINGS), Bank (VIEW_PAYOUTS)
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building,
@@ -93,6 +94,7 @@ export function Settings() {
   // V3: Use React Query hook for auth
   const { user, enterprise } = useAuth();
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
   const enterpriseId = enterprise?.id || '';
   const isITAdmin = user?.role === 'it_admin';
   const enterpriseReadOnly = isITAdmin;
@@ -198,6 +200,7 @@ export function Settings() {
         }
         // Refresh auth store so sidebar/header reflects new name
         await useAuthStoreApi.getState().refreshUser();
+        queryClient.invalidateQueries({ queryKey: ['users'] });
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
       } else if (activeTab === 'notifications') {
         localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications));

@@ -809,21 +809,21 @@ export function PickupQueue() {
                         <button
                           type="button"
                           onClick={() => { setSelectedLogisticsUser(''); setLogisticsUserSearch(''); }}
-                          className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+                          className="absolute right-10 top-3 p-1 text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
 
-                      {/* Dropdown panel */}
+                      {/* Dropdown panel - uses normal flow (not absolute) so modal can scroll */}
                       <AnimatePresence>
                         {isLogisticsUserDropdownOpen && activeLogisticsUsersForAdmin.length > 0 && (
                           <motion.div
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute top-full left-0 right-0 z-20 border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl"
+                            className="border border-t-0 border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden"
                           >
                             {/* Search */}
                             <div className="p-2 border-b border-slate-200 dark:border-white/10">

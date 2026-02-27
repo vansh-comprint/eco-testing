@@ -4,6 +4,7 @@
  * V3.1: Fix phone validation, security tab dual buttons, enterprise address init, notification persistence, dual toast
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building,
@@ -30,6 +31,7 @@ const NOTIFICATION_STORAGE_KEY = 'ecotribe-org-notification-prefs';
 export function OrgAdminSettings() {
   const { user, enterprise } = useAuth();
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isSaving, setIsSaving] = useState(false);
@@ -107,6 +109,7 @@ export function OrgAdminSettings() {
         }
         // Refresh auth store so sidebar/header reflects new name
         await useAuthStoreApi.getState().refreshUser();
+        queryClient.invalidateQueries({ queryKey: ['users'] });
         addToast({ type: 'success', title: 'Profile Saved', message: 'Your profile has been updated.' });
       } else if (activeTab === 'enterprise') {
         if (!enterprise?.id) {
@@ -127,6 +130,7 @@ export function OrgAdminSettings() {
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to save enterprise details');
         }
+        queryClient.invalidateQueries({ queryKey: ['enterprises'] });
         addToast({ type: 'success', title: 'Enterprise Saved', message: 'Enterprise details have been updated.' });
       } else if (activeTab === 'notifications') {
         localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications));
