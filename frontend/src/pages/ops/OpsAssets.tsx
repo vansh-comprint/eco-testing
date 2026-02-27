@@ -234,7 +234,18 @@ export function OpsAssets() {
       </motion.div>
 
       {/* Assets Table (desktop) / Cards (mobile) */}
-      {filteredAssets.length > 0 ? (
+      {isLoading ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] py-20 text-center"
+        >
+          <div className="w-8 h-8 border-2 border-ecotribe-primary/30 border-t-ecotribe-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+            Loading assets...
+          </p>
+        </motion.div>
+      ) : filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: isRefetching ? 0.6 : 1, y: 0 }}
@@ -412,7 +423,9 @@ export function OpsAssets() {
             No Assets Found
           </h3>
           <p className="font-display text-slate-500 dark:text-white/50 max-w-md mx-auto">
-            Try adjusting your filters or search terms.
+            {!isAllEnterprises && selectedEnterprise
+              ? `No assets found for ${selectedEnterprise.name}. Try selecting "All Enterprises" or a different enterprise.`
+              : 'Try adjusting your filters or search terms.'}
           </p>
         </motion.div>
       )}

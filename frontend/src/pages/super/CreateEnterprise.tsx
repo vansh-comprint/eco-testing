@@ -333,7 +333,13 @@ export function CreateEnterprise() {
         });
 
         if (!orgAdminResult.success) {
-          console.error('Failed to create Org Admin:', orgAdminResult.error);
+          const errMsg = orgAdminResult.error?.message || 'Failed to create Org Admin user';
+          addToast({
+            type: 'error',
+            title: 'Org Admin Creation Failed',
+            message: errMsg,
+            duration: 6000,
+          });
         }
       }
 

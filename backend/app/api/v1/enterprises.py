@@ -216,6 +216,38 @@ async def check_gst_exists(
     return success_response(data={"exists": False})
 
 
+@router.get("/applications/check-pan", response_model=dict)
+async def check_pan_exists(
+    pan_number: str = Query(..., description="PAN number to check"),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit_public_upload),
+):
+    """
+    Check if a PAN number already exists in enterprises or pending applications.
+    Public endpoint - no authentication required. Rate-limited.
+    """
+    pan_upper = pan_number.strip().upper()
+    if not pan_upper:
+        return success_response(data={"exists": False})
+
+    app_service = EnterpriseApplicationService(db)
+
+    # Check existing enterprises
+    existing_enterprise = await app_service.enterprise_repo.get_by_pan(pan_upper)
+    if existing_enterprise:
+        return success_response(data={"exists": True, "reason": "PAN number is already registered"})
+
+    # Check pending/active applications
+    pending_app = await app_service.repository.get_by_pan(pan_upper)
+    if pending_app and pending_app.status in [
+        EnterpriseApplicationStatus.PENDING.value,
+        EnterpriseApplicationStatus.MORE_INFO_REQUESTED.value,
+    ]:
+        return success_response(data={"exists": True, "reason": "A pending application with this PAN already exists"})
+
+    return success_response(data={"exists": False})
+
+
 @router.get("/applications/check-email", response_model=dict)
 async def check_email_exists(
     email: str = Query(..., description="Email to check"),

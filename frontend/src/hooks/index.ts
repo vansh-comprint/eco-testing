@@ -179,6 +179,7 @@ export {
   useUpdateApplicationDocuments,
   useUploadDocument,
   useCheckGSTExists,
+  useCheckPANExists,
   useCheckEmailExists,
   applicationKeys,
 } from './useEnterpriseApplications';

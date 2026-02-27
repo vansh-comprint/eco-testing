@@ -299,6 +299,18 @@ export function useCheckGSTExists() {
 }
 
 /**
+ * Check if PAN number already exists
+ */
+export function useCheckPANExists() {
+  return useMutation({
+    mutationFn: async (panNumber: string) => {
+      const response = await enterpriseApplicationsApi.checkPANExists(panNumber);
+      return response.data?.exists ?? false;
+    },
+  });
+}
+
+/**
  * Check if email already exists
  */
 export function useCheckEmailExists() {

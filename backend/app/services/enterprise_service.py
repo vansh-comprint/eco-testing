@@ -82,6 +82,14 @@ class EnterpriseService:
                     f"Enterprise with GST number {gst_number} already exists"
                 )
 
+        # Check if PAN number already exists
+        if pan_number:
+            existing = await self.repository.get_by_pan(pan_number)
+            if existing:
+                raise ConflictError(
+                    f"Enterprise with PAN number {pan_number} already exists"
+                )
+
         enterprise = Enterprise(
             id=str(uuid4()),
             name=enterprise_data.name,
@@ -368,6 +376,20 @@ class EnterpriseApplicationService:
                     f"A pending application with GST number {application_data.gst_number} already exists"
                 )
 
+        # SECURITY: Check if PAN number already exists in enterprises or pending applications
+        if application_data.pan_number:
+            existing_enterprise = await self.enterprise_repo.get_by_pan(application_data.pan_number)
+            if existing_enterprise:
+                raise ConflictError(
+                    f"An enterprise with PAN number {application_data.pan_number} already exists"
+                )
+
+            pending_apps = await self.repository.get_by_pan(application_data.pan_number)
+            if pending_apps and pending_apps.status == EnterpriseApplicationStatus.PENDING.value:
+                raise ConflictError(
+                    f"A pending application with PAN number {application_data.pan_number} already exists"
+                )
+
         # Hash password if provided
         password_hash = None
         if application_data.password:
@@ -421,6 +443,12 @@ class EnterpriseApplicationService:
             existing_enterprise = await self.enterprise_repo.get_by_gst(application.gst_number)
             if existing_enterprise:
                 raise ConflictError(f"An enterprise with GST number '{application.gst_number}' already exists")
+
+        # Check for duplicate PAN number
+        if application.pan_number:
+            existing_enterprise = await self.enterprise_repo.get_by_pan(application.pan_number)
+            if existing_enterprise:
+                raise ConflictError(f"An enterprise with PAN number '{application.pan_number}' already exists")
 
         # Create the enterprise
         # Map address from application (stored as text) into structured JSON

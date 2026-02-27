@@ -20,27 +20,22 @@ export function RemoteReviewQueue() {
   const navigate = useNavigate();
   const location = useLocation();
   const basePath = location.pathname.startsWith('/super') ? '/super' : '/ops';
-  // V3: Use React Query hooks for database data
   const { data: assets = [] } = useAllAssets();
   const { data: subUsers = [] } = useAllSubUsers();
-  // TODO: Submissions are in the database but fetchSubmissions doesn't query it.
-  // Currently uses Zustand store (per-session). Falls back to asset.updated_at for timestamps.
-  // Enhancement: Add useAllSubmissions hook to fetch from DB instead.
   const { submissions } = useSubmissionStore();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
 
-  // Helper to get sub user by ID
-  const getSubUserById = (id: string) => subUsers.find(u => u.id === id);
-
-  const getEnterpriseById = (id?: string) => enterprises.find(e => e.id === id);
-
+  const [activeTab, setActiveTab] = useState<'queue' | 'completed'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get all assets pending review (respects global enterprise filter)
-  const pendingReviewAssets = useMemo(() => {
+  // Helper to get sub user by ID
+  const getSubUserById = (id: string) => subUsers.find(u => u.id === id);
+  const getEnterpriseById = (id?: string) => enterprises.find(e => e.id === id);
+
+  const filterAndEnrich = (statusList: string[]) => {
     return assets.filter(a => {
       if (!isAllEnterprises && a.enterprise_id !== selectedEnterpriseId) return false;
-      if (!['submitted', 'remote_review', 'disputed'].includes(a.status)) return false;
+      if (!statusList.includes(a.status)) return false;
 
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -55,23 +50,54 @@ export function RemoteReviewQueue() {
       const submission = submissions.find(s => s.assetId === asset.id);
       const subUser = asset.assigned_to_user_id ? getSubUserById(asset.assigned_to_user_id) : null;
       const enterprise = getEnterpriseById(asset.enterprise_id);
-
-      return {
-        ...asset,
-        submission,
-        subUser,
-        enterprise,
-      };
-    }).sort((a, b) => {
-      // Disputed items first
-      if (a.status === 'disputed' && b.status !== 'disputed') return -1;
-      if (b.status === 'disputed' && a.status !== 'disputed') return 1;
-      // Then by submission time (newest first)
-      const timeA = a.submission?.submittedAt || a.updated_at;
-      const timeB = b.submission?.submittedAt || b.updated_at;
-      return new Date(timeB as any).getTime() - new Date(timeA as any).getTime();
+      return { ...asset, submission, subUser, enterprise };
     });
+  };
+
+  // Queue tab: pending/active items
+  const pendingReviewAssets = useMemo(() => {
+    return filterAndEnrich(['submitted', 'remote_review', 'disputed'])
+      .sort((a, b) => {
+        // Disputed items first
+        if (a.status === 'disputed' && b.status !== 'disputed') return -1;
+        if (b.status === 'disputed' && a.status !== 'disputed') return 1;
+        const timeA = a.submission?.submittedAt || a.updated_at;
+        const timeB = b.submission?.submittedAt || b.updated_at;
+        return new Date(timeB as string).getTime() - new Date(timeA as string).getTime();
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets, submissions, searchQuery, subUsers, isAllEnterprises, selectedEnterpriseId, enterprises]);
+
+  // Completed tab: accepted/rejected items
+  const completedAssets = useMemo(() => {
+    return filterAndEnrich(['conditionally_accepted', 'remote_rejected'])
+      .sort((a, b) => {
+        const timeA = a.updated_at;
+        const timeB = b.updated_at;
+        return new Date(timeB as string).getTime() - new Date(timeA as string).getTime();
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets, submissions, searchQuery, subUsers, isAllEnterprises, selectedEnterpriseId, enterprises]);
+
+  const displayedAssets = activeTab === 'queue' ? pendingReviewAssets : completedAssets;
+
+  const getDecisionBadge = (status: string) => {
+    if (status === 'conditionally_accepted') {
+      return (
+        <span className="hidden sm:inline px-3 py-2 bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 font-mono text-[11px] font-bold uppercase tracking-widest">
+          Accepted
+        </span>
+      );
+    }
+    if (status === 'remote_rejected') {
+      return (
+        <span className="hidden sm:inline px-3 py-2 bg-red-400/10 border border-red-400/30 text-red-400 font-mono text-[11px] font-bold uppercase tracking-widest">
+          Rejected
+        </span>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-6">
@@ -93,39 +119,67 @@ export function RemoteReviewQueue() {
         </motion.div>
       </div>
 
-      {/* Stats + Search */}
+      {/* Tab Toggle + Stats + Search */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="flex flex-col sm:flex-row gap-4 items-stretch"
       >
-        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-4 flex items-center gap-4 sm:min-w-[180px]">
-          <div className="w-12 h-12 bg-amber-400/10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
-            <Clock className="w-6 h-6 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-xs font-mono font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">
-              Pending
-            </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{pendingReviewAssets.length}</p>
-          </div>
+        {/* Tab toggle */}
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all border ${
+              activeTab === 'queue'
+                ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
+            }`}
+          >
+            Queue
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all border ${
+              activeTab === 'completed'
+                ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
+            }`}
+          >
+            Completed
+          </button>
         </div>
 
-        {pendingReviewAssets.filter(a => a.status === 'disputed').length > 0 && (
-          <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-4 flex items-center gap-4 sm:min-w-[180px]">
-            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
-              <ShieldAlert className="w-6 h-6 text-amber-500" />
+        {activeTab === 'queue' && (
+          <>
+            <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-4 flex items-center gap-4 sm:min-w-[180px]">
+              <div className="w-12 h-12 bg-amber-400/10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-xs font-mono font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">
+                  Pending
+                </p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{pendingReviewAssets.length}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                Disputed
-              </p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                {pendingReviewAssets.filter(a => a.status === 'disputed').length}
-              </p>
-            </div>
-          </div>
+
+            {pendingReviewAssets.filter(a => a.status === 'disputed').length > 0 && (
+              <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-4 flex items-center gap-4 sm:min-w-[180px]">
+                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                  <ShieldAlert className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                    Disputed
+                  </p>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {pendingReviewAssets.filter(a => a.status === 'disputed').length}
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div className="flex-1 relative">
@@ -140,25 +194,29 @@ export function RemoteReviewQueue() {
         </div>
       </motion.div>
 
-      {/* Review Queue */}
+      {/* Asset List */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="space-y-3"
       >
-        {pendingReviewAssets.length === 0 ? (
+        {displayedAssets.length === 0 ? (
           <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-12 text-center">
             <AlertCircle className="w-12 h-12 text-slate-500 dark:text-white/50 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              No Pending Reviews
+              {activeTab === 'queue' ? 'No Pending Reviews' : 'No Completed Reviews'}
             </h3>
             <p className="text-sm text-slate-500 dark:text-white/50">
-              {searchQuery ? 'No submissions match your search.' : 'All submissions have been reviewed.'}
+              {searchQuery
+                ? 'No submissions match your search.'
+                : activeTab === 'queue'
+                ? 'All submissions have been reviewed.'
+                : 'No reviews have been completed yet.'}
             </p>
           </div>
         ) : (
-          pendingReviewAssets.map((item, index) => (
+          displayedAssets.map((item, index) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 10 }}
@@ -211,15 +269,21 @@ export function RemoteReviewQueue() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0 self-center">
-                  {item.status === 'disputed' && (
-                    <span className="px-2 py-1 sm:px-2.5 sm:py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      Disputed
-                    </span>
+                  {activeTab === 'queue' ? (
+                    <>
+                      {item.status === 'disputed' && (
+                        <span className="px-2 py-1 sm:px-2.5 sm:py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          Disputed
+                        </span>
+                      )}
+                      <span className="hidden sm:inline px-3 py-2 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary font-mono text-[11px] font-bold uppercase tracking-widest">
+                        Review
+                      </span>
+                    </>
+                  ) : (
+                    getDecisionBadge(item.status)
                   )}
-                  <span className="hidden sm:inline px-3 py-2 bg-ecotribe-primary/10 border border-ecotribe-primary/30 text-ecotribe-primary font-mono text-[11px] font-bold uppercase tracking-widest">
-                    Review
-                  </span>
                   <ArrowRight className="w-5 h-5 text-slate-500 dark:text-white/50 group-hover:text-ecotribe-primary transition-colors" />
                 </div>
               </div>

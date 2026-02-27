@@ -18,6 +18,7 @@ interface UserData {
   enterprise_id?: string;
   enterprise_name?: string;
   branch_id?: string;
+  parent_user_id?: string;
   created_at: string;
 }
 
@@ -127,7 +128,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
       status: user.status,
       enterprise_id: user.enterprise_id || '',
       branch_id: user.branch_id || '',
-      parent_user_id: '',
+      parent_user_id: user.parent_user_id || '',
     },
   });
 

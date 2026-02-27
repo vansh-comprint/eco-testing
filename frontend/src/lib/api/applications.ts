@@ -143,6 +143,10 @@ export const enterpriseApplicationsApi = {
   checkGSTExists: (gstNumber: string) =>
     fetchPublic<{ exists: boolean }>(`/enterprises/applications/check-gst?gst_number=${encodeURIComponent(gstNumber)}`),
 
+  /** Check if PAN number already exists (public endpoint — no auth needed) */
+  checkPANExists: (panNumber: string) =>
+    fetchPublic<{ exists: boolean }>(`/enterprises/applications/check-pan?pan_number=${encodeURIComponent(panNumber)}`),
+
   /** Check if email already exists (public endpoint — no auth needed) */
   checkEmailExists: (email: string) =>
     fetchPublic<{ exists: boolean }>(`/enterprises/applications/check-email?email=${encodeURIComponent(email)}`),

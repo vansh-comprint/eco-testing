@@ -30,6 +30,13 @@ class EnterpriseRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_pan(self, pan_number: str) -> Optional[Enterprise]:
+        """Get enterprise by PAN number"""
+        result = await self.db.execute(
+            select(Enterprise).where(Enterprise.pan_number == pan_number)
+        )
+        return result.scalar_one_or_none()
+
     async def get_all(
         self,
         skip: int = 0,
@@ -130,6 +137,15 @@ class EnterpriseApplicationRepository:
         result = await self.db.execute(
             select(EnterpriseApplication).where(
                 EnterpriseApplication.gst_number == gst_number
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_pan(self, pan_number: str) -> Optional[EnterpriseApplication]:
+        """Get application by PAN number"""
+        result = await self.db.execute(
+            select(EnterpriseApplication).where(
+                EnterpriseApplication.pan_number == pan_number
             )
         )
         return result.scalar_one_or_none()

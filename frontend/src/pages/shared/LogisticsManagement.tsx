@@ -33,6 +33,7 @@ interface LogisticsUser {
   role: string;
   status: string;
   created_at: string;
+  parent_user_id?: string;
 }
 
 interface LogisticsAdminWithUsers {
@@ -68,7 +69,7 @@ export function LogisticsManagement() {
           }))
         : [];
 
-      const allUsers: (LogisticsUser & { parent_user_id?: string })[] = (usersResult.success && usersResult.data)
+      const allUsers: LogisticsUser[] = (usersResult.success && usersResult.data)
         ? usersResult.data.map(u => ({
             id: u.id,
             email: u.email,

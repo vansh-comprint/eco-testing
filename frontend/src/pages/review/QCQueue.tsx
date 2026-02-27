@@ -13,10 +13,10 @@ export function QCQueue() {
   const userRole = useUserRole();
   const isSuperAdmin = userRole === 'super_admin';
   const updateAssetMutation = useUpdateAsset();
+  const [activeTab, setActiveTab] = useState<'queue' | 'completed'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
-  const [sectionFilter, setSectionFilter] = useState<'all' | 'in_transit' | 'facility_qc'>('all');
   const [localEnterpriseId, setLocalEnterpriseId] = useState<string>('');
   const { addToast } = useToast();
 
@@ -31,7 +31,7 @@ export function QCQueue() {
     ? selectedEnterpriseId
     : (localEnterpriseId || undefined);
 
-  // Server-side filtered queries with search + sort
+  // Queue tab: two parallel streams (in_transit + facility_qc)
   const inTransitParams = useMemo(() => {
     const params: Record<string, string | undefined> = { status: 'in_transit', enterprise_id: enterpriseFilter };
     if (debouncedSearch) params.search = debouncedSearch;
@@ -41,6 +41,17 @@ export function QCQueue() {
 
   const facilityQCParams = useMemo(() => {
     const params: Record<string, string | undefined> = { status: 'facility_qc', enterprise_id: enterpriseFilter };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (sortBy) params.sort_by = sortBy;
+    return params;
+  }, [enterpriseFilter, debouncedSearch, sortBy]);
+
+  // Completed tab: final_accepted + final_rejected
+  const completedParams = useMemo(() => {
+    const params: Record<string, string | undefined> = {
+      statuses: 'final_accepted,final_rejected',
+      enterprise_id: enterpriseFilter,
+    };
     if (debouncedSearch) params.search = debouncedSearch;
     if (sortBy) params.sort_by = sortBy;
     return params;
@@ -64,6 +75,15 @@ export function QCQueue() {
     isFetchingNextPage: fetchingMoreFacilityQC,
   } = useInfiniteAssets(facilityQCParams);
 
+  const {
+    data: completedData,
+    isFetching: isFetchingCompleted,
+    isLoading: isLoadingCompleted,
+    hasNextPage: hasMoreCompleted,
+    fetchNextPage: fetchMoreCompleted,
+    isFetchingNextPage: fetchingMoreCompleted,
+  } = useInfiniteAssets(completedParams);
+
   // Flatten paginated results
   const inTransitAssets = useMemo(
     () => inTransitData?.pages.flatMap(p => p.data || []) ?? [],
@@ -72,6 +92,10 @@ export function QCQueue() {
   const facilityQCAssets = useMemo(
     () => facilityQCData?.pages.flatMap(p => p.data || []) ?? [],
     [facilityQCData]
+  );
+  const completedAssets = useMemo(
+    () => completedData?.pages.flatMap(p => p.data || []) ?? [],
+    [completedData]
   );
   const pendingAssets = useMemo(
     () => [...inTransitAssets, ...facilityQCAssets],
@@ -82,11 +106,13 @@ export function QCQueue() {
   const inTransitTotal = inTransitData?.pages[0]?.pagination?.total ?? inTransitAssets.length;
   const facilityQCTotal = facilityQCData?.pages[0]?.pagination?.total ?? facilityQCAssets.length;
 
-  // Background refetch indicator (either query refetching due to sort/filter change)
-  const isRefetching = (
+  // Background refetch indicator
+  const isRefetchingQueue = (
     (isFetchingInTransit && !isLoadingInTransit && !fetchingMoreInTransit) ||
     (isFetchingFacilityQC && !isLoadingFacilityQC && !fetchingMoreFacilityQC)
   );
+  const isRefetchingCompleted = isFetchingCompleted && !isLoadingCompleted && !fetchingMoreCompleted;
+  const isRefetching = activeTab === 'queue' ? isRefetchingQueue : isRefetchingCompleted;
 
   // Mark asset as arrived at facility (in_transit → facility_qc)
   const markAsArrived = async (assetId: string) => {
@@ -102,25 +128,47 @@ export function QCQueue() {
     }
   };
 
-  // Merge-sort two server-sorted streams (each stream is already sorted by the server)
+  // Active asset list sorted by date
   const filteredAssets = useMemo(() => {
-    const source =
-      sectionFilter === 'in_transit' ? inTransitAssets :
-      sectionFilter === 'facility_qc' ? facilityQCAssets :
-      pendingAssets;
+    const source = activeTab === 'queue' ? pendingAssets : completedAssets;
     return [...source].sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
-  }, [pendingAssets, inTransitAssets, facilityQCAssets, sectionFilter, sortBy]);
+  }, [pendingAssets, completedAssets, activeTab, sortBy]);
 
-  // Load more when both have more pages
-  const hasMore = hasMoreInTransit || hasMoreFacilityQC;
-  const isFetchingMore = fetchingMoreInTransit || fetchingMoreFacilityQC;
+  const allAssets = activeTab === 'queue' ? pendingAssets : completedAssets;
+  const isLoading = activeTab === 'queue' ? (isLoadingInTransit || isLoadingFacilityQC) : isLoadingCompleted;
+
+  // Load more for queue (two streams) or completed (one stream)
+  const hasMore = activeTab === 'queue' ? (hasMoreInTransit || hasMoreFacilityQC) : hasMoreCompleted;
+  const isFetchingMore = activeTab === 'queue' ? (fetchingMoreInTransit || fetchingMoreFacilityQC) : fetchingMoreCompleted;
   const loadMore = () => {
-    if (hasMoreInTransit) fetchMoreInTransit();
-    if (hasMoreFacilityQC) fetchMoreFacilityQC();
+    if (activeTab === 'queue') {
+      if (hasMoreInTransit) fetchMoreInTransit();
+      if (hasMoreFacilityQC) fetchMoreFacilityQC();
+    } else {
+      if (hasMoreCompleted) fetchMoreCompleted();
+    }
+  };
+
+  const getDecisionBadge = (status: string) => {
+    if (status === 'final_accepted') {
+      return (
+        <span className="px-3 py-1.5 border border-emerald-400/30 bg-emerald-400/10 font-mono font-bold text-xs text-emerald-400 uppercase tracking-widest">
+          Accepted
+        </span>
+      );
+    }
+    if (status === 'final_rejected') {
+      return (
+        <span className="px-3 py-1.5 border border-red-400/30 bg-red-400/10 font-mono font-bold text-xs text-red-400 uppercase tracking-widest">
+          Rejected
+        </span>
+      );
+    }
+    return null;
   };
 
   return (
@@ -138,30 +186,26 @@ export function QCQueue() {
             QC Queue
           </h1>
           <p className="font-display text-zinc-500 text-sm mt-2 uppercase tracking-wide">
-            {filteredAssets.length} devices awaiting inspection
+            {activeTab === 'queue'
+              ? `${filteredAssets.length} devices awaiting inspection`
+              : `${filteredAssets.length} completed inspections`}
           </p>
         </motion.div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats — display only, no click-to-filter */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 gap-4"
       >
-        <div
-          onClick={() => setSectionFilter(sectionFilter === 'in_transit' ? 'all' : 'in_transit')}
-          className={`border p-5 cursor-pointer transition-colors ${sectionFilter === 'in_transit' ? 'border-amber-400 bg-amber-400/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:bg-amber-400/5'}`}
-        >
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">In Transit</p>
           <p className="font-brand font-bold text-3xl text-amber-400">
             {inTransitTotal}
           </p>
         </div>
-        <div
-          onClick={() => setSectionFilter(sectionFilter === 'facility_qc' ? 'all' : 'facility_qc')}
-          className={`border p-5 cursor-pointer transition-colors ${sectionFilter === 'facility_qc' ? 'border-emerald-400 bg-emerald-400/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:bg-emerald-400/5'}`}
-        >
+        <div className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5">
           <p className="font-mono text-xs text-zinc-500 uppercase mb-2">Ready for QC</p>
           <p className="font-brand font-bold text-3xl text-emerald-400">
             {facilityQCTotal}
@@ -169,12 +213,37 @@ export function QCQueue() {
         </div>
       </motion.div>
 
-      {/* Filters */}
+      {/* Tab Toggle + Filters */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col sm:flex-row gap-4"
       >
+        {/* Tab toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all border ${
+              activeTab === 'queue'
+                ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
+            }`}
+          >
+            Queue
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all border ${
+              activeTab === 'completed'
+                ? 'border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary'
+                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
+            }`}
+          >
+            Completed
+          </button>
+        </div>
+
+        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
           <input
@@ -185,6 +254,7 @@ export function QCQueue() {
             className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
         </div>
+
         {isSuperAdmin && (
           <select
             value={localEnterpriseId}
@@ -197,6 +267,8 @@ export function QCQueue() {
             ))}
           </select>
         )}
+
+        {/* Sort buttons */}
         <div className="flex gap-2">
           <button
             onClick={() => setSortBy('newest')}
@@ -221,7 +293,7 @@ export function QCQueue() {
         </div>
       </motion.div>
 
-      {/* Queue List */}
+      {/* Asset List */}
       {filteredAssets.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -241,7 +313,8 @@ export function QCQueue() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors"
+                onClick={activeTab === 'completed' ? () => navigate(`${location.pathname}/${asset.id}`) : undefined}
+                className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-colors ${activeTab === 'completed' ? 'cursor-pointer' : ''}`}
               >
                 <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
                   <div className="w-12 h-12 sm:w-16 sm:h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
@@ -266,37 +339,43 @@ export function QCQueue() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 self-end sm:self-auto">
-                  <span className={`px-3 py-1.5 border font-mono font-bold text-xs uppercase tracking-widest ${
-                    asset.status === 'in_transit'
-                      ? 'border-amber-400/30 bg-amber-400/10 text-amber-400'
-                      : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
-                  }`}>
-                    {asset.status === 'in_transit' ? (
-                      <span className="flex items-center gap-1">
-                        <Package className="w-3 h-3" />
-                        In Transit
+                  {activeTab === 'queue' ? (
+                    <>
+                      <span className={`px-3 py-1.5 border font-mono font-bold text-xs uppercase tracking-widest ${
+                        asset.status === 'in_transit'
+                          ? 'border-amber-400/30 bg-amber-400/10 text-amber-400'
+                          : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400'
+                      }`}>
+                        {asset.status === 'in_transit' ? (
+                          <span className="flex items-center gap-1">
+                            <Package className="w-3 h-3" />
+                            In Transit
+                          </span>
+                        ) : (
+                          'At Facility'
+                        )}
                       </span>
-                    ) : (
-                      'At Facility'
-                    )}
-                  </span>
-                  {asset.status === 'in_transit' ? (
-                    <button
-                      onClick={() => markAsArrived(asset.id)}
-                      disabled={updateAssetMutation.isPending}
-                      className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50"
-                    >
-                      {updateAssetMutation.isPending ? 'Updating...' : 'Mark Arrived'}
-                      <CheckCircle className="w-4 h-4" />
-                    </button>
+                      {asset.status === 'in_transit' ? (
+                        <button
+                          onClick={() => markAsArrived(asset.id)}
+                          disabled={updateAssetMutation.isPending}
+                          className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-50"
+                        >
+                          {updateAssetMutation.isPending ? 'Updating...' : 'Mark Arrived'}
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`${location.pathname}/${asset.id}`)}
+                          className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-emerald-500 text-white hover:bg-emerald-400"
+                        >
+                          Inspect
+                          <ClipboardCheck className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
                   ) : (
-                    <button
-                      onClick={() => navigate(`${location.pathname}/${asset.id}`)}
-                      className="interactive px-4 sm:px-5 py-3 sm:py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 bg-emerald-500 text-white hover:bg-emerald-400"
-                    >
-                      Inspect
-                      <ClipboardCheck className="w-4 h-4" />
-                    </button>
+                    getDecisionBadge(asset.status)
                   )}
                 </div>
               </motion.div>
@@ -316,7 +395,7 @@ export function QCQueue() {
             </div>
           )}
         </motion.div>
-      ) : (
+      ) : !isLoading ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -327,16 +406,17 @@ export function QCQueue() {
             <ClipboardCheck className="w-10 h-10 text-zinc-600" />
           </div>
           <h3 className="font-brand font-bold text-xl text-zinc-500 uppercase tracking-tight mb-2">
-            {searchQuery ? 'No Matches Found' : 'Queue Empty'}
+            {searchQuery ? 'No Matches Found' : activeTab === 'queue' ? 'Queue Empty' : 'No Completed Inspections'}
           </h3>
           <p className="font-display text-zinc-600 max-w-md mx-auto">
             {searchQuery
               ? 'Try adjusting your search terms.'
-              : 'There are no devices awaiting facility QC.'}
+              : activeTab === 'queue'
+              ? 'There are no devices awaiting facility QC.'
+              : 'No facility inspections have been completed yet.'}
           </p>
         </motion.div>
-      )}
-
+      ) : null}
     </div>
   );
 }

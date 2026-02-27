@@ -101,7 +101,7 @@ class Enterprise(BaseModel):
     name = Column(String, nullable=False)
     legal_name = Column(String, nullable=True)
     gst_number = Column(String, unique=True, nullable=True, index=True)
-    pan_number = Column(String, nullable=True)
+    pan_number = Column(String, unique=True, nullable=True, index=True)
 
     # Address (stored as JSONB for flexibility)
     address = Column(JSON, nullable=True)

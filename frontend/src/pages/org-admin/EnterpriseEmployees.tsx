@@ -47,17 +47,23 @@ export function EnterpriseEmployees() {
   // Initialize branch filter from URL ?branch= param (e.g., from BranchDetail "View All" link)
   const urlBranch = searchParams.get('branch');
 
+  // Sync with sidebar branch selector (OrgBranchContext)
+  const orgBranchCtx = useOrgBranchSafe();
+  const initialBranch = urlBranch || orgBranchCtx?.selectedBranchId || 'all';
+
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
-  const [viewMode, setViewMode] = useState<ViewMode>(urlBranch ? 'list' : 'by-branch');
+  const [branchFilter, setBranchFilter] = useState(initialBranch);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialBranch !== 'all' ? 'list' : 'by-branch');
 
-  // Sync with sidebar branch selector (OrgBranchContext)
-  const orgBranchCtx = useOrgBranchSafe();
+  // Keep in sync when sidebar branch selector changes
   useEffect(() => {
     if (!orgBranchCtx || urlBranch) return; // URL param takes priority
-    setBranchFilter(orgBranchCtx.selectedBranchId || 'all');
+    const newBranch = orgBranchCtx.selectedBranchId || 'all';
+    setBranchFilter(newBranch);
+    if (newBranch !== 'all') setViewMode('list');
+    else setViewMode('by-branch');
   }, [orgBranchCtx?.selectedBranchId, urlBranch]);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   // Deactivation: use preview modal (active → inactive)
