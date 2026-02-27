@@ -484,7 +484,7 @@ export function EmployeeDetail() {
                     label="Branch"
                     value={
                       subUser.branch_id
-                        ? (branches.find((b: { id: string; branch_name: string }) => b.id === subUser.branch_id)?.branch_name || subUser.branch_id)
+                        ? (branches.find((b: { id: string; branch_name: string }) => b.id === subUser.branch_id)?.branch_name || 'Unassigned')
                         : 'Unassigned'
                     }
                   />
