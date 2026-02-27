@@ -85,6 +85,9 @@ export type { ConfirmationModalProps } from './ConfirmationModal';
 // DeactivationPreviewModal
 export { DeactivationPreviewModal } from './DeactivationPreviewModal';
 
+// BranchDeactivationModal
+export { BranchDeactivationModal } from './BranchDeactivationModal';
+
 // EmployeeSelector (Smart selector with inline creation)
 export { EmployeeSelector } from './EmployeeSelector';
 

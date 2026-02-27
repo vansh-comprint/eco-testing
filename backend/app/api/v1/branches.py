@@ -9,7 +9,7 @@ from app.middleware.auth import require_permission
 from app.core.permissions import Permission
 from app.models.user import User, UserRole
 from app.models.enterprise import BranchStatus
-from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate
+from app.schemas.branch import BranchCreate, BranchUpdate, BranchBulkCreate, BranchTransferRequest, BranchBulkDeleteRequest
 from app.services.branch_service import BranchService
 from app.utils.response import success_response, paginated_response
 from app.utils.exceptions import AuthorizationError
@@ -180,6 +180,101 @@ async def check_branch_code(
     repo = BranchRepository(db)
     existing = await repo.get_by_code(enterprise_id, code)
     return success_response(data={"exists": existing is not None})
+
+
+@router.get("/{branch_id}/deactivation-preview", response_model=dict)
+async def preview_branch_deactivation(
+    branch_id: str,
+    current_user: User = Depends(require_permission(Permission.BRANCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Preview the impact of deactivating a branch.
+    Shows employee count, asset count, active batches, and blocking reasons.
+
+    **Permissions:** BRANCH_UPDATE
+    """
+    service = BranchService(db)
+
+    # Access control (same as get_branch)
+    existing = await service.get_branch(branch_id)
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if existing.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if existing.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+
+    preview = await service.preview_deactivation(branch_id)
+    return success_response(data=preview)
+
+
+@router.post("/{branch_id}/transfer", response_model=dict)
+async def transfer_branch_dependents(
+    branch_id: str,
+    request: BranchTransferRequest,
+    current_user: User = Depends(require_permission(Permission.BRANCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Transfer employees and/or assets from this branch to another branch.
+
+    **Permissions:** BRANCH_UPDATE
+    """
+    service = BranchService(db)
+
+    # Access control
+    existing = await service.get_branch(branch_id)
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if existing.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if existing.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+
+    result = await service.transfer_dependents(
+        branch_id=branch_id,
+        target_branch_id=request.target_branch_id,
+        transfer_employees=request.transfer_employees,
+        transfer_assets=request.transfer_assets,
+        updated_by=current_user.id,
+    )
+    return success_response(data=result, message="Transfer completed successfully")
+
+
+@router.post("/{branch_id}/bulk-delete-dependents", response_model=dict)
+async def bulk_delete_branch_dependents(
+    branch_id: str,
+    request: BranchBulkDeleteRequest,
+    current_user: User = Depends(require_permission(Permission.BRANCH_UPDATE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Remove dependents (deactivate employees, delete unassigned assets) before branch deactivation.
+
+    **Permissions:** BRANCH_UPDATE
+    """
+    service = BranchService(db)
+
+    # Access control
+    existing = await service.get_branch(branch_id)
+    if not is_platform_admin(current_user):
+        if current_user.role == UserRole.ORG_ADMIN.value:
+            if existing.enterprise_id != current_user.enterprise_id:
+                raise AuthorizationError("Access denied: branch belongs to a different enterprise")
+        elif current_user.role == UserRole.IT_ADMIN.value:
+            if existing.it_admin_id != current_user.id:
+                raise AuthorizationError("Access denied: branch is not assigned to you")
+
+    result = await service.bulk_delete_dependents(
+        branch_id=branch_id,
+        delete_employees=request.delete_employees,
+        delete_assets=request.delete_assets,
+        deleted_by=current_user.id,
+    )
+    return success_response(data=result, message="Dependents removed successfully")
 
 
 @router.get("/{branch_id}", response_model=dict)

@@ -377,16 +377,23 @@ class UserService:
         user = await self.repository.update(user)
 
         # Sync branch.it_admin_id when IT admin's branch assignment changes
-        if is_it_admin and "branch_id" in update_data and new_branch_id != old_branch_id:
-            # Remove IT admin from old branch
-            if old_branch_id:
-                result = await self.db.execute(select(Branch).where(Branch.id == old_branch_id))
-                old_branch = result.scalar_one_or_none()
-                if old_branch and old_branch.it_admin_id == user.id:
-                    old_branch.it_admin_id = None
+        if is_it_admin and "branch_id" in update_data:
+            if not new_branch_id:
+                # Setting to "no branch": clear ALL branches where it_admin_id = user.id
+                result = await self.db.execute(
+                    select(Branch).where(Branch.it_admin_id == user.id)
+                )
+                for branch in result.scalars().all():
+                    branch.it_admin_id = None
+            elif new_branch_id != old_branch_id:
+                # Changing to a different branch
+                if old_branch_id:
+                    result = await self.db.execute(select(Branch).where(Branch.id == old_branch_id))
+                    old_branch = result.scalar_one_or_none()
+                    if old_branch and old_branch.it_admin_id == user.id:
+                        old_branch.it_admin_id = None
 
-            # Assign IT admin to new branch
-            if new_branch_id:
+                # Assign IT admin to new branch
                 result = await self.db.execute(select(Branch).where(Branch.id == new_branch_id))
                 new_branch = result.scalar_one_or_none()
                 if new_branch:

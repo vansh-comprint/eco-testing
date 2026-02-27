@@ -1069,13 +1069,19 @@ export function AssetList() {
                       Select Batch *
                     </label>
                     {(() => {
+                      const selectedAssetObjects = selectedBatchable
+                        .map(id => batchableAssets.find(a => a.id === id))
+                        .filter(Boolean);
                       const selectedBranchIds = new Set(
-                        selectedBatchable
-                          .map(id => batchableAssets.find(a => a.id === id)?.branch_id)
-                          .filter(Boolean)
+                        selectedAssetObjects.map(a => a?.branch_id).filter(Boolean)
+                      );
+                      // Exclude batches the selected assets are already in
+                      const currentBatchIds = new Set(
+                        selectedAssetObjects.map(a => a?.batch_id).filter(Boolean)
                       );
                       const eligibleBatches = batches.filter(b =>
                         b.status === 'draft' &&
+                        !currentBatchIds.has(b.id) &&
                         (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
                       );
 

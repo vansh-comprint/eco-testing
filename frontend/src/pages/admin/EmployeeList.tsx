@@ -19,7 +19,7 @@ import {
   Building2,
   ChevronRight,
 } from 'lucide-react';
-import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useBranchesByITAdmin, useEmployeeBasePath, useBranches } from '@/hooks';
+import { useAuth, useInfiniteSubUsers, useAssets, useAssetsByITAdmin, useSendSubUserInvitation, useApiError, useDebounce, useEmployeeBasePath, useBranches } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { subUsersApi } from '@/lib/api/sub-users';
 import { subUserKeys } from '@/hooks/useEmployees';
@@ -102,14 +102,7 @@ export function EmployeeList() {
   // Branch data for Org Admin branch selector dropdown
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? (enterpriseId || '') : '');
 
-  // Branch data for IT Admin — show branch badge when managing multiple branches
-  const { data: itAdminBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? userId : '');
-  const showBranchBadge = !isOrgAdmin && itAdminBranches.length > 1;
-  const branchMap = useMemo(() => {
-    const map = new Map<string, string>();
-    itAdminBranches.forEach((b: any) => map.set(b.id, b.branch_name || b.name || ''));
-    return map;
-  }, [itAdminBranches]);
+  // IT Admin branch filtering is handled by the sidebar (ITAdminBranchContext)
   const [resendingIds, setResendingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   // Deactivation: use preview modal (active → inactive)
@@ -337,20 +330,6 @@ export function EmployeeList() {
               >
                 <option value="" className="bg-white dark:bg-[#0a0a0a]">All Branches</option>
                 {orgBranches.map((b: any) => (
-                  <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
-                    {b.branch_name || b.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {!isOrgAdmin && itAdminBranches.length > 1 && (
-              <select
-                value={itBranchCtx?.selectedBranchId || ''}
-                onChange={(e) => itBranchCtx?.setSelectedBranchId(e.target.value || null)}
-                className="px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-ecotribe-primary/50 transition-colors appearance-none select-themed cursor-pointer w-full sm:w-auto sm:min-w-[160px]"
-              >
-                <option value="" className="bg-white dark:bg-[#0a0a0a]">All Branches</option>
-                {itAdminBranches.map((b: any) => (
                   <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
                     {b.branch_name || b.name}
                   </option>

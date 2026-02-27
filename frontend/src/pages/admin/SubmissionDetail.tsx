@@ -45,6 +45,7 @@ import {
 } from '@/types/submission';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Badge, StatusBadge, Modal, ModalFooter, StatusTimeline, BackButton, useToast } from '@/components/ui';
+import { TERMINAL_ASSET_STATUSES } from '@/lib/constants';
 
 // Grade options for OPS review
 const GRADE_OPTIONS = [
@@ -429,6 +430,7 @@ export function SubmissionDetail() {
           <StatusTimeline
             statuses={WORKFLOW_STEPS}
             currentStatus={STATUS_TO_TIMELINE_KEY[asset.status] || asset.status}
+            isFlowComplete={(TERMINAL_ASSET_STATUSES as readonly string[]).includes(asset.status)}
           />
         </div>
       </motion.div>

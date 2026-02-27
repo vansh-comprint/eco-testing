@@ -14,10 +14,11 @@ import {
   Laptop,
   Send,
   Bell,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
-import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch, useDashboardStats, useDebounce } from '@/hooks';
+import { useAuth, useInfiniteBatches, useAssets, useAssetsByITAdmin, useUpdateBatch, useDashboardStats, useDebounce, useSubmitBatchForApproval } from '@/hooks';
 import { safeNumber } from '@/utils/formatters';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
@@ -67,8 +68,14 @@ export function BatchList() {
   const assets = isOrgAdmin ? orgAssets : itAssets;
 
   const updateBatchMutation = useUpdateBatch();
+  const submitForApprovalMutation = useSubmitBatchForApproval();
   const { stats: dashboardStats } = useDashboardStats();
   const basePath = isOrgAdmin ? '/org-admin' : '/admin';
+
+  // Submit for approval modal state
+  const [submitModalBatch, setSubmitModalBatch] = useState<{ id: string; name: string } | null>(null);
+  const [submitForm, setSubmitForm] = useState({ preferredDate: '', preferredTimeSlot: 'morning', notes: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Branch filtering: URL query param (from "View Batches" button) or IT Admin branch selector
   const urlBranchId = new URLSearchParams(location.search).get('branch');
@@ -139,10 +146,35 @@ export function BatchList() {
   // V3: Use centralized status display helper
   const getStatusConfig = (status: BatchStatus) => getBatchStatusDisplay(status);
 
-  // Navigate to batch detail for submission (full form with pickup details)
+  // Open submit modal directly (no navigation to detail page)
   const handleSubmitForApproval = (batchId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`${basePath}/batches/${batchId}?action=submit`);
+    const batch = allBatches.find(b => b.id === batchId);
+    if (batch) {
+      setSubmitModalBatch({ id: batch.id, name: batch.name });
+      setSubmitForm({ preferredDate: '', preferredTimeSlot: 'morning', notes: '' });
+    }
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!submitModalBatch || !submitForm.preferredDate) return;
+    setIsSubmitting(true);
+    try {
+      await submitForApprovalMutation.mutateAsync({
+        batchId: submitModalBatch.id,
+        pickupDetails: {
+          preferred_pickup_date: submitForm.preferredDate,
+          preferred_pickup_slot: submitForm.preferredTimeSlot,
+          it_admin_notes: submitForm.notes || undefined,
+        },
+      });
+      addToast({ type: 'success', title: 'Batch Submitted', message: 'Batch has been submitted for Org Admin approval.' });
+      setSubmitModalBatch(null);
+    } catch (error: any) {
+      addToast({ type: 'error', title: 'Submission Failed', message: error?.message || 'Failed to submit batch for approval.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Send reminder notification (placeholder - would create notification in production)
@@ -434,6 +466,105 @@ export function BatchList() {
         isFetchingNextPage={isFetchingNextPage}
         fetchNextPage={fetchNextPage}
       />
+
+      {/* Submit for Approval Modal */}
+      {submitModalBatch && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-none sm:max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-slate-200 dark:border-white/20"
+          >
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                  <Send className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase tracking-wide">
+                    Submit for Approval
+                  </h3>
+                  <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
+                    {submitModalBatch.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSubmitModalBatch(null)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500 dark:text-white/50" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-3 border border-amber-500/20 bg-amber-500/5">
+                <p className="font-mono text-xs text-amber-400">
+                  Only verified assets in this batch will be sent for Org Admin approval.
+                </p>
+              </div>
+
+              {/* Preferred Pickup Date */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Preferred Pickup Date <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={submitForm.preferredDate}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, preferredDate: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50"
+                />
+              </div>
+
+              {/* Time Slot */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Preferred Time Slot
+                </label>
+                <select
+                  value={submitForm.preferredTimeSlot}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
+                >
+                  <option value="morning">Morning (9 AM - 12 PM)</option>
+                  <option value="afternoon">Afternoon (12 PM - 3 PM)</option>
+                  <option value="evening">Evening (3 PM - 6 PM)</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest mb-2 block">
+                  Notes for Org Admin
+                </label>
+                <textarea
+                  value={submitForm.notes}
+                  onChange={(e) => setSubmitForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any notes for the Org Admin..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 placeholder:text-slate-400 dark:placeholder:text-white/30 resize-none"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end">
+              <button
+                onClick={() => setSubmitModalBatch(null)}
+                className="px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                disabled={!submitForm.preferredDate || isSubmitting}
+                className="px-5 py-2.5 bg-amber-500 text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

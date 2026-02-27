@@ -144,3 +144,29 @@ class BranchListResponse(BaseModel):
 
     branches: List[BranchResponse]
     total: int
+
+
+class BranchDeactivationPreview(BaseModel):
+    """Preview data for branch deactivation — shows what will be affected"""
+    branch_id: str
+    branch_name: str
+    employee_count: int = 0
+    asset_count: int = 0
+    active_batch_count: int = 0
+    it_admin_name: Optional[str] = None
+    it_admin_has_other_branches: bool = False
+    can_deactivate: bool = False
+    blocking_reasons: List[str] = []
+
+
+class BranchTransferRequest(BaseModel):
+    """Request to transfer employees/assets from one branch to another"""
+    target_branch_id: str
+    transfer_employees: bool = False
+    transfer_assets: bool = False
+
+
+class BranchBulkDeleteRequest(BaseModel):
+    """Request to remove dependents before deactivation"""
+    delete_employees: bool = False
+    delete_assets: bool = False

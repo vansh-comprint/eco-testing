@@ -148,7 +148,7 @@ export const ASSET_STATUS_FILTER_OPTIONS = [
 // Status groups for filtering
 export const ASSET_STATUS_GROUPS: Record<string, AssetStatus[]> = {
   in_review: ['submitted', 'remote_review', 'facility_qc'],
-  accepted: ['conditionally_accepted', 'final_accepted', 'payout_pending', 'completed'],
+  accepted: ['conditionally_accepted', 'final_accepted', 'payout_pending'],
   rejected: ['remote_rejected', 'final_rejected'],
   awaiting_verification: ['submitted', 'remote_review'],
   // V3.2: Ready for pickup - only assets explicitly approved for pickup by org admin
@@ -157,8 +157,8 @@ export const ASSET_STATUS_GROUPS: Record<string, AssetStatus[]> = {
   verified: ['conditionally_accepted'],
   // V3.2: In progress excludes conditionally_accepted (those are ready for pickup)
   in_progress: ['assigned', 'check_in_started', 'submitted', 'remote_review', 'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit', 'facility_qc'],
-  // Matches backend asset_in_review stat: assigned + check_in_started + submitted + remote_review
-  processing: ['assigned', 'check_in_started', 'submitted', 'remote_review'],
+  // Matches backend asset_in_review stat: all in-flight statuses (review + pickup + transit + QC)
+  processing: ['assigned', 'check_in_started', 'submitted', 'remote_review', 'disputed', 'ready_for_pickup', 'pickup_requested', 'pickup_scheduled', 'pickup_failed_qc', 'picked_up', 'in_transit', 'facility_qc'],
   // Matches backend _ASSET_ACCEPTED: conditionally_accepted + final_accepted + ready_for_pickup
   ready: ['conditionally_accepted', 'final_accepted', 'ready_for_pickup'],
 };

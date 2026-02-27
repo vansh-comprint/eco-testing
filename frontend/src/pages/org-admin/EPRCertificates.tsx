@@ -317,15 +317,25 @@ export function EPRCertificates() {
                 </div>
 
                 {cert.certificate_url && (
-                  <a
-                    href={cert.certificate_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors flex-shrink-0"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    View
-                  </a>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      href={cert.certificate_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View
+                    </a>
+                    <a
+                      href={cert.certificate_url}
+                      download={`EPR-${cert.certificate_number}.pdf`}
+                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download
+                    </a>
+                  </div>
                 )}
               </div>
             </motion.div>

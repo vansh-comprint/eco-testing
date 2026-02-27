@@ -13,7 +13,7 @@ import {
   ArrowDownRight,
   Loader2
 } from 'lucide-react';
-import { useAuth, useEnterprises } from '@/hooks';
+import { useAuth, useBranches } from '@/hooks';
 import { useInfiniteAssets } from '@/hooks/useAssets';
 import Papa from 'papaparse';
 
@@ -41,7 +41,7 @@ function toISOString(date: Date): string {
 export function FinancialReports() {
   const { enterprise } = useAuth();
   const enterpriseId = enterprise?.id || '';
-  const { data: enterprises = [] } = useEnterprises();
+  const { data: branches = [] } = useBranches(enterpriseId);
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
@@ -146,24 +146,27 @@ export function FinancialReports() {
 
   const maxDisbursed = Math.max(...monthlyData.map(d => d.disbursed), 1);
 
-  // Enterprise breakdown - uses filtered assets
-  const enterpriseStats = useMemo(() => {
-    return enterprises.map(ent => {
-      const enterpriseAssets = filteredAssets.filter(a => a.enterprise_id === ent.id);
-      const completed = enterpriseAssets.filter(a => a.status === 'completed');
+  // Branch breakdown - uses filtered assets grouped by branch
+  const branchStats = useMemo(() => {
+    return branches.map(branch => {
+      const branchAssets = filteredAssets.filter(a => a.branch_id === branch.id);
+      const completed = branchAssets.filter(a => a.status === 'completed');
       const totalValue = completed.reduce((sum, a) => sum + (Number(a.final_price) || 0), 0);
-      const pending = enterpriseAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
+      const pending = branchAssets.filter(a => a.status === 'final_accepted' || a.status === 'payout_pending');
       const pendingValue = pending.reduce((sum, a) => sum + (Number(a.final_price) || Number(a.base_price) || 0), 0);
 
       return {
-        ...ent,
+        id: branch.id,
+        name: branch.branch_name,
+        branchCode: (branch as any).branch_code || '',
+        totalAssets: branchAssets.length,
         completedAssets: completed.length,
         totalValue,
         pendingAssets: pending.length,
         pendingValue,
       };
     }).sort((a, b) => b.totalValue - a.totalValue);
-  }, [enterprises, filteredAssets]);
+  }, [branches, filteredAssets]);
 
   // Grade distribution from filtered completed assets
   const gradeDistribution = useMemo(() => ({
@@ -228,18 +231,20 @@ export function FinancialReports() {
     }
   };
 
-  const exportEnterpriseReport = () => {
+  const exportBranchReport = () => {
     setIsExporting('enterprise');
     try {
-      const data = enterpriseStats.map(e => ({
-        enterprise_name: e.name,
-        completed_assets: e.completedAssets,
-        total_disbursed: e.totalValue,
-        pending_assets: e.pendingAssets,
-        pending_value: e.pendingValue,
-        avg_asset_value: e.completedAssets > 0 ? Math.round(e.totalValue / e.completedAssets) : 0,
+      const data = branchStats.map(b => ({
+        branch_name: b.name,
+        branch_code: b.branchCode,
+        total_assets: b.totalAssets,
+        completed_assets: b.completedAssets,
+        total_disbursed: b.totalValue,
+        pending_assets: b.pendingAssets,
+        pending_value: b.pendingValue,
+        avg_asset_value: b.completedAssets > 0 ? Math.round(b.totalValue / b.completedAssets) : 0,
       }));
-      downloadCSV(data, 'enterprise_breakdown');
+      downloadCSV(data, 'branch_breakdown');
     } finally {
       setIsExporting(null);
     }
@@ -394,7 +399,7 @@ export function FinancialReports() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Enterprise Breakdown */}
+        {/* Branch Breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -403,20 +408,25 @@ export function FinancialReports() {
         >
           <div className="p-5 border-b border-slate-200 dark:border-white/10">
             <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
-              Enterprise Breakdown
+              Branch Breakdown
             </h2>
           </div>
           <div className="divide-y divide-white/5">
-            {enterpriseStats.length > 0 ? enterpriseStats.map((enterprise) => (
-              <div key={enterprise.id} className="p-4">
+            {branchStats.length > 0 ? branchStats.map((branch) => (
+              <div key={branch.id} className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-slate-500 dark:text-white/50" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-display font-bold text-slate-900 dark:text-white">{enterprise.name}</p>
+                    <p className="font-display font-bold text-slate-900 dark:text-white">
+                      {branch.name}
+                      {branch.branchCode && (
+                        <span className="font-mono text-xs text-slate-400 dark:text-white/30 ml-2">({branch.branchCode})</span>
+                      )}
+                    </p>
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50">
-                      {enterprise.completedAssets} completed • {enterprise.pendingAssets} pending
+                      {branch.totalAssets} total • {branch.completedAssets} completed • {branch.pendingAssets} pending
                     </p>
                   </div>
                 </div>
@@ -424,20 +434,20 @@ export function FinancialReports() {
                   <div className="p-3 border border-emerald-400/20 bg-emerald-400/5">
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Disbursed</p>
                     <p className="font-brand font-bold text-lg text-emerald-400">
-                      ₹{(enterprise.totalValue / 1000).toFixed(0)}K
+                      ₹{(branch.totalValue / 1000).toFixed(0)}K
                     </p>
                   </div>
                   <div className="p-3 border border-amber-400/20 bg-amber-400/5">
                     <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending</p>
                     <p className="font-brand font-bold text-lg text-amber-400">
-                      ₹{(enterprise.pendingValue / 1000).toFixed(0)}K
+                      ₹{(branch.pendingValue / 1000).toFixed(0)}K
                     </p>
                   </div>
                 </div>
               </div>
             )) : (
               <div className="p-8 text-center">
-                <p className="font-mono text-xs text-slate-500 dark:text-white/50">No enterprise data for this period</p>
+                <p className="font-mono text-xs text-slate-500 dark:text-white/50">No branch data for this period</p>
               </div>
             )}
           </div>
@@ -562,7 +572,7 @@ export function FinancialReports() {
         </button>
 
         <button
-          onClick={exportEnterpriseReport}
+          onClick={exportBranchReport}
           disabled={isExporting === 'enterprise'}
           className="interactive border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-left hover:border-white/20 transition-all group disabled:opacity-50"
         >
@@ -572,10 +582,10 @@ export function FinancialReports() {
             <Download className="w-6 h-6 text-ecotribe-primary mb-3" />
           )}
           <h3 className="font-display font-bold text-slate-900 dark:text-white uppercase group-hover:text-ecotribe-primary transition-colors">
-            Enterprise Report
+            Branch Report
           </h3>
           <p className="font-mono text-xs text-slate-500 dark:text-white/50 mt-1">
-            Per-enterprise financial breakdown
+            Per-branch financial breakdown
           </p>
         </button>
       </motion.div>

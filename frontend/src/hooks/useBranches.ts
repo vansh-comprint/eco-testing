@@ -10,6 +10,9 @@ import {
   type BranchCreateRequest,
   type BranchUpdateRequest,
   type BranchSummary,
+  type BranchDeactivationPreview,
+  type BranchTransferRequest,
+  type BranchBulkDeleteRequest,
 } from '@/lib/api/branches';
 import {
   usersApi,
@@ -33,6 +36,7 @@ export const branchKeys = {
   summary: (enterpriseId: string) => [...branchKeys.all, 'summary', enterpriseId] as const,
   byITAdmin: (userId: string) => [...branchKeys.all, 'by-it-admin', userId] as const,
   codeCheck: (enterpriseId: string, code: string) => [...branchKeys.all, 'code-check', enterpriseId, code] as const,
+  deactivationPreview: (id: string) => [...branchKeys.all, 'deactivation-preview', id] as const,
 };
 
 export const itAdminKeys = {
@@ -119,6 +123,63 @@ export function useCheckBranchCodeExists(enterpriseId: string, code: string) {
     },
     enabled: !!enterpriseId && !!code && code.length >= 1,
     staleTime: 0, // Always fetch fresh
+  });
+}
+
+/**
+ * Fetch deactivation preview for a branch
+ */
+export function useBranchDeactivationPreview(branchId: string, enabled: boolean = false) {
+  return useQuery({
+    queryKey: branchKeys.deactivationPreview(branchId),
+    queryFn: async () => {
+      const response = await branchesApi.previewDeactivation(branchId);
+      return response.data;
+    },
+    enabled: !!branchId && enabled,
+    staleTime: 0, // Always fetch fresh
+  });
+}
+
+/**
+ * Transfer employees/assets from one branch to another
+ */
+export function useTransferBranchDependents() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ branchId, data }: { branchId: string; data: BranchTransferRequest }) => {
+      const response = await branchesApi.transferDependents(branchId, data);
+      if (!response.success) throw parseApiError(response) || new Error('Failed to transfer dependents');
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    },
+  });
+}
+
+/**
+ * Remove dependents (deactivate employees, delete unassigned assets) from a branch
+ */
+export function useBulkDeleteBranchDependents() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ branchId, data }: { branchId: string; data: BranchBulkDeleteRequest }) => {
+      const response = await branchesApi.bulkDeleteDependents(branchId, data);
+      if (!response.success) throw parseApiError(response) || new Error('Failed to remove dependents');
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: userKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+    },
   });
 }
 

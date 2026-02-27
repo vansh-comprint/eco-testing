@@ -507,20 +507,29 @@ async def get_dashboard_stats(
         total = sum(sc.values())
         stats["asset_total"] = total
         stats["asset_pending_assignment"] = sc.get(AssetStatus.PENDING_ASSIGNMENT.value, 0)
+        # Processing: all in-flight statuses (review + pickup + transit + QC)
         stats["asset_in_review"] = sum(
             sc.get(s, 0) for s in [
                 AssetStatus.ASSIGNED.value,
                 AssetStatus.CHECK_IN_STARTED.value,
                 AssetStatus.SUBMITTED.value,
                 AssetStatus.REMOTE_REVIEW.value,
+                AssetStatus.DISPUTED.value,
+                AssetStatus.READY_FOR_PICKUP.value,
+                AssetStatus.PICKUP_REQUESTED.value,
+                AssetStatus.PICKUP_SCHEDULED.value,
+                AssetStatus.PICKUP_FAILED_QC.value,
+                AssetStatus.PICKED_UP.value,
+                AssetStatus.IN_TRANSIT.value,
+                AssetStatus.FACILITY_QC.value,
             ]
         )
+        # Accepted: verified assets (excluding completed which has its own card)
         stats["asset_accepted"] = sum(
             sc.get(s, 0) for s in [
                 AssetStatus.CONDITIONALLY_ACCEPTED.value,
                 AssetStatus.FINAL_ACCEPTED.value,
                 AssetStatus.PAYOUT_PENDING.value,
-                AssetStatus.COMPLETED.value,
             ]
         )
         stats["asset_rejected"] = sum(sc.get(s, 0) for s in _ASSET_REJECTED)
@@ -682,18 +691,16 @@ async def get_dashboard_stats(
         stats["user_logistics_admin"] = uc.get(UserRole.LOGISTICS_ADMIN.value, 0)
         stats["user_logistics_user"] = uc.get(UserRole.LOGISTICS_USER.value, 0)
         stats["user_logistics"] = stats["user_logistics_admin"] + stats["user_logistics_user"]
-        # admin_count: only active platform admins (super + ops + logistics admin)
+        # admin_count: all platform admins (super + ops + logistics admin)
+        # Includes inactive to match the admin users table on the dashboard
         stats["admin_count"] = await _count(
             db,
             select(func.count()).select_from(User).where(
-                and_(
-                    User.role.in_([
-                        UserRole.SUPER_ADMIN.value,
-                        UserRole.OPS_ADMIN.value,
-                        UserRole.LOGISTICS_ADMIN.value,
-                    ]),
-                    User.status == "active",
-                )
+                User.role.in_([
+                    UserRole.SUPER_ADMIN.value,
+                    UserRole.OPS_ADMIN.value,
+                    UserRole.LOGISTICS_ADMIN.value,
+                ]),
             ),
         )
 

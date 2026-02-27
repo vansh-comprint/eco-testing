@@ -44,10 +44,17 @@ The FK constraint says SET NULL but ORM cascade overrides this behavior.
 - Asset status stays `check_in_started` when employee deleted (submission cascade-deleted but asset not reset)
 - Pickup request status not reverted when logistics user/admin deleted
 
+### Service Layer Pattern — Repository Commit Behavior
+- `BranchRepository.update()` calls `db.commit()` + `db.refresh()` — NOT just flush
+- `BranchRepository.create()` calls `db.commit()` + `db.refresh()` — same pattern
+- Any ORM mutations in the same session BEFORE `repository.update()` will be committed implicitly
+- This is implicit coupling — works but is a code smell
+
 ### Scan Strategy Effectiveness
 - Reading service + repository + models in parallel = most efficient approach
 - FK constraints must be read from model files directly (not inferred)
 - Always check ORM relationship cascade settings alongside FK constraints — they can conflict
+- Always verify repository.update() behavior before flagging "missing commit" — base repo returns entity as-is, but concrete repos override with commit
 
 ## Frontend Pickup Flow (Logistics User) — Mapped 2026-02-24
 
@@ -80,3 +87,31 @@ The FK constraint says SET NULL but ORM cascade overrides this behavior.
 - Legacy Zustand store backed by direct Supabase (`db` import from `@/lib/database`)
 - NOT used by Assignments.tsx — that page uses React Query hooks
 - Store is vestigial/orphaned for the logistics user flow
+
+## Bulk Upload Components Map (Mapped 2026-02-26)
+
+### All Bulk Upload Entry Points
+| Component | Route | Role | Type |
+|-----------|-------|------|------|
+| `BulkUserUpload.tsx` (pages/admin) | `/admin/employees/upload`, `/org-admin/employees/upload` | IT Admin / Org Admin | Employee bulk |
+| `CSVUserUpload.tsx` (components/users) | Used inside BulkUserUpload | — | Employee upload widget |
+| `CSVUpload.tsx` (components/assets) | Used inside UploadAssets | — | Asset upload widget |
+| `UploadAssets.tsx` (pages/admin) | `/admin/assets/upload` | IT Admin / Org Admin | Asset bulk |
+| `BulkBranchUpload.tsx` (pages/org-admin) | `/org-admin/branches/upload` | Org Admin | Branch bulk |
+| `BulkITAdminUpload.tsx` (pages/org-admin) | `/org-admin/it-admins/upload` | Org Admin | IT Admin bulk |
+
+### Backend Bulk Endpoints
+- `POST /users/bulk` → `user_service.create_users_bulk()` — uses `user_item.branch_id or bulk_data.branch_id` (FIXED)
+- `POST /assets/bulk` → `asset_service.create_assets_bulk()` — uses only `bulk_data.branch_id` (top-level only, NO per-asset branch)
+- `POST /users/bulk` (for IT Admins via `useBulkCreateITAdmins`) — no branch_id in payload; branch assigned via `PATCH /branches/{id}` afterward
+
+### Branch Handling Status Per Component
+- **CSVUserUpload.tsx**: FIXED. Uses `branch_code` column, per-row resolution, blocks on invalid/missing codes
+- **UploadAssets.tsx + CSVUpload.tsx**: Uses `branch_name` (not `branch_code`). Per-row `branch_id` is resolved in `CSVUpload.handleUpload` but then DISCARDED by `bulkCreateAssets()` which takes only `assets[0].branch_id` as top-level. Assets backend schema also has no per-item branch_id. Functionally consistent because all assets in one batch go to same branch — but this architectural pattern differs from user bulk.
+- **BulkBranchUpload.tsx**: No branch_id issue — creates branches, doesn't assign them to branches.
+- **BulkITAdminUpload.tsx**: Uses `branch_name` for lookup. Branch assignment happens via a separate PATCH per-IT-admin after creation. No blocking on invalid/missing branch (only warning). This is intentional (branch is optional for IT admins).
+
+### Key Schema Facts
+- `AssetBulkItem` (backend schema) has NO `branch_id` field — branch is top-level on `AssetBulkCreate`
+- `UserBulkItem` (backend schema) HAS `branch_id` field — per-row branch supported
+- `bulkCreateAssets()` in api-queries.ts extracts `branch_id` from `assets[0]` only — safe only when all assets share same branch

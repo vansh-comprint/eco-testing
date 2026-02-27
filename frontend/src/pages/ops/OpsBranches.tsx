@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Phone,
   Clock,
+  Power,
 } from 'lucide-react';
 import { useOpsEnterprise } from '@/contexts/OpsEnterpriseContext';
 import {
@@ -26,8 +27,9 @@ import {
   useUpdateBranch,
   useDeleteBranch,
   useActiveITAdmins,
+  useUpdateBranchStatus,
 } from '@/hooks';
-import { PageHeader, Modal, ConfirmationModal } from '@/components/ui';
+import { PageHeader, Modal, ConfirmationModal, BranchDeactivationModal } from '@/components/ui';
 import { text } from '@/lib/design-tokens';
 import type { BranchResponse } from '@/lib/api/branches';
 
@@ -111,6 +113,7 @@ export function OpsBranches() {
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const deleteBranch = useDeleteBranch();
+  const updateBranchStatus = useUpdateBranchStatus();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [branchStatusFilter, setBranchStatusFilter] = useState<'all' | 'active' | 'needs_admin'>('all');
@@ -121,6 +124,7 @@ export function OpsBranches() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<BranchResponse | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [deactivatingBranch, setDeactivatingBranch] = useState<BranchResponse | null>(null);
 
   const filteredBranches = branches.filter((b: BranchResponse) => {
     const matchesSearch =
@@ -412,6 +416,23 @@ export function OpsBranches() {
                     title="Edit Branch"
                   >
                     <Edit className="w-4 h-4 text-slate-500 dark:text-white/50" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (branch.status === 'active') {
+                        setDeactivatingBranch(branch);
+                      } else {
+                        updateBranchStatus.mutate({ branchId: branch.id, status: 'active' });
+                      }
+                    }}
+                    className={`p-2 border transition-colors ${
+                      branch.status === 'active'
+                        ? 'border-amber-400/30 hover:bg-amber-400/10'
+                        : 'border-emerald-400/30 hover:bg-emerald-400/10'
+                    }`}
+                    title={branch.status === 'active' ? 'Deactivate Branch' : 'Activate Branch'}
+                  >
+                    <Power className={`w-4 h-4 ${branch.status === 'active' ? 'text-amber-400' : 'text-emerald-400'}`} />
                   </button>
                   <button
                     onClick={() => { setBranchToDelete(branch); setDeleteError(''); setIsDeleteModalOpen(true); }}
@@ -710,6 +731,17 @@ export function OpsBranches() {
           </div>
         ) : undefined}
       />
+
+      {deactivatingBranch && (
+        <BranchDeactivationModal
+          isOpen={!!deactivatingBranch}
+          onClose={() => setDeactivatingBranch(null)}
+          branchId={deactivatingBranch.id}
+          branchName={deactivatingBranch.branch_name}
+          enterpriseId={deactivatingBranch.enterprise_id}
+          onDeactivated={() => setDeactivatingBranch(null)}
+        />
+      )}
     </div>
   );
 }

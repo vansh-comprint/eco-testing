@@ -123,12 +123,14 @@ export const Timeline: React.FC<TimelineProps> = ({ items, className, size = 'md
 interface StatusTimelineProps {
   statuses: { key: string; label: string }[];
   currentStatus: string;
+  isFlowComplete?: boolean;
   className?: string;
 }
 
 export const StatusTimeline: React.FC<StatusTimelineProps> = ({
   statuses,
   currentStatus,
+  isFlowComplete = false,
   className,
 }) => {
   const currentIndex = statuses.findIndex((s) => s.key === currentStatus);
@@ -136,8 +138,8 @@ export const StatusTimeline: React.FC<StatusTimelineProps> = ({
   return (
     <div className={cn('flex items-center gap-1.5 overflow-x-auto', className)}>
       {statuses.map((status, index) => {
-        const isCompleted = index < currentIndex;
-        const isCurrent = index === currentIndex;
+        const isCompleted = index < currentIndex || (isFlowComplete && index === currentIndex);
+        const isCurrent = index === currentIndex && !isFlowComplete;
 
         return (
           <React.Fragment key={status.key}>

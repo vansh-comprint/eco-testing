@@ -34,8 +34,8 @@ export interface BulkUserResult {
 
 interface CSVUserUploadProps {
   enterpriseId: string;
-  branchId?: string; // Pre-selected branch for all users; overridden per-row by branch_code column
-  branches?: BranchOption[]; // Available branches for branch_code resolution
+  branchId?: string; // Pre-selected branch for all users; overridden per-row by branch column
+  branches?: BranchOption[]; // Available branches for branch resolution
   onUpload: (users: CreateSubUserInput[]) => Promise<BulkUserResult | void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -47,13 +47,13 @@ interface ParsedRow {
   email: string;
   phone?: string;
   department?: string;
-  branch_code?: string;
+  branch?: string;
   errors: string[];
   warnings: string[];
 }
 
 const REQUIRED_COLUMNS = ['email'];
-const OPTIONAL_COLUMNS = ['name', 'phone', 'department', 'branch_code'];
+const OPTIONAL_COLUMNS = ['name', 'phone', 'department', 'branch'];
 const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
 
 const COLUMN_ALIASES: Record<string, string> = {
@@ -85,10 +85,10 @@ const COLUMN_ALIASES: Record<string, string> = {
   'team': 'department',
   'division': 'department',
   'unit': 'department',
-  'branch': 'branch_code',
-  'branch code': 'branch_code',
-  'branch_name': 'branch_code',
-  'office': 'branch_code',
+  'branch_code': 'branch',
+  'branch code': 'branch',
+  'branch_name': 'branch',
+  'office': 'branch',
 };
 
 const DEPARTMENTS = [
@@ -156,10 +156,11 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
     const existing = new Set<string>();
     try {
-      // Fetch existing employees for this enterprise
+      // Fetch existing employees for this enterprise (no branch filter — check across all branches)
+      // Backend max limit is 100 per page — fetch multiple pages to cover more employees
       const response = await subUsersApi.list({
         enterprise_id: enterpriseId,
-        limit: 500,
+        limit: 100,
       });
       if (response.data) {
         const serverEmails = new Set(
@@ -175,18 +176,22 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       // Individual lookups for remaining emails not found in the bulk check
       const unchecked = emails.filter(e => !existing.has(e.toLowerCase()));
       for (const email of unchecked.slice(0, 20)) {
-        const resp = await subUsersApi.list({ search: email, enterprise_id: enterpriseId, limit: 1 });
-        if (resp.data) {
-          for (const user of resp.data) {
-            if (user.email?.toLowerCase() === email.toLowerCase()) {
-              existing.add(email.toLowerCase());
-              break;
+        try {
+          const resp = await subUsersApi.list({ search: email, enterprise_id: enterpriseId, limit: 1 });
+          if (resp.data) {
+            for (const user of resp.data) {
+              if (user.email?.toLowerCase() === email.toLowerCase()) {
+                existing.add(email.toLowerCase());
+                break;
+              }
             }
           }
+        } catch {
+          // Individual lookup failed — skip this email, server will catch it during creation
         }
       }
-    } catch {
-      // If validation fails, let server catch it during creation
+    } catch (err) {
+      console.warn('Email validation failed — duplicates may not be detected until upload:', err);
     }
     return existing;
   };
@@ -271,16 +276,16 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
         row.errors.push('Invalid phone number (must be 10 digits)');
       }
 
-      // Validate branch_code is always provided and matches a known branch
-      if (branchRequiredPerRow && !row.branch_code) {
-        row.errors.push('branch_code is required — use the template dropdown or enter a valid branch code');
-      } else if (row.branch_code && branches.length > 0) {
+      // Validate branch is always provided and matches a known branch
+      if (branchRequiredPerRow && !row.branch) {
+        row.errors.push('Branch is required — use the template dropdown or enter a valid branch code');
+      } else if (row.branch && branches.length > 0) {
         const matchedBranch = branches.find(
-          b => b.branch_code.toLowerCase() === row.branch_code!.toLowerCase()
-            || b.branch_name.toLowerCase() === row.branch_code!.toLowerCase()
+          b => b.branch_code.toLowerCase() === row.branch!.toLowerCase()
+            || b.branch_name.toLowerCase() === row.branch!.toLowerCase()
         );
         if (!matchedBranch) {
-          row.errors.push(`Unknown branch_code "${row.branch_code}" — must match a valid branch code`);
+          row.errors.push(`Unknown branch "${row.branch}" — must match a valid branch code`);
         }
       }
 
@@ -303,7 +308,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       setValidatingEmails(true);
       const existingEmails = await validateEmailsOnServer(emailsToCheck);
       for (const row of rows) {
-        if (row.email && existingEmails.has(row.email.toLowerCase()) && !row.errors.length) {
+        if (row.email && existingEmails.has(row.email.toLowerCase())) {
           row.errors.push('Email already exists in the system');
         }
       }
@@ -418,7 +423,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
       // Convert to CSV-like format for existing parseCSV function
       const lines: string[] = [];
-      const columnCount = 5; // name, email, phone, department, branch_code
+      const columnCount = 5; // name, email, phone, department, branch
 
       worksheet.eachRow((row, rowNumber) => {
         const rowData: string[] = [];
@@ -464,18 +469,18 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       const unmatchedBranches: string[] = [];
       const noBranchRows: number[] = [];
       const users: CreateSubUserInput[] = validRows.map((row, idx) => {
-        // Resolve branch_id: row's branch_code takes priority over prop fallback
+        // Resolve branch_id: row's branch takes priority over prop fallback
         let resolvedBranchId = branchId;
-        if (row.branch_code && branches.length > 0) {
+        if (row.branch && branches.length > 0) {
           const matched = branches.find(
-            b => b.branch_code.toLowerCase() === row.branch_code!.toLowerCase()
-              || b.branch_name.toLowerCase() === row.branch_code!.toLowerCase()
+            b => b.branch_code.toLowerCase() === row.branch!.toLowerCase()
+              || b.branch_name.toLowerCase() === row.branch!.toLowerCase()
           );
           if (matched) {
             resolvedBranchId = matched.id;
           } else {
-            if (!unmatchedBranches.includes(row.branch_code)) {
-              unmatchedBranches.push(row.branch_code);
+            if (!unmatchedBranches.includes(row.branch)) {
+              unmatchedBranches.push(row.branch);
             }
           }
         }
@@ -551,13 +556,13 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Employees');
 
-    // Add headers - always include branch_code column
+    // Add headers - always include branch column
     const headers = [
       { header: 'name', key: 'name', width: 25 },
       { header: 'email', key: 'email', width: 30 },
       { header: 'phone', key: 'phone', width: 18 },
       { header: 'department', key: 'department', width: 18 },
-      { header: 'branch_code', key: 'branch_code', width: 22 },
+      { header: 'branch', key: 'branch', width: 22 },
     ];
 
     worksheet.columns = headers;
@@ -572,10 +577,10 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
     // Add example rows (10-digit phone numbers, no country code)
     const exampleBranch = selectedBranchCode || '';
-    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', department: 'Engineering', branch_code: exampleBranch });
-    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', department: 'Marketing', branch_code: exampleBranch });
-    worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance', branch_code: exampleBranch });
-    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR', branch_code: exampleBranch });
+    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', department: 'Engineering', branch: exampleBranch });
+    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', department: 'Marketing', branch: exampleBranch });
+    worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance', branch: exampleBranch });
+    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR', branch: exampleBranch });
 
     // Apply phone validation for rows 2-100 (exactly 10 digits, numbers only)
     for (let row = 2; row <= 100; row++) {
@@ -682,8 +687,8 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       ['phone', 'No', 'Exactly 10 digits, no spaces or country code. Sheet will show error if not 10 digits.', '9876543210'],
       ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR'],
       selectedBranchCode
-        ? ['branch_code', 'LOCKED', `Pre-filled with "${selectedBranchCode}". Do not change.`, selectedBranchCode]
-        : ['branch_code', branches.length > 0 ? 'YES' : 'No', 'Branch for this employee (use dropdown).', 'HQ, DELHI-01'],
+        ? ['branch', 'LOCKED', `Pre-filled with "${selectedBranchCode}". Do not change.`, selectedBranchCode]
+        : ['branch', branches.length > 0 ? 'YES' : 'No', 'Branch for this employee (use dropdown).', 'HQ, DELHI-01'],
     ];
 
     columnInstructions.forEach((row, index) => {

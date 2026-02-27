@@ -118,6 +118,47 @@ export interface BulkBranchResult {
   error_count: number;
 }
 
+export interface BranchDeactivationPreview {
+  branch_id: string;
+  branch_name: string;
+  employee_count: number;
+  asset_count: number;
+  active_batch_count: number;
+  it_admin_name: string | null;
+  it_admin_has_other_branches: boolean;
+  can_deactivate: boolean;
+  blocking_reasons: string[];
+}
+
+export interface BranchTransferRequest {
+  target_branch_id: string;
+  transfer_employees: boolean;
+  transfer_assets: boolean;
+}
+
+export interface BranchTransferResult {
+  employees_transferred: number;
+  assets_transferred: number;
+  assets_skipped: number;
+  skipped_details: Array<{
+    asset_id: string;
+    serial_number: string | null;
+    status: string;
+    reason: string;
+  }>;
+}
+
+export interface BranchBulkDeleteRequest {
+  delete_employees: boolean;
+  delete_assets: boolean;
+}
+
+export interface BranchBulkDeleteResult {
+  employees_deactivated: number;
+  assets_deleted: number;
+  assets_skipped: number;
+}
+
 export const branchesApi = {
   list: (params: BranchListParams = {}) => {
     const query = new URLSearchParams();
@@ -161,6 +202,24 @@ export const branchesApi = {
   /** Bulk create branches */
   bulkCreate: (enterpriseId: string, data: BulkBranchCreateRequest) =>
     fetchWithAuth<BulkBranchResult>(`/branches/bulk?enterprise_id=${enterpriseId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** Preview the impact of deactivating a branch */
+  previewDeactivation: (id: string) =>
+    fetchWithAuth<BranchDeactivationPreview>(`/branches/${id}/deactivation-preview`),
+
+  /** Transfer employees/assets from one branch to another */
+  transferDependents: (id: string, data: BranchTransferRequest) =>
+    fetchWithAuth<BranchTransferResult>(`/branches/${id}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** Remove dependents (deactivate employees, delete unassigned assets) */
+  bulkDeleteDependents: (id: string, data: BranchBulkDeleteRequest) =>
+    fetchWithAuth<BranchBulkDeleteResult>(`/branches/${id}/bulk-delete-dependents`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

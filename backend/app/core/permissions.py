@@ -219,6 +219,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.MANAGE_ENTERPRISE_SETTINGS,
         Permission.MANAGE_PICKUP_LOCATIONS,
         Permission.SUBMIT_PICKUP_FOR_APPROVAL,
+        Permission.USER_DELETE,  # IT Admin can delete employees (role hierarchy enforced in service)
         Permission.EMPLOYEE_READ,
         Permission.EMPLOYEE_CREATE,
         Permission.EMPLOYEE_UPDATE,

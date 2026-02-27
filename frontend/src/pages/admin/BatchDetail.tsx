@@ -705,7 +705,7 @@ export function BatchDetail() {
 
       {/* Pickup Modal with Asset Selection */}
       {showPickupModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -901,7 +901,7 @@ export function BatchDetail() {
 
       {/* Submit for Approval Modal with Pickup Details */}
       {showSubmitModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -1040,7 +1040,7 @@ export function BatchDetail() {
 
       {/* Unified Add Asset Modal */}
       {showAddAssetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddAssetModal(false)} />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

@@ -198,6 +198,48 @@ class BranchService:
         if "status" in update_data and update_data["status"]:
             update_data["status"] = update_data["status"].value
 
+        # Deactivation guard: prevent deactivating branch with dependents
+        if "status" in update_data and update_data["status"] == BranchStatus.INACTIVE.value:
+            from app.models.user import UserRole, UserStatus
+            # Count employees
+            emp_count_result = await self.db.execute(
+                select(func.count(User.id)).where(
+                    User.branch_id == branch_id,
+                    User.role == UserRole.EMPLOYEE.value,
+                    User.status == UserStatus.ACTIVE.value,
+                )
+            )
+            emp_count = emp_count_result.scalar() or 0
+
+            asset_count_result = await self.db.execute(
+                select(func.count(Asset.id)).where(Asset.branch_id == branch_id)
+            )
+            asset_count = asset_count_result.scalar() or 0
+
+            if emp_count > 0 or asset_count > 0:
+                raise ValidationError(
+                    f"Cannot deactivate branch with {emp_count} employee(s) and {asset_count} asset(s). "
+                    "Transfer or remove them first."
+                )
+
+            # Handle IT admin re-pointing
+            if branch.it_admin_id:
+                admin_result = await self.db.execute(
+                    select(User).where(User.id == branch.it_admin_id)
+                )
+                admin_user = admin_result.scalar_one_or_none()
+                if admin_user and admin_user.branch_id == branch_id:
+                    # Find another active branch managed by this admin
+                    other_result = await self.db.execute(
+                        select(Branch).where(
+                            Branch.it_admin_id == branch.it_admin_id,
+                            Branch.id != branch_id,
+                            Branch.status == BranchStatus.ACTIVE.value,
+                        ).limit(1)
+                    )
+                    other_branch = other_result.scalar_one_or_none()
+                    admin_user.branch_id = other_branch.id if other_branch else None
+
         # Check for branch code conflict if updating
         if "branch_code" in update_data:
             existing = await self.repository.get_by_code(
@@ -485,3 +527,231 @@ class BranchService:
             )
 
         return data
+
+    async def preview_deactivation(self, branch_id: str) -> dict:
+        """Preview what will happen when a branch is deactivated."""
+        branch = await self.repository.get_by_id(branch_id)
+        if not branch:
+            raise NotFoundError("Branch", branch_id)
+
+        # Count employees (sub_user role, active status)
+        from app.models.user import UserRole, UserStatus
+        employee_result = await self.db.execute(
+            select(func.count(User.id)).where(
+                User.branch_id == branch_id,
+                User.role == UserRole.EMPLOYEE.value,
+                User.status == UserStatus.ACTIVE.value,
+            )
+        )
+        employee_count = employee_result.scalar() or 0
+
+        # Count assets
+        asset_result = await self.db.execute(
+            select(func.count(Asset.id)).where(Asset.branch_id == branch_id)
+        )
+        asset_count = asset_result.scalar() or 0
+
+        # Count active batches (non-terminal statuses)
+        terminal_statuses = ['completed', 'cancelled']
+        batch_result = await self.db.execute(
+            select(func.count(Batch.id)).where(
+                Batch.branch_id == branch_id,
+                Batch.status.notin_(terminal_statuses),
+            )
+        )
+        active_batch_count = batch_result.scalar() or 0
+
+        # Check IT admin
+        it_admin_name = None
+        it_admin_has_other_branches = False
+        if branch.it_admin_id:
+            admin_result = await self.db.execute(select(User).where(User.id == branch.it_admin_id))
+            admin = admin_result.scalar_one_or_none()
+            if admin:
+                it_admin_name = admin.name
+
+            # Check if IT admin has other active branches
+            other_branches_result = await self.db.execute(
+                select(func.count(Branch.id)).where(
+                    Branch.it_admin_id == branch.it_admin_id,
+                    Branch.id != branch_id,
+                    Branch.status == BranchStatus.ACTIVE.value,
+                )
+            )
+            it_admin_has_other_branches = (other_branches_result.scalar() or 0) > 0
+
+        # Determine if safe to deactivate
+        can_deactivate = employee_count == 0 and asset_count == 0
+        blocking_reasons = []
+        if employee_count > 0:
+            blocking_reasons.append(f"{employee_count} active employee(s) assigned to this branch")
+        if asset_count > 0:
+            blocking_reasons.append(f"{asset_count} asset(s) belong to this branch")
+        if active_batch_count > 0:
+            blocking_reasons.append(f"{active_batch_count} active batch(es) in progress")
+
+        return {
+            "branch_id": branch_id,
+            "branch_name": branch.branch_name,
+            "employee_count": employee_count,
+            "asset_count": asset_count,
+            "active_batch_count": active_batch_count,
+            "it_admin_name": it_admin_name,
+            "it_admin_has_other_branches": it_admin_has_other_branches,
+            "can_deactivate": can_deactivate,
+            "blocking_reasons": blocking_reasons,
+        }
+
+    async def transfer_dependents(
+        self, branch_id: str, target_branch_id: str,
+        transfer_employees: bool, transfer_assets: bool, updated_by: str
+    ) -> dict:
+        """Transfer employees and/or assets from one branch to another."""
+        from app.models.user import UserRole, UserStatus
+
+        # Validate source branch
+        source = await self.repository.get_by_id(branch_id)
+        if not source:
+            raise NotFoundError("Branch", branch_id)
+
+        # Validate target branch
+        target = await self.repository.get_by_id(target_branch_id)
+        if not target:
+            raise NotFoundError("Target branch", target_branch_id)
+        if target.enterprise_id != source.enterprise_id:
+            raise ValidationError("Target branch must belong to the same enterprise")
+        if target.status != BranchStatus.ACTIVE.value:
+            raise ValidationError("Target branch must be active")
+
+        employees_transferred = 0
+        assets_transferred = 0
+        assets_skipped = 0
+        skipped_details = []
+
+        if transfer_employees:
+            # Get active employees in source branch
+            emp_result = await self.db.execute(
+                select(User).where(
+                    User.branch_id == branch_id,
+                    User.role == UserRole.EMPLOYEE.value,
+                    User.status == UserStatus.ACTIVE.value,
+                )
+            )
+            employees = emp_result.scalars().all()
+            for emp in employees:
+                emp.branch_id = target_branch_id
+                emp.updated_by = updated_by
+                employees_transferred += 1
+
+        if transfer_assets:
+            # Assets in safe statuses can be transferred
+            in_flight_statuses = [
+                'submitted', 'remote_review', 'conditionally_accepted',
+                'pickup_requested', 'pickup_scheduled', 'picked_up',
+                'in_transit', 'facility_qc',
+            ]
+            asset_result = await self.db.execute(
+                select(Asset).where(Asset.branch_id == branch_id)
+            )
+            assets = asset_result.scalars().all()
+            for asset in assets:
+                if asset.status in in_flight_statuses:
+                    assets_skipped += 1
+                    skipped_details.append({
+                        "asset_id": asset.id,
+                        "serial_number": getattr(asset, 'serial_number', None),
+                        "status": asset.status,
+                        "reason": f"Asset is in '{asset.status}' status and cannot be transferred"
+                    })
+                else:
+                    asset.branch_id = target_branch_id
+                    asset.updated_by = updated_by
+                    assets_transferred += 1
+
+        # Update draft batches that now have zero remaining assets in source branch
+        batches_updated = 0
+        if transfer_assets and assets_transferred > 0:
+            draft_batches_result = await self.db.execute(
+                select(Batch).where(
+                    Batch.branch_id == branch_id,
+                    Batch.status == 'draft',
+                )
+            )
+            draft_batches = draft_batches_result.scalars().all()
+            for batch in draft_batches:
+                # Check if any assets still remain in this batch under the source branch
+                remaining = await self.db.execute(
+                    select(func.count(Asset.id)).where(
+                        Asset.batch_id == batch.id,
+                        Asset.branch_id == branch_id,
+                    )
+                )
+                if (remaining.scalar() or 0) == 0:
+                    batch.branch_id = target_branch_id
+                    batch.updated_by = updated_by
+                    batches_updated += 1
+
+        if employees_transferred > 0 or assets_transferred > 0:
+            await self.db.commit()
+
+        return {
+            "employees_transferred": employees_transferred,
+            "assets_transferred": assets_transferred,
+            "assets_skipped": assets_skipped,
+            "skipped_details": skipped_details,
+            "batches_updated": batches_updated,
+        }
+
+    async def bulk_delete_dependents(
+        self, branch_id: str, delete_employees: bool, delete_assets: bool, deleted_by: str
+    ) -> dict:
+        """Soft-deactivate employees and/or delete unassigned assets in a branch."""
+        from app.models.user import UserRole, UserStatus
+
+        branch = await self.repository.get_by_id(branch_id)
+        if not branch:
+            raise NotFoundError("Branch", branch_id)
+
+        employees_deactivated = 0
+        assets_deleted = 0
+        assets_skipped = 0
+
+        if delete_employees:
+            emp_result = await self.db.execute(
+                select(User).where(
+                    User.branch_id == branch_id,
+                    User.role == UserRole.EMPLOYEE.value,
+                    User.status == UserStatus.ACTIVE.value,
+                )
+            )
+            employees = emp_result.scalars().all()
+            for emp in employees:
+                emp.status = UserStatus.INACTIVE.value
+                emp.branch_id = None
+                emp.updated_by = deleted_by
+                employees_deactivated += 1
+
+        if delete_assets:
+            # Unlink assets in pending_assignment status from this branch (soft removal).
+            # Assets in other statuses are skipped — they're in-flight and must be handled
+            # through the normal workflow.
+            asset_result = await self.db.execute(
+                select(Asset).where(Asset.branch_id == branch_id)
+            )
+            assets = asset_result.scalars().all()
+            for asset in assets:
+                if asset.status == 'pending_assignment':
+                    asset.branch_id = None
+                    asset.updated_by = deleted_by
+                    assets_deleted += 1
+                else:
+                    assets_skipped += 1
+
+        if employees_deactivated > 0 or assets_deleted > 0:
+            await self.db.commit()
+
+        return {
+            "employees_deactivated": employees_deactivated,
+            "assets_deleted": assets_deleted,
+            "assets_skipped": assets_skipped,
+        }

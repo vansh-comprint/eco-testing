@@ -30,7 +30,7 @@ import {
   Power
 } from 'lucide-react';
 import { useAuth, useBranches, useBranchesByITAdmin, useBranchSummary, useCreateBranch, useUpdateBranch, useUpdateBranchStatus, useDeleteBranch, useActiveITAdmins, useCheckBranchCodeExists, useCreateITAdmin } from '@/hooks';
-import { PageHeader, Badge, Modal } from '@/components/ui';
+import { PageHeader, Badge, Modal, BranchDeactivationModal } from '@/components/ui';
 import { text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 import { validateBranchCode, validatePassword, indianStates } from '@/lib/validation';
 import type { BranchResponse, BranchSummary } from '@/lib/api/branches';
@@ -62,6 +62,7 @@ export function BranchManagement() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deactivatingBranch, setDeactivatingBranch] = useState<Branch | null>(null);
 
   // React Query hooks - IT Admin only sees their assigned branches
   const userId = user?.id || '';
@@ -270,8 +271,11 @@ export function BranchManagement() {
                     onEdit={canManageBranches ? () => handleEditBranch(branch) : undefined}
                     onDelete={canManageBranches ? () => handleDeleteClick(branch) : undefined}
                     onToggleStatus={canManageBranches ? () => {
-                      const newStatus = branch.status === 'active' ? 'inactive' : 'active';
-                      updateBranchStatus.mutate({ branchId: branch.id, status: newStatus });
+                      if (branch.status === 'active') {
+                        setDeactivatingBranch(branch);
+                      } else {
+                        updateBranchStatus.mutate({ branchId: branch.id, status: 'active' });
+                      }
                     } : undefined}
                     onClick={() => navigate(`${basePath}/branches/${branch.id}`)}
                     canManage={canManageBranches}
@@ -328,6 +332,18 @@ export function BranchManagement() {
         isLoading={deleteBranch.isPending}
         error={deleteError}
       />
+
+      {/* Branch Deactivation Modal */}
+      {deactivatingBranch && (
+        <BranchDeactivationModal
+          isOpen={!!deactivatingBranch}
+          onClose={() => setDeactivatingBranch(null)}
+          branchId={deactivatingBranch.id}
+          branchName={deactivatingBranch.branch_name}
+          enterpriseId={enterpriseId}
+          onDeactivated={() => setDeactivatingBranch(null)}
+        />
+      )}
     </div>
   );
 }

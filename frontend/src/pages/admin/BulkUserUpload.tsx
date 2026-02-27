@@ -96,7 +96,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
             <ul className="font-mono text-xs text-zinc-500 space-y-1">
               <li>• Download our template for the correct format</li>
               <li>• Required column: email</li>
-              <li>• Optional: name, phone, department, branch_code</li>
+              <li>• Optional: name, phone, department, branch</li>
               <li>• Supported departments: Engineering, Marketing, HR, Finance, Operations, Sales, IT, Other</li>
               <li>• Sub-users will receive email invites automatically</li>
               <li>• Duplicate emails will be flagged as errors</li>

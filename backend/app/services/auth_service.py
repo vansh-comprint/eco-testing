@@ -20,7 +20,7 @@ from app.core.security import (
     is_token_in_whitelist,
 )
 from app.models.user import User, UserRole, UserStatus
-from app.models.enterprise import BranchStatus, EnterpriseStatus
+from app.models.enterprise import Branch, BranchStatus, EnterpriseStatus
 from app.repositories.user_repository import UserRepository
 from app.repositories.branch_repository import BranchRepository
 from app.repositories.enterprise_repository import EnterpriseRepository
@@ -91,6 +91,25 @@ class AuthService:
             if not branch:
                 raise AuthenticationError("Branch not found")
             if branch.status != BranchStatus.ACTIVE.value:
+                # IT Admin with multiple branches: re-point to another active branch
+                if user.role == UserRole.IT_ADMIN.value:
+                    from sqlalchemy import select as sa_select
+                    active_branch_result = await self.db.execute(
+                        sa_select(Branch).where(
+                            Branch.it_admin_id == user.id,
+                            Branch.status == BranchStatus.ACTIVE.value
+                        ).limit(1)
+                    )
+                    active_branch = active_branch_result.scalar_one_or_none()
+                    if active_branch:
+                        try:
+                            user.branch_id = active_branch.id
+                            await self.db.commit()
+                            await self.db.refresh(user)
+                            return  # Allow login with active branch
+                        except Exception:
+                            await self.db.rollback()
+                            # Fall through to the deactivated branch error
                 raise AuthenticationError(
                     "Your branch has been deactivated. Please contact your administrator."
                 )

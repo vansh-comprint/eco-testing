@@ -92,7 +92,7 @@ export function AllUsers() {
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {
-    total: (dashStats.user_super_admin ?? 0) + (dashStats.user_ops_admin ?? 0) + (dashStats.user_it_admin ?? 0) + (dashStats.user_org_admin ?? 0) + (dashStats.user_logistics ?? 0),
+    total: dashStats.user_count ?? 0,
     superAdmins: dashStats.user_super_admin ?? 0,
     opsAdmins: dashStats.user_ops_admin ?? 0,
     itAdmins: dashStats.user_it_admin ?? 0,

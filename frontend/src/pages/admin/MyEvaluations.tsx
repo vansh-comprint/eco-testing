@@ -65,8 +65,13 @@ export function MyEvaluations() {
   // Calculate stats
   const stats = useMemo(() => {
     const pending = allSelfAssets.filter(a => ['assigned', 'check_in_started'].includes(a.status)).length;
-    const submitted = allSelfAssets.filter(a => a.status === 'submitted').length;
-    const reviewed = allSelfAssets.filter(a => ['conditionally_accepted', 'remote_rejected'].includes(a.status)).length;
+    const submitted = allSelfAssets.filter(a => ['submitted', 'remote_review'].includes(a.status)).length;
+    const reviewed = allSelfAssets.filter(a => [
+      'conditionally_accepted', 'remote_rejected',
+      'pickup_requested', 'pickup_scheduled', 'picked_up', 'in_transit',
+      'facility_qc', 'final_accepted', 'final_rejected',
+      'payout_pending', 'completed',
+    ].includes(a.status)).length;
     return { pending, submitted, reviewed, total: allSelfAssets.length };
   }, [allSelfAssets]);
 

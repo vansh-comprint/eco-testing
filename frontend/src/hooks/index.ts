@@ -94,6 +94,9 @@ export {
   useUpdateITAdmin,
   useResetITAdminPassword,
   useUpdateITAdminStatus,
+  useBranchDeactivationPreview,
+  useTransferBranchDependents,
+  useBulkDeleteBranchDependents,
   branchKeys,
   itAdminKeys,
 } from './useBranches';

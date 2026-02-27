@@ -71,6 +71,66 @@
 - Severity: LOW in production (downgrades are rare), but REAL defect
 - Check this pattern on every migration that reverts nullable columns
 
+## Branch Code Bulk Upload Bugs (2026-02-26)
+
+### New Attack Patterns (HIT)
+6. **Async loading race condition** — HITS: branches=[] (still loading) bypasses all validation
+   - branchRequiredPerRow = !branchId && branches.length > 0: FALSE when branches=[]
+   - Both per-row validation AND handleUpload noBranchRows check are skipped
+   - Applies to any feature where validation depends on a loaded list
+   - Check: is the validation gate guarded by "list.length > 0"?
+
+7. **Frontend overrides CSV per-row data in handleUpload** — HITS: UploadAssets.tsx
+   - CSVUpload.tsx builds branch_id per-row from CSV
+   - UploadAssets.tsx step 4 (lines 185/201) OVERWRITES branch_id with effectiveBranchId
+   - CSV branch column is cosmetically validated but has no effect on actual assignment
+   - Pattern: when parent page remaps CSV-built objects before sending to API
+
+8. **Backend missing per-item enterprise/branch cross-validation** — HITS: user_service.py
+   - bulk_create: user_item.branch_id used without checking branch.enterprise_id == bulk.enterprise_id
+   - Pattern: any per-item field that is a foreign key to a scoped entity needs ownership check
+   - Single user create has same gap
+
+9. **Sync gap: create vs update for bidirectional FK** — HITS: branch_service.py
+   - update_branch syncs admin.branch_id = branch_id (line 216-234)
+   - create_branch and bulk_create_branches do NOT sync (only set branch.it_admin_id)
+   - Pattern: when update path syncs a bidirectional field but create path doesn't
+
+### Known Safe in This Codebase (branch flows)
+- empty-string branch_id: Python falsy, bulk_data fallback works correctly
+- branch_name alias in CSV: double-check (code OR name) in both validation and upload
+- branchId prop closure: handleUpload is NOT useCallback, always sees fresh value
+- IT Admin multi-branch template: isOrgAdmin=false path correct, dropdown generated
+
+## Branch Deactivation Bugs (2026-02-27)
+
+### New Attack Patterns (HIT)
+10. **Deactivation guard split-path gap** — HITS: branch deactivation task
+    - preview_deactivation() and update_branch() are TWO separate code paths
+    - preview checks active batches; update_branch() guard did NOT
+    - Pattern: when a "preview" function and the actual "execute" function duplicate guard logic,
+      they often diverge — always compare them for missing checks
+
+11. **can_deactivate vs blocking_reasons inconsistency** — HITS: branch deactivation task
+    - blocking_reasons list included active batches BUT can_deactivate boolean ignored them
+    - Can_deactivate=True + non-empty blocking_reasons = contradictory API response
+    - Frontend showed green "safe" + Deactivate button + red batch warning simultaneously
+    - Pattern: whenever a boolean "can_X" and a list "X_reasons" are computed separately,
+      check that the boolean is the logical AND of all reasons
+
+12. **FK ondelete SET NULL scope gap** — HITS: branch deactivation task
+    - Batch.branch_id has ondelete="SET NULL" — fires on branch DELETE, not status change
+    - transfer_dependents() moved assets but NOT their parent Batch.branch_id
+    - Pattern: when transferring child records (assets), always check if grandparent records
+      (batches) have their own FK that also needs updating
+
+### Known Safe in This Codebase (branch deactivation flows)
+- Cross-enterprise transfer guard: present in transfer_dependents() (enterprise_id check)
+- Inactive target branch guard: present (status != ACTIVE check)
+- Race condition (TOCTOU): guards re-query DB fresh on each call — safe
+- IT Admin BRANCH_UPDATE permission: correctly absent (only READ + CREATE assigned)
+- Frontend modal state: handleClose() resets all 8 state vars — clean
+
 ## OnSiteQC Fix 3 — What Was Solid (2026-02-24)
 - All import chains: CLEAN (no import errors)
 - Route ordering: CORRECT (by-pickup/{id} before {qc_id} in registration)
