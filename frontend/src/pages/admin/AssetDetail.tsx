@@ -1154,7 +1154,7 @@ export function AssetDetail() {
                           <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
                           {eligibleBatches.map((b: any) => (
                             <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
-                              {b.name} ({b.asset_count || 0} assets)
+                              {b.name}
                             </option>
                           ))}
                         </select>
