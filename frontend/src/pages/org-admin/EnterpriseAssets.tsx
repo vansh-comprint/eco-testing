@@ -16,7 +16,6 @@ import {
   Loader2,
   ArrowUpDown,
   Building2,
-  CheckCircle,
   Clock,
   XCircle,
   AlertTriangle,
@@ -59,7 +58,6 @@ export function EnterpriseAssets() {
   const STATUS_GROUP_MAP: Record<string, string> = {
     pending: 'pending_assignment,assigned,check_in_started',
     in_review: 'submitted,remote_review,facility_qc',
-    accepted: 'conditionally_accepted,final_accepted,ready_for_pickup,pickup_requested,pickup_scheduled,pickup_failed_qc,picked_up,in_transit,payout_pending',
     completed: 'completed',
     rejected: 'remote_rejected,final_rejected,disputed',
   };
@@ -102,7 +100,6 @@ export function EnterpriseAssets() {
     total: dashboardStats.asset_total ?? 0,
     pending: dashboardStats.asset_pending ?? 0,
     inReview: dashboardStats.asset_in_review ?? 0,
-    accepted: dashboardStats.asset_accepted ?? 0,
     completed: dashboardStats.asset_completed ?? 0,
     rejected: dashboardStats.asset_rejected ?? 0,
   };
@@ -149,7 +146,6 @@ export function EnterpriseAssets() {
     { label: 'Total Assets', value: stats.total, icon: <Monitor className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
     { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending') },
     { label: 'In Review', value: stats.inReview, icon: <AlertTriangle className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review') },
-    { label: 'Accepted', value: stats.accepted, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'accepted' ? 'all' : 'accepted') },
     { label: 'Completed', value: stats.completed, icon: <Package className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed') },
     { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected') },
   ];
@@ -216,7 +212,6 @@ export function EnterpriseAssets() {
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="in_review">In Review</option>
-              <option value="accepted">Accepted</option>
               <option value="completed">Completed</option>
               <option value="rejected">Rejected</option>
             </select>

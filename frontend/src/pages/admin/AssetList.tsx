@@ -17,7 +17,6 @@ import {
   Check,
   Trash2,
   TrendingUp,
-  Truck,
   Loader2,
   Info
 } from 'lucide-react';
@@ -174,7 +173,6 @@ export function AssetList() {
   const stats = {
     total: dashboardStats.asset_total ?? totalAssetCount,
     pending: dashboardStats.asset_pending_assignment ?? 0,
-    readyForPickup: dashboardStats.asset_accepted ?? 0,
     inProgress: dashboardStats.asset_in_review ?? 0,
     completed: dashboardStats.asset_completed ?? 0,
     rejected: dashboardStats.asset_rejected ?? 0,
@@ -422,11 +420,10 @@ export function AssetList() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-l border-t border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 shadow-sm"
       >
         <StatBox label="Total" value={stats.total} icon={<Laptop className="w-4 h-4" />} onClick={() => handleStatClick('')} active={statusFilter === ''} />
         <StatBox label="Unassigned" value={stats.pending} icon={<Clock className="w-4 h-4" />} highlight={stats.pending > 0} onClick={() => handleStatClick('pending_assignment')} active={statusFilter === 'pending_assignment'} />
-        <StatBox label="Accepted" value={stats.readyForPickup} icon={<Truck className="w-4 h-4" />} highlight={stats.readyForPickup > 0} onClick={() => handleStatClick('accepted')} active={statusFilter === 'accepted'} />
         <StatBox label="Processing" value={stats.inProgress} icon={<TrendingUp className="w-4 h-4" />} onClick={() => handleStatClick('processing')} active={statusFilter === 'processing'} />
         <StatBox label="Completed" value={stats.completed} icon={<CheckCircle className="w-4 h-4" />} onClick={() => handleStatClick('completed')} active={statusFilter === 'completed'} />
         <StatBox label="Rejected" value={stats.rejected} icon={<XCircle className="w-4 h-4" />} error={stats.rejected > 0} onClick={() => handleStatClick('rejected')} active={statusFilter === 'rejected'} />

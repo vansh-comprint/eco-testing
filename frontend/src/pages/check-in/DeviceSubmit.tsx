@@ -151,11 +151,12 @@ export function DeviceSubmit() {
         },
       });
 
-      // Invalidate cached asset data so dashboard shows updated status immediately
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: assetKeys.all }),
-        queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all }),
-      ]);
+      // Remove stale asset cache so destination page fetches fresh data
+      // (invalidateQueries only refetches active observers — if no component
+      // is mounted for the query, it just marks stale and the next page
+      // shows old cached data briefly before refetching)
+      queryClient.removeQueries({ queryKey: assetKeys.all });
+      queryClient.removeQueries({ queryKey: dashboardStatsKeys.all });
 
       showSuccess('Device Submitted', 'Your device evaluation has been submitted successfully');
       const successPath = basePath === '/check-in' ? `${basePath}/success` : `${basePath}/my-evaluations`;

@@ -301,10 +301,10 @@ export function SubmissionDetail() {
         addToast({ type: 'error', title: 'Approval Failed', message: result.error?.message || 'Failed to approve submission.' });
         return;
       }
-      // Invalidate caches so destination page reflects new status
-      queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      // Remove stale caches so destination page fetches fresh data
+      queryClient.removeQueries({ queryKey: assetKeys.all });
+      queryClient.removeQueries({ queryKey: batchKeys.all });
+      queryClient.removeQueries({ queryKey: dashboardStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       setShowApproveModal(false);
       addToast({ type: 'success', title: 'Submission Accepted', message: 'The device has been conditionally accepted.' });
@@ -330,10 +330,10 @@ export function SubmissionDetail() {
         addToast({ type: 'error', title: 'Rejection Failed', message: result.error?.message || 'Failed to reject submission.' });
         return;
       }
-      // Invalidate caches so destination page reflects new status
-      queryClient.invalidateQueries({ queryKey: assetKeys.all });
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
-      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
+      // Remove stale caches so destination page fetches fresh data
+      queryClient.removeQueries({ queryKey: assetKeys.all });
+      queryClient.removeQueries({ queryKey: batchKeys.all });
+      queryClient.removeQueries({ queryKey: dashboardStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: ['sidebar-badges'] });
       setShowRejectModal(false);
       addToast({ type: 'success', title: 'Submission Rejected', message: 'The employee will be notified.' });
