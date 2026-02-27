@@ -63,6 +63,7 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
     if (!newBranch.city.trim()) errs.city = 'Required';
     if (!newBranch.state.trim()) errs.state = 'Required';
     if (!newBranch.pin_code.trim()) errs.pin_code = 'Required';
+    else if (!/^\d{6}$/.test(newBranch.pin_code)) errs.pin_code = 'Must be exactly 6 digits';
     setBranchErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -294,8 +295,10 @@ export function AddITAdminModal({ isOpen, onClose, onSuccess }: AddITAdminModalP
                   <div>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      maxLength={6}
                       value={newBranch.pin_code}
-                      onChange={(e) => { setNewBranch(p => ({ ...p, pin_code: e.target.value })); setBranchErrors(p => ({ ...p, pin_code: '' })); }}
+                      onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); setNewBranch(p => ({ ...p, pin_code: v })); setBranchErrors(p => ({ ...p, pin_code: '' })); }}
                       placeholder="PIN *"
                       className={`w-full px-2.5 py-2 bg-white dark:bg-zinc-900 border rounded text-sm text-slate-900 dark:text-white focus:outline-none focus:border-lime-500 ${branchErrors.pin_code ? 'border-red-400' : 'border-slate-200 dark:border-zinc-700'}`}
                     />

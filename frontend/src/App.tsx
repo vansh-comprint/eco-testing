@@ -131,7 +131,7 @@ const orgAdminNavItems = [
 const orgAdminITViewNavItems = [
   { label: 'Assets', path: '/org-admin/assets', icon: <AssetIcon />, permission: Permission.ASSET_READ },
   { label: 'Batches', path: '/org-admin/batches', icon: <BatchIcon />, permission: Permission.BATCH_READ },
-  { label: 'Employees', path: '/org-admin/employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
+  { label: 'Employees', path: '/org-admin/enterprise-employees', icon: <UsersIcon />, permission: Permission.EMPLOYEE_READ },
   { label: 'Pickups', path: '/org-admin/pickups', icon: <TruckIcon />, permission: Permission.PICKUP_VIEW },
   { label: 'Disputes', path: '/org-admin/disputes', icon: <DisputeIcon />, permission: Permission.DISPUTE_VIEW },
   { label: 'Evaluations', path: '/org-admin/my-evaluations', icon: <EvaluationIcon />, permission: Permission.SUBMISSION_VIEW },

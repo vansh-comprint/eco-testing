@@ -63,7 +63,7 @@ export interface SubUserBulkCreateRequest {
 
 export interface SubUserBulkCreateResponse {
   created: SubUserResponse[];
-  errors: { index: number; email: string; error: string }[];
+  errors: (string | { index: number; email: string; error: string })[];
   created_count: number;
   error_count: number;
 }

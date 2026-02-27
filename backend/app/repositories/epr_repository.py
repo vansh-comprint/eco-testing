@@ -80,15 +80,15 @@ class EPRCertificateRepository:
         return certificates, total
 
     async def create(self, certificate: EPRCertificate) -> EPRCertificate:
-        """Create a new EPR certificate"""
+        """Create a new EPR certificate (flush only — caller must commit)"""
         self.db.add(certificate)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(certificate)
         return certificate
 
     async def update(self, certificate: EPRCertificate) -> EPRCertificate:
-        """Update an EPR certificate"""
-        await self.db.commit()
+        """Update an EPR certificate (flush only — caller must commit)"""
+        await self.db.flush()
         await self.db.refresh(certificate)
         return certificate
 

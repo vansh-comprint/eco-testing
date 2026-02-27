@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Key, Save } from 'lucide-react';
 import { Modal, ModalFooter, Input, Button, Badge, useToast } from '@/components/ui';
-import { useUpdateUser, useResetUserPassword, useEnterprises, useAllUsers } from '@/hooks';
+import { useUpdateUser, useResetUserPassword, useEnterprises, useAllUsers, useBranches } from '@/hooks';
 import { nameSchema, emailSchema, passwordSchema, optionalPhoneSchema } from '@/lib/validation';
 import { text } from '@/lib/design-tokens';
 
@@ -17,6 +17,7 @@ interface UserData {
   status: string;
   enterprise_id?: string;
   enterprise_name?: string;
+  branch_id?: string;
   created_at: string;
 }
 
@@ -47,6 +48,7 @@ const userDetailsSchema = z.object({
   role: z.string(),
   status: z.string(),
   enterprise_id: z.string().optional(),
+  branch_id: z.string().optional(),
   parent_user_id: z.string().optional(),
 }).refine((data) => {
   if (ENTERPRISE_ROLES.includes(data.role) && !data.enterprise_id) {
@@ -104,6 +106,9 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
     limit: 100,
   });
 
+  // Fetch branches for the user's enterprise (for IT Admin branch assignment)
+  const { data: branches = [], isLoading: branchesLoading } = useBranches(user.enterprise_id || '');
+
   // User Details Form
   const {
     register: registerDetails,
@@ -121,6 +126,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
       role: user.role,
       status: user.status,
       enterprise_id: user.enterprise_id || '',
+      branch_id: user.branch_id || '',
       parent_user_id: '',
     },
   });
@@ -128,12 +134,16 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
   // Watch role field for conditional rendering
   const selectedRole = watch('role');
   const needsEnterprise = ENTERPRISE_ROLES.includes(selectedRole || '');
+  const needsBranch = selectedRole === 'it_admin';
   const needsLogisticsAdmin = selectedRole === LOGISTICS_USER_ROLE;
 
   // Clear conditional fields when role changes
   useEffect(() => {
     if (!ENTERPRISE_ROLES.includes(selectedRole || '')) {
       setValue('enterprise_id', '');
+    }
+    if (selectedRole !== 'it_admin') {
+      setValue('branch_id', '');
     }
     if (selectedRole !== LOGISTICS_USER_ROLE) {
       setValue('parent_user_id', '');
@@ -166,6 +176,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
           role: data.role,
           status: data.status,
           enterprise_id: ENTERPRISE_ROLES.includes(data.role) ? data.enterprise_id : undefined,
+          branch_id: data.role === 'it_admin' ? (data.branch_id || null) : undefined,
           parent_user_id: data.role === LOGISTICS_USER_ROLE ? data.parent_user_id : undefined,
         },
       });
@@ -387,6 +398,28 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
                 {detailsErrors.enterprise_id && (
                   <p className="mt-1 text-xs text-red-500">{detailsErrors.enterprise_id.message}</p>
                 )}
+              </div>
+            )}
+
+            {/* Branch selector - shown for IT Admin */}
+            {needsBranch && user.enterprise_id && (
+              <div>
+                <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
+                  Branch
+                </label>
+                <select
+                  {...registerDetails('branch_id')}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-mono text-xs uppercase tracking-widest focus:outline-none focus:border-lime-500 dark:focus:border-lime-400"
+                >
+                  <option value="">
+                    {branchesLoading ? 'Loading...' : 'No branch (unassigned)'}
+                  </option>
+                  {branches.map((branch: any) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.branch_name || branch.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 

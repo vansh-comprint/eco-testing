@@ -95,6 +95,45 @@ class BatchService:
             stats.total += count
         return stats
 
+    async def recalculate_batch_metrics(self, batch_id: str) -> None:
+        """Recalculate denormalized metrics (asset_count, estimated_value, etc.) from assets."""
+        from sqlalchemy import select, func
+        from app.models.asset import Asset
+
+        batch = await self.repository.get_by_id(batch_id)
+        if not batch:
+            return
+
+        # Count assets and sum values in a single query
+        result = await self.db.execute(
+            select(
+                func.count(Asset.id),
+                func.coalesce(func.sum(Asset.final_price), 0),
+                func.coalesce(func.sum(Asset.base_price), 0),
+            ).where(Asset.batch_id == batch_id)
+        )
+        row = result.one()
+        asset_count = row[0]
+        total_final = row[1]
+        total_base = row[2]
+
+        # Status breakdown
+        status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
+        accepted_statuses = {"conditionally_accepted", "final_accepted", "completed", "payout_pending"}
+        rejected_statuses = {"remote_rejected", "final_rejected"}
+
+        accepted = sum(status_counts.get(s, 0) for s in accepted_statuses)
+        rejected = sum(status_counts.get(s, 0) for s in rejected_statuses)
+        pending = asset_count - accepted - rejected
+
+        batch.asset_count = asset_count
+        batch.accepted_count = accepted
+        batch.rejected_count = rejected
+        batch.pending_count = pending
+        # Use final_price sum if available, otherwise fall back to base_price sum
+        batch.estimated_value = total_final if total_final else total_base
+        await self.db.flush()
+
     async def get_batch(self, batch_id: str) -> BatchResponse:
         """Get batch by ID"""
         batch = await self.repository.get_by_id(batch_id)
@@ -629,34 +668,32 @@ class BatchService:
             delete_assets: If True, delete all assets in this batch
             delete_sub_users: If True, delete employee users assigned to batch assets
         """
-        from sqlalchemy import select, delete as sql_delete
+        from sqlalchemy import select, delete as sql_delete, update
         from app.models.asset import Asset
         from app.models.user import User
+        from app.models.financial import Payout, CreditTransaction
+        from app.models.epr import EPRCertificate
 
         batch = await self.repository.get_by_id(batch_id)
         if not batch:
             raise NotFoundError("Batch", batch_id)
 
-        # Get assets in this batch (needed for sub-user deletion and asset deletion)
-        assets = []
-        if delete_assets or delete_sub_users:
+        # Delete employee users assigned to batch assets (if requested)
+        if delete_sub_users:
+            # Find employee IDs assigned to assets in this batch
             result = await self.db.execute(
-                select(Asset).where(Asset.batch_id == batch_id)
+                select(Asset.assigned_to_user_id)
+                .where(Asset.batch_id == batch_id)
+                .where(Asset.assigned_to_user_id.isnot(None))
             )
-            assets = list(result.scalars().all())
-
-        # Delete employee users assigned to these assets
-        if delete_sub_users and assets:
-            employee_ids = {
-                a.assigned_to_user_id for a in assets
-                if a.assigned_to_user_id
-            }
+            employee_ids = {row[0] for row in result.all()}
             if employee_ids:
                 # Unassign assets first to avoid FK issues
-                for asset in assets:
-                    asset.assigned_to_user_id = None
-                await self.db.flush()
-
+                await self.db.execute(
+                    update(Asset)
+                    .where(Asset.batch_id == batch_id)
+                    .values(assigned_to_user_id=None)
+                )
                 # Delete employee users
                 await self.db.execute(
                     sql_delete(User).where(
@@ -665,20 +702,57 @@ class BatchService:
                     )
                 )
 
-        # Delete assets in this batch
-        if delete_assets and assets:
-            for asset in assets:
-                await self.db.delete(asset)
+        # Use raw SQL throughout to avoid async lazy-loading of ORM
+        # relationships (greenlet_spawn errors from cascade checks).
 
-        # Delete any pickup requests tied to this batch
-        result = await self.db.execute(
-            select(PickupRequest).where(PickupRequest.batch_id == batch_id)
+        # Delete assets in this batch (if requested)
+        if delete_assets:
+            await self.db.execute(
+                sql_delete(Asset).where(Asset.batch_id == batch_id)
+            )
+        else:
+            # Detach assets from batch (DB FK has ondelete=SET NULL but
+            # ORM cascade would try to lazy-load the relationship)
+            await self.db.execute(
+                update(Asset).where(Asset.batch_id == batch_id).values(batch_id=None)
+            )
+
+        # Clean up EPR certificate if batch has one
+        if batch.epr_certificate_id:
+            # Clear asset references to this certificate
+            await self.db.execute(
+                update(Asset)
+                .where(Asset.epr_certificate_id == batch.epr_certificate_id)
+                .values(epr_certificate_id=None)
+            )
+            await self.db.execute(
+                sql_delete(EPRCertificate).where(EPRCertificate.id == batch.epr_certificate_id)
+            )
+
+        # Delete pickup requests tied to this batch
+        await self.db.execute(
+            sql_delete(PickupRequest).where(PickupRequest.batch_id == batch_id)
         )
-        for pickup in result.scalars().all():
-            await self.db.delete(pickup)
 
-        # Delete the batch itself
-        await self.db.delete(batch)
+        # Delete payout and its credit transactions.
+        # Batch.payout has cascade="all, delete-orphan" which would try
+        # lazy-loading in async context — handle explicitly via raw SQL.
+        payout_result = await self.db.execute(
+            select(Payout.id).where(Payout.batch_id == batch_id)
+        )
+        payout_id = payout_result.scalar_one_or_none()
+        if payout_id:
+            await self.db.execute(
+                sql_delete(CreditTransaction).where(CreditTransaction.payout_id == payout_id)
+            )
+            await self.db.execute(
+                sql_delete(Payout).where(Payout.id == payout_id)
+            )
+
+        # Delete batch via raw SQL to bypass ORM cascade lazy-loading
+        await self.db.execute(
+            sql_delete(Batch).where(Batch.id == batch_id)
+        )
         await self.db.commit()
         return True
 

@@ -40,6 +40,7 @@ interface CSVUploadProps {
   batchId?: string;
   branches?: Array<{ id: string; branch_name: string }>;
   branchRequired?: boolean; // when true, template download is blocked until a branch is selected
+  selectedBranchId?: string; // when set, branch is already determined — skip branch column in template/validation
   onUpload: (assets: CreateAssetInput[], metadata: BulkUploadMetadata) => Promise<BulkUploadResult | void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -166,7 +167,9 @@ const COLUMN_ALIASES: Record<string, string> = {
   'location': 'branch',
 };
 
-export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired = false, onUpload, onCancel, isLoading }: CSVUploadProps) {
+export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired = false, selectedBranchId, onUpload, onCancel, isLoading }: CSVUploadProps) {
+  // When branch is pre-selected at page level, exclude it from CSV requirements
+  const branchPreSelected = !!selectedBranchId;
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
@@ -231,8 +234,9 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       )
     );
 
-    // Check for required columns
-    const missingRequired = REQUIRED_COLUMNS.filter(col => !(col in mapping));
+    // Check for required columns (skip branch when pre-selected at page level)
+    const effectiveRequired = branchPreSelected ? REQUIRED_COLUMNS.filter(c => c !== 'branch') : REQUIRED_COLUMNS;
+    const missingRequired = effectiveRequired.filter(col => !(col in mapping));
     if (missingRequired.length > 0) {
       console.error('Missing required columns:', missingRequired);
     }
@@ -268,8 +272,8 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       // Skip rows where all required fields are empty (likely blank rows with some formatting)
       if (!row.serialNumber && !row.brand && !row.model) continue;
 
-      // Validate branch first (required when branches are available)
-      if (branches.length > 0) {
+      // Validate branch (required only when no branch is pre-selected at page level)
+      if (!branchPreSelected && branches.length > 0) {
         if (!row.branch) {
           row.errors.push('Branch is required');
         } else {
@@ -321,7 +325,7 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
 
     setParsedData(rows);
     setUploadStatus('ready');
-  }, [branches]);
+  }, [branches, branchPreSelected]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -506,16 +510,23 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
   };
 
   const downloadTemplate = () => {
-    const headers = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS, ...USER_COLUMNS].join(',');
+    // Exclude branch from CSV template when it's pre-selected at page level
+    const csvRequired = branchPreSelected ? REQUIRED_COLUMNS.filter(c => c !== 'branch') : REQUIRED_COLUMNS;
+    const headers = [...csvRequired, ...OPTIONAL_COLUMNS, ...USER_COLUMNS].join(',');
     const exampleBranch = branches.length > 0 ? branches[0].branch_name : 'Main Branch';
     // Comprehensive examples showing valid options for each field
-    // Column order: serialNumber, brand, model, branch, processor, ram, storage, screenSize, os, gpu, purchaseDate, assignedEmail, assignedName, assignedDepartment
+    const makeLine = (sn: string, brand: string, model: string, proc: string, ram: string, storage: string, screen: string, os: string, gpu: string, date: string, email: string, name: string, dept: string) => {
+      const base = [sn, brand, model];
+      if (!branchPreSelected) base.push(exampleBranch);
+      base.push(proc, ram, storage, screen, os, gpu, date, email, name, dept);
+      return base.join(',');
+    };
     const examples = [
-      `DELL-XPS15-001,Dell,XPS 15 9520,${exampleBranch},Intel Core i7-12700H,16GB DDR5,512GB NVMe SSD,15.6 inch FHD+,Windows 11 Pro,NVIDIA RTX 3050 Ti,2024-01-15,vikram@company.com,Vikram Singh,Engineering`,
-      `HP-ELITE-002,HP,EliteBook 840 G9,${exampleBranch},Intel Core i5-1245U,8GB DDR4,256GB SSD,14 inch FHD,Windows 11 Pro,,2023-06-20,priya@company.com,Priya Sharma,Marketing`,
-      `LENOVO-T14-003,Lenovo,ThinkPad T14 Gen 3,${exampleBranch},AMD Ryzen 7 PRO 6850U,16GB DDR5,512GB PCIe SSD,14 inch 2.2K,Windows 11 Pro,AMD Radeon Graphics,2024-03-10,,,`,
-      `APPLE-MBP-004,Apple,MacBook Pro 14,${exampleBranch},Apple M3 Pro,18GB Unified,512GB SSD,14.2 inch Liquid Retina,macOS Sonoma,Apple M3 Pro GPU,2024-02-28,amit@company.com,Amit Kumar,Design`,
-      `ASUS-ZEN-005,Asus,ZenBook 14,${exampleBranch},Intel Core i5-1340P,16GB LPDDR5,512GB SSD,14 inch OLED,Windows 11 Home,Intel Iris Xe,2023-11-15,,,`,
+      makeLine('DELL-XPS15-001','Dell','XPS 15 9520','Intel Core i7-12700H','16GB DDR5','512GB NVMe SSD','15.6 inch FHD+','Windows 11 Pro','NVIDIA RTX 3050 Ti','2024-01-15','vikram@company.com','Vikram Singh','Engineering'),
+      makeLine('HP-ELITE-002','HP','EliteBook 840 G9','Intel Core i5-1245U','8GB DDR4','256GB SSD','14 inch FHD','Windows 11 Pro','','2023-06-20','priya@company.com','Priya Sharma','Marketing'),
+      makeLine('LENOVO-T14-003','Lenovo','ThinkPad T14 Gen 3','AMD Ryzen 7 PRO 6850U','16GB DDR5','512GB PCIe SSD','14 inch 2.2K','Windows 11 Pro','AMD Radeon Graphics','2024-03-10','','',''),
+      makeLine('APPLE-MBP-004','Apple','MacBook Pro 14','Apple M3 Pro','18GB Unified','512GB SSD','14.2 inch Liquid Retina','macOS Sonoma','Apple M3 Pro GPU','2024-02-28','amit@company.com','Amit Kumar','Design'),
+      makeLine('ASUS-ZEN-005','Asus','ZenBook 14','Intel Core i5-1340P','16GB LPDDR5','512GB SSD','14 inch OLED','Windows 11 Home','Intel Iris Xe','2023-11-15','','',''),
     ];
     const content = `${headers}\n${examples.join('\n')}`;
 
@@ -548,18 +559,17 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
     // Create main Assets sheet
     const worksheet = workbook.addWorksheet('Assets');
 
-    // Branch names for dropdown (only active branches passed via prop)
+    // Branch names for dropdown (only used when branch is NOT pre-selected)
     const branchOptions = branches.map(b => b.branch_name);
     const exampleBranch = branchOptions[0] || 'Main Branch';
+    const includeBranch = !branchPreSelected;
 
-    // Define columns with headers and widths
-    // A: serialNumber, B: brand, C: model, D: branch (required), E: processor, F: ram,
-    // G: storage, H: screenSize, I: os, J: gpu, K: purchaseDate, L: assignedEmail, M: assignedName, N: assignedDepartment
-    worksheet.columns = [
+    // Build columns dynamically — exclude branch when pre-selected at page level
+    const templateColumns: Array<{ header: string; key: string; width: number }> = [
       { header: 'serialNumber', key: 'serialNumber', width: 20 },
       { header: 'brand', key: 'brand', width: 14 },
       { header: 'model', key: 'model', width: 22 },
-      { header: 'branch', key: 'branch', width: 22 },
+      ...(includeBranch ? [{ header: 'branch', key: 'branch', width: 22 }] : []),
       { header: 'processor', key: 'processor', width: 26 },
       { header: 'ram', key: 'ram', width: 16 },
       { header: 'storage', key: 'storage', width: 18 },
@@ -571,6 +581,13 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       { header: 'assignedName', key: 'assignedName', width: 20 },
       { header: 'assignedDepartment', key: 'assignedDepartment', width: 18 },
     ];
+    worksheet.columns = templateColumns;
+
+    // Helper: get column letter by key
+    const col = (key: string) => {
+      const idx = templateColumns.findIndex(c => c.key === key);
+      return idx >= 0 ? String.fromCharCode(65 + idx) : null;
+    };
 
     // Style header row
     const headerRow = worksheet.getRow(1);
@@ -585,11 +602,10 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
     });
 
     // Add example data rows with simple values
-    worksheet.addRow({
+    const exRow1: Record<string, string> = {
       serialNumber: 'DELL-001',
       brand: 'Dell',
       model: 'XPS 15',
-      branch: exampleBranch,
       processor: 'Intel i7',
       ram: '16GB',
       storage: '512GB',
@@ -599,14 +615,12 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       purchaseDate: '15/01/2024',
       assignedEmail: 'vikram@company.com',
       assignedName: 'Vikram Singh',
-      assignedDepartment: 'Engineering'
-    });
-
-    worksheet.addRow({
+      assignedDepartment: 'Engineering',
+    };
+    const exRow2: Record<string, string> = {
       serialNumber: 'HP-002',
       brand: 'HP',
       model: 'EliteBook 840',
-      branch: exampleBranch,
       processor: 'Intel i5',
       ram: '8GB',
       storage: '256GB',
@@ -616,8 +630,14 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       purchaseDate: '20/06/2023',
       assignedEmail: 'priya@company.com',
       assignedName: 'Priya Sharma',
-      assignedDepartment: 'Marketing'
-    });
+      assignedDepartment: 'Marketing',
+    };
+    if (includeBranch) {
+      exRow1.branch = exampleBranch;
+      exRow2.branch = exampleBranch;
+    }
+    worksheet.addRow(exRow1);
+    worksheet.addRow(exRow2);
 
     // Add empty rows for user input (rows 4-101)
     for (let i = 0; i < 98; i++) {
@@ -627,10 +647,11 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
     // Apply dropdowns for rows 2-101
     // Warning style allows users to type custom values - click Yes to confirm
 
-    // Branch dropdown (column D) - REQUIRED, strict validation
-    if (branchOptions.length > 0) {
+    // Branch dropdown - REQUIRED, strict validation (only when branch column is present)
+    const branchLetter = col('branch');
+    if (includeBranch && branchLetter && branchOptions.length > 0) {
       for (let row = 2; row <= 101; row++) {
-        worksheet.getCell(`D${row}`).dataValidation = {
+        worksheet.getCell(`${branchLetter}${row}`).dataValidation = {
           type: 'list',
           allowBlank: false,
           formulae: [`"${branchOptions.join(',')}"`],
@@ -642,100 +663,108 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       }
     }
 
-    // Brand dropdown (column B)
+    // Brand dropdown
+    const brandLetter = col('brand')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`B${row}`).dataValidation = {
+      worksheet.getCell(`${brandLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${brandOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // RAM dropdown (column F - shifted from E)
+    // RAM dropdown
+    const ramLetter = col('ram')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`F${row}`).dataValidation = {
+      worksheet.getCell(`${ramLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${ramOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // Storage dropdown (column G - shifted from F)
+    // Storage dropdown
+    const storageLetter = col('storage')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`G${row}`).dataValidation = {
+      worksheet.getCell(`${storageLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${storageOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // Screen Size dropdown (column H - shifted from G)
+    // Screen Size dropdown
+    const screenLetter = col('screenSize')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`H${row}`).dataValidation = {
+      worksheet.getCell(`${screenLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${screenOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // OS dropdown (column I - shifted from H)
+    // OS dropdown
+    const osLetter = col('os')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`I${row}`).dataValidation = {
+      worksheet.getCell(`${osLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${osOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // GPU dropdown (column J - shifted from I)
+    // GPU dropdown
+    const gpuLetter = col('gpu')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`J${row}`).dataValidation = {
+      worksheet.getCell(`${gpuLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${gpuOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // Department dropdown (column N - shifted from M)
+    // Department dropdown
+    const deptLetter = col('assignedDepartment')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`N${row}`).dataValidation = {
+      worksheet.getCell(`${deptLetter}${row}`).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: [`"${departmentOptions.join(',')}"`],
-                showErrorMessage: true,
+        showErrorMessage: true,
         errorStyle: 'warning',
         errorTitle: 'Custom Value',
         error: 'Click Yes to use your custom value'
       };
     }
 
-    // Date validation for purchaseDate column (column K - shifted from J) - DD/MM/YYYY format
+    // Date validation for purchaseDate column - DD/MM/YYYY format
+    const dateLetter = col('purchaseDate')!;
     for (let row = 2; row <= 101; row++) {
-      worksheet.getCell(`K${row}`).dataValidation = {
+      worksheet.getCell(`${dateLetter}${row}`).dataValidation = {
         type: 'date',
         allowBlank: true,
         operator: 'between',
@@ -746,47 +775,71 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
         error: 'Please enter a valid date (e.g., 15/01/2024)'
       };
       // Set date format to DD/MM/YYYY
-      worksheet.getCell(`K${row}`).numFmt = 'dd/mm/yyyy';
+      worksheet.getCell(`${dateLetter}${row}`).numFmt = 'dd/mm/yyyy';
     }
 
     // Create reference sheet with all valid options
     const refSheet = workbook.addWorksheet('Valid Options');
-    refSheet.getRow(1).values = ['VALID OPTIONS REFERENCE - Dropdowns are available in the Assets sheet'];
-    refSheet.mergeCells('A1:H1');
-    refSheet.getCell('A1').font = { bold: true, size: 12 };
+    if (includeBranch) {
+      refSheet.getRow(1).values = ['VALID OPTIONS REFERENCE - Dropdowns are available in the Assets sheet'];
+      refSheet.mergeCells('A1:H1');
+      refSheet.getCell('A1').font = { bold: true, size: 12 };
 
-    refSheet.getRow(3).values = ['Branch (Required)', 'Brand', 'RAM', 'Storage', 'Screen Size', 'OS', 'GPU', 'Department'];
-    refSheet.getRow(3).font = { bold: true };
+      refSheet.getRow(3).values = ['Branch (Required)', 'Brand', 'RAM', 'Storage', 'Screen Size', 'OS', 'GPU', 'Department'];
+      refSheet.getRow(3).font = { bold: true };
 
-    const maxLength = Math.max(
-      branchOptions.length, brandOptions.length, ramOptions.length, storageOptions.length,
-      screenOptions.length, osOptions.length, gpuOptions.length, departmentOptions.length
-    );
+      const maxLength = Math.max(
+        branchOptions.length, brandOptions.length, ramOptions.length, storageOptions.length,
+        screenOptions.length, osOptions.length, gpuOptions.length, departmentOptions.length
+      );
 
-    for (let i = 0; i < maxLength; i++) {
-      refSheet.addRow([
-        branchOptions[i] || '',
-        brandOptions[i] || '',
-        ramOptions[i] || '',
-        storageOptions[i] || '',
-        screenOptions[i] || '',
-        osOptions[i] || '',
-        gpuOptions[i] || '',
-        departmentOptions[i] || ''
-      ]);
+      for (let i = 0; i < maxLength; i++) {
+        refSheet.addRow([
+          branchOptions[i] || '',
+          brandOptions[i] || '',
+          ramOptions[i] || '',
+          storageOptions[i] || '',
+          screenOptions[i] || '',
+          osOptions[i] || '',
+          gpuOptions[i] || '',
+          departmentOptions[i] || ''
+        ]);
+      }
+
+      refSheet.columns = [
+        { width: 22 }, { width: 16 }, { width: 16 }, { width: 18 },
+        { width: 18 }, { width: 20 }, { width: 25 }, { width: 18 }
+      ];
+    } else {
+      refSheet.getRow(1).values = ['VALID OPTIONS REFERENCE - Dropdowns are available in the Assets sheet'];
+      refSheet.mergeCells('A1:G1');
+      refSheet.getCell('A1').font = { bold: true, size: 12 };
+
+      refSheet.getRow(3).values = ['Brand', 'RAM', 'Storage', 'Screen Size', 'OS', 'GPU', 'Department'];
+      refSheet.getRow(3).font = { bold: true };
+
+      const maxLength = Math.max(
+        brandOptions.length, ramOptions.length, storageOptions.length,
+        screenOptions.length, osOptions.length, gpuOptions.length, departmentOptions.length
+      );
+
+      for (let i = 0; i < maxLength; i++) {
+        refSheet.addRow([
+          brandOptions[i] || '',
+          ramOptions[i] || '',
+          storageOptions[i] || '',
+          screenOptions[i] || '',
+          osOptions[i] || '',
+          gpuOptions[i] || '',
+          departmentOptions[i] || ''
+        ]);
+      }
+
+      refSheet.columns = [
+        { width: 16 }, { width: 16 }, { width: 18 },
+        { width: 18 }, { width: 20 }, { width: 25 }, { width: 18 }
+      ];
     }
-
-    // Set column widths for reference sheet
-    refSheet.columns = [
-      { width: 22 },
-      { width: 16 },
-      { width: 16 },
-      { width: 18 },
-      { width: 18 },
-      { width: 20 },
-      { width: 25 },
-      { width: 18 }
-    ];
 
     // Create Instructions sheet
     const instructionsSheet = workbook.addWorksheet('Instructions');
@@ -816,12 +869,12 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
       fgColor: { argb: 'FFE5E7EB' }
     };
 
-    // Column instructions
-    const columnInstructions = [
+    // Column instructions — exclude branch row when pre-selected
+    const columnInstructions: string[][] = [
       ['serialNumber', 'YES', 'Unique identifier for the asset (min 5 characters)', 'DELL-001, HP-XYZ-123, SN2024001'],
       ['brand', 'YES', 'Manufacturer/brand of the device', 'Dell, HP, Lenovo, Apple, Asus'],
       ['model', 'YES', 'Model name/number of the device', 'XPS 15, EliteBook 840, ThinkPad T14'],
-      ['branch', 'YES', 'Branch/office location (use dropdown - only active branches shown)', branchOptions.join(', ') || 'Select from dropdown'],
+      ...(includeBranch ? [['branch', 'YES', 'Branch/office location (use dropdown - only active branches shown)', branchOptions.join(', ') || 'Select from dropdown']] : []),
       ['processor', 'No', 'CPU type and model', 'Intel i7, Intel i5, AMD Ryzen 7, Apple M3'],
       ['ram', 'No', 'Memory size (use dropdown or enter custom)', '4GB, 8GB, 16GB, 32GB'],
       ['storage', 'No', 'Storage capacity (use dropdown or enter custom)', '128GB, 256GB, 512GB, 1TB'],
@@ -1007,13 +1060,13 @@ Generated by EcoTribe Asset Management
 
     const worksheet = workbook.addWorksheet('Errors to Fix');
 
-    // Define columns - same as template plus Errors column
+    // Define columns - same as template plus Errors column (exclude branch when pre-selected)
     worksheet.columns = [
       { header: 'ERRORS (Fix these issues)', key: 'errors', width: 45 },
       { header: 'serialNumber', key: 'serialNumber', width: 20 },
       { header: 'brand', key: 'brand', width: 14 },
       { header: 'model', key: 'model', width: 22 },
-      { header: 'branch', key: 'branch', width: 22 },
+      ...(!branchPreSelected ? [{ header: 'branch', key: 'branch', width: 22 }] : []),
       { header: 'processor', key: 'processor', width: 26 },
       { header: 'ram', key: 'ram', width: 16 },
       { header: 'storage', key: 'storage', width: 18 },
@@ -1040,12 +1093,11 @@ Generated by EcoTribe Asset Management
 
     // Add only rows with errors
     invalidRows.forEach((row, index) => {
-      const dataRow = worksheet.addRow({
+      const rowData: Record<string, string> = {
         errors: row.errors.join('; '),
         serialNumber: row.serialNumber || '',
         brand: row.brand || '',
         model: row.model || '',
-        branch: row.branch || '',
         processor: row.processor || '',
         ram: row.ram || '',
         storage: row.storage || '',
@@ -1056,7 +1108,11 @@ Generated by EcoTribe Asset Management
         assignedEmail: row.assignedEmail || '',
         assignedName: row.assignedName || '',
         assignedDepartment: row.assignedDepartment || '',
-      });
+      };
+      if (!branchPreSelected) {
+        rowData.branch = row.branch || '';
+      }
+      const dataRow = worksheet.addRow(rowData);
 
       // Highlight the entire row in light red
       dataRow.eachCell((cell) => {

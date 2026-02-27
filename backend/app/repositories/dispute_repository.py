@@ -47,7 +47,10 @@ class DisputeRepository(BaseRepository[Dispute]):
         if assigned_to_user_id:
             conditions.append(Dispute.assigned_to_user_id == assigned_to_user_id)
         if status:
-            conditions.append(Dispute.status == status)
+            if ',' in status:
+                conditions.append(Dispute.status.in_([s.strip() for s in status.split(',')]))
+            else:
+                conditions.append(Dispute.status == status)
         if resolution:
             conditions.append(Dispute.resolution == resolution)
         if dispute_type:

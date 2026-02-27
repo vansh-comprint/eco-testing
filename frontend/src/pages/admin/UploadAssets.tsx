@@ -6,7 +6,7 @@ import { BackButton } from '@/components/ui';
 import { useAuth, useSubUsers, useBulkCreateSubUsers, useBatches, useBatchesByITAdmin, useBulkCreateAssets, useBranches, useBranchesByITAdmin, usePortalBasePath } from '@/hooks';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { usersApi } from '@/lib/api/users';
 
 // V3: Input type for creating assets with snake_case
@@ -76,8 +76,27 @@ export function UploadAssets() {
   // Local branch selection state — used when there is no batch/context branch and user selects inline
   const [localBranchId, setLocalBranchId] = useState<string | undefined>(undefined);
 
-  const effectiveBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || localBranchId || undefined;
-  const needsBranchSelection = !effectiveBranchId && activeBranches.length > 0;
+  const contextBranchId = batch?.branch_id || orgBranchCtx?.selectedBranchId || itAdminBranchId || undefined;
+  const effectiveBranchId = localBranchId || contextBranchId || undefined;
+  // Show branch selector when multiple branches exist (even if context has one pre-selected)
+  // Only hide when branch is locked by a batch
+  const showBranchSelector = !batch?.branch_id && activeBranches.length > 1;
+  // Block upload until a branch is actually selected
+  const uploadBlocked = activeBranches.length > 0 && !effectiveBranchId;
+
+  // Seed localBranchId from context on mount so dropdown shows current selection
+  useEffect(() => {
+    if (!localBranchId && contextBranchId && activeBranches.some((b: { id: string }) => b.id === contextBranchId)) {
+      setLocalBranchId(contextBranchId);
+    }
+  }, [contextBranchId, activeBranches]);
+
+  // Clear stale localBranchId if the selected branch is no longer in the active branches list
+  useEffect(() => {
+    if (localBranchId && activeBranches.length > 0 && !activeBranches.some((b: { id: string }) => b.id === localBranchId)) {
+      setLocalBranchId(undefined);
+    }
+  }, [localBranchId, activeBranches]);
 
   const handleUpload = async (assets: CreateAssetInput[], metadata: BulkUploadMetadata): Promise<BulkUploadResult | void> => {
     if (!enterprise || !user) return;
@@ -91,7 +110,14 @@ export function UploadAssets() {
     const uniqueEmails = [...new Set(assets.filter(a => a.assigned_email).map(a => a.assigned_email!.toLowerCase()))];
 
     for (const email of uniqueEmails) {
-      // Check if email matches an IT Admin/Org Admin via REST API
+      // Self-assignment: check if email matches the current user (no API call needed)
+      if (email === user.email?.toLowerCase()) {
+        emailToUserId.set(email, { id: user.id, isSelf: true });
+        continue;
+      }
+
+      // For other admin emails, try the admin users API (Org Admin has USER_READ,
+      // IT Admin may not — the catch block handles the 403 gracefully)
       let adminUser: { id: string; email: string } | null = null;
       try {
         const resp = await usersApi.list({ enterprise_id: enterprise.id, search: email, limit: 1 });
@@ -99,12 +125,12 @@ export function UploadAssets() {
         if (Array.isArray(users)) {
           adminUser = users.find(u => u.email.toLowerCase() === email && ['it_admin', 'org_admin'].includes(u.role)) || null;
         }
-      } catch { /* ignore */ }
+      } catch { /* IT Admin lacks USER_READ — fall through to sub-user creation */ }
       if (adminUser) {
         // This is an IT Admin or Org Admin - use assigned_user_id
         emailToUserId.set(email, {
           id: adminUser.id,
-          isSelf: adminUser.id === user.id,
+          isSelf: false,
         });
       } else {
         // Check if sub-user already exists
@@ -138,7 +164,7 @@ export function UploadAssets() {
         };
       });
       const result = await bulkCreateSubUsersMutation.mutateAsync(subUserInputs);
-      newSubUsers = result || [];
+      newSubUsers = result?.created || [];
     }
 
     // Step 3: Build email -> subUserId map (existing + new)
@@ -266,27 +292,38 @@ export function UploadAssets() {
         </div>
       </motion.div>
 
-      {/* Branch Selector — shown when no branch is determined from context/batch */}
-      {needsBranchSelection && (
+      {/* Branch Selector — shown when no branch comes from context/batch; stays visible after selection */}
+      {showBranchSelector && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="border border-amber-400/20 bg-amber-400/5 p-5"
+          className={localBranchId
+            ? 'border border-emerald-400/20 bg-emerald-400/5 p-5'
+            : 'border border-amber-400/20 bg-amber-400/5 p-5'
+          }
         >
           <div className="flex gap-4">
-            <div className="w-10 h-10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <div className={`w-10 h-10 border flex items-center justify-center flex-shrink-0 ${localBranchId ? 'border-emerald-400/30' : 'border-amber-400/30'}`}>
+              <AlertTriangle className={`w-5 h-5 ${localBranchId ? 'text-emerald-400' : 'text-amber-400'}`} />
             </div>
             <div className="flex-1">
-              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">Select a Branch</p>
+              <p className="font-display font-bold text-sm text-white uppercase tracking-wide mb-1">
+                {localBranchId ? 'Branch Selected' : 'Select a Branch'}
+              </p>
               <p className="font-mono text-xs text-zinc-400 mb-3">
-                Choose which branch these assets belong to before uploading.
+                {localBranchId
+                  ? 'All uploaded assets will be assigned to this branch. Change if needed.'
+                  : 'Choose which branch these assets belong to before uploading.'}
               </p>
               <select
                 value={localBranchId || ''}
                 onChange={e => setLocalBranchId(e.target.value || undefined)}
-                className="w-full bg-zinc-900 border border-amber-400/30 text-white font-mono text-xs px-3 py-2 focus:outline-none focus:border-amber-400/60 appearance-none"
+                className={`w-full bg-zinc-900 border text-white font-mono text-xs px-3 py-2 focus:outline-none appearance-none ${
+                  localBranchId
+                    ? 'border-emerald-400/30 focus:border-emerald-400/60'
+                    : 'border-amber-400/30 focus:border-amber-400/60'
+                }`}
               >
                 <option value="">-- Select a branch --</option>
                 {activeBranches.map((b: { id: string; branch_name: string }) => (
@@ -303,13 +340,14 @@ export function UploadAssets() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={needsBranchSelection ? 'opacity-50 pointer-events-none' : ''}
+        className={uploadBlocked ? 'opacity-50 pointer-events-none' : ''}
       >
         <CSVUpload
           enterpriseId={enterprise.id}
           batchId={batchId}
           branches={activeBranches}
-          branchRequired={needsBranchSelection}
+          branchRequired={uploadBlocked}
+          selectedBranchId={effectiveBranchId}
           onUpload={handleUpload}
           onCancel={() => navigate(isOrgAdmin ? '/org-admin/assets' : '/admin/assets')}
         />

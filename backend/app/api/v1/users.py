@@ -56,6 +56,9 @@ async def list_users(
     branch_id: Optional[str] = Query(
         None, description="Filter by branch ID (platform/enterprise admins only)"
     ),
+    parent_user_id: Optional[str] = Query(
+        None, description="Filter by parent user ID (e.g., logistics users under a specific logistics admin)"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -87,6 +90,8 @@ async def list_users(
             scoped_filters["enterprise_id"] = enterprise_id
         if branch_id:
             scoped_filters["branch_id"] = branch_id
+        if parent_user_id:
+            scoped_filters["parent_user_id"] = parent_user_id
     elif current_user.role == UserRole.ORG_ADMIN.value:
         # Org Admin can filter by branch within their enterprise
         if branch_id:
@@ -97,10 +102,10 @@ async def list_users(
         managed = await get_it_admin_branch_ids(db, current_user.id)
         if current_user.branch_id and current_user.branch_id not in managed:
             managed.append(current_user.branch_id)
-        if branch_id:
-            if str(branch_id) in [str(b) for b in managed]:
-                scoped_filters["branch_id"] = branch_id
-            # else: ignore invalid branch filter
+        # Clear single-branch filter from get_scoped_filters — multi-branch logic handles it
+        scoped_filters.pop("branch_id", None)
+        if branch_id and str(branch_id) in [str(b) for b in managed]:
+            scoped_filters["branch_id"] = branch_id
         elif managed:
             scoped_filters["branch_ids"] = managed
 

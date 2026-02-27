@@ -83,6 +83,15 @@ class UserBulkCreate(BaseModel):
     role: UserRole = UserRole.EMPLOYEE
     users: List["UserBulkItem"]
 
+    @field_validator("role")
+    @classmethod
+    def restrict_bulk_roles(cls, v: UserRole) -> UserRole:
+        """Only allow safe roles for bulk creation — prevents privilege escalation"""
+        allowed = {UserRole.EMPLOYEE, UserRole.IT_ADMIN, UserRole.LOGISTICS_USER}
+        if v not in allowed:
+            raise ValueError(f"Role '{v.value}' cannot be bulk-created")
+        return v
+
 
 class UserBulkItem(BaseModel):
     """Individual user item for bulk creation"""

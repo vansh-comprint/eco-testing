@@ -443,7 +443,7 @@ export function BranchDetail() {
                   <CheckCircle className={`${iconSize.md} text-emerald-500`} />
                   <span className={`text-sm ${text.secondary}`}>Completed Assets</span>
                 </div>
-                <span className={`font-brand font-bold text-lg ${text.primary}`}>{summary?.completed_asset_count || 0}</span>
+                <span className={`font-brand font-bold text-lg ${text.primary}`}>{summary?.completed_assets ?? 0}</span>
               </div>
               <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">

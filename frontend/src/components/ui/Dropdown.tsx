@@ -25,9 +25,9 @@ interface DropdownProps {
 }
 
 const sizes = {
-  sm: 'h-8 px-2.5 text-sm',
-  md: 'h-10 px-3 text-sm',
-  lg: 'h-11 px-3.5 text-sm',
+  sm: 'h-10 px-4 text-sm',
+  md: 'h-12 px-4 text-sm',
+  lg: 'h-14 px-5 text-sm',
 };
 
 export const Dropdown: React.FC<DropdownProps> = ({
@@ -176,12 +176,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
         disabled={disabled}
         className={cn(
           'w-full flex items-center justify-between gap-2',
-          'bg-white/40 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10',
-          'text-left transition-all duration-150',
-          'disabled:opacity-40 disabled:cursor-not-allowed',
-          'focus:outline-none focus:border-ecotribe-primary',
+          'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border border-slate-200/80 dark:border-zinc-700',
+          'text-left transition-all duration-200',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'disabled:bg-slate-100 dark:disabled:bg-zinc-800',
+          'focus:outline-none focus:border-lime-500 dark:focus:border-lime-400',
+          'focus:ring-2 focus:ring-lime-500/20 dark:focus:ring-lime-400/20',
+          'focus:bg-white dark:focus:bg-zinc-900',
           sizes[size],
-          isOpen && 'border-ecotribe-primary bg-white/50 dark:bg-white/5',
+          isOpen && 'border-lime-500 dark:border-lime-400 ring-2 ring-lime-500/20 dark:ring-lime-400/20 bg-white dark:bg-zinc-900',
           error && 'border-red-500/50 dark:border-red-500/30'
         )}
       >
@@ -191,7 +194,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
           )}
           <span className={cn(
             'truncate font-mono text-xs',
-            selectedOption ? 'text-black dark:text-white' : 'text-slate-400 dark:text-white/30'
+            selectedOption ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-zinc-500'
           )}>
             {selectedOption?.label || placeholder}
           </span>

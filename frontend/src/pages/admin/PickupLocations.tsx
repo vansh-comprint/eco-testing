@@ -447,9 +447,11 @@ function LocationModal({ location, onClose, onSave, enterpriseId }: LocationModa
               </label>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={6}
                 required
                 value={formData.pin_code}
-                onChange={(e) => setFormData({ ...formData, pin_code: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, pin_code: e.target.value.replace(/\D/g, '') })}
                 className="w-full px-3 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-ecotribe-primary focus:ring-1 focus:ring-ecotribe-primary"
               />
             </div>

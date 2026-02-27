@@ -462,7 +462,7 @@ async def update_pickup_location(
     location_id: str,
     data: PickupLocationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Update a pickup location"""
     service = PickupLocationService(db)
@@ -485,7 +485,7 @@ async def update_pickup_location(
 async def delete_pickup_location(
     location_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Delete a pickup location (soft delete)"""
     service = PickupLocationService(db)
@@ -505,7 +505,7 @@ async def delete_pickup_location(
 async def set_default_pickup_location(
     location_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.PICKUP_UPDATE)),
+    current_user: User = Depends(require_permission(Permission.MANAGE_PICKUP_LOCATIONS)),
 ):
     """Set a pickup location as the default for its enterprise"""
     service = PickupLocationService(db)

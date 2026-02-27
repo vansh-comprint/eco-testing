@@ -548,8 +548,10 @@ function AddBranchModal({
           <Input
             label="PIN Code"
             placeholder="400001"
+            inputMode="numeric"
+            maxLength={6}
             value={formData.pin_code}
-            onChange={(e) => handleChange('pin_code', e.target.value)}
+            onChange={(e) => handleChange('pin_code', e.target.value.replace(/\D/g, ''))}
             error={errors.pin_code}
             required
           />

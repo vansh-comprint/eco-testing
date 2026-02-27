@@ -232,6 +232,26 @@ class UserService:
         role = bulk_data.role
         is_employee = role == UserRole.EMPLOYEE
 
+        # Validate all branch_ids belong to the target enterprise (prevents cross-tenant assignment)
+        all_branch_ids = set(
+            u.branch_id for u in bulk_data.users if u.branch_id
+        )
+        if bulk_data.branch_id:
+            all_branch_ids.add(bulk_data.branch_id)
+        if all_branch_ids and bulk_data.enterprise_id:
+            valid_result = await self.db.execute(
+                select(Branch.id).where(
+                    Branch.id.in_(all_branch_ids),
+                    Branch.enterprise_id == bulk_data.enterprise_id,
+                )
+            )
+            valid_ids = {str(row[0]) for row in valid_result.all()}
+            invalid_ids = all_branch_ids - valid_ids
+            if invalid_ids:
+                raise ValidationError(
+                    f"Branch IDs do not belong to this enterprise: {', '.join(list(invalid_ids)[:3])}"
+                )
+
         for idx, user_item in enumerate(bulk_data.users):
             try:
                 # Check if email already exists
@@ -261,10 +281,11 @@ class UserService:
                     phone=user_item.phone,
                     role=role.value,
                     enterprise_id=bulk_data.enterprise_id,
-                    branch_id=bulk_data.branch_id or user_item.branch_id,
+                    branch_id=user_item.branch_id if user_item.branch_id is not None else bulk_data.branch_id,
                     employee_id=user_item.employee_id,
                     department=user_item.department,
                     designation=user_item.designation,
+                    is_active=True,
                     password_hash=(
                         get_password_hash(user_item.password or "password123")
                         if (user_item.password or is_employee)
@@ -282,6 +303,10 @@ class UserService:
         # Bulk insert if we have any valid users
         if created_users:
             created_users = await self.repository.create_bulk(created_users)
+            await self.db.commit()
+            # Refresh all users after commit to ensure attributes are loaded
+            for u in created_users:
+                await self.db.refresh(u)
 
         return [UserResponse.model_validate(u) for u in created_users], errors
 

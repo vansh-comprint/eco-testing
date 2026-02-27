@@ -94,15 +94,12 @@ export function EmployeeSelector({
 
   const queryClient = useQueryClient();
 
-  // Fetch employees
-  const { data: employees = [], isLoading, refetch } = useSubUsers(enterpriseId);
+  // Fetch employees (server-side branch filtering when branchId provided)
+  const { data: employees = [], isLoading, refetch } = useSubUsers(enterpriseId, branchId);
 
-  // Filter employees based on branch (when provided) and search query
+  // Filter employees based on search query
   const filteredEmployees = useMemo(() => {
-    let result = employees as (Employee & { branch_id?: string | null })[];
-    if (branchId) {
-      result = result.filter(emp => emp.branch_id === branchId);
-    }
+    const result = employees as (Employee & { branch_id?: string | null })[];
     if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase();
     return result.filter((emp) =>
@@ -111,7 +108,7 @@ export function EmployeeSelector({
       emp.employee_id?.toLowerCase().includes(query) ||
       emp.department?.toLowerCase().includes(query)
     );
-  }, [employees, branchId, searchQuery]);
+  }, [employees, searchQuery]);
 
   // Get selected employee
   const selectedEmployee = useMemo(
@@ -172,11 +169,16 @@ export function EmployeeSelector({
   const handleEmployeeCreated = async (newEmployee: Employee) => {
     setShowAddModal(false);
 
+    // Build the correct cache key (matches useSubUsers query key with optional branchId)
+    const cacheKey = branchId
+      ? [...subUserKeys.list(enterpriseId), branchId]
+      : subUserKeys.list(enterpriseId);
+
     if (newEmployee?.id) {
       // Happy path: backend returned the created employee
       onChange(newEmployee.id, newEmployee);
       queryClient.setQueryData(
-        subUserKeys.list(enterpriseId),
+        cacheKey,
         (old: Employee[] = []) => [newEmployee, ...old.filter(e => e.id !== newEmployee.id)]
       );
       refetch();
@@ -193,7 +195,7 @@ export function EmployeeSelector({
       if (found?.id) {
         onChange(found.id, found);
         queryClient.setQueryData(
-          subUserKeys.list(enterpriseId),
+          cacheKey,
           (old: Employee[] = []) => [found, ...old.filter(e => e.id !== found.id)]
         );
       }
@@ -514,46 +516,55 @@ function AddEmployeeModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent bubbling through React portal to outer AssetForm
     if (!validate()) return;
+
+    // Clear any previous submit error and reset mutation state before trying again
+    setErrors(prev => {
+      if (prev.submit) {
+        const { submit: _, ...rest } = prev;
+        return rest;
+      }
+      return prev;
+    });
+    createMutation.reset();
 
     const department =
       formData.department === 'Other'
         ? formData.customDepartment.trim() || undefined
         : formData.department || undefined;
 
-    // Save before async so we can use them in the fallback path
-    const savedEmail = formData.email.trim().toLowerCase();
-    const savedName = formData.name.trim();
+    const input: CreateSubUserInput = {
+      enterprise_id: enterpriseId,
+      branch_id: branchId,
+      name: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phone: formData.phone || undefined,
+      department,
+    };
 
-    try {
-      const input: CreateSubUserInput = {
-        enterprise_id: enterpriseId,
-        branch_id: branchId,
-        name: savedName,
-        email: savedEmail,
-        phone: formData.phone || undefined,
-        department,
-      };
+    // Use mutate with callbacks (more robust than mutateAsync + try/catch)
+    createMutation.mutate(input, {
+      onSuccess: (newEmployee) => {
+        // Reset form
+        setFormData({ name: '', email: '', phone: '', department: '', customDepartment: '' });
 
-      const newEmployee = await createMutation.mutateAsync(input);
-
-      // Reset form regardless of whether the API returned employee data
-      setFormData({ name: '', email: '', phone: '', department: '', customDepartment: '' });
-
-      if (newEmployee?.id) {
-        onCreated(newEmployee as Employee);
-      } else {
-        // Employee was created but API didn't return the record.
-        // Pass email so the parent can refetch and find by email to auto-select.
-        onCreated({ id: '', name: savedName, email: savedEmail } as unknown as Employee);
-      }
-    } catch (error) {
-      console.error('Failed to create employee:', error);
-      setErrors({ submit: 'Failed to create employee. Please try again.' });
-    }
+        if (newEmployee?.id) {
+          onCreated(newEmployee as Employee);
+        } else {
+          // Employee was created but API didn't return the record
+          onCreated({ id: '', name: input.name!, email: input.email } as unknown as Employee);
+        }
+      },
+      onError: (error: unknown) => {
+        const message = error instanceof Error
+          ? error.message
+          : 'Failed to create employee. Please try again.';
+        setErrors({ submit: message });
+      },
+    });
   };
 
   const handleClose = () => {

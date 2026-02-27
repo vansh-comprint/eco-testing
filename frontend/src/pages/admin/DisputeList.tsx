@@ -53,7 +53,8 @@ export function DisputeList() {
         params.status = 'resolved';
         params.resolution = statusFilter;
       } else if (statusFilter === 'pending') {
-        params.status = 'open';
+        // Match mapDisputeResponse: open, under_review, escalated all display as "pending"
+        params.status = 'open,under_review,escalated';
       } else {
         params.status = statusFilter;
       }

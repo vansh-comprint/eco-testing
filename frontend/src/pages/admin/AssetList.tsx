@@ -497,53 +497,56 @@ export function AssetList() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-xl px-4 py-3 pr-10 flex flex-row items-center gap-3 w-auto max-w-[calc(100vw-2rem)] relative"
+            className="fixed top-20 lg:top-[5.5rem] left-1/2 -translate-x-1/2 z-[60] bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-2xl shadow-black/10 dark:shadow-black/30 px-5 py-3.5 w-auto max-w-[calc(100vw-2rem)]"
           >
-            {/* Selection count */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-7 h-7 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 text-ecotribe-primary" />
-              </div>
-              <span className="font-mono font-bold text-xs text-black dark:text-white whitespace-nowrap">
-                {selectedAssets.size} selected
-              </span>
-            </div>
-            <div className="h-5 w-px bg-black/10 dark:bg-white/10 flex-shrink-0" />
-            {/* Action buttons — always horizontal */}
-            <div className="flex items-center gap-2">
-              {selectedAssignable.length > 0 && (
-                <button
-                  onClick={() => setShowBulkAssignModal(true)}
-                  className="interactive px-3 py-1.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white dark:hover:bg-white transition-all flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Assign ({selectedAssignable.length})
-                </button>
-              )}
-              {selectedBatchable.length > 0 && (
-                <button
-                  onClick={() => setShowBulkBatchModal(true)}
-                  className="interactive px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <Package className="w-3.5 h-3.5" />
-                  Add to Batch ({selectedBatchable.length})
-                </button>
-              )}
-              <button
-                onClick={() => setShowBulkDeleteModal(true)}
-                className="interactive px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-1.5 whitespace-nowrap"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
-            </div>
-            {/* Close — absolute top-right */}
+            {/* Close — top-right corner outside content flow */}
             <button
               onClick={clearSelection}
-              className="absolute top-1.5 right-1.5 interactive p-1 text-slate-400 dark:text-zinc-500 hover:text-red-400 transition-colors"
+              className="absolute -top-2.5 -right-2.5 interactive w-6 h-6 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-600 rounded-full flex items-center justify-center shadow-md hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-500/50 transition-all group"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3 text-slate-500 dark:text-zinc-400 group-hover:text-red-500" />
             </button>
+            {/* Content — single row */}
+            <div className="flex flex-row items-center gap-3">
+              {/* Selection count */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="w-7 h-7 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 text-ecotribe-primary" />
+                </div>
+                <span className="font-mono font-bold text-xs text-black dark:text-white whitespace-nowrap">
+                  {selectedAssets.size} selected
+                </span>
+              </div>
+              <div className="h-5 w-px bg-black/10 dark:bg-white/10 flex-shrink-0" />
+              {/* Action buttons — single row */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {selectedAssignable.length > 0 && (
+                  <button
+                    onClick={() => setShowBulkAssignModal(true)}
+                    className="interactive px-3 py-1.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white dark:hover:bg-white transition-all flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    Assign ({selectedAssignable.length})
+                  </button>
+                )}
+                {selectedBatchable.length > 0 && (
+                  <button
+                    onClick={() => setShowBulkBatchModal(true)}
+                    className="interactive px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    Add to Batch ({selectedBatchable.length})
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowBulkDeleteModal(true)}
+                  className="interactive px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 font-mono font-bold text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

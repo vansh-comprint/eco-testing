@@ -343,6 +343,12 @@ async def get_dashboard_stats(
         stats["batch_completed"] = bc.get(BatchStatus.COMPLETED.value, 0)
         stats["batch_rejected"] = bc.get(BatchStatus.REJECTED.value, 0)
 
+        # Total batch value (sum of estimated_value across all batches for this enterprise)
+        stats["batch_total_value"] = await _sum(
+            db,
+            select(func.sum(Batch.estimated_value)).where(Batch.enterprise_id == eid),
+        )
+
         # Pending approval value
         stats["pending_approval_value"] = await _sum(
             db,
@@ -467,7 +473,7 @@ async def get_dashboard_stats(
         rc = await _status_counts(db, Dispute, Dispute.resolution, _dispute_scope)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
-            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value, DisputeStatus.ESCALATED.value]
         )
         stats["dispute_upheld"] = rc.get("upheld", 0)
         stats["dispute_overturned"] = rc.get("overturned", 0)
@@ -584,7 +590,7 @@ async def get_dashboard_stats(
         rc = await _status_counts(db, Dispute, Dispute.resolution, _dispute_filter)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
-            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value, DisputeStatus.ESCALATED.value]
         )
         stats["dispute_upheld"] = rc.get("upheld", 0)
         stats["dispute_overturned"] = rc.get("overturned", 0)
@@ -636,7 +642,7 @@ async def get_dashboard_stats(
         rc = await _status_counts(db, Dispute, Dispute.resolution, *dispute_filters)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
-            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value, DisputeStatus.ESCALATED.value]
         )
         stats["dispute_upheld"] = rc.get("upheld", 0)
         stats["dispute_overturned"] = rc.get("overturned", 0)
@@ -719,7 +725,7 @@ async def get_dashboard_stats(
         rc = await _status_counts(db, Dispute, Dispute.resolution)
         stats["dispute_total"] = sum(dc.values())
         stats["dispute_pending"] = sum(
-            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value]
+            dc.get(s, 0) for s in [DisputeStatus.OPEN.value, DisputeStatus.UNDER_REVIEW.value, DisputeStatus.ESCALATED.value]
         )
         stats["dispute_upheld"] = rc.get("upheld", 0)
         stats["dispute_overturned"] = rc.get("overturned", 0)

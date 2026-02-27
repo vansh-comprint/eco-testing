@@ -39,7 +39,7 @@ export function EnterpriseDisputes() {
 
   // Map frontend display status to backend API params (status + resolution)
   const apiFilterMap: Record<string, { status: string; resolution?: string }> = {
-    pending: { status: 'open' },
+    pending: { status: 'open,under_review,escalated' },
     upheld: { status: 'resolved', resolution: 'upheld' },
     overturned: { status: 'resolved', resolution: 'overturned' },
     partial: { status: 'resolved', resolution: 'partial' },
@@ -58,7 +58,7 @@ export function EnterpriseDisputes() {
 
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.branch_name || ''));
+    branches.forEach(b => map.set(b.id, b.branch_name || b.name || ''));
     return map;
   }, [branches]);
 
@@ -228,7 +228,7 @@ export function EnterpriseDisputes() {
             </select>
           </div>
           <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Building2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${branchFilter !== 'all' ? 'text-ecotribe-primary' : 'text-slate-400'}`} />
             <select
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
@@ -236,7 +236,7 @@ export function EnterpriseDisputes() {
             >
               <option value="all">All Branches</option>
               {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.branch_name}</option>
+                <option key={b.id} value={b.id}>{b.branch_name || b.name || 'Unnamed Branch'}</option>
               ))}
             </select>
           </div>

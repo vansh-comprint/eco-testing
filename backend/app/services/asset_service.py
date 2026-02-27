@@ -118,6 +118,13 @@ class AssetService:
         )
 
         asset = await self.repository.create(asset)
+
+        # Recalculate batch metrics if asset was added to a batch
+        if asset_data.batch_id:
+            from app.services.batch_service import BatchService
+            batch_service = BatchService(self.db)
+            await batch_service.recalculate_batch_metrics(asset_data.batch_id)
+
         return AssetResponse.model_validate(asset)
 
     async def create_assets_bulk(
@@ -179,6 +186,12 @@ class AssetService:
 
         if created_assets:
             created_assets = await self.repository.create_bulk(created_assets)
+
+            # Recalculate batch metrics if assets were added to a batch
+            if bulk_data.batch_id:
+                from app.services.batch_service import BatchService
+                batch_service = BatchService(self.db)
+                await batch_service.recalculate_batch_metrics(bulk_data.batch_id)
 
         return [AssetResponse.model_validate(a) for a in created_assets], errors
 

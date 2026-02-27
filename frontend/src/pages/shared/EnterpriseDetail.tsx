@@ -975,6 +975,7 @@ export function EnterpriseDetail() {
             role: editingUser.role,
             status: editingUser.status,
             enterprise_id: id,
+            branch_id: editingUser.branch_id,
             created_at: '',
           }}
           allowedRoles={[

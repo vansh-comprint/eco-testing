@@ -5,6 +5,7 @@ import { Users, Info, Building2 } from 'lucide-react';
 import { CSVUserUpload } from '@/components/users';
 import { BackButton, BranchSelector } from '@/components/ui';
 import { useAuth, useCreateSubUsers, usePortalBasePath, useBranches, useBranchesByITAdmin, useEmployeeBasePath } from '@/hooks';
+import type { BulkUserUploadResult } from '@/hooks/useEmployees';
 import type { CreateSubUserInput } from '@/types';
 
 interface BulkUserUploadProps {
@@ -33,14 +34,15 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
   const { data: itBranches = [] } = useBranchesByITAdmin(!isOrgAdmin ? (user?.id || '') : '');
   const branches = isOrgAdmin ? orgBranches : itBranches;
 
-  // IT Admin: auto-select if only one branch
+  // Auto-select if only one branch (both IT Admin and Org Admin)
   const activeBranches = branches.filter((b: { status: string }) => b.status === 'active');
-  const autoSelectedBranchId = !isOrgAdmin && activeBranches.length === 1
+  const autoSelectedBranchId = activeBranches.length === 1
     ? activeBranches[0].id
     : selectedBranchId;
 
-  const handleUpload = async (users: CreateSubUserInput[]) => {
-    await createSubUsersMutation.mutateAsync(users);
+  const handleUpload = async (users: CreateSubUserInput[]): Promise<BulkUserUploadResult | void> => {
+    const result = await createSubUsersMutation.mutateAsync(users);
+    return result;
   };
 
   if (!resolvedEnterpriseId) {
@@ -103,7 +105,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         </div>
       </motion.div>
 
-      {/* Branch Pre-Selection */}
+      {/* Branch Pre-Selection — show when there are multiple branches to choose from */}
       {resolvedEnterpriseId && activeBranches.length > 1 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -128,8 +130,8 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         </motion.div>
       )}
 
-      {/* Auto-selected branch info for single-branch IT Admin */}
-      {!isOrgAdmin && activeBranches.length === 1 && autoSelectedBranchId && (
+      {/* Auto-selected branch info for single-branch enterprises */}
+      {activeBranches.length === 1 && autoSelectedBranchId && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 font-mono text-xs text-blue-700 dark:text-blue-400">
           <Building2 className="w-4 h-4 flex-shrink-0" />
           All employees will be assigned to branch: <span className="font-bold">{activeBranches[0].branch_name || activeBranches[0].name}</span>
@@ -149,7 +151,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={isOrgAdmin && activeBranches.length > 1 && !selectedBranchId ? 'opacity-50 pointer-events-none' : ''}
+        className={isOrgAdmin && activeBranches.length > 1 && !autoSelectedBranchId ? 'opacity-50 pointer-events-none' : ''}
       >
         <CSVUserUpload
           enterpriseId={resolvedEnterpriseId}

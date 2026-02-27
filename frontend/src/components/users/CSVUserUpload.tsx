@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usersApi } from '@/lib/api';
+import { subUsersApi } from '@/lib/api';
 import {
   Upload,
   FileSpreadsheet,
@@ -25,11 +25,18 @@ interface BranchOption {
   branch_name: string;
 }
 
+export interface BulkUserResult {
+  created_count: number;
+  error_count: number;
+  errors: string[];
+  created?: Array<{ id: string; email: string }>;
+}
+
 interface CSVUserUploadProps {
   enterpriseId: string;
   branchId?: string; // Pre-selected branch for all users; overridden per-row by branch_code column
   branches?: BranchOption[]; // Available branches for branch_code resolution
-  onUpload: (users: CreateSubUserInput[]) => Promise<void>;
+  onUpload: (users: CreateSubUserInput[]) => Promise<BulkUserResult | void>;
   onCancel?: () => void;
   isLoading?: boolean;
   isOrgAdmin?: boolean; // Whether to show branch requirement notes
@@ -96,19 +103,36 @@ const DEPARTMENTS = [
 ];
 
 export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload, onCancel, isLoading, isOrgAdmin }: CSVUserUploadProps) {
+  // Resolve the pre-selected branch code for template pre-fill
+  const selectedBranch = branchId ? branches.find(b => b.id === branchId) : null;
+  const selectedBranchCode = selectedBranch?.branch_code || '';
+  // Branch is always required — either pre-selected or per-row
+  const branchRequiredPerRow = !branchId && branches.length > 0;
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(true);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'error'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'success' | 'partial' | 'error'>('idle');
+  const [serverResult, setServerResult] = useState<BulkUserResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [validatingEmails, setValidatingEmails] = useState(false);
+  const [missingColumnsError, setMissingColumnsError] = useState<string | null>(null);
 
   const validRows = parsedData.filter(row => row.errors.length === 0);
   const invalidRows = parsedData.filter(row => row.errors.length > 0);
   const warningRows = parsedData.filter(row => row.warnings.length > 0);
   const uniqueDepartments = new Set(parsedData.filter(row => row.department).map(row => row.department));
+
+  // Re-parse file when branches load after initial parse (fixes stale validation state)
+  const prevBranchCountRef = useRef(branches.length);
+  useEffect(() => {
+    if (file && uploadStatus === 'ready' && branches.length > 0 && prevBranchCountRef.current === 0) {
+      handleFile(file);
+    }
+    prevBranchCountRef.current = branches.length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branches.length]);
 
   const normalizeColumnName = (name: string): string => {
     const normalized = name.toLowerCase().trim();
@@ -122,17 +146,18 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   const isValidPhone = (phone: string): boolean => {
     if (!phone) return true; // Optional field
     const digitsOnly = phone.replace(/\D/g, '');
-    return digitsOnly.length === 10;
+    // Accept 10 digits (local) or 12 digits (with 91 country code)
+    // The sanitizer in handleUpload will normalize to last 10 digits
+    return digitsOnly.length === 10 || (digitsOnly.length === 12 && digitsOnly.startsWith('91'));
   };
 
   // Check which emails already exist in the system via API
-  // Batches lookups to avoid O(n) individual requests for large CSVs
+  // Uses subUsersApi (which adds role=employee) — IT Admin has EMPLOYEE_READ permission for this
   const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
     const existing = new Set<string>();
     try {
-      // Fetch a large page of existing users for this enterprise to check against
-      // This covers both admin roles and employees in one call
-      const response = await usersApi.list({
+      // Fetch existing employees for this enterprise
+      const response = await subUsersApi.list({
         enterprise_id: enterpriseId,
         limit: 500,
       });
@@ -147,11 +172,10 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
         }
       }
 
-      // Also check for any emails not found above (could be in other enterprises / global uniqueness)
+      // Individual lookups for remaining emails not found in the bulk check
       const unchecked = emails.filter(e => !existing.has(e.toLowerCase()));
-      // Only do individual lookups for a reasonable number of remaining emails
       for (const email of unchecked.slice(0, 20)) {
-        const resp = await usersApi.list({ search: email, limit: 1 });
+        const resp = await subUsersApi.list({ search: email, enterprise_id: enterpriseId, limit: 1 });
         if (resp.data) {
           for (const user of resp.data) {
             if (user.email?.toLowerCase() === email.toLowerCase()) {
@@ -193,10 +217,14 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       )
     );
 
-    // Check for required columns
+    // Check for required columns — show user-visible error if missing
     const missingRequired = REQUIRED_COLUMNS.filter(col => !(col in mapping));
     if (missingRequired.length > 0) {
-      console.error('Missing required columns:', missingRequired);
+      setMissingColumnsError(
+        `Required column "${missingRequired.join('", "')}" not found in file. Please use the template or ensure your file has an "email" column.`
+      );
+    } else {
+      setMissingColumnsError(null);
     }
 
     // Parse data rows
@@ -206,6 +234,11 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
+
+      // Skip completely blank rows (empty or just commas)
+      const hasAnyValue = values.some(v => v.trim() !== '');
+      if (!hasAnyValue) continue;
+
       const row: ParsedRow = {
         name: '',
         email: '',
@@ -238,6 +271,19 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
         row.errors.push('Invalid phone number (must be 10 digits)');
       }
 
+      // Validate branch_code is always provided and matches a known branch
+      if (branchRequiredPerRow && !row.branch_code) {
+        row.errors.push('branch_code is required — use the template dropdown or enter a valid branch code');
+      } else if (row.branch_code && branches.length > 0) {
+        const matchedBranch = branches.find(
+          b => b.branch_code.toLowerCase() === row.branch_code!.toLowerCase()
+            || b.branch_name.toLowerCase() === row.branch_code!.toLowerCase()
+        );
+        if (!matchedBranch) {
+          row.errors.push(`Unknown branch_code "${row.branch_code}" — must match a valid branch code`);
+        }
+      }
+
       // Warnings for optional fields
       if (!row.name) {
         row.warnings.push('Name not provided - email will be used as display name');
@@ -266,7 +312,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
     setParsedData(rows);
     setUploadStatus('ready');
-  }, []);
+  }, [branchRequiredPerRow, branches, enterpriseId]);
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -406,11 +452,18 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   const handleUpload = async () => {
     if (validRows.length === 0) return;
 
+    // Guard: branches must be loaded before upload
+    if (!branchId && branches.length === 0) {
+      setErrorMessage('Branch data is still loading. Please wait a moment and try again.');
+      return;
+    }
+
     setUploadStatus('uploading');
     setErrorMessage(null);
     try {
       const unmatchedBranches: string[] = [];
-      const users: CreateSubUserInput[] = validRows.map(row => {
+      const noBranchRows: number[] = [];
+      const users: CreateSubUserInput[] = validRows.map((row, idx) => {
         // Resolve branch_id: row's branch_code takes priority over prop fallback
         let resolvedBranchId = branchId;
         if (row.branch_code && branches.length > 0) {
@@ -421,11 +474,13 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
           if (matched) {
             resolvedBranchId = matched.id;
           } else {
-            // Track unmatched branch codes for user warning
             if (!unmatchedBranches.includes(row.branch_code)) {
               unmatchedBranches.push(row.branch_code);
             }
           }
+        }
+        if (!resolvedBranchId) {
+          noBranchRows.push(idx + 1);
         }
         return {
           enterprise_id: enterpriseId,
@@ -437,15 +492,32 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
         };
       });
 
-      // Warn about unmatched branch codes (they fall back to pre-selected branch)
+      // Block upload if any rows have unmatched or missing branches
       if (unmatchedBranches.length > 0) {
-        console.warn(`Unmatched branch codes in CSV: ${unmatchedBranches.join(', ')}. These rows use the default branch.`);
+        setUploadStatus('ready');
+        setErrorMessage(`Invalid branch codes: ${unmatchedBranches.join(', ')}. Please use valid branch codes from the template dropdown.`);
+        return;
+      }
+      if (noBranchRows.length > 0) {
+        setUploadStatus('ready');
+        setErrorMessage(`Rows ${noBranchRows.slice(0, 5).join(', ')}${noBranchRows.length > 5 ? '...' : ''} have no branch assigned. Every employee must have a branch.`);
+        return;
       }
 
-      await onUpload(users);
-      setUploadStatus(unmatchedBranches.length > 0 ? 'success' : 'success');
-      if (unmatchedBranches.length > 0) {
-        setErrorMessage(`Warning: Branch codes not found: ${unmatchedBranches.join(', ')}. Those employees were assigned to the default branch.`);
+      const result = await onUpload(users);
+
+      if (result && result.error_count > 0) {
+        // Partial success or full failure from API
+        setServerResult(result);
+        if (result.created_count > 0) {
+          setUploadStatus('partial');
+        } else {
+          setUploadStatus('error');
+          setErrorMessage(result.errors.join('; '));
+        }
+      } else {
+        setServerResult(result || null);
+        setUploadStatus('success');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
@@ -461,6 +533,8 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
     setColumnMapping({});
     setUploadStatus('idle');
     setErrorMessage(null);
+    setMissingColumnsError(null);
+    setServerResult(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -477,18 +551,14 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Employees');
 
-    // Add headers - include branch dropdown only for "select all" scenario
+    // Add headers - always include branch_code column
     const headers = [
       { header: 'name', key: 'name', width: 25 },
       { header: 'email', key: 'email', width: 30 },
       { header: 'phone', key: 'phone', width: 18 },
       { header: 'department', key: 'department', width: 18 },
+      { header: 'branch_code', key: 'branch_code', width: 22 },
     ];
-
-    // Add branch_code column only if branch not pre-selected (for "select all" branch option)
-    if (!branchId || branchId === '') {
-      headers.push({ header: 'branch_code', key: 'branch_code', width: 18 });
-    }
 
     worksheet.columns = headers;
 
@@ -501,10 +571,11 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
     };
 
     // Add example rows (10-digit phone numbers, no country code)
-    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', department: 'Engineering' });
-    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', department: 'Marketing' });
-    worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance' });
-    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR' });
+    const exampleBranch = selectedBranchCode || '';
+    worksheet.addRow({ name: 'Vikram Singh', email: 'vikram@company.com', phone: '9876511111', department: 'Engineering', branch_code: exampleBranch });
+    worksheet.addRow({ name: 'Priya Sharma', email: 'priya@company.com', phone: '9876522222', department: 'Marketing', branch_code: exampleBranch });
+    worksheet.addRow({ name: 'Amit Patel', email: 'amit@company.com', phone: '', department: 'Finance', branch_code: exampleBranch });
+    worksheet.addRow({ name: 'Neha Gupta', email: 'neha@company.com', phone: '9876544444', department: 'HR', branch_code: exampleBranch });
 
     // Apply phone validation for rows 2-100 (exactly 10 digits, numbers only)
     for (let row = 2; row <= 100; row++) {
@@ -537,19 +608,40 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       };
     }
 
-    // Add branch dropdown for column E (branch_code) if it exists
-    if (!branchId || branchId === '') {
-      const branchOptions = branches.length > 0
-        ? branches.map(b => b.branch_name || b.branch_code).join(',')
-        : 'HQ,BRANCH-01,BRANCH-02'; // Fallback examples
+    // Branch column E: validation-only lock when branch selected, dropdown when not
+    if (selectedBranchCode) {
+      // Branch is pre-selected — only set validation (restricts to that one value).
+      // Example rows (2-5) are already pre-filled above; remaining rows stay empty
+      // but Excel will only allow the pre-selected branch if user types anything.
       for (let row = 2; row <= 100; row++) {
         worksheet.getCell(`E${row}`).dataValidation = {
           type: 'list',
           allowBlank: true,
-          formulae: [`"${branchOptions}"`],
+          formulae: [`"${selectedBranchCode}"`],
+          showErrorMessage: true,
+          errorStyle: 'stop',
+          errorTitle: 'Branch Locked',
+          error: `Only "${selectedBranchCode}" is allowed — branch was pre-selected.`,
           showInputMessage: true,
-          errorTitle: 'Invalid Branch',
+          promptTitle: 'Branch',
+          prompt: `Locked to: ${selectedBranchCode}`,
+        };
+      }
+    } else if (branches.length > 0) {
+      // No branch pre-selected — show dropdown with available branches (required)
+      const branchOptions = branches.map(b => b.branch_code).join(',');
+      for (let row = 2; row <= 100; row++) {
+        worksheet.getCell(`E${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: [`"${branchOptions}"`],
+          showErrorMessage: true,
+          errorStyle: 'stop',
+          errorTitle: 'Branch Required',
           error: 'Please select a branch from the dropdown list',
+          showInputMessage: true,
+          promptTitle: 'Branch (Required)',
+          prompt: 'Select the branch for this employee',
         };
       }
     }
@@ -589,12 +681,10 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       ['email', 'YES', 'Valid work email address. Must be unique. Used for device check-in.', 'vikram@company.com'],
       ['phone', 'No', 'Exactly 10 digits, no spaces or country code. Sheet will show error if not 10 digits.', '9876543210'],
       ['department', 'No', 'Department (use dropdown). Helps with device organization.', 'Engineering, Marketing, HR'],
+      selectedBranchCode
+        ? ['branch_code', 'LOCKED', `Pre-filled with "${selectedBranchCode}". Do not change.`, selectedBranchCode]
+        : ['branch_code', branches.length > 0 ? 'YES' : 'No', 'Branch for this employee (use dropdown).', 'HQ, DELHI-01'],
     ];
-
-    // Add branch_code column instruction only if branch not pre-selected
-    if (!branchId || branchId === '') {
-      columnInstructions.push(['branch_code', 'No', 'Branch (use dropdown). Overrides pre-selected branch for this row.', 'HQ, DELHI-01']);
-    }
 
     columnInstructions.forEach((row, index) => {
       const rowNum = index + 4;
@@ -687,7 +777,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
 
           <div className="flex justify-center gap-8 mb-6">
             <div className="text-center">
-              <p className="font-brand font-bold text-3xl text-ecotribe-primary">{validRows.length}</p>
+              <p className="font-brand font-bold text-3xl text-ecotribe-primary">{serverResult?.created_count ?? validRows.length}</p>
               <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest">Users Invited</p>
             </div>
             {uniqueDepartments.size > 0 && (
@@ -701,6 +791,77 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
           <p className="font-mono text-xs text-zinc-500 mb-6">
             Sub-users will receive email invitations to check-in their devices
           </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={handleReset}
+              className="interactive px-6 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Upload More
+            </button>
+            <button
+              onClick={onCancel}
+              className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center justify-center gap-2"
+            >
+              View Employees
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Partial success — some users created, some failed
+  if (uploadStatus === 'partial' && serverResult) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white/95 dark:bg-black/40 backdrop-blur-md border border-black/10 dark:border-white/10 btn-chamfer"
+      >
+        <div className="py-12 px-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 border border-amber-400/30 bg-amber-400/10 flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8 text-amber-400" />
+            </div>
+            <h2 className="font-brand font-bold text-2xl text-black dark:text-white uppercase tracking-tight mb-2">
+              Partial Upload
+            </h2>
+            <p className="font-mono text-xs text-zinc-500">
+              Some users were created, but others had errors
+            </p>
+          </div>
+
+          <div className="flex justify-center gap-8 mb-6">
+            <div className="text-center">
+              <p className="font-brand font-bold text-3xl text-emerald-400">{serverResult.created_count}</p>
+              <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest">Created</p>
+            </div>
+            <div className="text-center">
+              <p className="font-brand font-bold text-3xl text-red-400">{serverResult.error_count}</p>
+              <p className="font-mono font-bold text-[10px] text-zinc-600 uppercase tracking-widest">Failed</p>
+            </div>
+          </div>
+
+          {/* Error details */}
+          {serverResult.errors.length > 0 && (
+            <div className="border border-red-400/20 bg-red-400/5 p-4 mb-6 max-h-48 overflow-y-auto">
+              <p className="font-mono font-bold text-[10px] text-red-400 uppercase tracking-widest mb-2">Errors</p>
+              <ul className="space-y-1">
+                {serverResult.errors.map((err, i) => (
+                  <li key={i} className="font-mono text-xs text-zinc-400">{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="border border-amber-400/20 bg-amber-400/5 p-3 mb-6">
+              <p className="font-mono text-xs text-amber-400">{errorMessage}</p>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -1011,6 +1172,19 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
               )}
             </AnimatePresence>
           </div>
+
+          {/* Missing Column Warning */}
+          {missingColumnsError && (
+            <div className="border border-red-500/20 bg-red-500/5 p-5">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <div>
+                  <p className="font-display font-bold text-sm text-red-400 uppercase tracking-wide mb-1">Wrong File Format</p>
+                  <p className="font-mono text-xs text-red-400/80">{missingColumnsError}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Details */}
           {invalidRows.length > 0 && (

@@ -95,8 +95,8 @@ export function PickupRequests() {
 
   // Calculate stats — use backend stats for most, keep exceptions client-side
   const stats = useMemo(() => {
-    const requested = dashStats.pickup_pending ?? allPickups.filter(r => r.status === 'pending' || r.status === 'assigned_to_logistics_admin').length;
-    const scheduled = dashStats.pickup_scheduled ?? allPickups.filter(r => r.status === 'scheduled' || r.status === 'assigned_to_logistics_user').length;
+    const requested = dashStats.pickup_pending ?? allPickups.filter(r => r.status === 'pending').length;
+    const scheduled = dashStats.pickup_scheduled ?? allPickups.filter(r => r.status === 'scheduled').length;
     const inProgress = dashStats.pickup_in_progress ?? allPickups.filter(r => r.status === 'in_progress').length;
     const completed = dashStats.pickup_completed ?? allPickups.filter(r => r.status === 'completed').length;
     const exceptions = allPickups.filter(r => r.status === 'failed' || r.status === 'cancelled').length;

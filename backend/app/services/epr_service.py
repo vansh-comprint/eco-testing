@@ -160,12 +160,13 @@ class EPRCertificateService:
         )
 
         # Check for assets already assigned to another EPR certificate
+        # Use FOR UPDATE to prevent TOCTOU race with concurrent requests
         if data.asset_ids:
             already_assigned_result = await self.db.execute(
                 select(Asset.id, Asset.epr_certificate_id).where(
                     Asset.id.in_(data.asset_ids),
                     Asset.epr_certificate_id.isnot(None),
-                )
+                ).with_for_update()
             )
             duplicates = already_assigned_result.all()
             if duplicates:
@@ -196,6 +197,10 @@ class EPRCertificateService:
                 batch.epr_certificate_id = certificate.id
                 batch.epr_status = "pending"
                 await self.db.flush()
+
+        # Commit all side-effects atomically (repo.create only flushed)
+        await self.db.commit()
+        await self.db.refresh(certificate)
 
         return EPRCertificateResponse.model_validate(certificate)
 
@@ -238,6 +243,10 @@ class EPRCertificateService:
                 batch.epr_status = "issued"
                 await self.db.flush()
 
+        # Commit all side-effects atomically (repo.update only flushed)
+        await self.db.commit()
+        await self.db.refresh(certificate)
+
         return EPRCertificateResponse.model_validate(certificate)
 
     async def delete_certificate(self, certificate_id: str) -> bool:
@@ -253,6 +262,17 @@ class EPRCertificateService:
             for asset in assets_result.scalars().all():
                 asset.epr_certificate_id = None
             await self.db.flush()
+        # Clear batch EPR reference if this cert was linked to a batch
+        if certificate.batch_id:
+            from app.models.batch import Batch
+            batch_result = await self.db.execute(
+                select(Batch).where(Batch.id == certificate.batch_id)
+            )
+            batch = batch_result.scalar_one_or_none()
+            if batch:
+                batch.epr_certificate_id = None
+                batch.epr_status = None
+                await self.db.flush()
         return await self.repository.delete(certificate_id)
 
     async def get_weight_totals(self, enterprise_id: str) -> dict:

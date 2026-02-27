@@ -79,7 +79,7 @@ export function EnterpriseBatches() {
   // Lookups
   const branchMap = useMemo(() => {
     const map = new Map<string, string>();
-    branches.forEach(b => map.set(b.id, b.branch_name || ''));
+    branches.forEach(b => map.set(b.id, b.branch_name || b.name || ''));
     return map;
   }, [branches]);
 
@@ -257,7 +257,7 @@ export function EnterpriseBatches() {
           >
             <option value="all">All Branches</option>
             {branches.map(b => (
-              <option key={b.id} value={b.id}>{b.branch_name}</option>
+              <option key={b.id} value={b.id}>{b.branch_name || b.name || 'Unnamed Branch'}</option>
             ))}
           </select>
         </div>

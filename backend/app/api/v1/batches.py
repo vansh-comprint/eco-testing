@@ -211,6 +211,8 @@ async def add_assets_to_batch(
             raise AuthorizationError(f"Asset '{asset_id}' does not belong to this enterprise")
         await asset_service.update_asset(asset_id, AssetUpdate(batch_id=batch_id), current_user.id)
 
+    await service.recalculate_batch_metrics(batch_id)
+    await db.commit()
     updated_batch = await service.get_batch(batch_id)
     return success_response(data=updated_batch.model_dump(), message="Assets added to batch")
 
@@ -240,6 +242,8 @@ async def remove_assets_from_batch(
         if str(getattr(asset, 'batch_id', '')) == str(batch_id):
             await asset_service.update_asset(asset_id, AssetUpdate(batch_id=None), current_user.id)
 
+    await service.recalculate_batch_metrics(batch_id)
+    await db.commit()
     updated_batch = await service.get_batch(batch_id)
     return success_response(data=updated_batch.model_dump(), message="Assets removed from batch")
 

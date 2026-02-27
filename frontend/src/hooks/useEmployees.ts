@@ -31,14 +31,17 @@ export const subUserKeys = {
 // ============================================
 
 /**
- * Fetch all sub-users for an enterprise
+ * Fetch all sub-users for an enterprise, optionally filtered by branch
  */
-export function useSubUsers(enterpriseId: string) {
+export function useSubUsers(enterpriseId: string, branchId?: string) {
   return useQuery({
-    queryKey: subUserKeys.list(enterpriseId),
+    queryKey: branchId
+      ? [...subUserKeys.list(enterpriseId), branchId]
+      : subUserKeys.list(enterpriseId),
     queryFn: async () => {
       const response = await subUsersApi.list({
         enterprise_id: enterpriseId,
+        branch_id: branchId || undefined,
         limit: 100,
       });
       return response.data;
@@ -235,11 +238,18 @@ export function useDeleteSubUser() {
  * Bulk create sub-users (CSV import)
  * Uses backend API (POST /users/bulk)
  */
+export interface BulkUserUploadResult {
+  created_count: number;
+  error_count: number;
+  errors: string[];
+  created: Array<{ id: string; email: string }>;
+}
+
 export function useBulkCreateSubUsers() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (subUsers: CreateSubUserInput[]) => {
+    mutationFn: async (subUsers: CreateSubUserInput[]): Promise<BulkUserUploadResult> => {
       // Transform to API format — include per-row branch_id
       const users: SubUserBulkItem[] = subUsers.map(u => ({
         email: u.email,
@@ -268,15 +278,23 @@ export function useBulkCreateSubUsers() {
 
       const result = response.data;
 
-      // Throw if all failed
+      // Normalize errors to strings for consistent handling
+      const errorStrings: string[] = result.errors.map((e: any) =>
+        typeof e === 'string' ? e : `${e.email}: ${e.error}`
+      );
+
+      // Throw if ALL failed — complete failure
       if (result.error_count > 0 && result.created_count === 0) {
-        const errorMsg = result.errors
-          .map((e: any) => typeof e === 'string' ? e : `${e.email}: ${e.error}`)
-          .join('; ');
-        throw new Error(`Failed to create users: ${errorMsg}`);
+        throw new Error(`Failed to create users: ${errorStrings.join('; ')}`);
       }
 
-      return result.created;
+      // Return full result so callers can handle partial success
+      return {
+        created_count: result.created_count,
+        error_count: result.error_count,
+        errors: errorStrings,
+        created: result.created || [],
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: subUserKeys.all });

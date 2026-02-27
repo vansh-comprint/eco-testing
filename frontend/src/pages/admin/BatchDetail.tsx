@@ -439,11 +439,11 @@ export function BatchDetail() {
               </div>
             </div>
 
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-3 flex-wrap items-center">
               {batch.status === 'draft' && (
                 <button
                   onClick={() => openAddAssetModal('existing')}
-                  className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
+                  className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2 whitespace-nowrap"
                 >
                   <Plus className="w-4 h-4" />
                   Add Asset
@@ -454,7 +454,7 @@ export function BatchDetail() {
                   onClick={() => verifiedAssets.length > 0 && setShowSubmitModal(true)}
                   disabled={verifiedAssets.length === 0}
                   title={verifiedAssets.length === 0 ? 'No verified assets yet. Assets must be reviewed and accepted before submitting.' : `Submit ${verifiedAssets.length} verified asset(s) for approval`}
-                  className={`interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  className={`interactive px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
                     verifiedAssets.length > 0
                       ? 'bg-amber-500 text-black hover:bg-amber-400'
                       : 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-white/30 cursor-not-allowed'
