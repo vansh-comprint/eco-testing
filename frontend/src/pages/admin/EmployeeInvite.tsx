@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth, useCreateSubUsers, useApiError, useEmployeeBasePath } from '@/hooks';
+import { usersApi } from '@/lib/api';
 import { BranchSelector } from '@/components/ui';
 
 interface InviteFormData {
@@ -183,6 +184,37 @@ export function EmployeeInvite() {
     setIsLoading(true);
 
     try {
+      // Pre-check: verify emails don't already exist (checks ALL user roles, not just employees)
+      const emailsToCheck = invites.map(inv => inv.email.trim().toLowerCase());
+      const existingEmails = new Set<string>();
+      try {
+        for (const email of emailsToCheck) {
+          const resp = await usersApi.list({ search: email, enterprise_id: enterpriseId, limit: 5 });
+          if (resp.data) {
+            for (const u of resp.data) {
+              if (u.email?.toLowerCase() === email) {
+                existingEmails.add(email);
+                break;
+              }
+            }
+          }
+        }
+      } catch {
+        // If pre-check fails, let server catch it during creation
+      }
+
+      if (existingEmails.size > 0) {
+        const newErrors: Record<number, Record<string, string>> = {};
+        invites.forEach((invite, index) => {
+          if (existingEmails.has(invite.email.trim().toLowerCase())) {
+            newErrors[index] = { email: 'This email already exists in the system' };
+          }
+        });
+        setErrors(newErrors);
+        setIsLoading(false);
+        return;
+      }
+
       // V3: Create sub-users with enterprise ID using mutation
       await createSubUsersMutation.mutateAsync(
         invites.map(invite => ({

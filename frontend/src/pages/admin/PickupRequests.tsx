@@ -160,7 +160,7 @@ export function PickupRequests() {
           { label: 'Requested', value: stats.requested, icon: <Clock className="w-4 h-4" />, highlight: stats.requested > 0, filterValue: 'pending' },
           { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4" />, filterValue: 'scheduled' },
           { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4" />, filterValue: 'in_progress' },
-          { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4" />, filterValue: 'completed' },
+          { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4" />, success: stats.completed > 0, filterValue: 'completed' },
           { label: 'Exceptions', value: stats.exceptions, icon: <AlertTriangle className="w-4 h-4" />, error: stats.exceptions > 0, filterValue: 'failed' },
         ].map((stat) => {
           const isActive = statusFilter === stat.filterValue;
@@ -177,9 +177,9 @@ export function PickupRequests() {
             >
               <div className="flex items-center justify-between mb-2">
                 <h4 className={`font-mono font-bold text-xs uppercase tracking-widest ${isActive ? 'text-ecotribe-primary' : 'text-slate-600 dark:text-white/60'}`}>{stat.label}</h4>
-                <span className={isActive ? 'text-ecotribe-primary' : stat.highlight ? 'text-amber-500' : stat.error ? 'text-red-400' : 'text-slate-500 dark:text-white/60'}>{stat.icon}</span>
+                <span className={isActive ? 'text-ecotribe-primary' : stat.highlight ? 'text-amber-500' : stat.success ? 'text-emerald-500' : stat.error ? 'text-red-400' : 'text-slate-500 dark:text-white/60'}>{stat.icon}</span>
               </div>
-              <div className={`font-brand font-bold text-3xl ${isActive ? 'text-ecotribe-primary' : stat.highlight ? 'text-amber-500' : stat.error ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
+              <div className={`font-brand font-bold text-3xl ${isActive ? 'text-ecotribe-primary' : stat.highlight ? 'text-amber-500' : stat.success ? 'text-emerald-500' : stat.error ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
                 {stat.value}
               </div>
             </button>

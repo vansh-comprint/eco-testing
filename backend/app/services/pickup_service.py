@@ -756,16 +756,13 @@ class PickupService:
         elif user.role == UserRole.ORG_ADMIN.value:
             enterprise_id = user.enterprise_id
         elif user.role == UserRole.IT_ADMIN.value:
+            # Pickups are enterprise-level (no branch_id on PickupRequest),
+            # so scope by enterprise only to match dashboard stats
             enterprise_id = user.enterprise_id
-            from app.utils.scoping import get_it_admin_branch_ids
-            branch_ids = await get_it_admin_branch_ids(self.session, user.id)
-            if user.branch_id and user.branch_id not in branch_ids:
-                branch_ids.append(user.branch_id)
         # Super/OPS admins see all
 
         return await self.repo.list_with_filters(
             enterprise_id=enterprise_id,
-            branch_ids=branch_ids if user.role == UserRole.IT_ADMIN.value else None,
             logistics_admin_id=logistics_admin_id,
             logistics_user_id=logistics_user_id,
             status=status,

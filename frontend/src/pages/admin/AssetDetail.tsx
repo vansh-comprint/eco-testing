@@ -1141,44 +1141,40 @@ export function AssetDetail() {
 
                 return (
                   <div className="space-y-3">
-                    {eligibleBatches.length > 0 && (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                        {eligibleBatches.map((b: any) => (
-                          <button
-                            key={b.id}
-                            onClick={() => { setSelectedBatchId(b.id); setShowNewBatchForm(false); }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 border transition-all text-left ${
-                              selectedBatchId === b.id && !showNewBatchForm
-                                ? 'border-ecotribe-primary bg-ecotribe-primary/10'
-                                : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20'
-                            }`}
-                          >
-                            <Package className={`w-5 h-5 ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-zinc-400'}`} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-display font-bold text-sm truncate ${selectedBatchId === b.id && !showNewBatchForm ? 'text-ecotribe-primary' : 'text-slate-900 dark:text-white'}`}>
-                                {b.name}
-                              </p>
-                              <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">
-                                {b.asset_count || 0} assets
-                              </p>
-                            </div>
-                            {selectedBatchId === b.id && !showNewBatchForm && <CheckCircle className="w-4 h-4 text-ecotribe-primary" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <div>
+                      <label className="font-mono font-bold text-[10px] text-slate-500 dark:text-zinc-600 uppercase tracking-widest mb-2 block">
+                        Select Batch
+                      </label>
+                      {eligibleBatches.length > 0 ? (
+                        <select
+                          value={showNewBatchForm ? '' : selectedBatchId}
+                          onChange={(e) => { setSelectedBatchId(e.target.value); setShowNewBatchForm(false); }}
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-ecotribe-primary/50 appearance-none select-themed cursor-pointer"
+                        >
+                          <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
+                          {eligibleBatches.map((b: any) => (
+                            <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
+                              {b.name} ({b.asset_count || 0} assets)
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+                          <Package className="w-6 h-6 text-slate-400 dark:text-zinc-600 mx-auto mb-1.5" />
+                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm">No draft batches for this branch</p>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="border-t border-slate-200 dark:border-white/10 pt-3">
                       {!showNewBatchForm ? (
                         <button
+                          type="button"
                           onClick={() => { setShowNewBatchForm(true); setSelectedBatchId(''); }}
-                          className="w-full flex items-center gap-3 px-4 py-3 border border-dashed border-slate-300 dark:border-white/20 hover:border-ecotribe-primary/50 hover:bg-ecotribe-primary/5 transition-all text-left"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-slate-300 dark:border-white/20 hover:border-ecotribe-primary/50 hover:bg-ecotribe-primary/5 transition-all font-mono font-bold text-xs text-ecotribe-primary uppercase tracking-widest"
                         >
-                          <Plus className="w-5 h-5 text-ecotribe-primary" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-display font-bold text-sm text-ecotribe-primary">Create New Batch</p>
-                            <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wide">Add a new draft batch for this branch</p>
-                          </div>
+                          <Plus className="w-4 h-4" />
+                          Create New Batch
                         </button>
                       ) : (
                         <div className="space-y-3 p-4 border border-ecotribe-primary/30 bg-ecotribe-primary/5">
@@ -1193,12 +1189,14 @@ export function AssetDetail() {
                           />
                           <div className="flex gap-2">
                             <button
+                              type="button"
                               onClick={() => { setShowNewBatchForm(false); setNewBatchName(''); }}
                               className="px-3 py-1.5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 font-mono text-xs uppercase tracking-wide hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                             >
                               Cancel
                             </button>
                             <button
+                              type="button"
                               onClick={async () => {
                                 if (!newBatchName.trim() || !enterprise) return;
                                 setIsCreatingBatch(true);

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { subUsersApi } from '@/lib/api';
+import { subUsersApi, usersApi } from '@/lib/api';
 import {
   Upload,
   FileSpreadsheet,
@@ -152,13 +152,13 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
   };
 
   // Check which emails already exist in the system via API
-  // Uses subUsersApi (which adds role=employee) — IT Admin has EMPLOYEE_READ permission for this
+  // Uses usersApi (no role filter) to catch ALL users — IT admins, org admins, employees, etc.
   const validateEmailsOnServer = async (emails: string[]): Promise<Set<string>> => {
     const existing = new Set<string>();
     try {
-      // Fetch existing employees for this enterprise (no branch filter — check across all branches)
-      // Backend max limit is 100 per page — fetch multiple pages to cover more employees
-      const response = await subUsersApi.list({
+      // Fetch ALL existing users for this enterprise (no role filter, no branch filter)
+      // This catches IT admins, org admins, employees — not just employees
+      const response = await usersApi.list({
         enterprise_id: enterpriseId,
         limit: 100,
       });
@@ -177,7 +177,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       const unchecked = emails.filter(e => !existing.has(e.toLowerCase()));
       for (const email of unchecked.slice(0, 20)) {
         try {
-          const resp = await subUsersApi.list({ search: email, enterprise_id: enterpriseId, limit: 1 });
+          const resp = await usersApi.list({ search: email, enterprise_id: enterpriseId, limit: 1 });
           if (resp.data) {
             for (const user of resp.data) {
               if (user.email?.toLowerCase() === email.toLowerCase()) {

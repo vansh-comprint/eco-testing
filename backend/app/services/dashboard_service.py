@@ -584,7 +584,11 @@ async def get_dashboard_stats(
         # PickupRequest has no branch_id column — scope by enterprise only
         pickup_filters = [PickupRequest.enterprise_id == eid] if eid else []
         pc = await _status_counts(db, PickupRequest, PickupRequest.status, *pickup_filters)
-        stats["pickup_pending"] = pc.get(PickupStatus.PENDING.value, 0)
+        # "Requested" from IT Admin's perspective: both pending and assigned-to-admin
+        # (IT Admin is waiting for logistics to handle it in both cases)
+        stats["pickup_pending"] = sum(
+            pc.get(s, 0) for s in [PickupStatus.PENDING.value, PickupStatus.ASSIGNED_TO_LOGISTICS_ADMIN.value]
+        )
         stats["pickup_scheduled"] = sum(
             pc.get(s, 0) for s in [PickupStatus.SCHEDULED.value, PickupStatus.ASSIGNED_TO_LOGISTICS_USER.value]
         )
@@ -687,6 +691,11 @@ async def get_dashboard_stats(
         stats["pickup_scheduled"] = pc.get(PickupStatus.SCHEDULED.value, 0)
         stats["pickup_in_progress"] = pc.get(PickupStatus.IN_PROGRESS.value, 0)
         stats["pickup_completed"] = pc.get(PickupStatus.COMPLETED.value, 0)
+        stats["pickup_total"] = sum(pc.values())
+        stats["pickup_failed"] = (
+            pc.get(PickupStatus.FAILED.value, 0)
+            + pc.get(PickupStatus.CANCELLED.value, 0)
+        )
 
     elif role == UserRole.SUPER_ADMIN.value:
         # -- Enterprise status breakdown via GROUP BY --
