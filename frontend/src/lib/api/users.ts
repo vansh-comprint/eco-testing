@@ -17,6 +17,7 @@ export interface UserListParams {
   skip?: number;
   limit?: number;
   role?: string;
+  roles?: string[];
   status?: string;
   search?: string;
   enterprise_id?: string;
@@ -95,6 +96,7 @@ export const usersApi = {
     if (params.skip) query.set('skip', params.skip.toString());
     query.set('limit', (params.limit ?? DEFAULT_PAGE_SIZE).toString());
     if (params.role) query.set('role', params.role);
+    if (params.roles) params.roles.forEach(r => query.append('roles', r));
     if (params.status) query.set('status', params.status);
     if (params.search) query.set('search', params.search);
     if (params.enterprise_id) query.set('enterprise_id', params.enterprise_id);

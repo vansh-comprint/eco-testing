@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Laptop,
@@ -25,7 +25,11 @@ export function RemoteReviewQueue() {
   const { submissions } = useSubmissionStore();
   const { selectedEnterpriseId, isAllEnterprises, enterprises, selectedEnterprise } = useOpsEnterprise();
 
-  const [activeTab, setActiveTab] = useState<'queue' | 'completed'>('queue');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get('tab') === 'completed' ? 'completed' : 'queue') as 'queue' | 'completed';
+  const setActiveTab = (tab: 'queue' | 'completed') => {
+    setSearchParams(tab === 'queue' ? {} : { tab }, { replace: true });
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   // Helper to get sub user by ID
@@ -152,31 +156,19 @@ export function RemoteReviewQueue() {
 
         {activeTab === 'queue' && (
           <>
-            <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-4 flex items-center gap-4 sm:min-w-[180px]">
-              <div className="w-12 h-12 bg-amber-400/10 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-6 h-6 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-xs font-mono font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">
-                  Pending
-                </p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{pendingReviewAssets.length}</p>
-              </div>
+            <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 px-4 py-2.5 flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span className="text-xs font-mono font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">Pending</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">{pendingReviewAssets.length}</span>
             </div>
 
             {pendingReviewAssets.filter(a => a.status === 'disputed').length > 0 && (
-              <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-4 flex items-center gap-4 sm:min-w-[180px]">
-                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
-                  <ShieldAlert className="w-6 h-6 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                    Disputed
-                  </p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                    {pendingReviewAssets.filter(a => a.status === 'disputed').length}
-                  </p>
-                </div>
+              <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 px-4 py-2.5 flex items-center gap-2.5">
+                <ShieldAlert className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Disputed</span>
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                  {pendingReviewAssets.filter(a => a.status === 'disputed').length}
+                </span>
               </div>
             )}
           </>

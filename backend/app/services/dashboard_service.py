@@ -466,14 +466,14 @@ async def get_dashboard_stats(
         # -- Employee stats for Org Admin --
         stats["employee_total"] = await _count(
             db, select(func.count()).select_from(User).where(
-                and_(User.enterprise_id == eid, User.role.in_([UserRole.EMPLOYEE.value, "sub_user"]))
+                and_(User.enterprise_id == eid, User.role == UserRole.EMPLOYEE.value)
             )
         )
         stats["employee_active"] = await _count(
             db, select(func.count()).select_from(User).where(
                 and_(
                     User.enterprise_id == eid,
-                    User.role.in_([UserRole.EMPLOYEE.value, "sub_user"]),
+                    User.role == UserRole.EMPLOYEE.value,
                     User.status == "active",
                 )
             )
@@ -601,7 +601,7 @@ async def get_dashboard_stats(
         )
 
         # -- Employee stats for IT Admin --
-        emp_filters = [User.enterprise_id == eid, User.role.in_([UserRole.EMPLOYEE.value, "sub_user"])]
+        emp_filters = [User.enterprise_id == eid, User.role == UserRole.EMPLOYEE.value]
         if effective_branch_ids:
             emp_filters.append(User.branch_id.in_(effective_branch_ids))
         stats["employee_total"] = await _count(
@@ -651,10 +651,10 @@ async def get_dashboard_stats(
         )
         stats["pending_payout"] = sc.get(AssetStatus.PAYOUT_PENDING.value, 0)
         stats["asset_completed"] = sc.get(AssetStatus.COMPLETED.value, 0)
-        stats["asset_accepted"] = sum(
-            sc.get(s, 0) for s in [AssetStatus.FINAL_ACCEPTED.value, AssetStatus.COMPLETED.value]
+        stats["asset_accepted"] = sc.get(AssetStatus.COMPLETED.value, 0)
+        stats["asset_rejected"] = sum(
+            sc.get(s, 0) for s in [AssetStatus.REMOTE_REJECTED.value, AssetStatus.FINAL_REJECTED.value]
         )
-        stats["asset_rejected"] = sum(sc.get(s, 0) for s in _ASSET_REJECTED)
         stats["in_progress"] = stats["asset_total"] - stats["asset_accepted"] - stats["asset_rejected"]
         stats["asset_conditionally_accepted"] = sc.get(AssetStatus.CONDITIONALLY_ACCEPTED.value, 0)
         stats["asset_ready_for_pickup"] = sc.get(AssetStatus.READY_FOR_PICKUP.value, 0)
@@ -764,7 +764,7 @@ async def get_dashboard_stats(
         stats["dispute_overturned"] = rc.get("overturned", 0)
         stats["pending_disputes"] = stats["dispute_pending"]
 
-    elif role in (UserRole.EMPLOYEE.value, "sub_user"):
+    elif role == UserRole.EMPLOYEE.value:
         # Employee: scoped to their assigned assets
         uid = user.id
         stats["my_assets"] = await _count(

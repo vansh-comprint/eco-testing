@@ -27,9 +27,10 @@ import {
   Users,
 } from 'lucide-react';
 import { useBranch, useBranchSummary, useAuth, useUpdateBranch, useActiveITAdmins, useInfiniteSubUsers } from '@/hooks';
-import { PageHeader, Badge, Modal } from '@/components/ui';
+import { PageHeader, Badge, Modal, useToast } from '@/components/ui';
 import { text, iconSize } from '@/lib/design-tokens';
 import { formatDistanceToNow, format } from 'date-fns';
+import { BranchFormModal } from './BranchManagement';
 
 interface ITAdmin {
   id: string;
@@ -70,6 +71,8 @@ export function BranchDetail() {
 
   const [isEditAdminModalOpen, setIsEditAdminModalOpen] = useState(false);
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
+  const [isEditBranchModalOpen, setIsEditBranchModalOpen] = useState(false);
+  const { addToast } = useToast();
 
   // Find summary for this branch
   const summary = summaries.find((s: any) => s.branch_id === branchId);
@@ -105,11 +108,20 @@ export function BranchDetail() {
   const handleAssignAdmin = async () => {
     if (!branchId) return;
 
-    await updateBranch.mutateAsync({
-      branchId,
-      updates: { it_admin_id: selectedAdminId || null },
-    });
-    setIsEditAdminModalOpen(false);
+    try {
+      await updateBranch.mutateAsync({
+        branchId,
+        updates: { it_admin_id: selectedAdminId || null },
+      });
+      setIsEditAdminModalOpen(false);
+      addToast({
+        type: 'success',
+        title: selectedAdminId ? 'IT Admin Assigned' : 'IT Admin Removed',
+        message: selectedAdminId ? 'IT Admin has been assigned to this branch.' : 'IT Admin has been removed from this branch.',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Update Failed', message: 'Failed to update IT Admin assignment.' });
+    }
   };
 
   // Loading state
@@ -178,7 +190,7 @@ export function BranchDetail() {
         {isOrgAdmin && (
           <button
             type="button"
-            onClick={() => navigate(`${basePath}/branches`, { state: { editBranch: branch.id } })}
+            onClick={() => setIsEditBranchModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/50 text-slate-700 dark:text-zinc-300 font-semibold text-sm uppercase tracking-wider transition-all"
           >
             <Edit className={iconSize.md} />
@@ -572,6 +584,9 @@ export function BranchDetail() {
             className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm focus:outline-none focus:border-lime-500/50"
           >
             <option value="">No IT Admin (needs_admin status)</option>
+            {isOrgAdmin && user && (
+              <option value={user.id}>Myself ({user.name})</option>
+            )}
             {(itAdmins as ITAdmin[]).map((admin) => (
               <option key={admin.id} value={admin.id}>
                 {admin.name} ({admin.email})
@@ -599,6 +614,26 @@ export function BranchDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* Edit Branch Modal — opens in-place instead of navigating away */}
+      {branch && (
+        <BranchFormModal
+          isOpen={isEditBranchModalOpen}
+          onClose={() => setIsEditBranchModalOpen(false)}
+          branch={branch}
+          enterpriseId={enterpriseId}
+          itAdmins={itAdmins as any[]}
+          isOrgAdmin={isOrgAdmin}
+          currentUser={user ? { id: user.id, name: user.name } : undefined}
+          onSubmit={async (data) => {
+            const { new_it_admin, ...branchData } = data as any;
+            await updateBranch.mutateAsync({ branchId: branch.id, updates: branchData });
+            setIsEditBranchModalOpen(false);
+            addToast({ type: 'success', title: 'Branch Updated', message: 'Branch details have been updated successfully.' });
+          }}
+          isLoading={updateBranch.isPending}
+        />
+      )}
     </div>
   );
 }

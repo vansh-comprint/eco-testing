@@ -303,7 +303,7 @@ export function OpsEPRCertificates() {
       Notes: c.notes ?? '',
     }));
     const csv = Papa.unparse(rows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -654,11 +654,11 @@ export function OpsEPRCertificates() {
                       </p>
                     </div>
                   ) : (
-                    <div className="border border-slate-200 dark:border-white/10 max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                    <div className="border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
                       {eligibleAssets.map((asset) => (
                         <label
                           key={asset.id}
-                          className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] cursor-pointer"
+                          className="flex items-center gap-3 p-3 bg-white dark:bg-transparent hover:bg-slate-50 dark:hover:bg-white/[0.04] cursor-pointer"
                         >
                           <input
                             type="checkbox"

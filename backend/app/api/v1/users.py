@@ -1,6 +1,6 @@
 """User management endpoints for unified user model"""
 
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Body, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,8 +46,9 @@ def _get_required_permission(role: Optional[UserRole], action: str) -> Permissio
 @router.get("", response_model=dict)
 async def list_users(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(10, ge=1, le=100, description="Number of records to return"),
-    role: Optional[UserRole] = Query(None, description="Filter by role (e.g., employee, it_admin)"),
+    limit: int = Query(10, ge=1, le=500, description="Number of records to return"),
+    role: Optional[UserRole] = Query(None, description="Filter by single role (e.g., employee, it_admin)"),
+    roles: Optional[List[UserRole]] = Query(None, description="Filter by multiple roles (e.g., roles=super_admin&roles=ops_admin)"),
     status: Optional[UserStatus] = Query(None, description="Filter by status"),
     search: Optional[str] = Query(None, description="Search by name, email, phone, or employee ID"),
     enterprise_id: Optional[str] = Query(
@@ -114,6 +115,7 @@ async def list_users(
         skip=skip,
         limit=limit,
         role=role,
+        roles=roles,
         status=status,
         search=search,
         **scoped_filters,

@@ -22,6 +22,7 @@ def _get_user_role(role: Union[str, UserRole, None]) -> Optional[UserRole]:
         return None
     if isinstance(role, UserRole):
         return role
+
     try:
         return UserRole(role)
     except ValueError:

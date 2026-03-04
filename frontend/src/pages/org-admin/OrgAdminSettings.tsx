@@ -86,10 +86,11 @@ export function OrgAdminSettings() {
       accountNumber: '',
       confirmAccountNumber: '',
       ifscCode: '',
-      bankName: 'HDFC Bank',
+      bankName: '',
       branch: '',
     };
   });
+  const [bankErrors, setBankErrors] = useState<Record<string, string>>({});
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -136,8 +137,42 @@ export function OrgAdminSettings() {
         localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notifications));
         addToast({ type: 'success', title: 'Notifications Saved', message: 'Notification preferences have been updated.' });
       } else if (activeTab === 'bank') {
-        if (bankForm.accountNumber && bankForm.accountNumber !== bankForm.confirmAccountNumber) {
-          addToast({ type: 'error', title: 'Account Mismatch', message: 'Account numbers do not match.' });
+        const errors: Record<string, string> = {};
+        // Account Holder Name — required, letters/spaces/dots only
+        if (!bankForm.accountName.trim()) {
+          errors.accountName = 'Account holder name is required';
+        } else if (bankForm.accountName.trim().length < 3) {
+          errors.accountName = 'Name must be at least 3 characters';
+        }
+        // Account Number — required, 9-18 digits
+        if (!bankForm.accountNumber.trim()) {
+          errors.accountNumber = 'Account number is required';
+        } else if (!/^\d{9,18}$/.test(bankForm.accountNumber.trim())) {
+          errors.accountNumber = 'Account number must be 9-18 digits';
+        }
+        // Confirm Account Number — must match
+        if (!bankForm.confirmAccountNumber.trim()) {
+          errors.confirmAccountNumber = 'Please re-enter account number';
+        } else if (bankForm.accountNumber !== bankForm.confirmAccountNumber) {
+          errors.confirmAccountNumber = 'Account numbers do not match';
+        }
+        // IFSC Code — required, format: 4 letters + 0 + 6 alphanumeric
+        if (!bankForm.ifscCode.trim()) {
+          errors.ifscCode = 'IFSC code is required';
+        } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankForm.ifscCode.trim())) {
+          errors.ifscCode = 'Invalid IFSC format (e.g., HDFC0001234)';
+        }
+        // Bank Name — required
+        if (!bankForm.bankName.trim()) {
+          errors.bankName = 'Bank name is required';
+        }
+        // Branch — required
+        if (!bankForm.branch.trim()) {
+          errors.branch = 'Branch name is required';
+        }
+        setBankErrors(errors);
+        if (Object.keys(errors).length > 0) {
+          addToast({ type: 'error', title: 'Validation Failed', message: 'Please fix the highlighted fields.' });
           return;
         }
         localStorage.setItem('ecotribe-org-bank-details', JSON.stringify(bankForm));
@@ -480,75 +515,109 @@ export function OrgAdminSettings() {
               <div className="p-5 space-y-5">
                 <div className="p-4 border border-amber-500/20 bg-amber-500/5">
                   <p className="font-mono text-xs text-amber-400">
-                    This is the enterprise-level bank account for receiving payouts. Ensure details match your company records.
+                    This is the enterprise-level bank account for receiving payouts. All fields are mandatory. Ensure details match your company records.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Account Holder Name</label>
+                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                    Account Holder Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     placeholder="Company name as per bank records"
                     value={bankForm.accountName}
-                    onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                    onChange={(e) => { setBankForm({ ...bankForm, accountName: e.target.value }); setBankErrors(prev => { const { accountName, ...rest } = prev; return rest; }); }}
+                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                      bankErrors.accountName ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                    }`}
                   />
+                  {bankErrors.accountName && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.accountName}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Account Number</label>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      Account Number <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="password"
-                      placeholder="Enter account number"
+                      placeholder="9-18 digit account number"
+                      inputMode="numeric"
                       value={bankForm.accountNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      onChange={(e) => { setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, '') }); setBankErrors(prev => { const { accountNumber, ...rest } = prev; return rest; }); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                        bankErrors.accountNumber ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {bankErrors.accountNumber && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.accountNumber}</p>}
                   </div>
                   <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Confirm Account Number</label>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      Confirm Account Number <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="Re-enter account number"
+                      inputMode="numeric"
                       value={bankForm.confirmAccountNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, confirmAccountNumber: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors"
+                      onChange={(e) => { setBankForm({ ...bankForm, confirmAccountNumber: e.target.value.replace(/\D/g, '') }); setBankErrors(prev => { const { confirmAccountNumber, ...rest } = prev; return rest; }); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                        bankErrors.confirmAccountNumber ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {bankErrors.confirmAccountNumber && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.confirmAccountNumber}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">IFSC Code</label>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      IFSC Code <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g., HDFC0001234"
+                      maxLength={11}
                       value={bankForm.ifscCode}
-                      onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-ecotribe-primary/50 transition-colors uppercase"
+                      onChange={(e) => { setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11) }); setBankErrors(prev => { const { ifscCode, ...rest } = prev; return rest; }); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors uppercase ${
+                        bankErrors.ifscCode ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {bankErrors.ifscCode && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.ifscCode}</p>}
                   </div>
                   <div>
-                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Bank Name</label>
+                    <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                      Bank Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
+                      placeholder="Enter bank name"
                       value={bankForm.bankName}
-                      disabled
-                      className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm cursor-not-allowed"
+                      onChange={(e) => { setBankForm({ ...bankForm, bankName: e.target.value }); setBankErrors(prev => { const { bankName, ...rest } = prev; return rest; }); }}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                        bankErrors.bankName ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                      }`}
                     />
+                    {bankErrors.bankName && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.bankName}</p>}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">Branch</label>
+                  <label className="block font-mono font-bold text-[10px] text-slate-600 dark:text-zinc-500 uppercase tracking-widest mb-2">
+                    Branch <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
-                    placeholder="Branch name will auto-fill from IFSC"
+                    placeholder="Enter branch name"
                     value={bankForm.branch}
-                    disabled
-                    className="w-full px-4 py-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-500 font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 cursor-not-allowed"
+                    onChange={(e) => { setBankForm({ ...bankForm, branch: e.target.value }); setBankErrors(prev => { const { branch, ...rest } = prev; return rest; }); }}
+                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                      bankErrors.branch ? 'border-red-400 dark:border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10 focus:border-ecotribe-primary/50'
+                    }`}
                   />
+                  {bankErrors.branch && <p className="font-mono text-[10px] text-red-500 mt-1">{bankErrors.branch}</p>}
                 </div>
               </div>
             </div>

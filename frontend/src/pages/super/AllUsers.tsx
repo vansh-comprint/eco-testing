@@ -87,7 +87,7 @@ export function AllUsers() {
     return roleLabels[role] || role;
   };
 
-  // Search + role are now server-side. Only exclude employees client-side.
+  // Search + role are now server-side. Exclude employees client-side.
   const filteredUsers = users.filter(user => user.role !== 'employee');
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
@@ -160,7 +160,7 @@ export function AllUsers() {
       const csvContent = [headers, ...rows]
         .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
         .join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

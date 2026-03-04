@@ -316,7 +316,10 @@ export function BatchList() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * Math.min(index, 10) }}
-                onClick={() => navigate(`${basePath}/batches/${batch.id}`)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  navigate(`${basePath}/batches/${batch.id}`);
+                }}
                 className="interactive bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 hover:border-lime-500/30 cursor-pointer transition-all group shadow-sm shadow-slate-900/[0.02] dark:shadow-none"
               >
                 <div className="p-4 sm:p-6">

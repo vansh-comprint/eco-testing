@@ -20,7 +20,7 @@ import {
   Scale,
   Monitor,
 } from 'lucide-react';
-import { useAuth, useInfiniteDisputes, useAssets, useBranches, useDashboardStats } from '@/hooks';
+import { useAuth, useInfiniteDisputes, useAssets, useBranches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import type { StatAccent } from '@/components/ui';
 import { iconSize } from '@/lib/design-tokens';
@@ -40,6 +40,7 @@ export function EnterpriseDisputes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
+  const debouncedSearch = useDebounce(searchQuery, 350);
 
   // Sync with sidebar branch selector (OrgBranchContext)
   // URL ?branch= param takes priority over context (same pattern as EnterpriseAssets/EnterpriseBatches)
@@ -57,11 +58,17 @@ export function EnterpriseDisputes() {
     partial: { status: 'resolved', resolution: 'partial' },
   };
 
-  const { data: disputePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteDisputes({
-    ...(statusFilter !== 'all' && apiFilterMap[statusFilter]
-      ? apiFilterMap[statusFilter]
-      : {}),
-  });
+  const apiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (statusFilter !== 'all' && apiFilterMap[statusFilter]) {
+      Object.assign(params, apiFilterMap[statusFilter]);
+    }
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (branchFilter !== 'all') params.branch_id = branchFilter;
+    return params;
+  }, [statusFilter, debouncedSearch, branchFilter]);
+
+  const { data: disputePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteDisputes(apiParams);
   const disputes = useMemo(() => disputePages?.pages.flatMap(p => p.data || []) ?? [], [disputePages]);
   const totalDisputes = disputePages?.pages[0]?.pagination?.total;
   const { data: assets = [] } = useAssets(enterpriseId);
@@ -90,37 +97,8 @@ export function EnterpriseDisputes() {
     partial: 0, // TODO: add dispute_partial to backend if needed
   }), [dashStats]);
 
-  // Filtered disputes
-  const filteredDisputes = useMemo(() => {
-    let result = [...disputes];
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(d => {
-        const asset = assetMap.get(d.asset_id);
-        return (
-          d.reason?.toLowerCase().includes(q) ||
-          d.type?.toLowerCase().includes(q) ||
-          asset?.serial_number?.toLowerCase().includes(q) ||
-          asset?.brand?.toLowerCase().includes(q) ||
-          asset?.model?.toLowerCase().includes(q)
-        );
-      });
-    }
-
-    if (statusFilter !== 'all') {
-      result = result.filter(d => d.status === statusFilter);
-    }
-
-    if (branchFilter !== 'all') {
-      result = result.filter(d => {
-        const asset = assetMap.get(d.asset_id);
-        return asset?.branch_id === branchFilter;
-      });
-    }
-
-    return result;
-  }, [disputes, searchQuery, statusFilter, branchFilter, assetMap]);
+  // Server handles all filtering (search, status, branch)
+  const filteredDisputes = disputes;
 
   const handleExport = () => {
     const csv = Papa.unparse(filteredDisputes.map(d => {
@@ -136,7 +114,7 @@ export function EnterpriseDisputes() {
         created_at: new Date(d.created_at).toLocaleDateString(),
       };
     }));
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

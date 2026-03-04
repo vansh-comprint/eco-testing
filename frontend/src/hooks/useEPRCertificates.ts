@@ -91,6 +91,8 @@ export function useCreateEPRCertificate() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: eprKeys.all });
+      // Invalidate assets cache so eligible assets list refreshes (epr_certificate_id changed)
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
 }

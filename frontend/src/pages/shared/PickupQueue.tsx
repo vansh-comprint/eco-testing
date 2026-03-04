@@ -130,10 +130,17 @@ export function PickupQueue() {
       );
     })
     .sort((a, b) => {
+      // Unassigned (needs assignment) float to top
+      const isTerminal = (s: string) => ['completed', 'failed', 'cancelled'].includes(s);
+      const aNeedsAssign = !a.logistics_admin_id && !isTerminal(a.status) ? 0 : 1;
+      const bNeedsAssign = !b.logistics_admin_id && !isTerminal(b.status) ? 0 : 1;
+      if (aNeedsAssign !== bNeedsAssign) return aNeedsAssign - bNeedsAssign;
+      // Within same group: sort by priority
       const priorityOrder: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
-      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      }
+      const aPriority = priorityOrder[a.priority] ?? 2;
+      const bPriority = priorityOrder[b.priority] ?? 2;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      // Then by date (newest first)
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 

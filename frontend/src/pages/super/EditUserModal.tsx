@@ -151,6 +151,14 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
     }
   }, [selectedRole, setValue]);
 
+  // Re-apply parent_user_id once logistics admins finish loading
+  // (select can't hold a value when no matching <option> exists yet)
+  useEffect(() => {
+    if (!logisticsAdminsLoading && user.parent_user_id && selectedRole === LOGISTICS_USER_ROLE) {
+      setValue('parent_user_id', user.parent_user_id);
+    }
+  }, [logisticsAdminsLoading, user.parent_user_id, selectedRole, setValue]);
+
   // Filter to only active enterprises
   const activeEnterprises = enterprises.filter((e: any) => e.status === 'active' || e.is_active);
 
@@ -177,7 +185,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user, allowedRoles, 
           role: data.role,
           status: data.status,
           enterprise_id: ENTERPRISE_ROLES.includes(data.role) ? data.enterprise_id : undefined,
-          branch_id: data.role === 'it_admin' ? (data.branch_id || null) : undefined,
+          branch_id: data.role === 'it_admin' ? data.branch_id : undefined,
           parent_user_id: data.role === LOGISTICS_USER_ROLE ? data.parent_user_id : undefined,
         },
       });

@@ -58,7 +58,7 @@ export function useBranches(enterpriseId: string) {
   return useQuery({
     queryKey: branchKeys.list(enterpriseId),
     queryFn: async () => {
-      const response = await branchesApi.list({ enterprise_id: enterpriseId, limit: 100 });
+      const response = await branchesApi.list({ enterprise_id: enterpriseId, limit: 500 });
       return response.data || [];
     },
     enabled: !!enterpriseId,

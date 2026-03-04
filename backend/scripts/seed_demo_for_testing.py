@@ -113,15 +113,15 @@ async def seed():
             return user_id
 
         sa_id = await ensure_user("superadmin@ecotribe.io", "Super Admin", "super_admin")
-        ops_id = await ensure_user("opsadmin@ecotribe.io", "OPS Admin", "main_admin")
+        ops_id = await ensure_user("opsadmin@ecotribe.io", "OPS Admin", "ops_admin")
         org_id = await ensure_user("orgadmin@techcorp.com", "Org Admin", "org_admin", enterprise_id=ent_id)
         it_id = await ensure_user("itadmin@techcorp.com", "IT Admin", "it_admin", enterprise_id=ent_id, branch_id=branch1_id)
-        emp_id = await ensure_user("employee@techcorp.com", "John Employee", "sub_user", enterprise_id=ent_id, branch_id=branch1_id, employee_id="EMP001", department="Engineering")
+        emp_id = await ensure_user("employee@techcorp.com", "John Employee", "employee", enterprise_id=ent_id, branch_id=branch1_id, employee_id="EMP001", department="Engineering")
 
         # More employees in different branches for IT-03 filtering
-        emp2_id = await ensure_user("jane.smith@techcorp.com", "Jane Smith", "sub_user", enterprise_id=ent_id, branch_id=branch1_id, employee_id="EMP002", department="Marketing")
-        emp3_id = await ensure_user("bob.wilson@techcorp.com", "Bob Wilson", "sub_user", enterprise_id=ent_id, branch_id=branch2_id, employee_id="EMP003", department="Finance")
-        emp4_id = await ensure_user("alice.jones@techcorp.com", "Alice Jones", "sub_user", enterprise_id=ent_id, branch_id=branch2_id, employee_id="EMP004", department="HR")
+        emp2_id = await ensure_user("jane.smith@techcorp.com", "Jane Smith", "employee", enterprise_id=ent_id, branch_id=branch1_id, employee_id="EMP002", department="Marketing")
+        emp3_id = await ensure_user("bob.wilson@techcorp.com", "Bob Wilson", "employee", enterprise_id=ent_id, branch_id=branch2_id, employee_id="EMP003", department="Finance")
+        emp4_id = await ensure_user("alice.jones@techcorp.com", "Alice Jones", "employee", enterprise_id=ent_id, branch_id=branch2_id, employee_id="EMP004", department="HR")
 
         # Logistics
         la_id = await ensure_user("logisticsadmin@express.com", "Express Logistics Admin", "logistics_admin", company_name="Express Logistics")

@@ -165,7 +165,7 @@ export function CreditsWallet() {
       reference: t.reference_id || '-',
     }));
     const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `wallet_transactions_${new Date().toISOString().split('T')[0]}.csv`;

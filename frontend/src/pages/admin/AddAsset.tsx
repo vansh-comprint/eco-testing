@@ -283,7 +283,7 @@ export function AddAsset() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={needsBranchSelection ? 'opacity-50 pointer-events-none' : ''}
+        className=""
       >
         <AssetForm
           enterpriseId={enterprise.id}

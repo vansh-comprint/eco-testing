@@ -6,7 +6,6 @@ import { Input, Button, Card, Badge, PageHeader } from '@/components/ui';
 import { CreateOpsAdminModal, EditUserModal } from '@/pages/super';
 import { usersApi } from '@/lib/api/users';
 import { useQuery } from '@tanstack/react-query';
-import { useDashboardStats } from '@/hooks';
 import { glass, text, iconSize, hover as hoverStyles } from '@/lib/design-tokens';
 
 interface Admin {
@@ -28,26 +27,21 @@ export function Admins() {
   const [isOpsAdminModalOpen, setIsOpsAdminModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
-  const { stats: dashboardStats } = useDashboardStats();
-
   const { data: admins = [], isLoading } = useQuery({
     queryKey: ['users', 'admins'],
     queryFn: async () => {
-      const result = await usersApi.list({ limit: 100 });
+      const result = await usersApi.list({ roles: ['super_admin', 'ops_admin'], limit: 500 });
       if (result.success && result.data) {
-        const adminRoles = ['super_admin', 'ops_admin'];
-        return result.data
-          .filter(u => adminRoles.includes(u.role))
-          .map(u => ({
-            id: u.id,
-            email: u.email,
-            name: u.name,
-            phone: u.phone,
-            role: u.role,
-            status: u.status,
-            created_at: u.created_at,
-            last_login_at: u.last_login_at,
-          }));
+        return result.data.map(u => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          phone: u.phone,
+          role: u.role,
+          status: u.status,
+          created_at: u.created_at,
+          last_login_at: u.last_login_at,
+        }));
       }
       return [];
     },
@@ -83,8 +77,8 @@ export function Admins() {
 
   const stats = {
     total: admins.length,
-    superAdmins: dashboardStats.user_super_admin ?? 0,
-    opsAdmins: dashboardStats.user_ops_admin ?? 0,
+    superAdmins: admins.filter(a => a.role === 'super_admin').length,
+    opsAdmins: admins.filter(a => a.role === 'ops_admin').length,
     active: admins.filter(a => a.status === 'active').length,
   };
 

@@ -119,37 +119,16 @@ export function EnterpriseBatches() {
     return values;
   }, [assets]);
 
-  // Filtered-aware stats: use batch list data when filters active, dashboardStats otherwise
-  const stats = useMemo(() => {
-    const isFiltered = branchFilter !== 'all' || !!debouncedSearch;
-
-    if (!isFiltered) {
-      // No filters — use dashboard stats (global, accurate)
-      return {
-        draft: dashboardStats.batch_draft ?? 0,
-        pendingApproval: dashboardStats.batch_pending_approval ?? 0,
-        approved: dashboardStats.batch_approved ?? 0,
-        pickup: dashboardStats.batch_pickup_in_progress ?? 0,
-        completed: dashboardStats.batch_completed ?? 0,
-        rejected: dashboardStats.batch_rejected ?? 0,
-        totalValue: dashboardStats.batch_total_value ?? 0,
-      };
-    }
-
-    // Filters active — compute from loaded batch data
-    // Note: this only counts loaded pages, not total server count
-    // But it's more accurate than showing unfiltered global stats
-    const countByStatus = (status: string) => batches.filter(b => b.status === status).length;
-    return {
-      draft: countByStatus('draft'),
-      pendingApproval: countByStatus('pending_approval'),
-      approved: countByStatus('approved'),
-      pickup: countByStatus('pickup_in_progress'),
-      completed: countByStatus('completed'),
-      rejected: countByStatus('rejected'),
-      totalValue: batches.reduce((sum, b) => sum + (Number(b.estimated_value) || batchAssetValues.get(b.id) || 0), 0),
-    };
-  }, [branchFilter, debouncedSearch, batches, dashboardStats, batchAssetValues]);
+  // Always use dashboardStats for stats cards (global, accurate counts)
+  const stats = useMemo(() => ({
+    draft: dashboardStats.batch_draft ?? 0,
+    pendingApproval: dashboardStats.batch_pending_approval ?? 0,
+    approved: dashboardStats.batch_approved ?? 0,
+    pickup: dashboardStats.batch_pickup_in_progress ?? 0,
+    completed: dashboardStats.batch_completed ?? 0,
+    rejected: dashboardStats.batch_rejected ?? 0,
+    totalValue: dashboardStats.batch_total_value ?? 0,
+  }), [dashboardStats]);
 
   // All filtering and sorting is server-side (server returns created_at DESC by default)
   const filteredBatches = batches;
@@ -164,7 +143,7 @@ export function EnterpriseBatches() {
       estimated_value: b.estimated_value || '',
       created_at: new Date(b.created_at).toLocaleDateString(),
     })));
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -273,9 +252,9 @@ export function EnterpriseBatches() {
         {statusFilter !== 'all' && (
           <button
             onClick={() => setStatusFilter('all')}
-            className="px-4 py-3 border border-ecotribe-primary/30 bg-ecotribe-primary/10 text-ecotribe-primary font-mono font-bold text-xs uppercase tracking-widest hover:bg-ecotribe-primary/20 transition-colors flex items-center gap-2"
+            className="px-3 py-2 border border-ecotribe-primary/30 bg-ecotribe-primary/10 text-ecotribe-primary font-mono font-bold text-[10px] uppercase tracking-widest hover:bg-ecotribe-primary/20 transition-colors flex items-center gap-1.5 self-center"
           >
-            <XCircle className="w-4 h-4" />
+            <XCircle className="w-3.5 h-3.5" />
             Clear: {statusFilter.replace(/_/g, ' ')}
           </button>
         )}

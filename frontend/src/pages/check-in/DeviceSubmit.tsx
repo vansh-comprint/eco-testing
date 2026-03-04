@@ -541,7 +541,7 @@ export function DeviceSubmit() {
                   <Monitor className="w-5 h-5 text-blue-400" />
                   <span className="font-medium text-slate-900 dark:text-white">Screen issues (select all)</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 justify-start">
                   {screenConditionOptions.map((opt) => {
                     const isSelected = currentDraft?.functionalChecks?.screenCondition?.includes(opt.value);
                     return (
@@ -671,7 +671,7 @@ export function DeviceSubmit() {
                   <Box className="w-5 h-5 text-amber-400" />
                   <span className="font-medium text-slate-900 dark:text-white">Body condition (select all)</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 justify-start">
                   {bodyConditionOptions.map((opt) => {
                     const isSelected = currentDraft?.functionalChecks?.bodyCondition?.includes(opt.value);
                     return (

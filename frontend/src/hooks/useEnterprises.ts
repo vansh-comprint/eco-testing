@@ -41,7 +41,7 @@ export function useInfiniteEnterprises(params: Record<string, string | undefined
   return useInfiniteQuery({
     queryKey: enterpriseKeys.infinite(params as Record<string, unknown>),
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await enterprisesApi.list({ ...params, skip: pageParam as number, limit: 5 });
+      const res = await enterprisesApi.list({ ...params, skip: pageParam as number, limit: 25 });
       return res;
     },
     initialPageParam: 0,

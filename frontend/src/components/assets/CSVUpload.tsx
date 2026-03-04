@@ -237,8 +237,18 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
     // Check for required columns (skip branch when pre-selected at page level)
     const effectiveRequired = branchPreSelected ? REQUIRED_COLUMNS.filter(c => c !== 'branch') : REQUIRED_COLUMNS;
     const missingRequired = effectiveRequired.filter(col => !(col in mapping));
-    if (missingRequired.length > 0) {
-      console.error('Missing required columns:', missingRequired);
+
+    // Reject files that are clearly not asset CSVs — none of the core asset columns found
+    const coreAssetColumns = ['serialNumber', 'brand', 'model'];
+    const foundCoreColumns = coreAssetColumns.filter(col => col in mapping);
+    if (foundCoreColumns.length === 0) {
+      setParsedData([{
+        serialNumber: '', brand: '', model: '', branch: '',
+        errors: [`This file does not appear to be an asset upload sheet. Missing required columns: ${coreAssetColumns.join(', ')}. Please use the correct template.`],
+        warnings: [],
+      }]);
+      setUploadStatus('ready');
+      return;
     }
 
     // Parse data rows

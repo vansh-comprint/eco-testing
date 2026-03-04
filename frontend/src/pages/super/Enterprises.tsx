@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Building2, Plus, Clock, Ban, ExternalLink, Search, CheckCircle, Eye } from 'lucide-react';
 import { PageHeader, StatBox, Spinner, ConfirmationModal, InfiniteScrollTrigger, InfiniteScrollInfo, useToast } from '@/components/ui';
 import { enterprisesApi } from '@/lib/api';
-import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats, dashboardStatsKeys } from '@/hooks';
+import { useInfiniteEnterprises, enterpriseKeys, useDashboardStats, dashboardStatsKeys, useDebounce } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Enterprise } from '@/types';
 
@@ -21,8 +21,18 @@ export function Enterprises() {
   // Server-side stats for accurate KPI counts (not affected by infinite scroll subset)
   const { stats: dashStats } = useDashboardStats();
 
+  const debouncedSearch = useDebounce(searchQuery, 350);
+
+  const enterpriseApiParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (activeTab === 'active') params.status = 'active';
+    else params.status = 'inactive';
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [activeTab, debouncedSearch]);
+
   // Infinite scroll query for enterprises
-  const { data: enterprisePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteEnterprises();
+  const { data: enterprisePages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteEnterprises(enterpriseApiParams);
 
   // Flatten pages into enterprise list
   const allRawEnterprises = useMemo(() => {
@@ -53,9 +63,6 @@ export function Enterprises() {
     }));
   }, [allRawEnterprises]);
 
-  // Separate active and inactive
-  const activeEnterprises = useMemo(() => allEnterprises.filter(e => e.status === 'active'), [allEnterprises]);
-  const inactiveEnterprises = useMemo(() => allEnterprises.filter(e => e.status === 'inactive' || (e.status as any) === 'suspended'), [allEnterprises]);
 
   const handleStatusChange = async () => {
     if (!statusChangeTarget) return;
@@ -80,31 +87,8 @@ export function Enterprises() {
     }
   };
 
-  const filteredActive = useMemo(() => {
-    if (!searchQuery.trim()) return activeEnterprises;
-    const q = searchQuery.toLowerCase();
-    return activeEnterprises.filter(e =>
-      e.name?.toLowerCase().includes(q) ||
-      e.contactEmail?.toLowerCase().includes(q) ||
-      e.gstNumber?.toLowerCase().includes(q) ||
-      e.contactPerson?.toLowerCase().includes(q) ||
-      (e as any).industry?.toLowerCase().includes(q)
-    );
-  }, [activeEnterprises, searchQuery]);
-
-  const filteredInactive = useMemo(() => {
-    if (!searchQuery.trim()) return inactiveEnterprises;
-    const q = searchQuery.toLowerCase();
-    return inactiveEnterprises.filter(e =>
-      e.name?.toLowerCase().includes(q) ||
-      e.contactEmail?.toLowerCase().includes(q) ||
-      e.gstNumber?.toLowerCase().includes(q) ||
-      e.contactPerson?.toLowerCase().includes(q) ||
-      (e as any).industry?.toLowerCase().includes(q)
-    );
-  }, [inactiveEnterprises, searchQuery]);
-
-  const filteredEnterprises = activeTab === 'active' ? filteredActive : filteredInactive;
+  // Server handles status + search filtering; just pass through
+  const filteredEnterprises = allEnterprises;
 
   // Detect base path for navigation
   const isOpsPath = location.pathname.startsWith('/ops');

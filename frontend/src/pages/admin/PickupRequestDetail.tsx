@@ -235,7 +235,9 @@ export function PickupRequestDetail() {
   const requestAssets = (request.asset_ids || []).map(id => assets.find(a => a.id === id)).filter(Boolean);
 
   // Calculate progress
-  const pickedUpCount = (request.assets || []).filter(a => a.status === 'picked_up').length;
+  // Use picked_asset_ids (authoritative backend list) as primary, fall back to asset status filter
+  const pickedUpCount = request.picked_asset_ids?.length
+    || (request.assets || []).filter(a => a.status === 'picked_up').length;
   const exceptionsCount = (request.assets || []).filter(a => ['no_show', 'qc_failed'].includes(a.status)).length;
 
   // Determine timeline step (maps 8 statuses → 5 timeline steps)

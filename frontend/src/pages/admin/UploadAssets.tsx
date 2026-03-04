@@ -91,6 +91,13 @@ export function UploadAssets() {
     }
   }, [contextBranchId, activeBranches]);
 
+  // Auto-select branch when there is exactly one active branch (prevents stuck UI)
+  useEffect(() => {
+    if (!localBranchId && !contextBranchId && activeBranches.length === 1) {
+      setLocalBranchId(activeBranches[0].id);
+    }
+  }, [localBranchId, contextBranchId, activeBranches]);
+
   // Clear stale localBranchId if the selected branch is no longer in the active branches list
   useEffect(() => {
     if (localBranchId && activeBranches.length > 0 && !activeBranches.some((b: { id: string }) => b.id === localBranchId)) {
@@ -340,7 +347,7 @@ export function UploadAssets() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={uploadBlocked ? 'opacity-50 pointer-events-none' : ''}
+        className=""
       >
         <CSVUpload
           enterpriseId={enterprise.id}

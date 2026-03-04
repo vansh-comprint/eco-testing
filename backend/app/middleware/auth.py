@@ -138,9 +138,10 @@ def require_roles(allowed_roles: List[UserRole]):
         ):
             return {"message": "Admin access granted"}
     """
+    allowed_values = {role.value for role in allowed_roles}
 
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in allowed_roles:
+        if current_user.role not in allowed_values:
             raise AuthorizationError(
                 f"Access denied. Required roles: {[role.value for role in allowed_roles]}"
             )
@@ -204,7 +205,7 @@ def check_enterprise_access(user: User, enterprise_id: str) -> None:
         AuthorizationError: If user doesn't have access
     """
     # Super admin and ops admin have access to all enterprises
-    if user.role in [UserRole.SUPER_ADMIN, UserRole.OPS_ADMIN]:
+    if user.role in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
         return
 
     # Other users must belong to the enterprise

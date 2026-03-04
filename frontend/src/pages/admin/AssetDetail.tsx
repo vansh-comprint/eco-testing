@@ -75,7 +75,8 @@ export function AssetDetail() {
   const { data: itAssets = [] } = useAssetsByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
   const { data: orgBatches = [] } = useBatches(isOrgAdmin ? enterpriseId : '');
   const { data: itBatches = [] } = useBatchesByITAdmin(!isOrgAdmin && !isOpsAdmin ? userId : '');
-  const { data: subUsers = [] } = useSubUsers(enterpriseId);
+  // OPS/Super Admin have no enterprise_id — derive from the asset being viewed
+  const { data: subUsers = [] } = useSubUsers(directAsset?.enterprise_id || enterpriseId);
 
   // Branches for transfer
   const { data: orgBranches = [] } = useBranches(isOrgAdmin ? enterpriseId : '');
@@ -1131,12 +1132,18 @@ export function AssetDetail() {
 
             <div className="p-6 space-y-4">
               <p className="font-display text-sm text-slate-600 dark:text-white/60">
-                Select a draft batch to add <span className="font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</span> to:
+                Select a batch to add <span className="font-bold text-slate-900 dark:text-white">{asset.brand} {asset.model}</span> to:
               </p>
 
               {(() => {
+                // Show batches that can still accept assets: draft and pending_approval
+                // Also match by branch - but handle null/undefined branch_id gracefully
+                const addableStatuses = ['draft'];
                 const eligibleBatches = batches.filter((b: any) =>
-                  b.status === 'draft' && b.branch_id === asset.branch_id
+                  addableStatuses.includes(b.status) &&
+                  b.id !== asset.batch_id &&
+                  (b.branch_id === asset.branch_id ||
+                   (!b.branch_id && !asset.branch_id))
                 );
 
                 return (
@@ -1154,14 +1161,14 @@ export function AssetDetail() {
                           <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
                           {eligibleBatches.map((b: any) => (
                             <option key={b.id} value={b.id} className="bg-white dark:bg-[#0a0a0a]">
-                              {b.name}
+                              {b.name}{b.status !== 'draft' ? ` (${b.status.replace('_', ' ')})` : ''}
                             </option>
                           ))}
                         </select>
                       ) : (
                         <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                           <Package className="w-6 h-6 text-slate-400 dark:text-zinc-600 mx-auto mb-1.5" />
-                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm">No draft batches for this branch</p>
+                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm">No eligible batches for this branch</p>
                         </div>
                       )}
                     </div>

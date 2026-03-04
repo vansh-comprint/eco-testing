@@ -281,11 +281,28 @@ class AssetService:
         if "grade" in update_data and update_data["grade"]:
             update_data["grade"] = update_data["grade"].value
 
+        # Track old batch_id before applying changes (for recalculation)
+        old_batch_id = asset.batch_id
+
         for key, value in update_data.items():
             setattr(asset, key, value)
 
         asset.updated_by = updated_by
         asset = await self.repository.update(asset)
+
+        # Recalculate batch metrics if pricing or batch assignment changed
+        pricing_changed = {"base_price", "final_price"} & set(update_data.keys())
+        batch_changed = "batch_id" in update_data and update_data["batch_id"] != old_batch_id
+
+        if pricing_changed or batch_changed:
+            from app.services.batch_service import BatchService
+            batch_service = BatchService(self.db)
+            # Recalculate new/current batch
+            if asset.batch_id:
+                await batch_service.recalculate_batch_metrics(asset.batch_id)
+            # Recalculate old batch if asset moved away
+            if batch_changed and old_batch_id:
+                await batch_service.recalculate_batch_metrics(old_batch_id)
 
         # Log status change to audit trail
         if status_changed:

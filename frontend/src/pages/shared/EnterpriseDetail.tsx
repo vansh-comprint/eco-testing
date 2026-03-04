@@ -155,7 +155,7 @@ export function EnterpriseDetail() {
             branch_id: u.branch_id,
           }));
         subUsers = usersResult.data
-          .filter((u) => u.role === 'employee' || u.role === 'sub_user')
+          .filter((u) => u.role === 'employee')
           .map((u) => ({
             id: u.id,
             name: u.name,

@@ -748,6 +748,7 @@ class PickupService:
         """List pickups with role-based filtering"""
         logistics_admin_id = None
         logistics_user_id = None
+        branch_ids: Optional[List[str]] = None
 
         if user.role == UserRole.LOGISTICS_USER.value:
             logistics_user_id = user.id
@@ -756,13 +757,19 @@ class PickupService:
         elif user.role == UserRole.ORG_ADMIN.value:
             enterprise_id = user.enterprise_id
         elif user.role == UserRole.IT_ADMIN.value:
-            # Pickups are enterprise-level (no branch_id on PickupRequest),
-            # so scope by enterprise only to match dashboard stats
-            enterprise_id = user.enterprise_id
+            # Scope to branches this IT Admin manages (via batch → branch join)
+            from app.models.enterprise import Branch
+            branch_result = await self.db.execute(
+                select(Branch.id).where(Branch.it_admin_id == user.id)
+            )
+            branch_ids = [row[0] for row in branch_result.fetchall()]
+            if not branch_ids:
+                return [], 0
         # Super/OPS admins see all
 
         return await self.repo.list_with_filters(
             enterprise_id=enterprise_id,
+            branch_ids=branch_ids,
             logistics_admin_id=logistics_admin_id,
             logistics_user_id=logistics_user_id,
             status=status,

@@ -621,7 +621,7 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
       for (let row = 2; row <= 100; row++) {
         worksheet.getCell(`E${row}`).dataValidation = {
           type: 'list',
-          allowBlank: true,
+          allowBlank: false,
           formulae: [`"${selectedBranchCode}"`],
           showErrorMessage: true,
           errorStyle: 'stop',
@@ -908,10 +908,10 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                 <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-display font-bold text-sm text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">
-                    Branch Selection Required
+                    No Branch Selected
                   </p>
                   <p className="font-mono text-xs text-amber-600/80 dark:text-amber-400/80">
-                    Please select a branch above before downloading the template or uploading a file. The branch will be applied to all employees in your upload.
+                    Select a branch above to apply it to all employees, or include a &quot;branch&quot; column in your CSV with valid branch codes. Rows without a branch will be flagged as errors.
                   </p>
                 </div>
               </div>
@@ -936,7 +936,6 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                   type="file"
                   accept=".csv,.xlsx,.xls"
                   onChange={handleFileInput}
-                  disabled={isOrgAdmin && !branchId}
                   className="hidden"
                   id="csv-user-upload"
                 />
@@ -955,12 +954,8 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <label htmlFor="csv-user-upload" className={`${isOrgAdmin && !branchId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                    <span className={`interactive inline-flex items-center gap-2 px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all ${
-                      isOrgAdmin && !branchId
-                        ? 'bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed'
-                        : 'bg-ecotribe-primary text-black hover:bg-white'
-                    }`}>
+                  <label htmlFor="csv-user-upload" className="cursor-pointer">
+                    <span className="interactive inline-flex items-center gap-2 px-5 py-2.5 font-mono font-bold text-xs uppercase tracking-widest transition-all bg-ecotribe-primary text-black hover:bg-white">
                       <FileSpreadsheet className="w-4 h-4" />
                       Select File
                     </span>
@@ -1059,6 +1054,23 @@ export function CSVUserUpload({ enterpriseId, branchId, branches = [], onUpload,
                 <p className="font-mono font-bold text-[9px] text-zinc-600 uppercase tracking-widest">Departments</p>
               </div>
             </div>
+
+            {/* Branch validation banner — shown when no branch selected and rows lack branch data */}
+            {branchRequiredPerRow && invalidRows.length > 0 && invalidRows.some(r => r.errors.some(e => e.includes('Branch is required'))) && (
+              <div className="mx-5 mt-5 border border-red-400/20 bg-red-400/5 p-4">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-display font-bold text-sm text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">
+                      Branch Required for All Rows
+                    </p>
+                    <p className="font-mono text-xs text-red-600/80 dark:text-red-400/80">
+                      No branch is selected and your file doesn&apos;t include branch data. Either select a branch from the dropdown above, or re-upload with a &quot;branch&quot; column containing valid branch codes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Column Mapping */}
             <div className="p-5 border-t border-slate-200 dark:border-white/10">

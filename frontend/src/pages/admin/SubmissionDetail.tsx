@@ -28,7 +28,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth, useAllAssets, useAllSubUsers, assetKeys, useCreateDispute, useDisputeByAsset, disputeKeys } from '@/hooks';
+import { useAuth, useAsset, useAllSubUsers, assetKeys, useCreateDispute, useDisputeByAsset, disputeKeys } from '@/hooks';
 import { dashboardStatsKeys } from '@/hooks/useDashboardStats';
 import { batchKeys } from '@/hooks/useBatches';
 import { usersApi } from '@/lib/api/users';
@@ -141,13 +141,11 @@ export function SubmissionDetail() {
 
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const { data: assets = [] } = useAllAssets();
+  const { data: asset, isLoading: isLoadingAsset } = useAsset(assetId || '');
   // Employees don't have EMPLOYEE_READ permission — skip sub-users fetch for them
   const { data: subUsers = [] } = useAllSubUsers({ enabled: !isEmployee });
 
   const getSubUserById = (id: string) => subUsers.find(u => u.id === id);
-
-  const asset = assets.find(a => a.id === assetId);
   const assignedUserId = asset?.assigned_to_user_id;
   const subUserFromList = assignedUserId ? getSubUserById(assignedUserId) : null;
 
@@ -243,10 +241,10 @@ export function SubmissionDetail() {
 
   const isDisputed = asset?.status === 'disputed';
 
-  if (!asset || isLoadingSubmission) {
+  if (!asset || isLoadingAsset || isLoadingSubmission) {
     return (
       <div className="text-center py-16">
-        {isLoadingSubmission ? (
+        {(isLoadingAsset || isLoadingSubmission) ? (
           <>
             <div className="w-8 h-8 border-2 border-ecotribe-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-slate-500 dark:text-white/50">Loading submission...</p>

@@ -180,7 +180,21 @@ export async function fetchPublic<T>(
       headers,
     });
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            message: `Request failed with status ${response.status}`,
+            code: response.status.toString(),
+          },
+        };
+      }
+      return { success: true, data: undefined as any };
+    }
 
     if (!response.ok) {
       return {
@@ -233,27 +247,41 @@ export async function fetchWithAuth<T>(
       headers,
     });
 
-    const data = await response.json();
+    // Handle 401 BEFORE parsing body — token refresh must not depend on JSON parsing
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return fetchWithAuth<T>(endpoint, options);
+      }
+      forceLogout();
+      return {
+        success: false,
+        error: {
+          message: 'Session expired. Please login again.',
+          code: '401',
+        },
+      };
+    }
 
-    if (!response.ok) {
-      // Handle 401 - try to refresh token
-      if (response.status === 401) {
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          // Retry the original request
-          return fetchWithAuth<T>(endpoint, options);
-        }
-        // Refresh failed, force logout and redirect to login
-        forceLogout();
+    // Parse response body (safe: non-JSON responses won't crash the flow)
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      if (!response.ok) {
         return {
           success: false,
           error: {
-            message: 'Session expired. Please login again.',
-            code: '401',
+            message: `Request failed with status ${response.status}`,
+            code: response.status.toString(),
           },
         };
       }
+      // 2xx with empty/non-JSON body — treat as success with no data
+      return { success: true, data: undefined as any };
+    }
 
+    if (!response.ok) {
       return {
         success: false,
         error: {

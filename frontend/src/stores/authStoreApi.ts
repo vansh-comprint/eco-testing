@@ -46,7 +46,8 @@ interface AuthState {
   switchRole: (role: UserRole) => void;
 }
 
-// Map backend role to frontend role type
+// Safety net: maps legacy cached role values from old Supabase era.
+// Can be removed after all users have re-logged in post-migration.
 function mapRole(backendRole: string): UserRole {
   const roleMap: Record<string, UserRole> = {
     super_admin: 'super_admin',

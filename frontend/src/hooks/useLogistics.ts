@@ -41,7 +41,7 @@ export function useLogisticsAdmins() {
   return useQuery({
     queryKey: logisticsKeys.adminsList(),
     queryFn: async () => {
-      const response = await logisticsApi.listAdmins({ limit: 100 });
+      const response = await logisticsApi.listAdmins({ limit: 500 });
       return response.data || [];
     },
     staleTime: 60000,
@@ -75,7 +75,7 @@ export function useLogisticsUsers(logisticsAdminId?: string) {
     queryFn: async () => {
       const response = await logisticsApi.listUsers({
         logistics_admin_id: logisticsAdminId,
-        limit: 100,
+        limit: 500,
       });
       return response.data || [];
     },
@@ -315,7 +315,7 @@ export function useLogisticsAdminPickups(logisticsAdminId: string) {
   return useQuery({
     queryKey: logisticsKeys.adminPickups(logisticsAdminId),
     queryFn: async () => {
-      const response = await logisticsApi.getAdminPickups(logisticsAdminId, { limit: 100 });
+      const response = await logisticsApi.getAdminPickups(logisticsAdminId, { limit: 500 });
       return response.data || [];
     },
     enabled: !!logisticsAdminId,
@@ -330,7 +330,7 @@ export function useLogisticsUserPickups(logisticsUserId: string) {
   return useQuery({
     queryKey: logisticsKeys.userPickups(logisticsUserId),
     queryFn: async () => {
-      const response = await logisticsApi.getUserPickups(logisticsUserId, { limit: 100 });
+      const response = await logisticsApi.getUserPickups(logisticsUserId, { limit: 500 });
       return response.data || [];
     },
     enabled: !!logisticsUserId,

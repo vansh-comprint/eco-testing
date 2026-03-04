@@ -98,11 +98,18 @@ class RemoteReviewService:
 
         # Update estimated value on asset
         if data.estimated_value:
-            asset.estimated_value = data.estimated_value
+            asset.base_price = data.estimated_value
         if data.grade:
             asset.grade = data.grade
 
         await self.session.flush()
+
+        # Recalculate batch value now that asset has a price
+        if asset.batch_id and data.estimated_value:
+            from app.services.batch_service import BatchService
+            batch_service = BatchService(self.session)
+            await batch_service.recalculate_batch_metrics(asset.batch_id)
+
         return review
 
     async def get_review(self, review_id: str) -> Optional[RemoteReview]:
@@ -178,6 +185,12 @@ class FacilityQCService:
         if not asset:
             raise ValueError("Asset not found")
 
+        if asset.status != AssetStatus.FACILITY_QC.value:
+            raise ValueError(
+                f"Asset must be in 'facility_qc' status for QC review, "
+                f"currently in '{asset.status}'"
+            )
+
         existing = await self.repo.get_by_asset_id(data.asset_id)
         if existing:
             raise ValueError("Facility QC already exists for this asset")
@@ -207,11 +220,18 @@ class FacilityQCService:
             asset.status = AssetStatus.FINAL_REJECTED.value
 
         if data.final_value:
-            asset.final_value = data.final_value
+            asset.final_price = data.final_value
         if data.grade:
             asset.grade = data.grade
 
         await self.session.flush()
+
+        # Recalculate batch value now that asset has a final price
+        if asset.batch_id and data.final_value:
+            from app.services.batch_service import BatchService
+            batch_service = BatchService(self.session)
+            await batch_service.recalculate_batch_metrics(asset.batch_id)
+
         return qc
 
     async def get_qc(self, qc_id: str) -> Optional[FacilityQC]:

@@ -494,7 +494,7 @@ export function AssetList() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-20 lg:top-[5.5rem] left-1/2 -translate-x-1/2 z-[60] bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-2xl shadow-black/10 dark:shadow-black/30 px-5 py-3.5 w-auto max-w-[calc(100vw-2rem)]"
+            className="fixed top-20 lg:top-[5.5rem] left-1/2 -translate-x-1/2 z-[60] bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-2xl shadow-black/10 dark:shadow-black/30 px-5 py-3.5 w-auto max-w-[calc(100vw-2rem)] overflow-x-auto"
           >
             {/* Close — top-right corner outside content flow */}
             <button

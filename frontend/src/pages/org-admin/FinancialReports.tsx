@@ -92,7 +92,7 @@ export function FinancialReports() {
   // Export helper function
   const downloadCSV = (data: object[], filename: string) => {
     const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
@@ -367,33 +367,46 @@ export function FinancialReports() {
         transition={{ delay: 0.1 }}
         className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
       >
-        <div className="p-5 border-b border-slate-200 dark:border-white/10">
+        <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
           <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
             Monthly Disbursement Trend
           </h2>
+          <span className="font-mono text-xs text-slate-500 dark:text-white/50">Last 6 months</span>
         </div>
         <div className="p-5">
-          <div className="flex items-end gap-4 h-48">
-            {monthlyData.map((data, idx) => (
-              <div key={data.key} className="flex-1 flex flex-col items-center gap-2">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(data.disbursed / maxDisbursed) * 100}%` }}
-                  transition={{ delay: idx * 0.1, duration: 0.5 }}
-                  className={`w-full transition-colors relative group ${
-                    data.disbursed > 0 ? 'bg-ecotribe-primary/80 hover:bg-ecotribe-primary' : 'bg-slate-300/30 dark:bg-white/10'
-                  }`}
-                  style={{ minHeight: data.disbursed > 0 ? '4px' : '2px' }}
-                >
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block">
-                    <div className="px-2 py-1 bg-white text-black font-mono text-xs whitespace-nowrap">
-                      ₹{(data.disbursed / 1000).toFixed(0)}K ({data.assets})
-                    </div>
+          <div className="flex items-end gap-3 sm:gap-6" style={{ height: '220px' }}>
+            {monthlyData.map((data, idx) => {
+              const barPercent = maxDisbursed > 0 ? (data.disbursed / maxDisbursed) * 100 : 0;
+              return (
+                <div key={data.key} className="flex-1 flex flex-col items-center h-full">
+                  {/* Value label */}
+                  <div className="mb-2 text-center">
+                    <p className="font-brand font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                      {data.disbursed >= 100000 ? `₹${(data.disbursed / 100000).toFixed(1)}L` : `₹${(data.disbursed / 1000).toFixed(0)}K`}
+                    </p>
+                    <p className="font-mono text-[10px] text-slate-400 dark:text-white/30">
+                      {data.assets} {data.assets === 1 ? 'asset' : 'assets'}
+                    </p>
                   </div>
-                </motion.div>
-                <span className="font-mono text-xs text-slate-500 dark:text-white/50">{data.month}</span>
-              </div>
-            ))}
+                  {/* Bar area */}
+                  <div className="flex-1 w-full flex items-end">
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: `${barPercent}%` }}
+                      transition={{ delay: idx * 0.1, duration: 0.5, ease: 'easeOut' }}
+                      className={`w-full transition-colors ${
+                        data.disbursed > 0 ? 'bg-ecotribe-primary/80 hover:bg-ecotribe-primary' : 'bg-slate-200/50 dark:bg-white/5'
+                      }`}
+                      style={{ minHeight: '4px', borderRadius: '2px 2px 0 0' }}
+                    />
+                  </div>
+                  {/* Month label */}
+                  <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-white/5 w-full text-center">
+                    <span className="font-mono font-bold text-xs text-slate-600 dark:text-white/60 uppercase">{data.month}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </motion.div>
@@ -404,22 +417,46 @@ export function FinancialReports() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex flex-col"
         >
-          <div className="p-5 border-b border-slate-200 dark:border-white/10">
+          <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
               Branch Breakdown
             </h2>
+            {branchStats.length > 0 && (
+              <span className="font-mono text-xs text-slate-500 dark:text-white/50">
+                {branchStats.length} branches
+              </span>
+            )}
           </div>
-          <div className="divide-y divide-white/5">
-            {branchStats.length > 0 ? branchStats.map((branch) => (
-              <div key={branch.id} className="p-4">
+          {/* Summary totals */}
+          {branchStats.length > 0 && (
+            <div className="p-4 border-b border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.01]">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="font-brand font-bold text-lg text-slate-900 dark:text-white">{branchStats.reduce((s, b) => s + b.totalAssets, 0)}</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Total Assets</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-brand font-bold text-lg text-emerald-400">₹{(branchStats.reduce((s, b) => s + b.totalValue, 0) / 100000).toFixed(1)}L</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Disbursed</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-brand font-bold text-lg text-amber-400">₹{(branchStats.reduce((s, b) => s + b.pendingValue, 0) / 100000).toFixed(1)}L</p>
+                  <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Pending</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="divide-y divide-slate-200/60 dark:divide-white/5 overflow-y-auto max-h-[480px]">
+            {branchStats.length > 0 ? branchStats.map((branch, idx) => (
+              <div key={branch.id} className="p-4 hover:bg-white/60 dark:hover:bg-white/[0.03] transition-colors">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-slate-500 dark:text-white/50" />
+                  <div className="w-8 h-8 border border-slate-200 dark:border-white/10 bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <span className="font-mono font-bold text-xs text-slate-500 dark:text-white/50">{idx + 1}</span>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-display font-bold text-slate-900 dark:text-white">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">
                       {branch.name}
                       {branch.branchCode && (
                         <span className="font-mono text-xs text-slate-400 dark:text-white/30 ml-2">({branch.branchCode})</span>
@@ -430,17 +467,17 @@ export function FinancialReports() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 border border-emerald-400/20 bg-emerald-400/5">
-                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Disbursed</p>
-                    <p className="font-brand font-bold text-lg text-emerald-400">
-                      ₹{(branch.totalValue / 1000).toFixed(0)}K
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-2.5 border border-emerald-400/20 bg-emerald-400/5">
+                    <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Disbursed</p>
+                    <p className="font-brand font-bold text-base text-emerald-400">
+                      ₹{branch.totalValue >= 100000 ? `${(branch.totalValue / 100000).toFixed(1)}L` : `${(branch.totalValue / 1000).toFixed(0)}K`}
                     </p>
                   </div>
-                  <div className="p-3 border border-amber-400/20 bg-amber-400/5">
-                    <p className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Pending</p>
-                    <p className="font-brand font-bold text-lg text-amber-400">
-                      ₹{(branch.pendingValue / 1000).toFixed(0)}K
+                  <div className="p-2.5 border border-amber-400/20 bg-amber-400/5">
+                    <p className="font-mono text-[10px] text-slate-500 dark:text-white/50 uppercase">Pending</p>
+                    <p className="font-brand font-bold text-base text-amber-400">
+                      ₹{branch.pendingValue >= 100000 ? `${(branch.pendingValue / 100000).toFixed(1)}L` : `${(branch.pendingValue / 1000).toFixed(0)}K`}
                     </p>
                   </div>
                 </div>

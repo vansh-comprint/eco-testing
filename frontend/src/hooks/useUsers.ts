@@ -50,9 +50,9 @@ export function useUsers(params: UserListParams = {}) {
  */
 export function useAllUsers(params: UserListParams = {}) {
   return useQuery({
-    queryKey: userKeys.list({ ...params, limit: 100 }),
+    queryKey: userKeys.list({ ...params, limit: 500 }),
     queryFn: async () => {
-      const response = await usersApi.list({ ...params, limit: 100 });
+      const response = await usersApi.list({ ...params, limit: 500 });
       return response.data || [];
     },
     staleTime: 30000,
@@ -120,7 +120,7 @@ export function usePlatformAdmins() {
   return useQuery({
     queryKey: userKeys.platformAdmins(),
     queryFn: async () => {
-      const response = await usersApi.list({ limit: 100 });
+      const response = await usersApi.list({ limit: 500 });
       if (response.success && response.data) {
         const adminRoles = ['super_admin', 'ops_admin', 'logistics_admin'];
         return response.data.filter(u => adminRoles.includes(u.role));

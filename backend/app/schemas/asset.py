@@ -96,6 +96,9 @@ class AssetResponse(BaseModel):
     status: str
     grade: Optional[str] = None
 
+    # EPR
+    epr_certificate_id: Optional[str] = None
+
     # Pricing
     base_price: Optional[Decimal] = None
     final_price: Optional[Decimal] = None

@@ -133,7 +133,7 @@ export const logisticsApi = {
     const query = new URLSearchParams();
     query.set('logistics_admin_id', adminId);
     if (params.status) query.set('status', params.status);
-    query.set('limit', (params.limit ?? 100).toString());
+    query.set('page_size', Math.min(params.limit ?? 100, 100).toString());
     return fetchWithAuth<PickupResponse[]>(`/pickups?${query.toString()}`);
   },
 
@@ -179,13 +179,13 @@ export const logisticsApi = {
     const query = new URLSearchParams();
     query.set('logistics_user_id', userId);
     if (params.status) query.set('status', params.status);
-    query.set('limit', (params.limit ?? 100).toString());
+    query.set('page_size', Math.min(params.limit ?? 100, 100).toString());
     return fetchWithAuth<PickupResponse[]>(`/pickups?${query.toString()}`);
   },
 
   /** List available (active) logistics users for assignment */
   listAvailableUsers: (logisticsAdminId: string) =>
     fetchWithAuth<LogisticsUserResponse[]>(
-      `/users?role=logistics_user&status=active&limit=100${logisticsAdminId ? `&parent_user_id=${logisticsAdminId}` : ''}`
+      `/users?role=logistics_user&status=active&limit=500${logisticsAdminId ? `&parent_user_id=${logisticsAdminId}` : ''}`
     ),
 };

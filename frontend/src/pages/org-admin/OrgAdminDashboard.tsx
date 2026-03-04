@@ -369,7 +369,7 @@ export function OrgAdminDashboard() {
             <h3 className={`font-display font-bold text-xs uppercase tracking-wide ${text.muted} mb-3`}>Active Operations</h3>
             <div className="grid grid-cols-2 gap-3">
               <div
-                onClick={() => navigate('/org-admin/enterprise-batches?status=pickup_in_progress')}
+                onClick={() => navigate('/org-admin/enterprise-pickups?status=active')}
                 className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 flex items-center gap-3 cursor-pointer hover:border-blue-500/30 transition-colors"
               >
                 <Truck className="w-4 h-4 text-blue-500" />

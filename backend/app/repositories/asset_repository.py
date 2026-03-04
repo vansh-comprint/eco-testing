@@ -119,6 +119,7 @@ class AssetRepository:
         # Apply ordering
         sort_map = {
             "oldest": Asset.created_at.asc(),
+            "recently_updated": Asset.updated_at.desc().nulls_last(),
             "serial": Asset.serial_number.asc(),
             "brand": Asset.brand.asc(),
             "value": func.coalesce(Asset.final_price, Asset.base_price, 0).desc(),

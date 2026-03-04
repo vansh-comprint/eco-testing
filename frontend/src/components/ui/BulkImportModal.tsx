@@ -91,7 +91,7 @@ export function BulkImportModal({
     const headers = columns.map(c => c.label).join(',');
     const exampleRow = columns.map(c => (c.required ? `example_${c.key}` : '')).join(',');
     const csvContent = `${headers}\n${exampleRow}\n`;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

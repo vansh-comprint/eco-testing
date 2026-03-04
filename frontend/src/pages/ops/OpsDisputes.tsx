@@ -41,7 +41,8 @@ export function OpsDisputes() {
   const apiParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (statusFilter === 'pending') params.status = 'open';
-    // 'resolved' and 'all' are handled client-side since there's no single "resolved" status value
+    else if (statusFilter === 'resolved') params.status = 'resolved';
+    // 'all' sends no status filter — returns everything
     if (debouncedSearch) params.search = debouncedSearch;
     if (!isAllEnterprises && selectedEnterpriseId) params.enterprise_id = selectedEnterpriseId;
     return params;
@@ -72,19 +73,8 @@ export function OpsDisputes() {
     createdAt: d.created_at,
   }));
 
-  // Filter disputes — search is server-side, enterprise + resolved status remain client-side
-  const filteredDisputes = disputes
-    .filter(d => {
-      // Apply global enterprise filter via associated asset
-      const asset = assets.find(a => a.id === d.assetId);
-      if (!isAllEnterprises && asset?.enterprise_id !== selectedEnterpriseId) return false;
-      // Client-side status filter for 'resolved' (server handles 'pending')
-      if (statusFilter === 'resolved') return !!d.resolution;
-      if (statusFilter === 'all') return true;
-      // 'pending' is handled server-side, but double-check client-side
-      if (statusFilter === 'pending') return !d.resolution;
-      return true;
-    });
+  // Server handles status + enterprise filtering, no client-side filter needed
+  const filteredDisputes = disputes;
 
   const getAsset = (assetId: string) => assets.find(a => a.id === assetId);
 

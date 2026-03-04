@@ -480,7 +480,7 @@ export function ITAdminManagement() {
           }
         }}
         title="Deactivate IT Admin?"
-        description={`Are you sure you want to deactivate ${pendingAdmin?.name || 'this IT Admin'}? They will no longer be able to access the portal or manage their assigned branches.`}
+        description={`Are you sure you want to deactivate ${pendingAdmin?.name || 'this IT Admin'}? They will no longer be able to log in or access the portal. Their branch assignments will be preserved and restored when reactivated.`}
         confirmText="Deactivate"
         variant="warning"
         isLoading={updateStatus.isPending}

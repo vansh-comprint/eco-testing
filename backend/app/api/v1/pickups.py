@@ -46,7 +46,7 @@ def _to_response(
     enriched_assets = pickup.assets or []
     if asset_status_map and enriched_assets:
         enriched_assets = [
-            {**a, "status": asset_status_map.get(a.get("id", ""), a.get("status"))}
+            {**a, "status": asset_status_map.get(a.get("id") or a.get("asset_id", ""), a.get("status"))}
             for a in enriched_assets
         ]
 
@@ -472,6 +472,7 @@ async def update_pickup_location(
         if not location:
             raise HTTPException(status_code=404, detail="Pickup location not found")
         await db.commit()
+        await db.refresh(location)
         return success_response(
             data=_location_to_response(location),
             message="Pickup location updated"

@@ -23,13 +23,22 @@ export function QCQueue() {
   // Enterprise list for Super Admin local filter
   const { data: enterprisesData = [] } = useEnterprises();
 
-  // Safe enterprise context (returns null outside OPS layout)
+  // Enterprise filter: Super Admin uses local dropdown, OPS Admin uses sidebar context
   const opsContext = useOptionalOpsEnterprise();
-  const selectedEnterpriseId = opsContext?.selectedEnterpriseId ?? null;
-  const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
-  const enterpriseFilter = (!isAllEnterprises && selectedEnterpriseId)
-    ? selectedEnterpriseId
-    : (localEnterpriseId || undefined);
+  const enterpriseFilter = useMemo(() => {
+    // Super Admin: always use the local dropdown (OpsEnterpriseProvider wraps
+    // super admin layout too, but the local dropdown is the intended control)
+    if (isSuperAdmin) {
+      return localEnterpriseId || undefined;
+    }
+    // OPS Admin: prefer sidebar enterprise selector, fall back to local
+    const selectedEnterpriseId = opsContext?.selectedEnterpriseId ?? null;
+    const isAllEnterprises = opsContext?.isAllEnterprises ?? true;
+    if (!isAllEnterprises && selectedEnterpriseId) {
+      return selectedEnterpriseId;
+    }
+    return localEnterpriseId || undefined;
+  }, [isSuperAdmin, localEnterpriseId, opsContext?.selectedEnterpriseId, opsContext?.isAllEnterprises]);
 
   // Queue tab: two parallel streams (in_transit + facility_qc)
   const inTransitParams = useMemo(() => {
@@ -53,7 +62,8 @@ export function QCQueue() {
       enterprise_id: enterpriseFilter,
     };
     if (debouncedSearch) params.search = debouncedSearch;
-    if (sortBy) params.sort_by = sortBy;
+    // Completed tab: sort by when QC was done (updated_at), not when asset was created
+    params.sort_by = sortBy === 'newest' ? 'recently_updated' : 'oldest';
     return params;
   }, [enterpriseFilter, debouncedSearch, sortBy]);
 
@@ -128,15 +138,10 @@ export function QCQueue() {
     }
   };
 
-  // Active asset list sorted by date
+  // Active asset list — sorting is handled server-side via sort_by param
   const filteredAssets = useMemo(() => {
-    const source = activeTab === 'queue' ? pendingAssets : completedAssets;
-    return [...source].sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-    });
-  }, [pendingAssets, completedAssets, activeTab, sortBy]);
+    return activeTab === 'queue' ? pendingAssets : completedAssets;
+  }, [pendingAssets, completedAssets, activeTab]);
 
   const allAssets = activeTab === 'queue' ? pendingAssets : completedAssets;
   const isLoading = activeTab === 'queue' ? (isLoadingInTransit || isLoadingFacilityQC) : isLoadingCompleted;
@@ -328,7 +333,9 @@ export function QCQueue() {
                     <div className="flex items-center gap-4 mt-1 sm:mt-2">
                       <span className="font-mono text-xs text-zinc-600 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {new Date(asset.created_at).toLocaleDateString()}
+                        {activeTab === 'completed' && asset.updated_at
+                          ? new Date(asset.updated_at).toLocaleDateString()
+                          : new Date(asset.created_at).toLocaleDateString()}
                       </span>
                       {asset.enterprise_name && (
                         <span className="font-mono text-xs text-zinc-600 truncate">

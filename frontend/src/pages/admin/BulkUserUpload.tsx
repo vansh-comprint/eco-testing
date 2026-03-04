@@ -151,7 +151,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className={isOrgAdmin && activeBranches.length > 1 && !autoSelectedBranchId ? 'opacity-50 pointer-events-none' : ''}
+        className=""
       >
         <CSVUserUpload
           enterpriseId={resolvedEnterpriseId}

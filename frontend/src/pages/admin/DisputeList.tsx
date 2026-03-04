@@ -114,11 +114,12 @@ export function DisputeList() {
   const filteredDisputes = enrichedDisputes;
 
   // Stats — use backend stats where available, keep canDispute client-side
+  const paginationTotal = disputeData?.pages[0]?.pagination?.total ?? 0;
   const stats = {
-    total: dashStats.dispute_total ?? enrichedDisputes.length,
-    pending: dashStats.dispute_pending ?? enrichedDisputes.filter(d => !d.resolved_at).length,
-    upheld: dashStats.dispute_upheld ?? enrichedDisputes.filter(d => d.resolution === 'upheld').length,
-    overturned: dashStats.dispute_overturned ?? enrichedDisputes.filter(d => d.resolution === 'overturned').length,
+    total: dashStats.dispute_total ?? paginationTotal,
+    pending: dashStats.dispute_pending ?? 0,
+    upheld: dashStats.dispute_upheld ?? 0,
+    overturned: dashStats.dispute_overturned ?? 0,
     canDispute: rejectedAssets.length,
   };
 

@@ -199,10 +199,7 @@ class User(BaseModel):
     @property
     def is_platform_role(self) -> bool:
         """Check if user has a platform role (no enterprise)."""
-        return self.role in [
-            UserRole.SUPER_ADMIN.value,
-            UserRole.OPS_ADMIN.value,
-        ]
+        return self.role in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]
 
     @property
     def is_enterprise_role(self) -> bool:

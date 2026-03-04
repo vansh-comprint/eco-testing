@@ -291,9 +291,10 @@ export function Settings() {
     setShowLocationModal(true);
   };
 
+  const isLocationSaving = updateLocationMutation.isPending || createLocationMutation.isPending;
+
   const handleSaveLocation = async () => {
-    if (!enterpriseId) return;
-    setIsSaving(true);
+    if (!enterpriseId || isLocationSaving) return;
     try {
       // Combine day range + time range, or use custom free-text
       const finalOperatingHours = useCustomHours
@@ -325,28 +326,26 @@ export function Settings() {
         title: 'Failed to Save Location',
         message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
   const handleDeleteLocation = async (id: string) => {
     if (!confirm('Are you sure you want to delete this pickup location?')) return;
-    setIsSaving(true);
     try {
       await deleteLocationMutation.mutateAsync({ locationId: id, enterpriseId });
-    } finally {
-      setIsSaving(false);
+      addToast({ type: 'success', title: 'Location Deleted', message: 'Pickup location deleted successfully.' });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Delete Failed', message: error instanceof Error ? error.message : 'Failed to delete location.' });
     }
   };
 
   const handleSetDefault = async (id: string) => {
     if (!enterpriseId) return;
-    setIsSaving(true);
     try {
       await setDefaultMutation.mutateAsync({ locationId: id, enterpriseId });
-    } finally {
-      setIsSaving(false);
+      addToast({ type: 'success', title: 'Default Updated', message: 'Default pickup location updated.' });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Update Failed', message: error instanceof Error ? error.message : 'Failed to set default location.' });
     }
   };
 
@@ -1093,17 +1092,19 @@ export function Settings() {
 
             <div className="p-6 border-t border-slate-200 dark:border-white/10 flex gap-3 justify-end sticky bottom-0 bg-white/90 dark:bg-black/40 backdrop-blur-xl">
               <button
+                type="button"
                 onClick={() => setShowLocationModal(false)}
                 className="px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSaveLocation}
-                disabled={isSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : (!selectedDays || !openTime || !closeTime))}
+                disabled={isLocationSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : (!selectedDays || !openTime || !closeTime))}
                 className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {isSaving ? (
+                {isLocationSaving ? (
                   <>
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black animate-spin" />
                     Saving...

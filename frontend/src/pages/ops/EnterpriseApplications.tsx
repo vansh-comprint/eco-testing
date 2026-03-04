@@ -743,7 +743,7 @@ export function EnterpriseApplications() {
                                   {expandedApplication.status === 'approved' && (
                                     <button
                                       type="button"
-                                      onClick={() => navigate(`${basePath}/enterprises/${expandedApplication.enterprise_id}`)}
+                                      onClick={() => navigate(`${basePath}/enterprises/${expandedApplication.id}`)}
                                       className="w-full interactive py-3 border border-ecotribe-primary bg-ecotribe-primary/10 text-ecotribe-primary hover:bg-ecotribe-primary/20 transition-all font-mono font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2"
                                     >
                                       <Building2 className="w-4 h-4" /> View Enterprise

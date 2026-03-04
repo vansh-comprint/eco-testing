@@ -142,19 +142,6 @@ export function BatchDetail() {
   // V3.3: Use server-fetched batch assets instead of client-side filtering
   const batchAssets = batchAssetsData;
 
-  // Auto-open submit modal when navigated with ?action=submit from batch list
-  // Only open if there are verified assets to submit
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('action') === 'submit' && batch?.status === 'draft') {
-      const currentVerified = batchAssets.filter(a =>
-        a.status === 'conditionally_accepted' || a.status === 'ready_for_pickup'
-      );
-      if (currentVerified.length > 0) {
-        setShowSubmitModal(true);
-      }
-    }
-  }, [location.search, batch?.status, batchAssets]);
 
   // Available assets: not assigned to ANY batch, in the same branch, and in an eligible status
   const availableAssets = useMemo(() => {
@@ -329,7 +316,7 @@ export function BatchDetail() {
     }
   };
 
-  const canAddAssets = batch.status === 'draft';
+  const canAddAssets = batch.status === 'draft' || batch.status === 'pending_approval';
 
   // Verified assets: eligible for approval submission
   const verifiedAssets = batchAssets.filter(a =>
@@ -442,7 +429,7 @@ export function BatchDetail() {
             </div>
 
             <div className="flex gap-3 flex-wrap items-center">
-              {batch.status === 'draft' && (
+              {canAddAssets && (
                 <button
                   onClick={() => openAddAssetModal('existing')}
                   className="interactive px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2 whitespace-nowrap"

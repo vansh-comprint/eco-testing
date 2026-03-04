@@ -84,6 +84,153 @@ export function FacilityQC() {
     );
   }
 
+  // Guard: asset already QC'd — show read-only completed summary
+  const isQCCompleted = asset.status === 'final_accepted' || asset.status === 'final_rejected';
+
+  if (isQCCompleted) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <BackButton />
+          <div className="flex-1">
+            <span className="font-mono font-bold text-xs text-ecotribe-primary tracking-[0.3em] uppercase block mb-1">
+              Facility QC — Completed
+            </span>
+            <h1 className="font-brand font-bold text-2xl text-slate-900 dark:text-white uppercase tracking-tight">
+              {asset.brand} {asset.model}
+            </h1>
+          </div>
+        </div>
+
+        {/* Status Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-6 border ${
+            asset.status === 'final_accepted'
+              ? 'border-emerald-400/30 bg-emerald-400/10'
+              : 'border-red-400/30 bg-red-400/10'
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            {asset.status === 'final_accepted' ? (
+              <CheckCircle className="w-10 h-10 text-emerald-400" />
+            ) : (
+              <XCircle className="w-10 h-10 text-red-400" />
+            )}
+            <div>
+              <h2 className={`font-brand font-bold text-xl uppercase tracking-tight ${
+                asset.status === 'final_accepted' ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                QC {asset.status === 'final_accepted' ? 'Accepted' : 'Rejected'}
+              </h2>
+              <p className="font-mono text-xs text-zinc-500 mt-1">
+                This asset has already been reviewed
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Device Info + Grade */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Device Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          >
+            <div className="p-4 border-b border-slate-200 dark:border-white/10">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
+                Device Info
+              </h3>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-center">
+                  <Laptop className="w-8 h-8 text-zinc-400" />
+                </div>
+                <div>
+                  <p className="font-display font-bold text-slate-900 dark:text-white uppercase">
+                    {asset.brand} {asset.model}
+                  </p>
+                  <p className="font-mono text-xs text-zinc-500">S/N: {asset.serial_number}</p>
+                </div>
+              </div>
+              <div className="border-t border-slate-200 dark:border-white/10 pt-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="font-mono text-xs text-zinc-500">Processor</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.processor || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-mono text-xs text-zinc-500">RAM</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.ram || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-mono text-xs text-zinc-500">Storage</span>
+                  <span className="font-mono text-xs text-slate-900 dark:text-white">{asset.storage || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* QC Result */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]"
+          >
+            <div className="p-4 border-b border-slate-200 dark:border-white/10">
+              <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wide">
+                QC Result
+              </h3>
+            </div>
+            <div className="p-4 space-y-4">
+              {asset.grade && (
+                <div>
+                  <span className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest">Grade</span>
+                  <p className="font-brand font-bold text-3xl text-slate-900 dark:text-white mt-1">{asset.grade}</p>
+                </div>
+              )}
+              <div>
+                <span className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest">Decision</span>
+                <p className={`font-display font-bold text-lg uppercase mt-1 ${
+                  asset.status === 'final_accepted' ? 'text-emerald-400' : 'text-red-400'
+                }`}>
+                  {asset.status === 'final_accepted' ? 'Accepted' : 'Rejected'}
+                </p>
+              </div>
+              {asset.final_price != null && (
+                <div>
+                  <span className="font-mono font-bold text-xs text-zinc-500 uppercase tracking-widest">Final Price</span>
+                  <p className="font-brand font-bold text-xl text-slate-900 dark:text-white mt-1">
+                    ₹{Number(asset.final_price).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Back to Queue */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <button
+            onClick={() => navigate(qcQueuePath)}
+            className="interactive px-6 py-3 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all"
+          >
+            Back to QC Queue
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   const toggleSection = (sectionKey: string) => {
     setExpandedSections(prev =>
       prev.includes(sectionKey)

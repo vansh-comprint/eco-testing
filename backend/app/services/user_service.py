@@ -252,6 +252,17 @@ class UserService:
                     f"Branch IDs do not belong to this enterprise: {', '.join(list(invalid_ids)[:3])}"
                 )
 
+        # Fail fast: every employee must resolve to a branch_id before we touch the DB
+        if role == UserRole.EMPLOYEE:
+            for idx, user_item in enumerate(bulk_data.users):
+                effective_branch = user_item.branch_id or bulk_data.branch_id
+                if not effective_branch:
+                    errors.append(
+                        f"Row {idx + 1}: Branch is required for employee {user_item.email}"
+                    )
+            if errors:
+                return [], errors
+
         for idx, user_item in enumerate(bulk_data.users):
             try:
                 # Check if email already exists
@@ -482,10 +493,12 @@ class UserService:
         """Validate user creation based on role"""
         role = user_data.role
 
-        # Employee must have enterprise_id
+        # Employee must have enterprise_id and branch_id
         if role == UserRole.EMPLOYEE:
             if not user_data.enterprise_id:
                 raise ValidationError("Employee must be assigned to an enterprise")
+            if not user_data.branch_id:
+                raise ValidationError("Employee must be assigned to a branch")
 
         # IT Admin must have enterprise_id (branch_id is optional - can be assigned later)
         elif role == UserRole.IT_ADMIN:
@@ -971,26 +984,22 @@ class UserService:
     async def _deactivate_it_admin(self, user: User) -> Dict[str, Any]:
         """
         IT Admin deactivation:
-        1. Clear branch.it_admin_id for all branches this admin manages.
-        2. Set branch status to NEEDS_ADMIN.
+        Keep branch assignments intact — deactivation only prevents login.
+        When the IT Admin is reactivated, their branches are still assigned.
         """
         branch_result = await self.db.execute(
             select(Branch).where(Branch.it_admin_id == user.id)
         )
         branches = branch_result.scalars().all()
 
-        for branch in branches:
-            branch.it_admin_id = None
-            branch.status = BranchStatus.NEEDS_ADMIN.value
-
         logger.info(
-            "IT Admin %s deactivated: %d branches set to needs_admin",
+            "IT Admin %s deactivated: %d branches remain assigned (login disabled only)",
             user.id,
             len(branches),
         )
         return {
             "role": UserRole.IT_ADMIN.value,
-            "branches_cleared": len(branches),
+            "branches_kept": len(branches),
         }
 
     async def _deactivate_org_admin(self, user: User) -> Dict[str, Any]:

@@ -22,12 +22,12 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
-import { useAuth, useInfinitePickups, useBranches, useDashboardStats } from '@/hooks';
+import { useAuth, useInfinitePickups, useBranches, useDashboardStats, useDebounce } from '@/hooks';
 import { InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
-type StatusFilter = 'all' | 'pending' | 'assigned' | 'scheduled' | 'in_progress' | 'completed' | 'failed';
+type StatusFilter = 'all' | 'pending' | 'assigned' | 'active' | 'scheduled' | 'in_progress' | 'completed' | 'failed';
 
 export function EnterprisePickups() {
   const navigate = useNavigate();
@@ -36,9 +36,11 @@ export function EnterprisePickups() {
   const enterpriseId = enterprise?.id || '';
 
   const urlBranch = searchParams.get('branch');
+  const urlStatus = searchParams.get('status') as StatusFilter | null;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const debouncedSearch = useDebounce(searchQuery, 350);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(urlStatus || 'all');
   const [branchFilter, setBranchFilter] = useState(urlBranch || 'all');
 
   // Sync with sidebar branch selector (OrgBranchContext)
@@ -54,6 +56,7 @@ export function EnterprisePickups() {
     const statusGroups: Record<string, string[]> = {
       pending: ['pending'],
       assigned: ['assigned_to_logistics_admin', 'assigned_to_logistics_user'],
+      active: ['in_progress', 'scheduled'],
       scheduled: ['scheduled'],
       in_progress: ['in_progress'],
       completed: ['completed'],
@@ -68,6 +71,7 @@ export function EnterprisePickups() {
   const { data: pickupPages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfinitePickups({
     enterprise_id: enterpriseId,
     ...(backendStatusParam ? { status: backendStatusParam } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
   });
   const pickups = useMemo(() => pickupPages?.pages.flatMap(p => p.data || []) ?? [], [pickupPages]);
   const totalPickups = pickupPages?.pages[0]?.pagination?.total;
@@ -84,28 +88,23 @@ export function EnterprisePickups() {
   const stats = useMemo(() => ({
     pending: dashStats.pickup_pending ?? 0,
     assigned: dashStats.pickup_assigned ?? 0,
+    active: (dashStats.pickup_in_progress ?? 0) + (dashStats.pickup_scheduled ?? 0),
     scheduled: dashStats.pickup_scheduled ?? 0,
     inProgress: dashStats.pickup_in_progress ?? 0,
     completed: dashStats.pickup_completed ?? 0,
     failed: dashStats.pickup_failed ?? 0,
   }), [dashStats]);
 
-  // Filtered pickups
+  // Filtered pickups — search is now server-side; status group and branch remain client-side
   const filteredPickups = useMemo(() => {
     let result = [...pickups];
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(p =>
-        p.id?.toLowerCase().includes(q) ||
-        branchMap.get(p.branch_id || '')?.toLowerCase().includes(q)
-      );
-    }
-
+    // Status group filtering still needed client-side for multi-status groups
     if (statusFilter !== 'all') {
       const statusGroups: Record<string, string[]> = {
         pending: ['pending'],
         assigned: ['assigned_to_logistics_admin', 'assigned_to_logistics_user'],
+        active: ['in_progress', 'scheduled'],
         scheduled: ['scheduled'],
         in_progress: ['in_progress'],
         completed: ['completed'],
@@ -119,18 +118,18 @@ export function EnterprisePickups() {
     }
 
     return result;
-  }, [pickups, searchQuery, statusFilter, branchFilter, branchMap]);
+  }, [pickups, statusFilter, branchFilter]);
 
   const handleExport = () => {
     const csv = Papa.unparse(filteredPickups.map(p => ({
       request_id: p.id,
-      branch: branchMap.get(p.branch_id || '') || '—',
+      branch: p.pickup_locations?.name || p.branches?.branch_name || branchMap.get(p.branch_id || '') || '—',
       status: p.status,
       asset_count: p.asset_count || p.assets?.length || 0,
       preferred_date: p.preferred_date || '',
       created_at: new Date(p.created_at).toLocaleDateString(),
     })));
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -156,6 +155,7 @@ export function EnterprisePickups() {
   const statItems = [
     { label: 'Pending', value: stats.pending, icon: <Clock className="w-4 h-4 text-amber-500" />, highlight: stats.pending > 0, filterKey: 'pending' as StatusFilter },
     { label: 'Assigned', value: stats.assigned, icon: <User className="w-4 h-4 text-blue-500" />, filterKey: 'assigned' as StatusFilter },
+    { label: 'Active', value: stats.active, icon: <Truck className="w-4 h-4 text-purple-500" />, highlight: stats.active > 0, filterKey: 'active' as StatusFilter },
     { label: 'Scheduled', value: stats.scheduled, icon: <Calendar className="w-4 h-4 text-cyan-500" />, filterKey: 'scheduled' as StatusFilter },
     { label: 'In Progress', value: stats.inProgress, icon: <Truck className="w-4 h-4 text-purple-500" />, filterKey: 'in_progress' as StatusFilter },
     { label: 'Completed', value: stats.completed, icon: <CheckCircle className="w-4 h-4 text-emerald-500" />, filterKey: 'completed' as StatusFilter },
@@ -321,7 +321,7 @@ export function EnterprisePickups() {
                           <div className="flex items-center gap-2 mt-1">
                             <Building2 className="w-3.5 h-3.5 text-slate-400" />
                             <span className="font-display font-bold text-sm text-slate-900 dark:text-white uppercase">
-                              {branchMap.get(pickup.branch_id || '') || '—'}
+                              {pickup.pickup_locations?.name || pickup.branches?.branch_name || branchMap.get(pickup.branch_id || '') || '—'}
                             </span>
                           </div>
                         </div>

@@ -8,6 +8,7 @@ import { useCreateUser } from '@/hooks';
 import { nameSchema, emailSchema, passwordSchema, PASSWORD_HINT, optionalPhoneSchema } from '@/lib/validation';
 import { enterprisesApi } from '@/lib/api/enterprises';
 import { branchesApi } from '@/lib/api/branches';
+import { usersApi } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { text } from '@/lib/design-tokens';
 import { userKeys } from '@/hooks/useUsers';
@@ -43,11 +44,11 @@ const createEnterpriseUserSchema = z.object({
       });
     }
   }
-  // Branch required for it_admin
-  if (data.role === 'it_admin' && !data.branchId) {
+  // Branch required for it_admin and employee
+  if ((data.role === 'it_admin' || data.role === 'employee') && !data.branchId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Branch is required for IT Admin',
+      message: data.role === 'it_admin' ? 'Branch is required for IT Admin' : 'Branch is required for Employee',
       path: ['branchId'],
     });
   }
@@ -130,7 +131,7 @@ export function CreateEnterpriseUserModal({
     };
 
     const entId = enterpriseId || selectedEnterpriseId;
-    if (isOpen && entId && selectedRole === 'it_admin') {
+    if (isOpen && entId && (selectedRole === 'it_admin' || selectedRole === 'employee')) {
       fetchBranches(entId);
     } else {
       setBranches([]);
@@ -149,6 +150,22 @@ export function CreateEnterpriseUserModal({
     try {
       const roleLabel = data.role === 'it_admin' ? 'IT Admin' : data.role === 'org_admin' ? 'Org Admin' : 'Employee';
 
+      // Pre-check email uniqueness across the system
+      try {
+        const emailCheckResp = await usersApi.list({ search: data.email, limit: 5 });
+        if (emailCheckResp.data) {
+          const exactMatch = emailCheckResp.data.find(
+            (u: { email?: string }) => u.email?.toLowerCase() === data.email.toLowerCase()
+          );
+          if (exactMatch) {
+            setError('email', { type: 'manual', message: 'This email already exists in the system' });
+            return;
+          }
+        }
+      } catch {
+        // If pre-check fails, let server handle it
+      }
+
       // Role is already 'employee' for the backend
       const backendRole = data.role;
 
@@ -160,7 +177,7 @@ export function CreateEnterpriseUserModal({
         phone: data.phone || '',
         password: data.role === 'employee' ? undefined : data.password,
         role: backendRole,
-        branch_id: data.role === 'it_admin' ? data.branchId : undefined,
+        branch_id: (data.role === 'it_admin' || data.role === 'employee') ? data.branchId : undefined,
       });
 
       const enterprise = enterprises.find(e => e.id === data.enterpriseId);
@@ -276,8 +293,8 @@ export function CreateEnterpriseUserModal({
             )}
           </div>
 
-          {/* Branch Selection — required for IT Admin */}
-          {selectedRole === 'it_admin' && (
+          {/* Branch Selection — required for IT Admin and Employee */}
+          {(selectedRole === 'it_admin' || selectedRole === 'employee') && (
             <div>
               <label className={`block font-display text-sm font-bold uppercase ${text.primary} mb-2`}>
                 Branch *

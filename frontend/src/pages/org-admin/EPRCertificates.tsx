@@ -3,21 +3,23 @@
  * V3: View EPR certificates, stats, and compliance details
  */
 
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
   AlertCircle,
   Search,
   Filter,
   Download,
-  ExternalLink,
   Loader2,
   Scale,
   Recycle,
   Trash2,
   Calendar,
   ArrowRight,
+  Printer,
+  X,
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '@/hooks';
 import {
@@ -26,7 +28,7 @@ import {
   EPR_STATUS_LABELS,
   EPR_STATUS_COLORS,
 } from '@/hooks/useEPRCertificates';
-import { text, iconSize } from '@/lib/design-tokens';
+import { iconSize } from '@/lib/design-tokens';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -38,6 +40,8 @@ export function EPRCertificates() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCertificateView, setShowCertificateView] = useState<string | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   // Fetch data
   const { data: certificates = [], isLoading } = useEPRCertificates({
@@ -68,6 +72,39 @@ export function EPRCertificates() {
     };
   }, [certificates, weightTotals]);
 
+  // Selected certificate for viewing
+  const viewCertificate = useMemo(
+    () => certificates.find((c) => c.id === showCertificateView),
+    [certificates, showCertificateView]
+  );
+
+  // Print certificate — content is from our own React-rendered ref, not user input
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    // Clone our rendered certificate into the print window
+    const clone = printRef.current.cloneNode(true) as HTMLElement;
+    const doc = printWindow.document;
+    doc.title = `EPR Certificate - ${viewCertificate?.certificate_number ?? ''}`;
+    const style = doc.createElement('style');
+    style.textContent = [
+      'body { font-family: Georgia, serif; padding: 40px; color: #1a1a1a; }',
+      '.header { text-align: center; border-bottom: 3px double #1a1a1a; padding-bottom: 20px; margin-bottom: 30px; }',
+      '.header h1 { font-size: 28px; margin: 0; letter-spacing: 2px; }',
+      '.header h2 { font-size: 16px; color: #666; margin: 8px 0 0; font-weight: normal; }',
+      '.detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }',
+      '.weight-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center; margin: 20px 0; }',
+      '.weight-box { border: 1px solid #ddd; padding: 16px; }',
+      '.footer { margin-top: 40px; text-align: center; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 16px; }',
+      '.stamp { display: inline-block; border: 2px solid #16a34a; color: #16a34a; padding: 8px 24px; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; transform: rotate(-5deg); margin-top: 20px; }',
+      '@media print { body { padding: 20px; } }',
+    ].join('\n');
+    doc.head.appendChild(style);
+    doc.body.appendChild(clone);
+    printWindow.print();
+  };
+
   // CSV export
   const exportCertificates = () => {
     if (!filteredCertificates.length) return;
@@ -83,7 +120,7 @@ export function EPRCertificates() {
       Notes: c.notes ?? '',
     }));
     const csv = Papa.unparse(rows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -239,7 +276,8 @@ export function EPRCertificates() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * idx }}
-              className="border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5 hover:border-ecotribe-primary/30 transition-colors"
+              className="border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-5 hover:border-ecotribe-primary/30 transition-colors cursor-pointer"
+              onClick={() => setShowCertificateView(cert.id)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -316,32 +354,183 @@ export function EPRCertificates() {
                   )}
                 </div>
 
-                {cert.certificate_url && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <a
-                      href={cert.certificate_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      View
-                    </a>
-                    <a
-                      href={cert.certificate_url}
-                      download={`EPR-${cert.certificate_number}.pdf`}
-                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
-                    >
-                      <Download className="w-3 h-3" />
-                      Download
-                    </a>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCertificateView(cert.id);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
+                  >
+                    <Eye className="w-3 h-3" />
+                    View
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
         </motion.div>
       )}
+
+      {/* Certificate View/Print Modal */}
+      <AnimatePresence>
+        {showCertificateView && viewCertificate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowCertificateView(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="border-b border-slate-200 dark:border-white/10 p-4 flex items-center justify-between">
+                <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white uppercase">
+                  Certificate Preview
+                </h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-ecotribe-primary text-white text-xs font-mono uppercase tracking-wider hover:bg-ecotribe-primary/90 transition-colors"
+                  >
+                    <Printer className="w-3 h-3" />
+                    Print / Download
+                  </button>
+                  <button
+                    onClick={() => setShowCertificateView(null)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Certificate */}
+              <div ref={printRef} className="p-8">
+                <div className="header text-center border-b-2 border-double border-slate-900 dark:border-white pb-5 mb-6">
+                  <h1 className="text-2xl font-bold tracking-widest text-slate-900 dark:text-white uppercase">
+                    EPR Compliance Certificate
+                  </h1>
+                  <h2 className="text-sm text-slate-500 dark:text-white/50 mt-2 font-display">
+                    Extended Producer Responsibility — E-Waste Management
+                  </h2>
+                  <p className="font-mono text-xs text-slate-400 dark:text-white/30 mt-2">
+                    Certificate No: {viewCertificate.certificate_number}
+                  </p>
+                </div>
+
+                {/* Certificate Body */}
+                <div className="space-y-6">
+                  {/* Status */}
+                  <div className="text-center">
+                    <span
+                      className={`inline-flex px-4 py-1.5 text-sm font-mono uppercase tracking-wider rounded-sm ${
+                        EPR_STATUS_COLORS[viewCertificate.status] || 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {EPR_STATUS_LABELS[viewCertificate.status] || viewCertificate.status}
+                    </span>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                      <span className="text-sm text-slate-500 dark:text-white/40 font-display">Enterprise ID</span>
+                      <span className="text-sm font-mono text-slate-900 dark:text-white">{viewCertificate.enterprise_id}</span>
+                    </div>
+                    {viewCertificate.issue_date && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-sm text-slate-500 dark:text-white/40 font-display">Issue Date</span>
+                        <span className="text-sm font-mono text-slate-900 dark:text-white">
+                          {format(new Date(viewCertificate.issue_date), 'dd MMMM yyyy')}
+                        </span>
+                      </div>
+                    )}
+                    {viewCertificate.asset_ids && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-sm text-slate-500 dark:text-white/40 font-display">Assets Covered</span>
+                        <span className="text-sm font-mono text-slate-900 dark:text-white">{viewCertificate.asset_ids.length} devices</span>
+                      </div>
+                    )}
+                    {viewCertificate.recycler_name && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-sm text-slate-500 dark:text-white/40 font-display">Certified Recycler</span>
+                        <span className="text-sm font-mono text-slate-900 dark:text-white">{viewCertificate.recycler_name}</span>
+                      </div>
+                    )}
+                    {viewCertificate.recycler_license_number && (
+                      <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                        <span className="text-sm text-slate-500 dark:text-white/40 font-display">Recycler License</span>
+                        <span className="text-sm font-mono text-slate-900 dark:text-white">{viewCertificate.recycler_license_number}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Weight Grid */}
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="border border-slate-200 dark:border-white/10 p-4">
+                      <p className="font-brand font-bold text-2xl text-slate-900 dark:text-white">
+                        {Number(viewCertificate.total_weight_kg).toLocaleString()}
+                      </p>
+                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider mt-1">
+                        Total Weight (kg)
+                      </p>
+                    </div>
+                    <div className="border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5 p-4">
+                      <p className="font-brand font-bold text-2xl text-emerald-600 dark:text-emerald-400">
+                        {Number(viewCertificate.recycled_weight_kg ?? 0).toLocaleString()}
+                      </p>
+                      <p className="font-mono text-[10px] text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider mt-1">
+                        Recycled (kg)
+                      </p>
+                    </div>
+                    <div className="border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-4">
+                      <p className="font-brand font-bold text-2xl text-amber-600 dark:text-amber-400">
+                        {Number(viewCertificate.disposed_weight_kg ?? 0).toLocaleString()}
+                      </p>
+                      <p className="font-mono text-[10px] text-amber-600/60 dark:text-amber-400/60 uppercase tracking-wider mt-1">
+                        Disposed (kg)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {viewCertificate.notes && (
+                    <div className="border border-slate-200 dark:border-white/10 p-4">
+                      <p className="font-mono text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider mb-1">Notes</p>
+                      <p className="text-sm text-slate-700 dark:text-white/70 font-display">{viewCertificate.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="text-center pt-4 border-t border-slate-200 dark:border-white/10">
+                    <p className="text-xs text-slate-400 dark:text-white/30 font-display">
+                      This certificate is issued by EcoTribe Platform in compliance with
+                      E-Waste (Management) Rules, 2022 under the Central Pollution Control Board (CPCB) guidelines.
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-white/30 font-mono mt-2">
+                      Generated: {viewCertificate.created_at ? format(new Date(viewCertificate.created_at), 'dd MMM yyyy HH:mm') : 'N/A'}
+                    </p>
+                    {viewCertificate.status === 'issued' && (
+                      <div className="mt-4 inline-block border-2 border-emerald-500 text-emerald-500 px-6 py-2 font-bold text-lg uppercase tracking-widest font-mono"
+                        style={{ transform: 'rotate(-3deg)' }}
+                      >
+                        ISSUED
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Quick Info */}
       <motion.div

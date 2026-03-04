@@ -188,14 +188,23 @@ export function PickupApprovals() {
     );
   }
 
-  // Stats — use backend batch stats where available, keep totalValue client-side
+  // Stats — use backend batch stats where available, with correct aggregation
+  // dashStats values are numbers (can be 0), so check for undefined to decide fallback
+  const hasBatchStats = dashStats.batch_pending_approval !== undefined;
   const stats = {
-    pending: dashStats.batch_pending_approval ?? pendingBatches.filter(b => b.status === 'pending_approval').length,
-    approved: dashStats.batch_approved ?? pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
-    rejected: dashStats.batch_rejected ?? pendingBatches.filter(b => b.status === 'rejected').length,
-    totalValue: pendingBatches
-      .filter(b => b.status === 'pending_approval')
-      .reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
+    pending: hasBatchStats
+      ? (dashStats.batch_pending_approval ?? 0)
+      : pendingBatches.filter(b => b.status === 'pending_approval').length,
+    approved: hasBatchStats
+      ? (dashStats.batch_approved ?? 0) + (dashStats.batch_pickup_in_progress ?? 0) + (dashStats.batch_completed ?? 0)
+      : pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
+    rejected: hasBatchStats
+      ? (dashStats.batch_rejected ?? 0)
+      : pendingBatches.filter(b => b.status === 'rejected').length,
+    totalValue: dashStats.pending_approval_value
+      ?? pendingBatches
+        .filter(b => b.status === 'pending_approval')
+        .reduce((sum, b) => sum + safeNumber(b.estimated_value), 0),
   };
 
   return (

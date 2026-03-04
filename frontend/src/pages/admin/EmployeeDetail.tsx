@@ -52,6 +52,11 @@ export function EmployeeDetail() {
   // Super Admin asset list is at /super/enterprise-assets, other portals use /assets
   const assetListPath = portalBase === '/super' ? `${portalBase}/enterprise-assets` : `${portalBase}/assets`;
 
+  // Back path: enterprise-nested routes go back to enterprise detail, standard routes go to employee list
+  const backPath = isEnterpriseNested
+    ? `${portalBase}/enterprises/${enterpriseId}`
+    : `${basePath}/employees`;
+
   // V3: React Query hooks
   const { data: subUsers = [], isLoading: subUsersLoading } = useSubUsers(enterpriseId);
   const { data: assets = [], isLoading: assetsLoading } = useAssets(enterpriseId);
@@ -221,7 +226,7 @@ export function EmployeeDetail() {
     setIsDeleting(true);
     try {
       await deleteSubUserMutation.mutateAsync(subUser.id);
-      navigate(`${basePath}/employees`);
+      navigate(backPath);
     } catch (error) {
       handleError(error, 'Deleting employee');
       setIsDeleting(false);
@@ -247,7 +252,7 @@ export function EmployeeDetail() {
         <p className="font-display font-bold text-slate-500 dark:text-white/50 uppercase tracking-wide mb-1">Employee not found</p>
         <p className="font-mono text-xs text-slate-500 dark:text-white/50 mb-6">The employee you're looking for doesn't exist</p>
         <button
-          onClick={() => navigate(`${basePath}/employees`)}
+          onClick={() => navigate(backPath)}
           className="interactive px-5 py-2.5 bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -266,7 +271,7 @@ export function EmployeeDetail() {
           animate={{ opacity: 1, y: 0 }}
         >
           <button
-            onClick={() => navigate(`${basePath}/employees`)}
+            onClick={() => navigate(backPath)}
             className="interactive flex items-center gap-2 text-slate-500 dark:text-white/50 hover:text-ecotribe-primary transition-colors font-mono text-xs uppercase tracking-widest mb-6"
           >
             <ArrowLeft className="w-4 h-4" />

@@ -27,10 +27,7 @@ def get_scoped_filters(current_user: User) -> Dict[str, Any]:
     filters: Dict[str, Any] = {}
     
     # Platform admins can see all
-    if current_user.role in [
-        UserRole.SUPER_ADMIN.value,
-        UserRole.OPS_ADMIN.value,
-    ]:
+    if current_user.role in [UserRole.SUPER_ADMIN.value, UserRole.OPS_ADMIN.value]:
         return filters
     
     # Logistics Admin sees their logistics users

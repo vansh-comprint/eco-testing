@@ -20,6 +20,7 @@ import {
   XCircle,
   AlertTriangle,
   Package,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth, useInfiniteAssets, useBranches, useBatches, useDashboardStats, useDebounce } from '@/hooks';
 import { PageHeader, DashboardStatGrid, Badge, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
@@ -100,6 +101,7 @@ export function EnterpriseAssets() {
     total: dashboardStats.asset_total ?? 0,
     pending: dashboardStats.asset_pending ?? 0,
     inReview: dashboardStats.asset_in_review ?? 0,
+    accepted: dashboardStats.asset_accepted ?? 0,
     completed: dashboardStats.asset_completed ?? 0,
     rejected: dashboardStats.asset_rejected ?? 0,
   };
@@ -132,7 +134,7 @@ export function EnterpriseAssets() {
       final_price: a.final_price || '',
       created_at: new Date(a.created_at).toLocaleDateString(),
     })));
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -146,6 +148,7 @@ export function EnterpriseAssets() {
     { label: 'Total Assets', value: stats.total, icon: <Monitor className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent },
     { label: 'Pending', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending') },
     { label: 'In Review', value: stats.inReview, icon: <AlertTriangle className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review') },
+    { label: 'Accepted', value: stats.accepted, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'accepted' ? 'all' : 'accepted') },
     { label: 'Completed', value: stats.completed, icon: <Package className={`${iconSize.lg} text-lime-500`} />, accent: 'brand' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed') },
     { label: 'Rejected', value: stats.rejected, icon: <XCircle className={`${iconSize.lg} text-red-500`} />, accent: (stats.rejected > 0 ? 'danger' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected') },
   ];

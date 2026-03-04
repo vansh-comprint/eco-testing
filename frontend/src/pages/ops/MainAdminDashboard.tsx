@@ -257,7 +257,7 @@ export function MainAdminDashboard() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className={`${iconSize.md} text-emerald-500`} />
-                    <span className={`font-mono text-xs uppercase ${text.muted}`}>Accepted</span>
+                    <span className={`font-mono text-xs uppercase ${text.muted}`}>Completed</span>
                   </div>
                   <p className="font-brand font-bold text-2xl text-emerald-600 dark:text-emerald-400">
                     {stats.asset_accepted ?? 0}
@@ -617,7 +617,7 @@ export function MainAdminDashboard() {
             >
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className={`${iconSize.md} text-emerald-500`} />
-                <span className={`font-mono text-xs uppercase ${text.muted}`}>Accepted</span>
+                <span className={`font-mono text-xs uppercase ${text.muted}`}>Completed</span>
               </div>
               <p className="font-brand font-bold text-2xl text-emerald-600 dark:text-emerald-400">
                 {stats.asset_accepted ?? 0}

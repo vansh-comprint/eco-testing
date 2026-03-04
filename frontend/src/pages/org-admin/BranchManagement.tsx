@@ -584,7 +584,7 @@ function EmptyState({ onAddBranch, onBulkUpload, hasSearch, canManage = true, ca
 }
 
 // Branch Form Modal Component
-function BranchFormModal({
+export function BranchFormModal({
   isOpen,
   onClose,
   branch,

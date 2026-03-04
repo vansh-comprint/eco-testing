@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  X,
   Mail,
   Phone,
   Monitor,
@@ -145,13 +146,14 @@ export function EnterpriseEmployees() {
   const employeeAssetCounts = useMemo(() => {
     const counts = new Map<string, { assigned: number; submitted: number }>();
     assets.forEach(a => {
-      if (a.assigned_to) {
-        const current = counts.get(a.assigned_to) || { assigned: 0, submitted: 0 };
+      const assignee = a.assigned_to_user_id || (a as any).assigned_to;
+      if (assignee) {
+        const current = counts.get(assignee) || { assigned: 0, submitted: 0 };
         current.assigned++;
         if (['submitted', 'remote_review', 'facility_review', 'conditionally_accepted', 'final_accepted', 'completed'].includes(a.status)) {
           current.submitted++;
         }
-        counts.set(a.assigned_to, current);
+        counts.set(assignee, current);
       }
     });
     return counts;
@@ -194,7 +196,7 @@ export function EnterpriseEmployees() {
       assets_assigned: employeeAssetCounts.get(e.id)?.assigned || 0,
       assets_submitted: employeeAssetCounts.get(e.id)?.submitted || 0,
     })));
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -279,8 +281,17 @@ export function EnterpriseEmployees() {
             placeholder="Search by name, email, or department..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
+            className="w-full pl-12 pr-10 py-3 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-slate-900 dark:text-white font-display placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-ecotribe-primary focus:outline-none transition-colors"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white/60 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-3">
           <div className="relative">
@@ -337,9 +348,9 @@ export function EnterpriseEmployees() {
         <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest">
           {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''}
         </p>
-        {(statusFilter !== 'all' || branchFilter !== 'all' || searchQuery) && (
+        {(statusFilter !== 'all' || branchFilter !== 'all') && (
           <button
-            onClick={() => { setStatusFilter('all'); setBranchFilter('all'); setSearchQuery(''); }}
+            onClick={() => { setStatusFilter('all'); setBranchFilter('all'); }}
             className="font-mono text-xs text-ecotribe-primary hover:text-ecotribe-primary/70 uppercase tracking-widest transition-colors"
           >
             Clear Filters
@@ -383,7 +394,7 @@ export function EnterpriseEmployees() {
           <div className="border border-slate-200 dark:border-white/10 bg-white/98 dark:bg-zinc-900/75 overflow-x-auto">
             <div className="min-w-[700px]">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px_24px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
+            <div className="grid grid-cols-[1.5fr_1fr_90px_110px_90px_90px_24px] gap-3 p-4 bg-slate-100 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10">
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Employee</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Branch</p>
               <p className="font-mono font-bold text-[10px] text-slate-500 dark:text-white/50 uppercase tracking-widest">Role</p>
@@ -404,7 +415,7 @@ export function EnterpriseEmployees() {
                       tabIndex={0}
                       onClick={() => navigate(`/org-admin/employees/${emp.id}`)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/org-admin/employees/${emp.id}`); } }}
-                      className="grid grid-cols-[1fr_1fr_100px_120px_80px_80px_24px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50"
+                      className="grid grid-cols-[1.5fr_1fr_90px_110px_90px_90px_24px] gap-3 p-4 items-center hover:bg-lime-50/30 dark:hover:bg-lime-500/5 transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-ecotribe-primary/50"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 bg-ecotribe-primary/10 border border-ecotribe-primary/20 flex items-center justify-center flex-shrink-0">

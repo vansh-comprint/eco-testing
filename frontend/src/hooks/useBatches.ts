@@ -43,7 +43,7 @@ export function useBatches(enterpriseId: string) {
     queryFn: async () => {
       const response = await batchesApi.list({
         enterprise_id: enterpriseId,
-        limit: 100,
+        limit: 500,
       });
       return response.data;
     },
@@ -59,7 +59,7 @@ export function useAllBatches() {
   return useQuery({
     queryKey: batchKeys.all,
     queryFn: async () => {
-      const response = await batchesApi.list({ limit: 100 });
+      const response = await batchesApi.list({ limit: 500 });
       return response.data;
     },
     staleTime: 30000,
@@ -89,7 +89,7 @@ export function useBatchesByBranch(branchId: string) {
     queryFn: async () => {
       const response = await batchesApi.list({
         branch_id: branchId,
-        limit: 100,
+        limit: 500,
       });
       return response.data;
     },
@@ -105,7 +105,7 @@ export function useBatchesByITAdmin(userId: string, branchId?: string | null) {
   return useQuery({
     queryKey: [...batchKeys.byITAdmin(userId), branchId ?? 'all'],
     queryFn: async () => {
-      const params: { limit: number; branch_id?: string } = { limit: 100 };
+      const params: { limit: number; branch_id?: string } = { limit: 500 };
       if (branchId) params.branch_id = branchId;
       const response = await batchesApi.list(params);
       return response.data;
@@ -122,7 +122,7 @@ export function usePickupApprovalQueue(enterpriseId: string) {
   return useQuery({
     queryKey: batchKeys.approvalQueue(enterpriseId),
     queryFn: async () => {
-      const response = await batchesApi.pendingApproval({ limit: 100 });
+      const response = await batchesApi.pendingApproval({ limit: 500 });
       return response.data;
     },
     enabled: !!enterpriseId,
@@ -137,7 +137,7 @@ export function usePendingApprovalBatches() {
   return useQuery({
     queryKey: batchKeys.pendingApproval(),
     queryFn: async () => {
-      const response = await batchesApi.pendingApproval({ limit: 100 });
+      const response = await batchesApi.pendingApproval({ limit: 500 });
       return response.data;
     },
     staleTime: 10000,

@@ -27,12 +27,9 @@ export interface NavItem {
 
 const roleDashboardPath: Record<string, string> = {
   super_admin: '/super',
-  main_admin: '/ops',
   ops_admin: '/ops',
-  technician: '/ops',
   org_admin: '/org-admin',
   it_admin: '/admin',
-  sub_user: '/check-in',
   employee: '/check-in',
   logistics_admin: '/logistics-admin',
   logistics_user: '/logistics',

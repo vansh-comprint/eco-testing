@@ -104,18 +104,16 @@ class BatchService:
         if not batch:
             return
 
-        # Count assets and sum values in a single query
+        # Count assets and sum best-available price per asset (final_price preferred, fallback to base_price)
         result = await self.db.execute(
             select(
                 func.count(Asset.id),
-                func.coalesce(func.sum(Asset.final_price), 0),
-                func.coalesce(func.sum(Asset.base_price), 0),
+                func.coalesce(func.sum(func.coalesce(Asset.final_price, Asset.base_price)), 0),
             ).where(Asset.batch_id == batch_id)
         )
         row = result.one()
         asset_count = row[0]
-        total_final = row[1]
-        total_base = row[2]
+        total_value = row[1]
 
         # Status breakdown
         status_counts = await self.asset_repository.get_asset_status_counts(batch_id)
@@ -130,8 +128,7 @@ class BatchService:
         batch.accepted_count = accepted
         batch.rejected_count = rejected
         batch.pending_count = pending
-        # Use final_price sum if available, otherwise fall back to base_price sum
-        batch.estimated_value = total_final if total_final else total_base
+        batch.estimated_value = total_value
         await self.db.flush()
 
     async def get_batch(self, batch_id: str) -> BatchResponse:
