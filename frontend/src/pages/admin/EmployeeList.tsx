@@ -63,17 +63,10 @@ export function EmployeeList() {
   const urlBranchId = searchParams.get('branch') || '';
   const [orgBranchFilter, setOrgBranchFilter] = useState(urlBranchId);
 
-  // For IT Admin: seed the branch context from URL param on mount
-  useEffect(() => {
-    if (!isOrgAdmin && urlBranchId && itBranchCtx && itBranchCtx.selectedBranchId !== urlBranchId) {
-      itBranchCtx.setSelectedBranchId(urlBranchId);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // URL branch param is used as a local page filter only — does NOT mutate global context
   const activeBranchFilter = isOrgAdmin
     ? (orgBranchFilter || orgBranchCtx?.selectedBranchId || null)
-    : (itBranchCtx?.selectedBranchId || null);
+    : (urlBranchId || itBranchCtx?.selectedBranchId || null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
@@ -89,9 +82,20 @@ export function EmployeeList() {
     return params;
   }, [enterpriseId, activeBranchFilter, debouncedSearch, statusFilter]);
 
+  // Unfiltered params for stable KPI stats (no search/status filters)
+  const statsParams = useMemo(() => {
+    const params: Record<string, string | undefined> = { enterprise_id: enterpriseId };
+    if (activeBranchFilter) params.branch_id = activeBranchFilter;
+    return params;
+  }, [enterpriseId, activeBranchFilter]);
+
   const { data: subUserPages, isLoading: subUsersLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteSubUsers(apiParams);
   const subUsers = useMemo(() => subUserPages?.pages.flatMap(p => p.data || []) ?? [], [subUserPages]);
   const totalSubUsers = subUserPages?.pages[0]?.pagination?.total;
+
+  // Separate unfiltered query for KPI stats — not affected by search/status
+  const { data: statsPages } = useInfiniteSubUsers(statsParams);
+  const statsUsers = useMemo(() => statsPages?.pages.flatMap(p => p.data || []) ?? [], [statsPages]);
 
   const { data: orgAssets = [], isLoading: orgAssetsLoading } = useAssets(isOrgAdmin ? enterpriseId : '');
   const { data: itAssets = [], isLoading: itAssetsLoading } = useAssetsByITAdmin(isOrgAdmin ? '' : userId);
@@ -212,17 +216,19 @@ export function EmployeeList() {
     return result;
   }, [enterpriseSubUsers, departmentFilter]);
 
-  // Stats - use branch-scoped data
-  const scopedUsers = useMemo(() => {
-    if (activeBranchFilter) return enterpriseSubUsers.filter(u => u.branch_id === activeBranchFilter);
-    return enterpriseSubUsers;
-  }, [enterpriseSubUsers, activeBranchFilter]);
+  // Stats - use unfiltered data so KPIs don't change during search
+  const statsWithAssets = useMemo(() => {
+    return statsUsers.map(u => ({
+      ...u,
+      assignedAssets: assets.filter(a => a.assigned_to_user_id === u.id).length,
+    }));
+  }, [statsUsers, assets]);
 
   const stats = {
-    total: scopedUsers.length,
-    active: scopedUsers.filter(u => u.status === 'active').length,
-    pending: scopedUsers.filter(u => u.status === 'pending_invite').length,
-    totalAssigned: scopedUsers.reduce((sum, u) => sum + u.assignedAssets, 0),
+    total: statsWithAssets.length,
+    active: statsWithAssets.filter(u => u.status === 'active').length,
+    pending: statsWithAssets.filter(u => u.status === 'pending_invite').length,
+    totalAssigned: statsWithAssets.reduce((sum, u) => sum + u.assignedAssets, 0),
   };
 
   const getStatusConfig = (status: SubUserStatus) => {

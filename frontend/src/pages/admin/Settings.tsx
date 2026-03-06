@@ -295,6 +295,10 @@ export function Settings() {
 
   const handleSaveLocation = async () => {
     if (!enterpriseId || isLocationSaving) return;
+    if (locationForm.contact_phone && locationForm.contact_phone.length < 10) {
+      addToast({ type: 'error', title: 'Invalid Phone', message: 'Phone number must be at least 10 digits.' });
+      return;
+    }
     try {
       // Combine day range + time range, or use custom free-text
       const finalOperatingHours = useCustomHours
@@ -1101,7 +1105,7 @@ export function Settings() {
               <button
                 type="button"
                 onClick={handleSaveLocation}
-                disabled={isLocationSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || (useCustomHours ? !customHours : (!selectedDays || !openTime || !closeTime))}
+                disabled={isLocationSaving || !locationForm.name || !locationForm.address || !locationForm.city || !locationForm.pin_code || !locationForm.contact_person || !locationForm.contact_phone || locationForm.contact_phone.length < 10 || (useCustomHours ? !customHours : (!selectedDays || !openTime || !closeTime))}
                 className="px-5 py-2.5 bg-ecotribe-primary text-black font-mono font-bold text-xs uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isLocationSaving ? (

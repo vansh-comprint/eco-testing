@@ -759,7 +759,7 @@ class PickupService:
         elif user.role == UserRole.IT_ADMIN.value:
             # Scope to branches this IT Admin manages (via batch → branch join)
             from app.models.enterprise import Branch
-            branch_result = await self.db.execute(
+            branch_result = await self.session.execute(
                 select(Branch.id).where(Branch.it_admin_id == user.id)
             )
             branch_ids = [row[0] for row in branch_result.fetchall()]

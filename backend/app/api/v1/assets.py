@@ -155,10 +155,10 @@ async def create_asset(
 
     **Permissions:** ASSET_CREATE
     """
-    # Auto-fill enterprise_id/branch_id from current user if not provided
-    asset_data.enterprise_id, asset_data.branch_id = auto_fill_context(
+    # Auto-fill enterprise_id from current user if not provided; branch_id stays as frontend sent it
+    asset_data.enterprise_id = auto_fill_context(
         current_user, asset_data.enterprise_id, asset_data.branch_id
-    )
+    )[0]
 
     service = AssetService(db)
     asset = await service.create_asset(asset_data, current_user.id)
@@ -178,10 +178,10 @@ async def create_assets_bulk(
 
     **Permissions:** ASSET_CREATE
     """
-    # Auto-fill enterprise_id/branch_id from current user if not provided
-    bulk_data.enterprise_id, bulk_data.branch_id = auto_fill_context(
+    # Auto-fill enterprise_id from current user if not provided; branch_id stays as frontend sent it
+    bulk_data.enterprise_id = auto_fill_context(
         current_user, bulk_data.enterprise_id, bulk_data.branch_id
-    )
+    )[0]
 
     service = AssetService(db)
     assets, errors = await service.create_assets_bulk(bulk_data, current_user.id)

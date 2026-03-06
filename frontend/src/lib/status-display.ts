@@ -123,6 +123,7 @@ export const ASSET_STATUS_DISPLAY: Record<AssetStatus, StatusDisplayConfig> = {
 // Filter dropdown options for asset list
 export const ASSET_STATUS_FILTER_OPTIONS = [
   { label: 'All Statuses', value: '' },
+  { label: 'Processing (All)', value: 'processing' },
   { label: 'Pending Assignment', value: 'pending_assignment' },
   { label: 'Assigned', value: 'assigned' },
   { label: 'Check-in Started', value: 'check_in_started' },

@@ -281,6 +281,17 @@ class AssetService:
         if "grade" in update_data and update_data["grade"]:
             update_data["grade"] = update_data["grade"].value
 
+        # Validate branch consistency when assigning asset to a batch
+        if "batch_id" in update_data and update_data["batch_id"]:
+            from app.services.batch_service import BatchService
+            batch_service = BatchService(self.db)
+            target_batch = await batch_service.get_batch(update_data["batch_id"])
+            if target_batch.branch_id and asset.branch_id and str(asset.branch_id) != str(target_batch.branch_id):
+                raise ValidationError(
+                    f"Asset belongs to a different branch than batch '{target_batch.name}'. "
+                    f"Batches must contain assets from the same branch for pickup logistics."
+                )
+
         # Track old batch_id before applying changes (for recalculation)
         old_batch_id = asset.batch_id
 

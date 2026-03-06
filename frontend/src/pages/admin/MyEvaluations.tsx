@@ -112,6 +112,12 @@ export function MyEvaluations() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-white/50 uppercase tracking-widest">
+        <button onClick={() => navigate('/admin')} className="hover:text-ecotribe-primary transition-colors">Dashboard</button>
+        <span>/</span>
+        <span className="text-slate-900 dark:text-white">My Evaluations</span>
+      </nav>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">

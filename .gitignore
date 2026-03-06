@@ -4,6 +4,9 @@
 .claude/agent-memory/
 .claude/plans/
 .claude/tasks/
+.claude/bug-tracker.json
+.claude/BUG-HUNT-PROTOCOL.md
+.claude/AUDIT-FIXES-PLAN.md
 
 # Serena
 .serena/

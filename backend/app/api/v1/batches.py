@@ -209,6 +209,13 @@ async def add_assets_to_batch(
         # Verify the asset belongs to the same enterprise
         if str(asset.enterprise_id) != str(batch.enterprise_id):
             raise AuthorizationError(f"Asset '{asset_id}' does not belong to this enterprise")
+        # Verify branch consistency — batches are branch-specific for pickup logistics
+        if batch.branch_id and asset.branch_id and str(asset.branch_id) != str(batch.branch_id):
+            from app.utils.exceptions import ValidationError as EcoValidationError
+            raise EcoValidationError(
+                f"Asset '{asset.serial_number or asset_id}' belongs to a different branch than this batch. "
+                f"Batches must contain assets from the same branch for pickup logistics."
+            )
         await asset_service.update_asset(asset_id, AssetUpdate(batch_id=batch_id), current_user.id)
 
     await service.recalculate_batch_metrics(batch_id)

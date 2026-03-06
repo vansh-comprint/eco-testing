@@ -18,7 +18,8 @@ import {
   Trash2,
   TrendingUp,
   Loader2,
-  Info
+  Info,
+  AlertCircle
 } from 'lucide-react';
 import { Badge, Dropdown, useToast, InfiniteScrollTrigger, InfiniteScrollInfo } from '@/components/ui';
 import { useAuth, useInfiniteAssets, useBatches, useBatchesByITAdmin, useSubUsers, useAssignAssetToSubUser, useUpdateAsset, useDeleteAsset, useBranches, useBranchesByITAdmin, useCreateBatch, useDashboardStats, useDebounce } from '@/hooks';
@@ -191,7 +192,7 @@ export function AssetList() {
   );
 
   // Assets eligible for batch assignment / reassignment
-  const BATCH_ELIGIBLE_STATUSES = ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review'];
+  const BATCH_ELIGIBLE_STATUSES = ['pending_assignment', 'assigned', 'check_in_started', 'submitted', 'remote_review', 'conditionally_accepted'];
   const batchableAssets = filteredAssets.filter(a =>
     BATCH_ELIGIBLE_STATUSES.includes(a.status)
   );
@@ -494,17 +495,17 @@ export function AssetList() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-20 lg:top-[5.5rem] left-1/2 -translate-x-1/2 z-[60] bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-2xl shadow-black/10 dark:shadow-black/30 px-5 py-3.5 w-auto max-w-[calc(100vw-2rem)] overflow-x-auto"
+            className="fixed top-20 lg:top-[5.5rem] left-1/2 -translate-x-1/2 z-[60] bg-white/95 dark:bg-black/95 backdrop-blur-xl border border-ecotribe-primary/30 shadow-2xl shadow-black/10 dark:shadow-black/30 px-4 sm:px-6 py-3 sm:py-4 max-w-[calc(100vw-2rem)] overflow-visible"
           >
-            {/* Close — top-right corner outside content flow */}
+            {/* Close button */}
             <button
               onClick={clearSelection}
-              className="absolute -top-2.5 -right-2.5 interactive w-6 h-6 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-600 rounded-full flex items-center justify-center shadow-md hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-500/50 transition-all group"
+              className="absolute -top-2.5 -right-2.5 interactive w-6 h-6 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-600 rounded-full flex items-center justify-center shadow-md hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-500/50 transition-all group z-10"
             >
               <X className="w-3 h-3 text-slate-500 dark:text-zinc-400 group-hover:text-red-500" />
             </button>
-            {/* Content — single row */}
-            <div className="flex flex-row items-center gap-3">
+            {/* Content — wraps on small screens */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {/* Selection count */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="w-7 h-7 bg-ecotribe-primary/20 border border-ecotribe-primary/30 flex items-center justify-center">
@@ -514,9 +515,9 @@ export function AssetList() {
                   {selectedAssets.size} selected
                 </span>
               </div>
-              <div className="h-5 w-px bg-black/10 dark:bg-white/10 flex-shrink-0" />
-              {/* Action buttons — single row */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="hidden sm:block h-5 w-px bg-black/10 dark:bg-white/10 flex-shrink-0" />
+              {/* Action buttons — wrap on small screens */}
+              <div className="flex flex-wrap items-center gap-2">
                 {selectedAssignable.length > 0 && (
                   <button
                     onClick={() => setShowBulkAssignModal(true)}
@@ -1072,15 +1073,39 @@ export function AssetList() {
                       const selectedBranchIds = new Set(
                         selectedAssetObjects.map(a => a?.branch_id).filter(Boolean)
                       );
+
+                      // Prevent mixed-branch batch operations
+                      if (selectedBranchIds.size > 1) {
+                        return (
+                          <div className="text-center py-4 border border-amber-500/30 bg-amber-500/10">
+                            <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                            <p className="font-display text-amber-700 dark:text-amber-300 text-sm mb-1">Assets from multiple branches selected</p>
+                            <p className="font-mono text-xs text-amber-600 dark:text-amber-400">
+                              Select assets from a single branch to add to a batch. Batches are branch-specific for pickup logistics.
+                            </p>
+                          </div>
+                        );
+                      }
                       // Exclude batches the selected assets are already in
                       const currentBatchIds = new Set(
                         selectedAssetObjects.map(a => a?.batch_id).filter(Boolean)
                       );
+                      // Only show draft batches matching the selected assets' branch (enforces single-branch batch integrity)
                       const eligibleBatches = batches.filter(b =>
                         b.status === 'draft' &&
                         !currentBatchIds.has(b.id) &&
                         (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
                       );
+                      const allDraftBatches = batches.filter(b => b.status === 'draft' && !currentBatchIds.has(b.id));
+                      const hasOtherBranchDrafts = allDraftBatches.length > eligibleBatches.length;
+                      const getBranchName = (branchId: string | undefined) => {
+                        if (!branchId) return '';
+                        const branch = branches.find(br => br.id === branchId);
+                        return branch ? branch.branch_name : '';
+                      };
+                      const assetBranchName = selectedBranchIds.size === 1
+                        ? getBranchName([...selectedBranchIds][0])
+                        : '';
 
                       return eligibleBatches.length > 0 ? (
                         <select
@@ -1089,18 +1114,27 @@ export function AssetList() {
                           className="w-full px-4 py-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500/50 appearance-none select-themed cursor-pointer"
                         >
                           <option value="" className="bg-white dark:bg-[#0a0a0a]">Select a batch...</option>
-                          {eligibleBatches.map(batch => (
-                            <option key={batch.id} value={batch.id} className="bg-white dark:bg-[#0a0a0a]">
-                              {batch.name}
-                            </option>
-                          ))}
+                          {eligibleBatches.map(batch => {
+                            const branchName = getBranchName(batch.branch_id);
+                            return (
+                              <option key={batch.id} value={batch.id} className="bg-white dark:bg-[#0a0a0a]">
+                                {batch.name}{branchName ? ` (${branchName})` : ''}
+                              </option>
+                            );
+                          })}
                         </select>
                       ) : (
                         <div className="text-center py-4 border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
                           <Package className="w-8 h-8 text-slate-500 dark:text-zinc-600 mx-auto mb-2" />
-                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-1">No draft batches available</p>
+                          <p className="font-display text-slate-600 dark:text-zinc-500 text-sm mb-1">
+                            {hasOtherBranchDrafts
+                              ? `No draft batches for ${assetBranchName || 'this branch'}`
+                              : 'No draft batches available'}
+                          </p>
                           <p className="font-mono text-xs text-slate-500 dark:text-zinc-600">
-                            Switch to "New Batch" to create one
+                            {hasOtherBranchDrafts
+                              ? `You have draft batches in other branches. Switch to "New Batch" to create one for ${assetBranchName || 'this branch'}.`
+                              : 'Switch to "New Batch" to create one'}
                           </p>
                         </div>
                       );
