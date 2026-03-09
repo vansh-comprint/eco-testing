@@ -83,7 +83,7 @@ export function EnterpriseBatches() {
   const { data: assets = [] } = useAssets(enterpriseId);
   const { data: branches = [] } = useBranches(enterpriseId);
   const { data: itAdmins = [] } = useITAdmins(enterpriseId);
-  const { stats: dashboardStats } = useDashboardStats();
+  const { stats: dashboardStats } = useDashboardStats({ branchId: branchFilter !== 'all' ? branchFilter : null });
 
   // Lookups
   const branchMap = useMemo(() => {
@@ -328,14 +328,12 @@ export function EnterpriseBatches() {
                         <span className="font-mono text-xs text-slate-500 dark:text-zinc-500">
                           {assetCount} asset{assetCount !== 1 ? 's' : ''}
                         </span>
-                        {(() => {
-                          const batchValue = Number(batch.estimated_value) || batchAssetValues.get(batch.id) || 0;
-                          return batchValue > 0 ? (
-                            <span className="font-mono text-xs text-ecotribe-primary font-bold">
-                              ₹{(batchValue / 1000).toFixed(0)}K
-                            </span>
-                          ) : null;
-                        })()}
+                        <span className="font-mono text-xs text-ecotribe-primary font-bold">
+                          {(() => {
+                            const batchValue = Number(batch.estimated_value) || batchAssetValues.get(batch.id) || 0;
+                            return batchValue > 0 ? `₹${(batchValue / 1000).toFixed(0)}K` : '—';
+                          })()}
+                        </span>
                         <span className="font-mono text-xs text-slate-400 dark:text-zinc-600">
                           {new Date(batch.created_at).toLocaleDateString()}
                         </span>

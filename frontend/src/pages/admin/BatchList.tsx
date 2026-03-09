@@ -382,7 +382,7 @@ export function BatchList() {
 
                   {/* Actions - full width row on mobile */}
                   {(batch.status === 'draft' || batch.status === 'pending_approval') && (
-                    <div className="flex items-center gap-3 mt-3 sm:mt-0 sm:pl-[4.5rem]">
+                    <div className="flex items-center gap-3 mt-3 sm:mt-0 sm:pl-[4.5rem]" onClick={(e) => e.stopPropagation()}>
                       {batch.status === 'draft' && (
                         <button
                           onClick={(e) => handleSubmitForApproval(batch.id, e)}

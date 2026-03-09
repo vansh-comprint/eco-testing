@@ -114,18 +114,18 @@ export function useCurrentUser() {
 }
 
 /**
- * Fetch platform admins (super_admin, ops_admin, logistics_admin)
+ * Fetch platform admins (super_admin, ops_admin) — server-side filtered.
+ * Logistics admins are managed separately on /super/logistics.
  */
 export function usePlatformAdmins() {
   return useQuery({
     queryKey: userKeys.platformAdmins(),
     queryFn: async () => {
-      const response = await usersApi.list({ limit: 500 });
-      if (response.success && response.data) {
-        const adminRoles = ['super_admin', 'ops_admin', 'logistics_admin'];
-        return response.data.filter(u => adminRoles.includes(u.role));
-      }
-      return [] as UserResponse[];
+      const response = await usersApi.list({
+        roles: ['super_admin', 'ops_admin'],
+        limit: 500,
+      });
+      return (response.success && response.data) ? response.data : [] as UserResponse[];
     },
     staleTime: 30000,
   });

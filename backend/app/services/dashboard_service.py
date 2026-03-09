@@ -310,13 +310,21 @@ async def get_dashboard_stats(
     if role == UserRole.ORG_ADMIN.value:
         eid = user.enterprise_id
 
+        # Optional branch scoping for org admin
+        asset_scope = Asset.enterprise_id == eid
+        batch_scope = Batch.enterprise_id == eid
+        if branch_id:
+            asset_scope = and_(asset_scope, Asset.branch_id == branch_id)
+            batch_scope = and_(batch_scope, Batch.branch_id == branch_id)
+
         # -- Asset counts via GROUP BY --
         sc = await _status_counts(
-            db, Asset, Asset.status, Asset.enterprise_id == eid
+            db, Asset, Asset.status, asset_scope
         )
         total = sum(sc.values())
         stats["asset_total"] = total
         stats["asset_completed"] = sc.get(AssetStatus.COMPLETED.value, 0)
+        stats["asset_pending_assignment"] = sc.get(AssetStatus.PENDING_ASSIGNMENT.value, 0)
         stats["asset_pending"] = sum(sc.get(s, 0) for s in _ASSET_PENDING)
         stats["asset_in_review"] = sum(sc.get(s, 0) for s in _ASSET_IN_REVIEW)
         stats["asset_accepted"] = sum(sc.get(s, 0) for s in _ASSET_ACCEPTED)
@@ -326,14 +334,14 @@ async def get_dashboard_stats(
         stats["total_payout_value"] = await _sum(
             db,
             select(func.sum(Asset.final_price)).where(
-                and_(Asset.enterprise_id == eid, Asset.status == AssetStatus.COMPLETED.value)
+                and_(asset_scope, Asset.status == AssetStatus.COMPLETED.value)
             ),
         )
         stats["pending_payout_value"] = await _sum(
             db,
             select(func.sum(func.coalesce(Asset.final_price, Asset.base_price))).where(
                 and_(
-                    Asset.enterprise_id == eid,
+                    asset_scope,
                     Asset.status.in_([AssetStatus.FINAL_ACCEPTED.value, AssetStatus.PAYOUT_PENDING.value]),
                 )
             ),
@@ -341,7 +349,7 @@ async def get_dashboard_stats(
 
         # -- Batch pipeline via GROUP BY --
         bc = await _status_counts(
-            db, Batch, Batch.status, Batch.enterprise_id == eid
+            db, Batch, Batch.status, batch_scope
         )
         stats["batch_draft"] = bc.get(BatchStatus.DRAFT.value, 0)
         stats["batch_pending_approval"] = bc.get(BatchStatus.PENDING_APPROVAL.value, 0)
@@ -353,7 +361,7 @@ async def get_dashboard_stats(
         # Total batch value (sum of estimated_value across all batches for this enterprise)
         stats["batch_total_value"] = await _sum(
             db,
-            select(func.sum(Batch.estimated_value)).where(Batch.enterprise_id == eid),
+            select(func.sum(Batch.estimated_value)).where(batch_scope),
         )
 
         # Pending approval value
@@ -708,7 +716,8 @@ async def get_dashboard_stats(
 
         # -- User counts by role via GROUP BY --
         uc = await _status_counts(db, User, User.role)
-        stats["user_total"] = sum(uc.values())
+        # Exclude employees (sub_user) from platform user totals
+        stats["user_total"] = sum(v for k, v in uc.items() if k != UserRole.EMPLOYEE.value and k != "sub_user")
         stats["user_count"] = stats["user_total"]
         stats["user_super_admin"] = uc.get(UserRole.SUPER_ADMIN.value, 0)
         stats["user_ops_admin"] = uc.get(UserRole.OPS_ADMIN.value, 0)
@@ -717,15 +726,14 @@ async def get_dashboard_stats(
         stats["user_logistics_admin"] = uc.get(UserRole.LOGISTICS_ADMIN.value, 0)
         stats["user_logistics_user"] = uc.get(UserRole.LOGISTICS_USER.value, 0)
         stats["user_logistics"] = stats["user_logistics_admin"] + stats["user_logistics_user"]
-        # admin_count: all platform admins (super + ops + logistics admin)
-        # Includes inactive to match the admin users table on the dashboard
+        # admin_count: platform admins (super + ops) — excludes logistics
+        # (logistics admins are managed on /super/logistics)
         stats["admin_count"] = await _count(
             db,
             select(func.count()).select_from(User).where(
                 User.role.in_([
                     UserRole.SUPER_ADMIN.value,
                     UserRole.OPS_ADMIN.value,
-                    UserRole.LOGISTICS_ADMIN.value,
                 ]),
             ),
         )

@@ -193,12 +193,7 @@ function DashboardLayoutInner({ role, title, navItems, itViewNavItems, opsViewNa
 
           {/* IT Admin Branch Selector - Above nav since it scopes all data */}
           {role === 'it_admin' && sidebarOpen && (
-            <div className="px-3 pb-1">
-              <p className="px-2.5 pb-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/30 dark:text-zinc-600">
-                Branch
-              </p>
-              <ITAdminBranchSelector />
-            </div>
+            <ITAdminBranchSelector />
           )}
 
           {/* Navigation */}

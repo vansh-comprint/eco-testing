@@ -26,7 +26,7 @@ import { ConfirmationModal } from '@/components/ui';
 import { BatchProgressBar } from '@/components/admin/BatchProgressBar';
 import { safeNumber } from '@/utils/formatters';
 
-type ApprovalFilter = 'pending' | 'approved' | 'rejected' | 'all';
+type ApprovalFilter = 'pending' | 'approved' | 'completed' | 'rejected' | 'all';
 
 export function PickupApprovals() {
   // V3: Use React Query hook for auth
@@ -96,7 +96,8 @@ export function PickupApprovals() {
   const filteredBatches = pendingBatches
     .filter(b => {
       if (statusFilter === 'pending') return b.status === 'pending_approval';
-      if (statusFilter === 'approved') return b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed';
+      if (statusFilter === 'approved') return b.status === 'approved' || b.status === 'pickup_in_progress';
+      if (statusFilter === 'completed') return b.status === 'completed';
       if (statusFilter === 'rejected') return b.status === 'rejected';
       return true;
     })
@@ -196,8 +197,11 @@ export function PickupApprovals() {
       ? (dashStats.batch_pending_approval ?? 0)
       : pendingBatches.filter(b => b.status === 'pending_approval').length,
     approved: hasBatchStats
-      ? (dashStats.batch_approved ?? 0) + (dashStats.batch_pickup_in_progress ?? 0) + (dashStats.batch_completed ?? 0)
-      : pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress' || b.status === 'completed').length,
+      ? (dashStats.batch_approved ?? 0) + (dashStats.batch_pickup_in_progress ?? 0)
+      : pendingBatches.filter(b => b.status === 'approved' || b.status === 'pickup_in_progress').length,
+    completed: hasBatchStats
+      ? (dashStats.batch_completed ?? 0)
+      : pendingBatches.filter(b => b.status === 'completed').length,
     rejected: hasBatchStats
       ? (dashStats.batch_rejected ?? 0)
       : pendingBatches.filter(b => b.status === 'rejected').length,
@@ -251,7 +255,7 @@ export function PickupApprovals() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-4 gap-4"
       >
         <div
           className={`border p-5 cursor-pointer transition-all ${
@@ -287,6 +291,23 @@ export function PickupApprovals() {
           </div>
           <p className="font-brand font-bold text-3xl text-emerald-400">
             {stats.approved}
+          </p>
+        </div>
+
+        <div
+          className={`border p-5 cursor-pointer transition-all ${
+            statusFilter === 'completed'
+              ? 'border-blue-400 bg-blue-400/10'
+              : 'border-blue-400/30 bg-blue-400/5 hover:border-blue-400/50'
+          }`}
+          onClick={() => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed')}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-4 h-4 text-blue-400" />
+            <span className="font-mono text-xs text-slate-500 dark:text-white/50 uppercase">Completed</span>
+          </div>
+          <p className="font-brand font-bold text-3xl text-blue-400">
+            {stats.completed}
           </p>
         </div>
 
@@ -752,23 +773,25 @@ export function PickupApprovals() {
                       )}
                     </button>
                   </>
-                ) : (
+                ) : (() => {
+                  const isApprovedState = selectedBatchData.status === 'approved' || selectedBatchData.status === 'pickup_in_progress' || selectedBatchData.status === 'completed';
+                  return (
                   /* Already Decided */
                   <div className={`p-4 border ${
-                    selectedBatchData.status === 'approved'
+                    isApprovedState
                       ? 'border-emerald-400/30 bg-emerald-400/10'
                       : 'border-red-400/30 bg-red-400/10'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      {selectedBatchData.status === 'approved' ? (
+                      {isApprovedState ? (
                         <CheckCircle className="w-5 h-5 text-emerald-400" />
                       ) : (
                         <XCircle className="w-5 h-5 text-red-400" />
                       )}
                       <span className={`font-mono font-bold text-sm uppercase ${
-                        selectedBatchData.status === 'approved' ? 'text-emerald-400' : 'text-red-400'
+                        isApprovedState ? 'text-emerald-400' : 'text-red-400'
                       }`}>
-                        {selectedBatchData.status === 'approved' ? 'Approved' : 'Rejected'}
+                        {isApprovedState ? 'Approved' : 'Rejected'}
                       </span>
                     </div>
                     {selectedBatchData.rejection_reason && (
@@ -787,7 +810,8 @@ export function PickupApprovals() {
                       </p>
                     )}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           ) : (

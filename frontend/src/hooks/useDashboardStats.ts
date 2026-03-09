@@ -21,12 +21,13 @@ export const dashboardStatsKeys = {
 
 export function useDashboardStats(opts?: {
   enterpriseId?: string | null;
+  branchId?: string | null;
 }): { stats: DashboardStats; isLoading: boolean } {
   const { isAuthenticated, user } = useAuth();
   const itBranchCtx = useContext(ITAdminBranchContext);
 
-  // Only pass branch_id for IT Admin when a specific branch is selected
-  const branchId = user?.role === 'it_admin' ? itBranchCtx?.selectedBranchId ?? null : null;
+  // Pass branch_id for IT Admin (from context) or from explicit caller opt
+  const branchId = opts?.branchId ?? (user?.role === 'it_admin' ? itBranchCtx?.selectedBranchId ?? null : null);
   const enterpriseId = opts?.enterpriseId ?? null;
 
   const { data, isLoading } = useQuery({

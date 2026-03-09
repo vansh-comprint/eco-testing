@@ -212,8 +212,8 @@ export function PickupQueue() {
   };
 
   const handleCreateAdmin = async () => {
-    if (!newAdminName || !newAdminCompany || !newAdminEmail || !newAdminPassword) {
-      addToast({ type: 'warning', title: 'Missing Fields', message: 'Name, company, email, and password are required', duration: 4000 });
+    if (!newAdminName || !newAdminEmail || !newAdminPassword) {
+      addToast({ type: 'warning', title: 'Missing Fields', message: 'Name, email, and password are required', duration: 4000 });
       return;
     }
     if (newAdminPassword.length < 8) {
@@ -661,7 +661,7 @@ export function PickupQueue() {
                           />
                           <input
                             type="text"
-                            placeholder="Company Name *"
+                            placeholder="Company Name (Optional)"
                             value={newAdminCompany}
                             onChange={(e) => setNewAdminCompany(e.target.value)}
                             onInput={(e: React.FormEvent<HTMLInputElement>) => {
@@ -703,7 +703,7 @@ export function PickupQueue() {
                       <button
                         type="button"
                         onClick={handleCreateAdmin}
-                        disabled={!newAdminName || !newAdminCompany || !newAdminEmail || !newAdminPassword || newAdminPassword.length < 8 || isCreatingAdmin}
+                        disabled={!newAdminName || !newAdminEmail || !newAdminPassword || newAdminPassword.length < 8 || isCreatingAdmin}
                         className={`w-full py-2 font-mono font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                           newAdminName && newAdminCompany && newAdminEmail && newAdminPassword && newAdminPassword.length >= 8
                             ? 'bg-ecotribe-primary text-white hover:bg-ecotribe-primary/80'

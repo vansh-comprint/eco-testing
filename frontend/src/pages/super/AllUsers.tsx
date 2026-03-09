@@ -33,10 +33,15 @@ export function AllUsers() {
   const { stats: dashStats } = useDashboardStats();
   const debouncedSearch = useDebounce(searchTerm, 350);
 
-  // Build server-side params (role + search)
+  // Build server-side params (role + search) — exclude employees server-side
+  const NON_EMPLOYEE_ROLES = ['super_admin', 'ops_admin', 'org_admin', 'it_admin', 'logistics_admin', 'logistics_user'];
   const apiParams = useMemo(() => {
-    const params: Record<string, string> = {};
-    if (roleFilter !== 'all') params.role = roleFilter;
+    const params: Record<string, any> = {};
+    if (roleFilter !== 'all') {
+      params.role = roleFilter;
+    } else {
+      params.roles = NON_EMPLOYEE_ROLES;
+    }
     if (debouncedSearch) params.search = debouncedSearch;
     return params;
   }, [roleFilter, debouncedSearch]);
@@ -87,8 +92,8 @@ export function AllUsers() {
     return roleLabels[role] || role;
   };
 
-  // Search + role are now server-side. Exclude employees client-side.
-  const filteredUsers = users.filter(user => user.role !== 'employee');
+  // Employees excluded server-side via roles param
+  const filteredUsers = users;
 
   // Use server-side stats for accurate counts (not affected by infinite scroll subset)
   const stats = {

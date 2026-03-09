@@ -235,9 +235,11 @@ export function PickupRequestDetail() {
   const requestAssets = (request.asset_ids || []).map(id => assets.find(a => a.id === id)).filter(Boolean);
 
   // Calculate progress
-  // Use picked_asset_ids (authoritative backend list) as primary, fall back to asset status filter
+  // Use picked_asset_ids (authoritative backend list) as primary, fall back to post-pickup status filter
+  // Assets go pickup_scheduled → in_transit (not 'picked_up'), so check all post-pickup statuses
+  const POST_PICKUP_STATUSES = new Set(['picked_up', 'in_transit', 'facility_qc', 'final_accepted', 'final_rejected', 'payout_pending', 'completed']);
   const pickedUpCount = request.picked_asset_ids?.length
-    || (request.assets || []).filter(a => a.status === 'picked_up').length;
+    || (request.assets || []).filter(a => POST_PICKUP_STATUSES.has(a.status)).length;
   const exceptionsCount = (request.assets || []).filter(a => ['no_show', 'qc_failed'].includes(a.status)).length;
 
   // Determine timeline step (maps 8 statuses → 5 timeline steps)

@@ -275,6 +275,7 @@ export const PICKUP_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
 // ============================================
 
 export const SUB_USER_STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
+  pending: { label: 'Pending', variant: 'default' },
   pending_invite: { label: 'Pending Invite', variant: 'default' },
   invited: { label: 'Invited', variant: 'info' },
   active: { label: 'Active', variant: 'success' },

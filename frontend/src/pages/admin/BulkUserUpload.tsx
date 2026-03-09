@@ -22,7 +22,7 @@ export function BulkUserUpload({ enterpriseId: propEnterpriseId }: BulkUserUploa
   const createSubUsersMutation = useCreateSubUsers();
 
   const { isEnterpriseNested } = useEmployeeBasePath();
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested;
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || isEnterpriseNested || !!propEnterpriseId;
   const resolvedEnterpriseId = propEnterpriseId || enterprise?.id || '';
 
   // Branch selection state

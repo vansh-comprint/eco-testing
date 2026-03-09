@@ -1094,7 +1094,7 @@ export function AssetList() {
                       const eligibleBatches = batches.filter(b =>
                         b.status === 'draft' &&
                         !currentBatchIds.has(b.id) &&
-                        (selectedBranchIds.size === 0 || selectedBranchIds.has(b.branch_id))
+                        (selectedBranchIds.size === 0 || !b.branch_id || selectedBranchIds.has(b.branch_id))
                       );
                       const allDraftBatches = batches.filter(b => b.status === 'draft' && !currentBatchIds.has(b.id));
                       const hasOtherBranchDrafts = allDraftBatches.length > eligibleBatches.length;

@@ -97,7 +97,7 @@ class RemoteReviewService:
             asset.status = AssetStatus.REMOTE_REVIEW.value
 
         # Update estimated value on asset
-        if data.estimated_value:
+        if data.estimated_value is not None:
             asset.base_price = data.estimated_value
         if data.grade:
             asset.grade = data.grade
@@ -105,7 +105,7 @@ class RemoteReviewService:
         await self.session.flush()
 
         # Recalculate batch value now that asset has a price
-        if asset.batch_id and data.estimated_value:
+        if asset.batch_id and data.estimated_value is not None:
             from app.services.batch_service import BatchService
             batch_service = BatchService(self.session)
             await batch_service.recalculate_batch_metrics(asset.batch_id)
@@ -219,7 +219,7 @@ class FacilityQCService:
         elif data.decision == ReviewDecision.REJECTED.value:
             asset.status = AssetStatus.FINAL_REJECTED.value
 
-        if data.final_value:
+        if data.final_value is not None:
             asset.final_price = data.final_value
         if data.grade:
             asset.grade = data.grade
@@ -227,7 +227,7 @@ class FacilityQCService:
         await self.session.flush()
 
         # Recalculate batch value now that asset has a final price
-        if asset.batch_id and data.final_value:
+        if asset.batch_id and data.final_value is not None:
             from app.services.batch_service import BatchService
             batch_service = BatchService(self.session)
             await batch_service.recalculate_batch_metrics(asset.batch_id)

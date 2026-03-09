@@ -359,7 +359,7 @@ export function BranchDetail() {
                 {branchEmployees.slice(0, 8).map(emp => {
                   const statusColor =
                     emp.status === 'active' ? 'text-emerald-500' :
-                    emp.status === 'pending_invite' ? 'text-amber-500' :
+                    emp.status === 'pending' ? 'text-amber-500' :
                     'text-slate-400 dark:text-zinc-600';
                   return (
                     <button
@@ -388,7 +388,7 @@ export function BranchDetail() {
                         </div>
                       </div>
                       <span className={`font-mono font-bold text-[10px] uppercase tracking-widest flex-shrink-0 ${statusColor}`}>
-                        {emp.status === 'pending_invite' ? 'Pending' : emp.status}
+                        {emp.status === 'pending' ? 'Pending' : emp.status}
                       </span>
                       <ChevronRight className={`${iconSize.sm} ${text.muted} group-hover:text-ecotribe-primary transition-colors flex-shrink-0`} />
                     </button>

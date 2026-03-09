@@ -1142,8 +1142,8 @@ export function AssetDetail() {
                 const eligibleBatches = batches.filter((b: any) =>
                   addableStatuses.includes(b.status) &&
                   b.id !== asset.batch_id &&
-                  (b.branch_id === asset.branch_id ||
-                   (!b.branch_id && !asset.branch_id))
+                  // Use loose equality to handle null == undefined gracefully
+                  (b.branch_id == asset.branch_id)
                 );
 
                 return (

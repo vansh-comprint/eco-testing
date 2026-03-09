@@ -221,7 +221,7 @@ export function OrgAdminDashboard() {
               { label: 'Draft', count: stats.batch_draft ?? 0, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-white/5', status: 'draft' },
               { label: 'Pending', count: stats.batch_pending_approval ?? 0, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', status: 'pending_approval' },
               { label: 'Approved', count: stats.batch_approved ?? 0, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', status: 'approved' },
-              { label: 'Pickup', count: stats.batch_pickup_in_progress ?? 0, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', status: 'pickup' },
+              { label: 'Pickup', count: stats.batch_pickup_in_progress ?? 0, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', status: 'pickup_in_progress' },
               { label: 'Completed', count: stats.batch_completed ?? 0, color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-500/10', status: 'completed' },
             ].map((stage, i) => (
               <div key={stage.label} className="relative">

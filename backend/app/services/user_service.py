@@ -208,6 +208,8 @@ class UserService:
         )
 
         user = await self.repository.create(user)
+        await self.db.commit()
+        await self.db.refresh(user)
 
         # If IT admin was assigned to a branch, also update the branch's it_admin_id
         if user_data.role == UserRole.IT_ADMIN and user_data.branch_id:

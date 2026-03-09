@@ -121,7 +121,7 @@ export function EmployeeDetail() {
   const getStatus = (): SubUserStatus => {
     if (!subUser) return 'inactive';
     if (subUser.status === 'inactive') return 'inactive';
-    if (subUser.status === 'pending_invite' || subUser.status === 'invited') return 'pending';
+    if (subUser.status === 'pending' || subUser.status === 'pending_invite' || subUser.status === 'invited') return 'pending';
     if (assignedAssets === 0 && subUser.status !== 'active') return 'pending';
     return 'active';
   };

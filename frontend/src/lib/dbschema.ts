@@ -146,7 +146,7 @@ export interface DBSubUser {
   email: string;                 // Unique within enterprise
   phone?: string;
   department?: string;
-  status: 'pending_invite' | 'active' | 'inactive';
+  status: 'pending' | 'active' | 'inactive';
 
   // OTP Authentication
   token?: string;                // One-time access token

@@ -30,7 +30,7 @@ export function ITAdminBranchSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (isLoading || branches.length <= 1) {
+  if (isLoading || branches.length === 0) {
     return null;
   }
 
@@ -39,6 +39,10 @@ export function ITAdminBranchSelector() {
     : selectedBranch?.branch_name || 'Select...';
 
   return (
+    <div className="px-3 pb-1">
+      <p className="px-2.5 pb-1 font-mono font-bold text-[9px] uppercase tracking-widest text-black/30 dark:text-zinc-600">
+        Branch
+      </p>
     <div ref={dropdownRef} className="relative">
       {/* Trigger */}
       <button
@@ -108,6 +112,7 @@ export function ITAdminBranchSelector() {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 }

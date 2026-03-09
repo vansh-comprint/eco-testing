@@ -47,7 +47,7 @@ export function UploadAssets() {
   const userId = user?.id || '';
 
   // V3.2: Detect if we're in Org Admin context
-  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin');
+  const isOrgAdmin = user?.role === 'org_admin' || location.pathname.startsWith('/org-admin') || location.pathname.includes('/enterprises/');
 
   // V3.2: React Query hooks - use different data sources based on role
   // Only enable the appropriate queries to avoid unnecessary requests

@@ -114,7 +114,12 @@ export function EnterprisePickups() {
     }
 
     if (branchFilter !== 'all') {
-      result = result.filter(p => p.branch_id === branchFilter);
+      // PickupRequest has no branch_id — match via pickup_locations name against branchMap
+      const branchName = branchMap.get(branchFilter)?.toLowerCase();
+      result = result.filter(p => {
+        const locName = (p.pickup_locations?.name || p.branches?.branch_name || '').toLowerCase();
+        return locName === branchName;
+      });
     }
 
     return result;

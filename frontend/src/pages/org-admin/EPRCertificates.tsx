@@ -355,6 +355,18 @@ export function EPRCertificates() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {cert.certificate_url && (
+                    <a
+                      href={cert.certificate_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-white/10 text-xs font-mono uppercase tracking-wider hover:border-ecotribe-primary/50 hover:text-ecotribe-primary transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download
+                    </a>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

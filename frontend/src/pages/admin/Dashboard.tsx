@@ -214,7 +214,7 @@ export function ITAdminDashboard() {
       subLabel: 'Processing',
       icon: <TrendingUp className={`${iconSize.lg} text-blue-500`} />,
       accent: 'info' as StatAccent,
-      onClick: () => navigate(`${basePath}/assets?status=in_progress`),
+      onClick: () => navigate(`${basePath}/assets?status=assigned,check_in_started,submitted,remote_review,pickup_requested,pickup_scheduled,picked_up,in_transit,facility_qc`),
     },
     {
       label: 'Accepted',
@@ -222,7 +222,7 @@ export function ITAdminDashboard() {
       subLabel: 'Completed',
       icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />,
       accent: 'success' as StatAccent,
-      onClick: () => navigate(`${basePath}/assets?status=accepted`),
+      onClick: () => navigate(`${basePath}/assets?status=conditionally_accepted,final_accepted,payout_pending`),
     },
   ];
 
@@ -434,7 +434,7 @@ export function ITAdminDashboard() {
               label: 'In Progress',
               value: stats.batch_active ?? 0,
               accent: 'info' as StatAccent,
-              onClick: () => navigate(`${basePath}/batches?status=approved,pickup_in_progress`),
+              onClick: () => navigate(`${basePath}/batches?status=draft,pending_approval,approved,pickup_in_progress`),
             },
           ]}
           statColumns={4}

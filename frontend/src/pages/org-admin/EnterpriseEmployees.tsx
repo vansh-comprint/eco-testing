@@ -37,7 +37,7 @@ import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 import Papa from 'papaparse';
 
 type ViewMode = 'list' | 'by-branch';
-type StatusFilter = 'all' | 'active' | 'pending_invite' | 'inactive';
+type StatusFilter = 'all' | 'active' | 'pending' | 'inactive';
 
 export function EnterpriseEmployees() {
   const navigate = useNavigate();
@@ -146,7 +146,7 @@ export function EnterpriseEmployees() {
   const employeeAssetCounts = useMemo(() => {
     const counts = new Map<string, { assigned: number; submitted: number }>();
     assets.forEach(a => {
-      const assignee = a.assigned_to_user_id || (a as any).assigned_to;
+      const assignee = a.assigned_to_user_id;
       if (assignee) {
         const current = counts.get(assignee) || { assigned: 0, submitted: 0 };
         current.assigned++;
@@ -163,7 +163,7 @@ export function EnterpriseEmployees() {
   const stats = useMemo(() => {
     const total = dashStats.employee_total ?? employees.length;
     const active = dashStats.employee_active ?? employees.filter(e => e.status === 'active').length;
-    const pending = employees.filter(e => e.status === 'pending_invite').length;
+    const pending = employees.filter(e => e.status === 'pending').length;
     const inactive = total - active;
     const totalAssigned = Array.from(employeeAssetCounts.values()).reduce((sum, c) => sum + c.assigned, 0);
     return { total, active, pending, inactive, totalAssigned };
@@ -207,14 +207,14 @@ export function EnterpriseEmployees() {
 
   const getStatusBadge = (status: string) => {
     if (status === 'active') return { color: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-500', icon: <CheckCircle className="w-3 h-3" /> };
-    if (status === 'pending_invite') return { color: 'border-amber-400/30 bg-amber-400/10 text-amber-500', icon: <Clock className="w-3 h-3" /> };
+    if (status === 'pending') return { color: 'border-amber-400/30 bg-amber-400/10 text-amber-500', icon: <Clock className="w-3 h-3" /> };
     return { color: 'border-slate-400/30 bg-slate-400/10 text-slate-500', icon: <XCircle className="w-3 h-3" /> };
   };
 
   const statItems = [
     { label: 'Total Employees', value: stats.total, icon: <Users className={`${iconSize.lg} text-slate-500`} />, accent: 'neutral' as StatAccent, onClick: () => { setStatusFilter('all'); setBranchFilter('all'); } },
     { label: 'Active', value: stats.active, icon: <CheckCircle className={`${iconSize.lg} text-emerald-500`} />, accent: 'success' as StatAccent, onClick: () => setStatusFilter(prev => prev === 'active' ? 'all' : 'active') },
-    { label: 'Pending Invite', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending_invite' ? 'all' : 'pending_invite') },
+    { label: 'Pending Invite', value: stats.pending, icon: <Clock className={`${iconSize.lg} text-amber-500`} />, accent: (stats.pending > 0 ? 'warning' : 'neutral') as StatAccent, onClick: () => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending') },
     { label: 'Assets Assigned', value: stats.totalAssigned, icon: <Monitor className={`${iconSize.lg} text-blue-500`} />, accent: 'info' as StatAccent },
   ];
 
@@ -303,7 +303,7 @@ export function EnterpriseEmployees() {
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
-              <option value="pending_invite">Pending</option>
+              <option value="pending">Pending</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
@@ -348,9 +348,9 @@ export function EnterpriseEmployees() {
         <p className="font-mono text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-widest">
           {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''}
         </p>
-        {(statusFilter !== 'all' || branchFilter !== 'all') && (
+        {(statusFilter !== 'all' || branchFilter !== 'all' || searchQuery) && (
           <button
-            onClick={() => { setStatusFilter('all'); setBranchFilter('all'); }}
+            onClick={() => { setStatusFilter('all'); setBranchFilter('all'); setSearchQuery(''); }}
             className="font-mono text-xs text-ecotribe-primary hover:text-ecotribe-primary/70 uppercase tracking-widest transition-colors"
           >
             Clear Filters
@@ -442,7 +442,7 @@ export function EnterpriseEmployees() {
                       </p>
                       <span className={`inline-flex items-center gap-1 px-2 py-1 border font-mono font-bold text-[10px] uppercase tracking-widest w-fit ${badge.color}`}>
                         {badge.icon}
-                        {emp.status === 'pending_invite' ? 'Pending' : emp.status}
+                        {emp.status === 'pending' ? 'Pending' : emp.status}
                       </span>
                       <p className="font-mono text-sm text-slate-600 dark:text-zinc-400 text-center">{counts?.assigned || 0}</p>
                       <p className="font-mono text-sm text-ecotribe-primary text-center font-bold">{counts?.submitted || 0}</p>
@@ -514,7 +514,7 @@ function EmployeeRow({ employee: emp, assetCounts, getStatusBadge, onClick, onTo
           <p className="font-display font-bold text-sm text-slate-900 dark:text-white truncate">{emp.name || '—'}</p>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 border font-mono font-bold text-[10px] uppercase tracking-widest flex-shrink-0 ${badge.color}`}>
             {badge.icon}
-            {emp.status === 'pending_invite' ? 'Pending' : emp.status}
+            {emp.status === 'pending' ? 'Pending' : emp.status}
           </span>
         </div>
         <div className="flex items-center gap-3 mt-0.5">

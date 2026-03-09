@@ -247,7 +247,8 @@ export function CSVUpload({ enterpriseId, batchId, branches = [], branchRequired
         errors: [`This file does not appear to be an asset upload sheet. Missing required columns: ${coreAssetColumns.join(', ')}. Please use the correct template.`],
         warnings: [],
       }]);
-      setUploadStatus('ready');
+      setUploadStatus('error');
+      setFile(null);
       return;
     }
 

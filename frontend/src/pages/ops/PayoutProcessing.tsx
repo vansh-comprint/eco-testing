@@ -132,24 +132,25 @@ export function PayoutProcessing() {
   const processSelectedPayouts = async () => {
     setIsProcessing(true);
     try {
-      // Group selected assets by enterprise for batch payout creation
-      const selectedByEnterprise = selectedAssets.reduce((acc, assetId) => {
+      // Group selected assets by enterprise + batch for per-batch payout creation
+      const selectedByBatch = selectedAssets.reduce((acc, assetId) => {
         const asset = assets.find(a => a.id === assetId);
         if (!asset) return acc;
-        const key = asset.enterprise_id || 'unknown';
+        const key = `${asset.enterprise_id || 'unknown'}::${asset.batch_id || 'no-batch'}`;
         if (!acc[key]) acc[key] = [];
         acc[key].push(asset);
         return acc;
       }, {} as Record<string, typeof assets>);
 
-      // Process per enterprise: transition assets FIRST, then create payout (credits wallet)
-      for (const [enterpriseId, enterpriseAssets] of Object.entries(selectedByEnterprise)) {
-        const totalAmount = enterpriseAssets.reduce(
+      // Process per enterprise+batch: transition assets FIRST, then create payout (credits wallet)
+      for (const [key, batchAssets] of Object.entries(selectedByBatch)) {
+        const [enterpriseId, batchId] = key.split('::');
+        const totalAmount = batchAssets.reduce(
           (sum, a) => sum + calculatePayout(a).finalAmount, 0
         );
 
         // Step 1: Transition all assets to payout_pending (safe — no money moves yet)
-        for (const asset of enterpriseAssets) {
+        for (const asset of batchAssets) {
           if (asset.status === 'final_accepted') {
             const res = await assetsApi.update(asset.id, { status: 'payout_pending' });
             if (!res.success) {
@@ -161,11 +162,12 @@ export function PayoutProcessing() {
         // Step 2: Create payout record (this credits the enterprise wallet instantly)
         await createPayoutMutation.mutateAsync({
           enterprise_id: enterpriseId,
+          batch_id: batchId !== 'no-batch' ? batchId : undefined,
           amount: totalAmount,
         });
 
         // Step 3: Transition all assets to completed with final price
-        for (const asset of enterpriseAssets) {
+        for (const asset of batchAssets) {
           const payoutInfo = calculatePayout(asset);
           const res = await assetsApi.update(asset.id, {
             status: 'completed',

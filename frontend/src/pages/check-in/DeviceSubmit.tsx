@@ -152,11 +152,8 @@ export function DeviceSubmit() {
       });
 
       // Remove stale asset cache so destination page fetches fresh data
-      // (invalidateQueries only refetches active observers — if no component
-      // is mounted for the query, it just marks stale and the next page
-      // shows old cached data briefly before refetching)
-      queryClient.removeQueries({ queryKey: assetKeys.all });
-      queryClient.removeQueries({ queryKey: dashboardStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardStatsKeys.all });
 
       showSuccess('Device Submitted', 'Your device evaluation has been submitted successfully');
       const successPath = basePath === '/check-in' ? `${basePath}/success` : `${basePath}/my-evaluations`;
@@ -243,7 +240,7 @@ export function DeviceSubmit() {
       />
 
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white/95 dark:bg-ecotribe-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-white/10">
+      <div className="sticky top-0 lg:top-16 z-40 bg-white/95 dark:bg-ecotribe-dark/95 backdrop-blur-sm border-b border-slate-200 dark:border-white/10">
         <div className="px-4 py-3">
           <button
             onClick={() => {

@@ -27,7 +27,7 @@ import { InfiniteScrollTrigger, InfiniteScrollInfo, ConfirmationModal, Deactivat
 import { ITAdminBranchContext } from '@/contexts/ITAdminBranchContext';
 import { useOrgBranchSafe } from '@/contexts/OrgBranchContext';
 
-type SubUserStatus = 'active' | 'pending_invite' | 'inactive';
+type SubUserStatus = 'active' | 'pending' | 'inactive';
 
 const STATUS_OPTIONS = [
   { label: 'All Statuses', value: '' },
@@ -227,14 +227,14 @@ export function EmployeeList() {
   const stats = {
     total: statsWithAssets.length,
     active: statsWithAssets.filter(u => u.status === 'active').length,
-    pending: statsWithAssets.filter(u => u.status === 'pending_invite').length,
+    pending: statsWithAssets.filter(u => u.status === 'pending').length,
     totalAssigned: statsWithAssets.reduce((sum, u) => sum + u.assignedAssets, 0),
   };
 
   const getStatusConfig = (status: SubUserStatus) => {
     const configs: Record<SubUserStatus, { label: string; color: string; icon: React.ReactNode }> = {
       active: { label: 'Active', color: 'text-emerald-400', icon: <CheckCircle className="w-3 h-3" /> },
-      pending_invite: { label: 'Pending', color: 'text-amber-400', icon: <Clock className="w-3 h-3" /> },
+      pending: { label: 'Pending', color: 'text-amber-400', icon: <Clock className="w-3 h-3" /> },
       inactive: { label: 'Inactive', color: 'text-slate-500 dark:text-white/50', icon: <XCircle className="w-3 h-3" /> },
     };
     return configs[status] || configs.inactive;
@@ -436,7 +436,7 @@ export function EmployeeList() {
 
                   {/* Actions */}
                   <div className="flex items-center justify-end">
-                    {user.status === 'pending_invite' && (
+                    {user.status === 'pending' && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -454,7 +454,7 @@ export function EmployeeList() {
                         )}
                       </button>
                     )}
-                    {user.status !== 'pending_invite' && (
+                    {user.status !== 'pending' && (
                       <button
                         type="button"
                         onClick={(e) => requestToggleStatus(user.id, user.status, user.name, e)}
